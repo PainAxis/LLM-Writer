@@ -231,18 +231,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useNovelStore } from '@/stores/novel'
-import { 
-  Plus, Edit, Document, EditPen, Notebook, CreditCard, 
-  ChatLineSquare, Trophy 
+import {
+  Plus, Document, EditPen, Notebook, CreditCard,
+  ChatLineSquare, Trophy
 } from '@element-plus/icons-vue'
 import WritingGoals from '@/components/WritingGoals.vue'
 import billingService from '@/services/billing'
 import { storageGet, StorageKeys } from '@/utils/storage'
 
 const router = useRouter()
-const novelStore = useNovelStore()
-
 // 响应式数据
 const showGoalsDialog = ref(false)
 const stats = computed(() => {
@@ -333,11 +330,11 @@ const recentNovels = computed(() => {
 })
 
 // 计算属性
-const dailyProgress = computed(() => {
+const _dailyProgress = computed(() => {
   return Math.min(100, Math.round((currentGoal.value.dailyWritten / currentGoal.value.dailyTarget) * 100))
 })
 
-const weeklyProgress = computed(() => {
+const _weeklyProgress = computed(() => {
   return Math.min(100, Math.round((currentGoal.value.weeklyWritten / currentGoal.value.weeklyTarget) * 100))
 })
 
@@ -353,7 +350,7 @@ const calculateStreak = () => {
   return 0
 }
 
-const getGoalTypeText = (type) => {
+const _getGoalTypeText = (type) => {
   const typeMap = {
     daily: '每日',
     weekly: '每周', 

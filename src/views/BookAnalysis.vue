@@ -583,11 +583,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
   UploadFilled, Document, DataAnalysis, Download, FolderAdd, 
-  Close, DocumentCopy, Loading, Check, MagicStick, Refresh, View, Edit
+  Close, DocumentCopy, MagicStick, View, Edit
 } from '@element-plus/icons-vue'
 import { useNovelStore } from '@/stores/novel'
 import { storageGet, storageGetRaw, storageSetRaw, StorageKeys } from '@/utils/storage'
@@ -650,7 +650,7 @@ const showPromptPreview = ref(false)
 const fullPromptPreview = ref('')
 
 // 分析步骤
-const analysisSteps = [
+const _analysisSteps = [
   '文本预处理',
   '结构分析',
   '人物识别',
@@ -881,7 +881,7 @@ const startAiChapterDetection = async () => {
     detectedChapters.value = aiChapters
     
     ElMessage.success(`AI检测完成！发现 ${aiChapters.length} 个章节`)
-  } catch (error) {
+  } catch {
     ElMessage.error('AI章节检测失败')
   } finally {
     detectingChapters.value = false
@@ -933,7 +933,7 @@ const generateAiChapters = async () => {
   return chapters
 }
 
-const generateChapterSummary = (content, chapterNum) => {
+const generateChapterSummary = (_content, _chapterNum) => {
   // 章节拆分时简读保留为空，等待用户手动调用AI生成
   return ''
 }
@@ -1151,7 +1151,7 @@ ${chapterInfos.map((chapter, index) => `${index + 1}. ${chapter.title} (${chapte
   }
 }
 
-const getTemplateName = () => {
+const _getTemplateName = () => {
   const template = analysisTemplates.value.find(t => t.id == selectedTemplate.value)
   return template ? template.name : ''
 }
@@ -1237,7 +1237,7 @@ const copyChapterContent = async () => {
   try {
     await navigator.clipboard.writeText(currentChapterContent.value)
     ElMessage.success('章节内容已复制到剪贴板')
-  } catch (error) {
+  } catch {
     // 降级处理：创建临时textarea进行复制
     const textarea = document.createElement('textarea')
     textarea.value = currentChapterContent.value
@@ -1299,7 +1299,7 @@ const copyDetailChapterContent = async () => {
   try {
     await navigator.clipboard.writeText(contentToCopy)
     ElMessage.success('内容已复制到剪贴板')
-  } catch (error) {
+  } catch {
     // 降级处理
     const textarea = document.createElement('textarea')
     textarea.value = contentToCopy

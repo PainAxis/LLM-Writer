@@ -540,11 +540,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Plus, Search, Document, EditPen, Calendar, Edit, View, 
-  MoreFilled, Star, Download, CopyDocument, Delete, Close
+  MoreFilled, Star, Download, CopyDocument, Delete
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import apiService from '@/services/api'
@@ -1113,7 +1113,7 @@ const deleteNovel = async (novel) => {
       saveNovels()
       ElMessage.success('删除成功')
     }
-  } catch (error) {
+  } catch {
     // 用户取消删除
   }
 }
@@ -1188,7 +1188,7 @@ const handleNativeFileChange = (event) => {
   reader.readAsDataURL(file)
 }
 
-const handleCoverSuccess = (response, file) => {
+const _handleCoverSuccess = (_response, _file) => {
   // 这个函数现在不会被调用，因为我们阻止了默认上传
   // 但保留以备后续扩展
 }
@@ -1293,7 +1293,7 @@ const resetEditForm = () => {
 }
 
 // 编辑表单的类型变化处理
-const onEditGenreChange = (genre) => {
+const _onEditGenreChange = (_genre) => {
   // 可以选择是否自动更新标签，这里不自动更新，让用户手动调整
 }
 
@@ -1458,7 +1458,7 @@ const updateNovelInfo = async () => {
   }
 }
 
-const editChapter = (chapter) => {
+const _editChapter = (_chapter) => {
   ElMessage.info('跳转到章节编辑页面')
 }
 
@@ -1552,8 +1552,6 @@ const generateDescription = async () => {
 // 备选方案：使用本地模板生成简介
 const generateDescriptionFromTemplate = () => {
   const title = createForm.value.title.trim()
-  const genreInfo = genrePresets.value[createForm.value.genre]
-  
   // 基于类型生成不同风格的简介模板
   const templates = {
     fantasy: [

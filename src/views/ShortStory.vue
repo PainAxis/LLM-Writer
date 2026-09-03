@@ -837,7 +837,7 @@
 <script setup>
 import { ref, reactive, computed, shallowRef, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { MagicStick, Refresh, EditPen, Download, Check, Loading, Plus, Setting, List, DocumentCopy, Switch, Delete, Search, InfoFilled } from '@element-plus/icons-vue'
+import { MagicStick, EditPen, Download, Check, Loading, Plus, Setting, List, DocumentCopy, Delete, InfoFilled } from '@element-plus/icons-vue'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import '@wangeditor/editor/dist/css/style.css'
 import { useNovelStore } from '@/stores/novel'
@@ -1227,7 +1227,7 @@ const copyArticleContent = async () => {
     const plainText = articleContent.value.replace(/<[^>]*>/g, '').trim()
     await navigator.clipboard.writeText(plainText)
     ElMessage.success('内容已复制到剪贴板')
-  } catch (error) {
+  } catch {
     ElMessage.error('复制失败')
   }
 }
@@ -1426,7 +1426,7 @@ const buildStoryPrompt = () => {
   return prompt
 }
 
-const regenerateStory = () => {
+const _regenerateStory = () => {
   generatedStory.value = ''
   generateStory()
 }
@@ -1510,7 +1510,7 @@ const copyContinueText = async () => {
 // 追加续写内容到原文
 // 构建续写提示词
 const buildContinuePrompt = (currentText) => {
-  const { protagonist, genre, plotType, emotion, timeFrame, location } = storyData
+  const { protagonist, genre, emotion } = storyData
   
   let prompt = `请继续续写以下短篇小说，保持风格和情节的连贯性：\n\n`
   
@@ -1598,7 +1598,7 @@ const handleEditorCreated = (editor) => {
   editorRef.value = editor
 }
 
-const onEditorChange = (editor) => {
+const onEditorChange = (_editor) => {
   // 编辑器内容变化时的处理，v-model会自动处理
 }
 
@@ -1607,11 +1607,11 @@ const handleArticleEditorCreated = (editor) => {
   articleEditorRef.value = editor
 }
 
-const onArticleEditorChange = (editor) => {
+const onArticleEditorChange = (_editor) => {
   // 短文编辑器内容变化时的处理，v-model会自动处理
 }
 
-const handleTextSelection = (event) => {
+const handleTextSelection = (_event) => {
   const selection = window.getSelection().toString()
   if (selection.length > 0) {
     selectedText.value = selection
@@ -1712,7 +1712,7 @@ const copyOptimizedText = async () => {
   try {
     await navigator.clipboard.writeText(optimizedResult.value)
     ElMessage.success('已复制到剪贴板')
-  } catch (error) {
+  } catch {
     // 如果clipboard API不可用，使用传统方法
     const textArea = document.createElement('textarea')
     textArea.value = optimizedResult.value
@@ -2074,13 +2074,13 @@ const getDefaultShortStoryPrompts = () => {
   ]
 }
 
-const selectPrompt = (prompt) => {
+const _selectPrompt = (prompt) => {
   selectedPromptId.value = prompt.id
   previewPrompt.value = prompt
   editablePromptContent.value = prompt.content
 }
 
-const resetPromptSelector = () => {
+const _resetPromptSelector = () => {
   selectedPromptId.value = null
   previewPrompt.value = null
   editablePromptContent.value = ''
@@ -2093,7 +2093,7 @@ const clearSelectedTemplate = () => {
   ElMessage.success('已清除提示词模板')
 }
 
-const useOriginalPrompt = () => {
+const _useOriginalPrompt = () => {
   if (!previewPrompt.value) return
   
   // 使用原版提示词并填充变量
@@ -2104,7 +2104,7 @@ const useOriginalPrompt = () => {
   ElMessage.success('已使用原版提示词模板')
 }
 
-const useEditedPrompt = () => {
+const _useEditedPrompt = () => {
   if (!previewPrompt.value || !editablePromptContent.value) return
   
   // 使用编辑后的提示词并填充变量
@@ -2169,7 +2169,7 @@ const getTimeFrameText = (value) => {
   return timeFrame?.label
 }
 
-const goToPromptLibrary = () => {
+const _goToPromptLibrary = () => {
   router.push('/prompts')
 }
 

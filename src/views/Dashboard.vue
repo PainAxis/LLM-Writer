@@ -191,7 +191,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useNovelStore } from '@/stores/novel'
 import { useApiConfig } from '@/services/apiConfig'
 import { FALLBACK_MODELS } from '@/services/aiProviders'
 import {
@@ -207,7 +206,6 @@ import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
-const novelStore = useNovelStore()
 const { customModels: savedCustomModels, providerModels, activeConfig, isApiConfigured, updateConfig } = useApiConfig()
 
 // 响应式数据

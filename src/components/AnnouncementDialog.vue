@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { marked } from 'marked'
 
 const props = defineProps({
@@ -223,4 +223,4 @@ onMounted(() => {
 :deep(.el-dialog__body) {
   padding: 24px;
 }
-</style> 
+</style>

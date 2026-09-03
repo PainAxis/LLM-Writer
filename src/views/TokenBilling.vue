@@ -517,7 +517,7 @@ const copyContent = async (content) => {
   try {
     await navigator.clipboard.writeText(content)
     ElMessage.success('内容已复制到剪贴板')
-  } catch (error) {
+  } catch {
     // 降级处理：创建临时textarea进行复制
     const textarea = document.createElement('textarea')
     textarea.value = content

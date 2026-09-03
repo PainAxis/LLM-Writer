@@ -54,7 +54,7 @@
 | 思维导图 | mind-elixir 4.3 |
 | 构建 | Vite 8（Rolldown）+ unplugin-auto-import/components |
 | 语言/质量 | TypeScript 5.9 + ESLint 10 (flat config) + Prettier 3 |
-| AI 接入 | Vercel AI SDK 5（多服务商统一抽象） |
+| AI 接入 | Vercel AI SDK 7（多服务商统一抽象） |
 | 本地存储 | localStorage + IndexedDB（自动分层） |
 
 ## 📦 快速开始

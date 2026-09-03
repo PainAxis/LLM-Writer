@@ -370,7 +370,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Upload, Document, Setting, Delete, ChatLineSquare, Collection } from '@element-plus/icons-vue'
 import ApiConfig from '@/components/ApiConfig.vue'
@@ -620,7 +620,7 @@ const beforeImport = (file) => {
           ElMessage.warning('未找到匹配的数据进行导入')
         }
       })
-    } catch (error) {
+    } catch {
       ElMessage.error('文件格式错误，请选择有效的备份文件')
     }
   }

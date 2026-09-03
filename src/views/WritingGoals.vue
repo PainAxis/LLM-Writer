@@ -421,7 +421,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import {
-  Plus, Trophy, Medal, EditPen, Calendar, Clock, TrendCharts, Rank,
+  Plus, Trophy, Medal, EditPen, Calendar,
   MoreFilled, Edit, VideoPause, Delete
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -658,7 +658,7 @@ const deleteGoal = async (goal) => {
       saveGoalsToStorage()
       ElMessage.success('删除成功')
     }
-  } catch (error) {
+  } catch {
     // 用户取消删除
   }
 }
@@ -708,7 +708,7 @@ const saveGoal = async () => {
     saveGoalsToStorage()
     showCreateDialog.value = false
     resetForm()
-  } catch (error) {
+  } catch {
     // 验证失败
   }
 }
