@@ -391,7 +391,7 @@ const deleteGenre = async (genre) => {
       saveGenres()
       ElMessage.success('类型删除成功')
     }
-  } catch (error) {
+  } catch {
     // 用户取消删除
   }
 }
@@ -610,4 +610,4 @@ onMounted(() => {
     padding: 16px;
   }
 }
-</style> 
+</style>

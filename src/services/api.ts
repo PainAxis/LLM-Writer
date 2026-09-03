@@ -154,7 +154,7 @@ class APIService {
       : cleanPrompt
     const estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
     const { maxOutputTokens, temperature } = this.buildRequestBody(config, options, true)
-    const { signal, clearTimeout, controller } = this.createTimeoutSignal()
+    const { clearTimeout, controller } = this.createTimeoutSignal()
     const effectiveModel = options.model?.trim() ? options.model.trim() : config.selectedModel
 
     // 合并外部传入的 signal（例如组件卸载时中断）

@@ -308,7 +308,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus, Search, MoreFilled, Edit, CopyDocument, 
@@ -424,7 +424,7 @@ const copyPrompt = async (prompt) => {
   try {
     await navigator.clipboard.writeText(prompt.content)
     ElMessage.success('提示词已复制到剪贴板')
-  } catch (error) {
+  } catch {
     ElMessage.error('复制失败')
   }
 }
@@ -441,7 +441,7 @@ const deletePrompt = async (prompt) => {
       savePrompts()
       ElMessage.success('删除成功')
     }
-  } catch (error) {
+  } catch {
     // 用户取消删除
   }
 }
@@ -546,7 +546,7 @@ const savePrompt = async () => {
     showAddDialog.value = false
     resetForm()
     savePrompts()
-  } catch (error) {
+  } catch {
     // 验证失败
   }
 }

@@ -2261,19 +2261,17 @@ import { ref, computed, onMounted, onUnmounted, watch, shallowRef, nextTick } fr
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowLeft, DocumentAdd, Plus, Edit, Delete, Document, MoreFilled, ArrowDown, Star, Tools, ArrowRight, Right, Check, InfoFilled, MagicStick, Close, CopyDocument, Search
+  ArrowLeft, Plus, Edit, Delete, Document, MoreFilled, ArrowDown, Star, Tools, ArrowRight, Check, InfoFilled, MagicStick, Close, CopyDocument, Search
 } from '@element-plus/icons-vue'
 import { recommendCorpus } from '@/utils/corpusRetrieval'
 import { migrateEventChapters as migrateEventChapterRefs } from '@/utils/eventLine'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import '@wangeditor/editor/dist/css/style.css'
 import apiService from '../services/api'
-import billingService from '../services/billing'
 import { useApiConfig } from '../services/apiConfig'
 import { useNovelStore } from '../stores/novel'
 import { parseChapterResponse } from '../utils/chapterParser'
 import { DEFAULT_PROMPTS } from '../config/defaultPrompts'
-import { useAIStream } from '../composables/useAIStream'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 import {
   CHAPTER_EXCERPT_MAX_CHARS,
@@ -2329,7 +2327,7 @@ const editorRef = shallowRef()
 const activeTab = ref('editor')
 
 // AI相关数据
-const activeAITools = ref(['chapter-gen'])
+const _activeAITools = ref(['chapter-gen'])
 const isGeneratingChapters = ref(false)
 const isGeneratingContent = ref(false)
 const isOptimizing = ref(false)
@@ -2359,7 +2357,7 @@ const activeMaterialTab = ref('characters')
 
 // 章节生成对话框相关数据
 const showChapterGenerateDialog = ref(false)
-const isDevelopment = ref(true) // 开发模式，可以显示调试功能
+const _isDevelopment = ref(true) // 开发模式，可以显示调试功能
 const targetChapter = ref(null)
 const selectedContentCategory = ref('content') // 当前选择的正文分类
 const selectedMaterials = ref({
@@ -2806,7 +2804,7 @@ const getChapterStatusText = (status) => {
 }
 
 // AI生成相关方法
-const generateChapters = async () => {
+const _generateChapters = async () => {
   if (!checkApiAndBalance()) return
   
   isGeneratingChapters.value = true
@@ -3006,14 +3004,14 @@ const generateContent = async () => {
   }
 }
 
-const generateChapterContent = async (chapter) => {
+const _generateChapterContent = async (chapter) => {
   selectChapter(chapter)
   generateContent()
 }
 
 
 
-const optimizeText = async () => {
+const _optimizeText = async () => {
   if (!checkApiAndBalance()) return
   
   if (!currentChapter.value || !content.value) {
@@ -3125,7 +3123,7 @@ const getOptimizeInstructions = (type) => {
 }
 
 // 获取流式生成类型文本
-const getStreamingTypeText = () => {
+const _getStreamingTypeText = () => {
   const typeMap = {
     content: '正文内容',
     chapter: '章节大纲',
@@ -3477,7 +3475,7 @@ const copyPromptToClipboard = async () => {
   try {
     await navigator.clipboard.writeText(finalPrompt.value)
     ElMessage.success('提示词已复制到剪贴板')
-  } catch (error) {
+  } catch {
     ElMessage.error('复制失败')
   }
 }
@@ -3713,7 +3711,7 @@ const autoFillVariables = () => {
 }
 
 // 使用选中的提示词和素材生成
-const generateWithSelectedMaterials = async () => {
+const _generateWithSelectedMaterials = async () => {
   if (!selectedPrompt.value || !finalPrompt.value) {
     ElMessage.warning('请选择提示词并确保变量已填充完整')
     return
@@ -4228,7 +4226,7 @@ ${batchGenerateConfig.value.customPrompt ? `特殊要求：${batchGenerateConfig
 }
 
 // 测试角色解析功能
-const testCharacterParsing = () => {
+const _testCharacterParsing = () => {
   const testContent = `角色1：
 姓名：张三
 角色：主角
@@ -5152,8 +5150,6 @@ const generateContentWithPrompt = async (customPrompt) => {
     console.log('使用自定义提示词生成正文:', customPrompt)
     
     // 构建完整的生成上下文，确保故事一致性和连贯性
-    const context = buildGenerationContext()
-    
     // 从generateConfig获取当前配置（这些是用户在弹窗中设置的最新配置）
     const currentConfig = generateConfig.value
     
@@ -5481,7 +5477,7 @@ ${getCurrentTextForOptimization()}
 }
 
 // AI优化弹窗相关方法
-const openOptimizePromptDialog = () => {
+const _openOptimizePromptDialog = () => {
   if (!currentChapter.value || !content.value) {
     ElMessage.warning('请先选择章节并添加内容')
     return
@@ -6022,7 +6018,7 @@ const generateFromOutline = () => {
   openChapterGenerateDialog(currentChapter.value)
 }
 
-const continueWriting = async () => {
+const _continueWriting = async () => {
   if (!checkApiAndBalance()) return
   
   if (!currentChapter.value) {
@@ -7449,7 +7445,7 @@ const clearBatchCharacterPrompt = () => {
   batchCharacterFinalPrompt.value = ''
 }
 
-const autoFillBatchCharacterVariables = () => {
+const _autoFillBatchCharacterVariables = () => {
   if (!batchCharacterSelectedPrompt.value) return
   
   // 自动填充基本信息
@@ -7619,7 +7615,7 @@ const editPrompt = () => {
   ElMessage.info('您可以直接在预览框中编辑提示词')
 }
 
-const getGenerateInfo = () => {
+const _getGenerateInfo = () => {
   const selectedCount = (selectedMaterials.value.characters?.length || 0) + 
                        (selectedMaterials.value.worldSettings?.length || 0) + 
                        (selectedMaterials.value.corpus?.length || 0) + 
@@ -7629,7 +7625,7 @@ const getGenerateInfo = () => {
   return `已选择${selectedCount}个素材（含${selectedContextChapters.value?.length || 0}个上下文章节），目标${generateConfig.value.wordCount}字，预估费用¥${estimatedCost}`
 }
 
-const previewGenerate = () => {
+const _previewGenerate = () => {
   if (!selectedPrompt.value) return
   
   ElMessageBox.alert(
@@ -7692,7 +7688,7 @@ const openAIBatchChapterDialog = () => {
   showAIBatchChapterDialog.value = true
 }
 
-const openAIOptimizeDialog = (chapter) => {
+const _openAIOptimizeDialog = (chapter) => {
   aiOptimizeForm.value = {
     optimizeType: 'grammar',
     customRequirement: '',

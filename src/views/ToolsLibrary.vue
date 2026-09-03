@@ -240,8 +240,8 @@
 
 <script setup>
 import { ref, reactive, computed, nextTick, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { MagicStick, Refresh, CopyDocument, DocumentAdd } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { MagicStick, CopyDocument, DocumentAdd } from '@element-plus/icons-vue'
 import { useNovelStore } from '@/stores/novel'
 import { storageGet, StorageKeys } from '@/utils/storage'
 
@@ -922,7 +922,7 @@ const copyToClipboard = async () => {
   try {
     await navigator.clipboard.writeText(generatedContent.value)
     ElMessage.success('内容已复制到剪贴板')
-  } catch (error) {
+  } catch {
     // 如果 Clipboard API 不可用，使用传统方法
     const textArea = document.createElement('textarea')
     textArea.value = generatedContent.value

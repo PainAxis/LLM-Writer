@@ -54,7 +54,7 @@
 | Mind map | mind-elixir 4.3 |
 | Build | Vite 8 (Rolldown) + unplugin-auto-import/components |
 | Language / quality | TypeScript 5.9 + ESLint 10 (flat config) + Prettier 3 |
-| AI integration | Vercel AI SDK 5 (unified multi-provider abstraction) |
+| AI integration | Vercel AI SDK 7 (unified multi-provider abstraction) |
 | Local storage | localStorage + IndexedDB (auto-tiering) |
 
 ## 📦 Quick Start

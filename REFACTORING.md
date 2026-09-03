@@ -54,7 +54,7 @@
 
 ## 二·五、LLM API 配置重构（Vercel AI SDK 集成）
 
-- **依赖**：ai@5 + @ai-sdk/openai-compatible@1 + @ai-sdk/anthropic@2 + @ai-sdk/google@2（统一对齐 @ai-sdk/provider@2 spec）
+- **依赖**：ai@7 + @ai-sdk/openai-compatible@3 + @ai-sdk/anthropic@4 + @ai-sdk/google@4（统一对齐 @ai-sdk/provider@4 spec）
 - **服务商预设表**（`services/aiProviders.ts`）：OpenAI / Anthropic / Google Gemini / DeepSeek / Groq / xAI / Moonshot Kimi / 通义千问 / 智谱 GLM / 自定义 OpenAI 兼容地址（ollama、lmstudio 等）
   - Anthropic、Gemini 使用官方原生 provider 包（此前根本不支持其原生 API 格式）
   - 其余全部走 openai-compatible 兼容层；Anthropic 浏览器直连所需声明头由预设自动附加
