@@ -1,0 +1,15 @@
+[Unit]
+Description=LLM-Writer Docker Application
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/path/to/LLM-Writer
+ExecStart=/usr/bin/docker-compose --profile prod up -d
+ExecStop=/usr/bin/docker-compose --profile prod down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target 

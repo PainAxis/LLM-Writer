@@ -1,0 +1,365 @@
+/* ============================================================
+   LLM-Writer 全局设计系统 —— "墨纸" 主题
+   设计令牌集中于此：修改此处即可全站换肤
+   ============================================================ */
+
+
+/* ============================================================
+   暗色模式（html.dark）
+   ink 色阶语义反转：ink-900 变为浅色文字，ink-50 变为深色表面
+   ============================================================ */
+html.dark {
+  --ink-900: #e8eaf2;
+  --ink-700: #c3c7d8;
+  --ink-500: #9298ab;
+  --ink-400: #6e7488;
+  --ink-300: #4a4f63;
+  --ink-200: #333749;
+  --ink-100: #272b3c;
+  --ink-50: #1d2130;
+
+  /* 暗色下品牌色提亮以保证对比度 */
+  --brand-600: #a5b4fc;
+  --brand-500: #818cf8;
+  --brand-400: #6d6af0;
+  --brand-100: #2e2c5a;
+  --brand-50: #232345;
+
+  --primary-color: #818cf8;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px -14px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.24), 0 12px 32px -12px rgba(0, 0, 0, 0.5);
+
+  /* Element Plus 暗色基础之上再校准（须在 dark/css-vars.css 之后加载以胜出） */
+  --el-color-primary: #818cf8;
+  --el-color-primary-light-3: #6a71e0;
+  --el-color-primary-light-5: #4d53b8;
+  --el-color-primary-light-7: #34377a;
+  --el-color-primary-light-8: #2a2c5e;
+  --el-color-primary-light-9: #232345;
+  --el-color-primary-dark-2: #9ba5fa;
+  --el-bg-color: #171923;
+  --el-bg-color-page: #10121b;
+  --el-bg-color-overlay: #1d2030;
+  --el-border-color: #333749;
+  --el-border-color-light: #2c3044;
+  --el-border-color-lighter: #272b3c;
+  --el-border-color-extra-light: #222636;
+  --el-fill-color: #222636;
+  --el-fill-color-light: #1d2130;
+  --el-fill-color-lighter: #191c2a;
+  --el-fill-color-blank: #171923;
+  --el-text-color-primary: #e8eaf2;
+  --el-text-color-regular: #c3c7d8;
+  --el-text-color-secondary: #9298ab;
+  --el-text-color-placeholder: #6e7488;
+}
+
+html.dark ::selection {
+  background: #37376b;
+  color: #dcdcfb;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #3a3f55;
+  background-clip: content-box;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4a506c;
+  background-clip: content-box;
+}
+
+/* 应用外壳的明暗自适应变量 */
+:root {
+  --app-sidebar-bg: #fbfbfd;
+  --app-header-bg: rgba(255, 255, 255, 0.86);
+}
+
+html.dark {
+  --app-sidebar-bg: #141624;
+  --app-header-bg: rgba(16, 18, 27, 0.82);
+}
+:root {
+  /* 品牌色 */
+  --brand-600: #4f46e5;
+  --brand-500: #6366f1;
+  --brand-400: #818cf8;
+  --brand-100: #e0e7ff;
+  --brand-50: #eef2ff;
+
+  /* 中性色（冷灰蓝调） */
+  --ink-900: #1a1d2b;
+  --ink-700: #3d4254;
+  --ink-500: #6b7186;
+  --ink-400: #9298ab;
+  --ink-300: #c2c6d4;
+  --ink-200: #e2e4ee;
+  --ink-100: #eef0f6;
+  --ink-50: #f6f7fb;
+
+  /* 语义色 */
+  --primary-color: #4f46e5;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+  --info-color: #6b7186;
+
+  /* 圆角与阴影 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-card: 0 1px 2px rgba(23, 25, 45, 0.04), 0 8px 24px -14px rgba(23, 25, 45, 0.1);
+  --shadow-card-hover: 0 2px 4px rgba(23, 25, 45, 0.05), 0 12px 32px -12px rgba(23, 25, 45, 0.16);
+
+  /* ===== Element Plus 变量映射（全站组件自动换肤） ===== */
+  --el-color-primary: #4f46e5;
+  --el-color-primary-light-3: #7c74ee;
+  --el-color-primary-light-5: #a3a0f4;
+  --el-color-primary-light-7: #cac9f8;
+  --el-color-primary-light-8: #dcdcfb;
+  --el-color-primary-light-9: #eef2ff;
+  --el-color-primary-dark-2: #3f38c4;
+  --el-color-success: #10b981;
+  --el-color-success-light-9: #e7f8f2;
+  --el-color-warning: #f59e0b;
+  --el-color-warning-light-9: #fef4e2;
+  --el-color-danger: #ef4444;
+  --el-color-danger-light-9: #fdeaea;
+  --el-color-error: #ef4444;
+  --el-color-info: #6b7186;
+  --el-color-info-light-9: #eef0f6;
+
+  --el-text-color-primary: #1a1d2b;
+  --el-text-color-regular: #3d4254;
+  --el-text-color-secondary: #6b7186;
+  --el-text-color-placeholder: #9298ab;
+  --el-text-color-disabled: #c2c6d4;
+
+  --el-border-color: #e2e4ee;
+  --el-border-color-light: #e8eaf2;
+  --el-border-color-lighter: #eef0f6;
+  --el-border-color-extra-light: #f3f4f9;
+
+  --el-fill-color: #f0f1f7;
+  --el-fill-color-light: #f6f7fb;
+  --el-fill-color-lighter: #fafafd;
+  --el-fill-color-blank: #ffffff;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f4f5f9;
+
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 999px;
+
+  --el-box-shadow-light: 0 1px 2px rgba(23, 25, 45, 0.04), 0 8px 24px -14px rgba(23, 25, 45, 0.1);
+
+  --el-font-size-base: 14px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI',
+    'PingFang SC', 'HarmonyOS Sans SC', 'MiSans', 'Microsoft YaHei UI',
+    'Microsoft YaHei', sans-serif;
+  color: var(--ink-900);
+  background-color: var(--ink-50);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#app {
+  height: 100%;
+}
+
+::selection {
+  background: var(--brand-100);
+  color: var(--brand-600);
+}
+
+/* 滚动条：纤细悬浮式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-300);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-400);
+  background-clip: content-box;
+  border: 2px solid transparent;
+}
+
+/* ============================================================
+   Element Plus 公共组件统一质感
+   ============================================================ */
+
+/* 卡片：大圆角 + 细边框 + 柔和悬浮阴影 */
+.el-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--ink-200);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.el-card.is-hover-shadow:hover,
+.el-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.el-card__header {
+  border-bottom: 1px solid var(--ink-100);
+  padding: 16px 20px;
+}
+
+/* 对话框与消息框 */
+.el-dialog {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.el-dialog__header {
+  padding: 20px 24px 12px;
+  margin-right: 0;
+}
+
+.el-dialog__title {
+  font-weight: 600;
+}
+
+.el-dialog__body {
+  padding: 12px 24px 20px;
+}
+
+.el-message-box {
+  border-radius: var(--radius-lg);
+}
+
+/* 按钮 */
+.el-button {
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.el-button--primary {
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.24);
+}
+
+.el-button--primary:hover {
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.28);
+}
+
+/* 标签：胶囊形 */
+.el-tag {
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+/* 输入类控件统一圆角 */
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: var(--radius-sm);
+}
+
+/* 表格 */
+.el-table {
+  --el-table-border-color: var(--ink-100);
+  --el-table-header-bg-color: var(--ink-50);
+  --el-table-row-hover-bg-color: var(--brand-50);
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600;
+  color: var(--ink-500);
+  font-size: 13px;
+}
+
+/* 分页器 */
+.el-pagination {
+  --el-pagination-button-bg-color: transparent;
+}
+
+/* 菜单：圆角胶囊交互 */
+.el-menu {
+  --el-menu-hover-bg-color: var(--ink-100);
+}
+
+/* 通知 / 消息条圆角 */
+.el-message,
+.el-notification {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ink-200);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ============================================================
+   页面切换动画
+   ============================================================ */
+
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* ============================================================
+   工具类
+   ============================================================ */
+
+.flex {
+  display: flex;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mb-4 {
+  margin-bottom: 16px;
+}
+
+.mr-2 {
+  margin-right: 8px;
+}
+
+.ml-2 {
+  margin-left: 8px;
+}
