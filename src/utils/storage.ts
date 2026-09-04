@@ -9,6 +9,8 @@ export const StorageKeys = {
   novels: 'novels',
   /** 提示词库 */
   prompts: 'prompts',
+  /** 内置提示词库版本号（用于默认模板升级时刷新本地缓存） */
+  promptsVersion: 'promptsVersion',
   /** 小说类型（题材）集合 */
   novelGenres: 'novelGenres',
   /** 写作目标 */

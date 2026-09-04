@@ -17,7 +17,8 @@
     "smoke:persistence": "node --import tsx scripts/smoke-novel-persistence.ts",
     "smoke:corpus": "node --import tsx scripts/smoke-corpus-retrieval.ts",
     "smoke:mindmap": "node --import tsx scripts/smoke-mindmap-data.ts",
-    "smoke:eventline": "node --import tsx scripts/smoke-event-line.ts"
+    "smoke:eventline": "node --import tsx scripts/smoke-event-line.ts",
+    "smoke:prompts": "node --import tsx scripts/smoke-default-prompts.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

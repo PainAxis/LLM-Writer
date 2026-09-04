@@ -631,12 +631,16 @@ const activeDetailTab = ref('content') // 默认显示完整内容
 const generatingSummary = ref(false)
 
 // 章节简读提示词
-const summaryPromptTemplate = ref(`请为以下小说章节生成一个简洁的章节简读，要求：
-1. 概括本章节的主要情节和内容
-2. 突出关键人物和事件
-3. 体现本章节在整体故事中的作用
-4. 简读长度控制在100字以内
-5. 语言简洁明了，突出重点
+const summaryPromptTemplate = ref(`You are a professional Chinese fiction editor. Write the summary in natural, idiomatic Simplified Chinese.
+
+Task: Write a concise chapter digest (章节简读) for the chapter below.
+
+Requirements:
+1. Summarize the chapter's main events and content — concrete, not vague.
+2. Name the key characters and what they do or decide.
+3. State this chapter's role in the overall story (setup, escalation, reversal, payoff...).
+4. Length: at most 100 Chinese characters. One or two sentences, dense with information.
+5. Output the digest text only — no title, no preamble, no bullet points.
 
 章节标题：{章节标题}
 章节字数：{章节字数}字

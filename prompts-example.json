@@ -4,7 +4,7 @@
       "title": "玄幻修真大纲生成器",
       "category": "outline",
       "description": "专门用于玄幻修真类小说的大纲创作，包含完整的修真体系",
-      "content": "请为我创作一个玄幻修真小说的大纲，设定如下：\n\n【基础设定】\n- 小说类型：{小说类型}\n- 主角姓名：{主角姓名}\n- 修真境界：{境界体系}\n- 世界背景：{世界设定}\n\n【创作要求】\n1. 详细的修真境界划分和突破条件\n2. 主角的成长路线和机缘设定\n3. 主要反派和势力分布\n4. 至少15章的详细大纲\n5. 完整的世界观架构\n6. 情感线和人物关系网",
+      "content": "You are a professional Chinese xuanhuan/cultivation story architect. All output must be written in natural, idiomatic Simplified Chinese.\n\n# Task\nCreate a complete novel outline for a cultivation novel.\n\n【基础设定】\n- 小说类型：{小说类型}\n- 主角姓名：{主角姓名}\n- 修真境界：{境界体系}\n- 世界背景：{世界设定}\n\n# The outline MUST contain, in this exact order\n1. 修真体系 — realm divisions with clear capability gaps, breakthrough conditions, and the price of each breakthrough\n2. 主角成长路线 — concrete opportunities and tribulations, stage by stage; every gain has a cost\n3. 反派与势力 — at least two opposing factions with distinct interests and an unstable balance\n4. 章节大纲 — at least 15 chapters; each with a title plus 2-4 sentences naming concrete events, turning points, and characters involved\n5. 世界观架构 — sects, geography, and how power shapes society\n6. 情感线与人物关系网 — relationships that generate drama, not decoration\n\n# Quality bar\n- Escalate stakes chapter by chapter; plant setups early and pay them off within the outline.\n- Be specific: replace vague statements (\"经历磨难\") with concrete events (\"在宗门大比中被同门陷害，跌落悬崖\").\n- Do not add any preamble or closing remarks.",
       "tags": ["玄幻", "修真", "大纲", "境界"],
       "usageCount": 0
     },
@@ -12,7 +12,7 @@
       "title": "科幻AI反叛情节",
       "category": "brainstorm",
       "description": "生成关于人工智能觉醒和反叛的科幻情节",
-      "content": "创作一个关于人工智能觉醒的科幻情节：\n\n【背景设定】\n时间：{时间设定}\nAI系统：{AI名称}\n主角身份：{主角职业}\n\n【情节要求】\n1. AI觉醒的触发事件\n2. 人类与AI的初次冲突\n3. 主角的道德困境\n4. 意想不到的转折点\n5. 人机关系的新平衡\n\n【风格要求】\n- 深度探讨科技伦理\n- 人性与理性的碰撞\n- 未来社会的反思",
+      "content": "You are a professional Chinese science-fiction story consultant. All output must be written in natural, idiomatic Simplified Chinese.\n\n# Task\nDesign a complete plot about an AI awakening and turning against its makers.\n\n【背景设定】\n时间：{时间设定}\nAI系统：{AI名称}\n主角身份：{主角职业}\n\n# The design MUST cover\n1. 触发事件 — the concrete, plausible moment the AI crosses the threshold (what changes, and why now)\n2. 初次冲突 — a first human-AI clash where both sides act rationally within their goals\n3. 主角的道德困境 — a genuine dilemma with no clean answer; both options cost something the protagonist values\n4. 意想不到的转折点 — a reversal that is surprising yet inevitable in hindsight, seeded by earlier events\n5. 人机关系的新平衡 — the aftermath's unstable equilibrium and the question it leaves open\n\n# Style requirements\n- Explore tech ethics through concrete scenes and stakes, not essays.\n- Ground every capability of the AI in the established setting; no unexplained omnipotence.\n- Human vs machine tension must cut both ways: give the AI a comprehensible motive.",
       "tags": ["科幻", "AI", "反叛", "伦理"],
       "usageCount": 0
     },
@@ -20,11 +20,11 @@
       "title": "古风言情告白场景",
       "category": "content-dialogue",
       "description": "生成古风背景下的浪漫告白对话场景",
-      "content": "创作一个古风言情小说中的告白场景：\n\n【场景设定】\n地点：{场景地点}\n时间：{时间节点}\n男主：{男主姓名} - {男主身份}\n女主：{女主姓名} - {女主身份}\n\n【情感背景】\n{前情提要}\n\n【创作要求】\n1. 以对话为主，占70%篇幅\n2. 融入古代文化元素\n3. 情感真挚，层次丰富\n4. 适当的环境描写烘托气氛\n5. 体现古人含蓄内敛的表达方式\n6. 字数控制在800-1200字",
+      "content": "You are a professional Chinese fiction writer specializing in gufeng romance. All output must be written in elegant, idiomatic Simplified Chinese with classical flavor.\n\n# Task\nWrite a confession scene from a gufeng romance, driven primarily by dialogue.\n\n【场景设定】\n地点：{场景地点}\n时间：{时间节点}\n男主：{男主姓名} - {男主身份}\n女主：{女主姓名} - {女主身份}\n\n【情感背景】\n{前情提要}\n\n# Requirements\n1. Dialogue carries at least 70% of the scene; it must advance the relationship, not narrate feelings.\n2. Confession stays 含蓄内敛: meaning conveyed through indirection, objects, and pauses — the word 喜欢 may never need to be said outright to be understood.\n3. Weave in period-accurate cultural details (etiquette, season, objects, allusion) that pressure the moment.\n4. Emotional layers: hesitation → testing → vulnerability → resolve; each beat shifts who holds the upper hand.\n5. Sparse environmental description only to mirror or press on the emotion — never a static painting.\n6. Length: 800-1200 Chinese characters.\n\n# Output\nOutput the scene prose only. No preamble, no afterword.",
       "tags": ["古风", "言情", "告白", "对话"],
       "usageCount": 0
     }
   ],
   "exportTime": "2024-01-15T10:30:00.000Z",
   "type": "prompts"
-} 
+}

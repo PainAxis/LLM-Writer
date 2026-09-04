@@ -123,7 +123,13 @@ export function buildSummaryPrompt(previousSummary: string, folded: CompactorEnt
     .join('\n')
 
   const previous = previousSummary.trim()
-  return `请将以下对话内容合并${previous ? '到既有摘要' : ''}中，生成一份连贯的对话摘要。摘要需保留关键事实、决定与未尽事项，控制在 500 字以内，直接输出摘要内容。
+  return `You are maintaining a rolling summary of an ongoing Chinese conversation. Merge the transcript below ${previous ? 'into the existing summary' : ''} into one coherent summary, written in natural, idiomatic Simplified Chinese.
+
+Rules:
+- Preserve key facts, decisions, and unresolved matters; drop greetings and small talk.
+- Do not invent anything not present in the conversation.
+- At most 500 Chinese characters.
+- Output the summary text only — no preamble, no bullet formatting.
 
 ${previous ? `【既有摘要】\n${previous}\n\n` : ''}【新增对话】
 ${transcript}`

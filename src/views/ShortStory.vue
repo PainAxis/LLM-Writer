@@ -842,6 +842,7 @@ import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import '@wangeditor/editor/dist/css/style.css'
 import { useNovelStore } from '@/stores/novel'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
+import { DEFAULT_PROMPTS, PROMPTS_VERSION, mergeDefaultPrompts } from '../config/defaultPrompts'
 import { useRouter } from 'vue-router'
 
 const novelStore = useNovelStore()
@@ -1943,22 +1944,26 @@ const resetToDefault = () => {
 const loadPrompts = () => {
   try {
     const prompts = storageGet(StorageKeys.prompts, null)
-    if (prompts) {
-      // 检查是否有短篇小说分类的提示词，如果没有则添加默认的
-      const hasShortStoryPrompts = prompts.some(p => p.category === 'short-story')
-      if (!hasShortStoryPrompts) {
-        const defaultShortStoryPrompts = getDefaultShortStoryPrompts()
-        prompts.push(...defaultShortStoryPrompts)
-        // 保存更新后的提示词
-        storageSet(StorageKeys.prompts, prompts)
-        console.log('已添加默认短篇小说提示词')
+    if (Array.isArray(prompts) && prompts.length > 0) {
+      const version = storageGet(StorageKeys.promptsVersion, 0)
+      let list = prompts
+      if (version !== PROMPTS_VERSION) {
+        // 旧版短篇默认模板的 id 是 Date.now() 随机值，无法按 id 升级：
+        // 先按标题移除旧默认短篇，再合并统一默认库（用户自建模板保留）
+        const legacyTitles = new Set(['都市短篇小说生成器', '通用短篇小说模板', '玄幻短篇小说生成器'])
+        list = list.filter((p) => !(p.category === 'short-story' && p.isDefault && legacyTitles.has(p.title)))
+        list = mergeDefaultPrompts(list)
+        storageSet(StorageKeys.prompts, list)
+        storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
+        console.log('短篇小说模块已刷新内置提示词')
       }
-      availablePrompts.value = prompts
+      availablePrompts.value = list
     } else {
-      // 如果没有任何提示词，加载默认的
-      const defaultPrompts = getDefaultShortStoryPrompts()
+      // 没有任何提示词时，写入统一默认库
+      const defaultPrompts = DEFAULT_PROMPTS.map((p) => ({ ...p }))
       availablePrompts.value = defaultPrompts
       storageSet(StorageKeys.prompts, defaultPrompts)
+      storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
     }
     console.log('短篇小说模块加载提示词数据:', availablePrompts.value.length)
   } catch (error) {
@@ -1968,110 +1973,9 @@ const loadPrompts = () => {
   }
 }
 
-// 获取默认短篇小说提示词
+// 出错兜底：从统一默认库取短篇模板
 const getDefaultShortStoryPrompts = () => {
-  return [
-    {
-      id: Date.now() + 1,
-      title: '都市短篇小说生成器',
-      category: 'short-story',
-      description: '专门用于创作都市背景的短篇小说，贴近现代生活',
-      content: `请创作一篇都市背景的短篇小说。
-
-【基础设定】
-- 小说标题：{小说标题}
-- 主角姓名：{主角姓名}（{主角性别}，{主角年龄}岁）
-- 故事地点：{故事地点}
-- 字数要求：{字数要求}
-
-【题材风格】
-题材类型：{题材类型}
-情节类型：{情节类型}
-情绪氛围：{情绪氛围}
-时间背景：{时间背景}
-
-【创作要求】
-{创作要求}
-
-【输出要求】
-1. 情节完整，有明确的开头、发展、高潮、结局
-2. 人物性格鲜明，符合都市背景设定
-3. 语言生动流畅，贴近现代生活
-4. 场景描写真实，体现都市特色
-5. 包含丰富的对话和细节描写
-6. 传达积极正面的价值观
-
-请创作一篇完整的都市短篇小说。`,
-      tags: ['短篇小说', '都市', '现代生活', '完整故事'],
-      isDefault: true
-    },
-    {
-      id: Date.now() + 2,
-      title: '通用短篇小说模板',
-      category: 'short-story',
-      description: '适用于各种题材的通用短篇小说创作模板',
-      content: `请根据以下设定创作一篇短篇小说。
-
-【基础信息】
-标题：{小说标题}
-主角：{主角姓名}（{主角性别}，{主角年龄}岁）
-地点：{故事地点}
-字数：{字数要求}
-
-【风格设定】
-题材：{题材类型}
-情节：{情节类型}
-氛围：{情绪氛围}
-背景：{时间背景}
-
-【特殊要求】
-{创作要求}
-
-【创作原则】
-1. 开头要抓人，快速进入故事情境
-2. 中间发展要有转折和冲突
-3. 结尾要有深度，给读者思考空间
-4. 人物性格要鲜明立体
-5. 对话要自然流畅
-6. 描写要生动有画面感
-7. 主题积极正面
-
-请严格按照上述要求创作一篇完整的短篇小说。`,
-      tags: ['短篇小说', '通用模板', '多题材', '标准格式'],
-      isDefault: true
-    },
-    {
-      id: Date.now() + 3,
-      title: '玄幻短篇小说生成器',
-      category: 'short-story',
-      description: '创作充满想象力的玄幻类短篇小说',
-      content: `请创作一篇玄幻背景的短篇小说。
-
-【基础设定】
-- 小说标题：{小说标题}
-- 主角姓名：{主角姓名}（{主角性别}，{主角年龄}岁）
-- 故事地点：{故事地点}
-- 字数要求：{字数要求}
-
-【玄幻元素】
-题材类型：{题材类型}
-情节类型：{情节类型}
-情绪氛围：{情绪氛围}
-
-【输出要求】
-1. 构建完整的玄幻世界观背景
-2. 设计独特的修炼体系或魔法系统
-3. 情节紧凑，悬念迭起
-4. 人物具有鲜明的玄幻特色
-5. 包含精彩的战斗或法术描写
-6. 语言富有古典韵味或奇幻色彩
-7. 传达成长、正义等正面主题
-
-请创作一篇完整的玄幻短篇小说。`,
-      tags: ['短篇小说', '玄幻', '修炼', '魔法', '完整故事'],
-      isDefault: true
-    }
-  ]
+  return DEFAULT_PROMPTS.filter((p) => p.category === 'short-story').map((p) => ({ ...p }))
 }
 
 const _selectPrompt = (prompt) => {

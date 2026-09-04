@@ -582,6 +582,8 @@ const beforeImport = (file) => {
         
         if (importOptions.value.includes('prompts') && data.prompts) {
           storageSet(StorageKeys.prompts, data.prompts)
+          // 重置内置提示词库版本号，使下次加载时按新默认库合并刷新（用户自建模板保留）
+          storageSet(StorageKeys.promptsVersion, 0)
           importCount++
         }
         

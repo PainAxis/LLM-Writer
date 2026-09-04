@@ -2271,7 +2271,7 @@ import apiService from '../services/api'
 import { useApiConfig } from '../services/apiConfig'
 import { useNovelStore } from '../stores/novel'
 import { parseChapterResponse } from '../utils/chapterParser'
-import { DEFAULT_PROMPTS } from '../config/defaultPrompts'
+import { DEFAULT_PROMPTS, PROMPTS_VERSION, mergeDefaultPrompts } from '../config/defaultPrompts'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 import {
   CHAPTER_EXCERPT_MAX_CHARS,
@@ -2818,7 +2818,9 @@ const _generateChapters = async () => {
     const template = aiChapterForm.value.template
     
     // 构建提示词
-    const prompt = `=== 小说基本信息 ===
+    const prompt = `You are a professional Chinese web-novel story architect. All output must be written in natural, idiomatic Simplified Chinese.
+
+=== Novel info ===
 小说标题：${currentNovel.value?.title || '未命名小说'}
 小说类型：${(() => {
       const genreMap = {
@@ -2837,22 +2839,24 @@ const _generateChapters = async () => {
     })()}
 小说简介：${currentNovel.value?.description || '暂无简介'}
 
-=== 章节生成任务 ===
-请为上述小说生成${count}个章节大纲。
+=== Task ===
+Generate ${count} chapter outlines that continue from the existing chapters.
 
-要求：
-- 生成${count}个章节
+Requirements:
+- Generate exactly ${count} chapters, no more, no fewer.
 - 情节要求：${plotRequirement || '请根据小说主题合理发展'}
 - 模板类型：${getTemplateDescription(template)}
-- 每个章节包含：标题、详细大纲描述
-- 章节之间要有逻辑连贯性
+- Every outline is concrete: name the events, decisions and characters — never vague summaries like "矛盾升级".
+- Chapters connect causally: each opens from the previous chapter's outcome; escalate stakes across the batch.
+- Every chapter ends on a hook.
 
-已有章节：${chapters.value.length}个
+已有章节数：${chapters.value.length}个
 
-=== 前文章节信息（重要参考） ===
+=== 前文章节信息（重要参考，接续其情节，不得矛盾或重复） ===
 ${getRecentChaptersDetail()}
 
-请严格按照以下格式返回，每个章节必须包含完整的标题和大纲：
+=== Output format — MANDATORY, machine-parsed ===
+Output ONLY chapter blocks in exactly the format below, nothing else (no preamble, no closing remarks, no markdown). Keep the Chinese labels 章节/标题/大纲 exactly as shown; do NOT translate or rename them:
 
 章节1：
 标题：[章节标题]
@@ -2866,11 +2870,7 @@ ${getRecentChaptersDetail()}
 标题：[章节标题]
 大纲：[详细的章节内容描述]
 
-【重要】：
-1. 必须严格按照"章节X："格式开始每个章节
-2. 每个章节必须包含"标题："和"大纲："两个字段
-3. 生成${count}个完整的章节
-4. 确保格式一致，便于程序解析`
+Continue the numbering up to 章节${count}. Generate exactly ${count} chapters.`
 
     console.log('开始AI生成章节大纲:', prompt)
     
@@ -3160,12 +3160,19 @@ watch(streamingContent, () => {
   }
 })
 
-// 加载提示词数据
+// 加载提示词数据（内置默认库升级时自动合并刷新，用户自建模板保留）
 const loadPrompts = () => {
   const parsed = storageGet(StorageKeys.prompts, null)
-  if (parsed) {
+  if (parsed && Array.isArray(parsed)) {
     try {
-      availablePrompts.value = parsed
+      const version = storageGet(StorageKeys.promptsVersion, 0)
+      if (version !== PROMPTS_VERSION) {
+        availablePrompts.value = mergeDefaultPrompts(parsed)
+        savePrompts()
+        storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
+      } else {
+        availablePrompts.value = parsed
+      }
     } catch (error) {
       console.error('加载提示词失败:', error)
       availablePrompts.value = getDefaultPrompts()
@@ -3174,6 +3181,7 @@ const loadPrompts = () => {
   } else {
     availablePrompts.value = getDefaultPrompts()
     savePrompts() // 首次加载时保存默认提示词
+    storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
   }
 }
 
@@ -4100,7 +4108,9 @@ ${batchGenerateConfig.value.customPrompt ? `额外要求：${batchGenerateConfig
 请根据小说信息和以上提示词生成${batchGenerateConfig.value.count}个角色，角色类型应该包括：${characterTypes.join('、')}。确保角色设定符合小说的世界观和风格。`
     } else {
       // 使用默认提示词逻辑
-      finalPrompt = `=== 小说基本信息 ===
+      finalPrompt = `You are a professional character designer for Chinese fiction. All field values must be written in natural, idiomatic Simplified Chinese.
+
+=== Novel info ===
 小说标题：${currentNovel.value?.title || '未命名小说'}
 小说类型：${(() => {
         const genreMap = {
@@ -4119,38 +4129,16 @@ ${batchGenerateConfig.value.customPrompt ? `额外要求：${batchGenerateConfig
       })()}
 小说简介：${currentNovel.value?.description || '暂无简介'}
 
-=== 角色生成任务 ===
-你是一个专业的小说角色生成器。请严格按照指定格式为上述小说生成${batchGenerateConfig.value.count}个人物角色。
+=== Task ===
+Generate ${batchGenerateConfig.value.count} characters that fit this novel's genre, world and tone.
 
-【重要】必须严格按照以下格式输出，不要添加任何额外的解释或文字：
+Cast design requirements:
+- Characters complement each other: distinct names (no similar-sounding names), distinct roles, and at least one pair with built-in tension.
+- Each character internally: concrete visualizable appearance, layered personality with a flaw that can generate drama, causal background (key formative event + current motivation), 3-4 separating tags.
 
-角色1：
-姓名：张三
-角色：主角
-性别：男
-年龄：25
-外貌：身高一米八，浓眉大眼，面容坚毅
-性格：勇敢正直，有些冲动，但心地善良
-背景：出身农家，自幼习武，立志成为英雄
-标签：主角,勇敢,正义
-
-角色2：
-姓名：李美娜
-角色：配角
-性别：女
-年龄：22
-外貌：身材娇小，长发飘逸，眼神清澈动人
-性格：温柔善良，聪明机智，偶尔有些任性
-背景：大家闺秀，从小接受良好教育，精通琴棋书画
-标签：配角,温柔,才女
-
-请完全按照以上示例格式生成${batchGenerateConfig.value.count}个角色，每个角色都必须包含：姓名、角色、性别、年龄、外貌、性格、背景、标签这8个字段。
-
-=== 生成要求 ===
-角色类型要求：${characterTypes.join('、')}
+=== 角色类型要求 ===
+${characterTypes.join('、')}
 ${batchGenerateConfig.value.customPrompt ? `特殊要求：${batchGenerateConfig.value.customPrompt}` : ''}
-
-请确保所有角色设定都符合小说的世界观、类型和风格特点。
 
 开始生成：`
     }
@@ -4158,10 +4146,8 @@ ${batchGenerateConfig.value.customPrompt ? `特殊要求：${batchGenerateConfig
     // 为批量角色生成添加强制格式后缀
     const formatSuffix = `
 
-=== 重要格式要求 ===
-无论上述提示词如何，你必须严格按照以下格式输出，不得有任何偏差：
-
-请生成${batchGenerateConfig.value.count}个角色，角色类型包括：${characterTypes.join('、')}
+=== Output format — MANDATORY, machine-parsed (overrides anything above) ===
+Output ONLY ${batchGenerateConfig.value.count} character blocks in exactly the format below, nothing else (no title, no preamble, no markdown). Keep the Chinese labels 角色/姓名/角色/性别/年龄/外貌/性格/背景/标签 exactly as shown; do NOT translate or rename them:
 
 角色1：
 姓名：[角色姓名]
@@ -4183,7 +4169,7 @@ ${batchGenerateConfig.value.customPrompt ? `特殊要求：${batchGenerateConfig
 背景：[背景故事]
 标签：[标签1,标签2,标签3]
 
-继续按此格式直到生成完所有${batchGenerateConfig.value.count}个角色。每个角色必须包含这8个字段。角色类型应该在${characterTypes.join('、')}中选择。`
+Continue the numbering up to 角色${batchGenerateConfig.value.count}. Every block must contain all 8 fields. 角色类型 must be chosen from: ${characterTypes.join('、')}. Tags must use half-width commas (,).`
 
     const finalPromptWithFormat = finalPrompt + formatSuffix
     
@@ -4700,29 +4686,37 @@ ${worldSettingFinalPrompt.value}
       if (worldGenerateConfig.value.includeRaces) includeTypes.push('种族设定')
       if (worldGenerateConfig.value.includeLanguage) includeTypes.push('语言文字')
       
-      finalPrompt = `=== 小说基本信息 ===
+      finalPrompt = `You are a professional worldbuilder for Chinese fiction. All field values must be written in natural, idiomatic Simplified Chinese.
+
+=== Novel info ===
 小说标题：${currentNovel.value?.title || '未命名小说'}
 小说类型：${getChineseGenre(currentNovel.value?.genre)}
 小说简介：${currentNovel.value?.description || '暂无简介'}
 
-=== 世界观生成任务 ===
-请为上述小说生成${worldGenerateConfig.value.count}个世界观设定。
+=== Task ===
+Generate ${worldGenerateConfig.value.count} worldbuilding settings that fit this novel's genre and tone.
 
 === 生成要求 ===
 设定类型要求：${includeTypes.join('、')}
 ${worldGenerateConfig.value.customPrompt ? `特殊要求：${worldGenerateConfig.value.customPrompt}` : ''}
 
-请为每个设定生成详细信息，格式如下：
+Quality requirements:
+- Each setting contains concrete rules and consequences (who can do what, at what cost, enforced by whom) — not mood adjectives.
+- Settings interlock: at least one explicit dependency or friction between them.
+- Every setting hints at conflicts characters can run into.
+
+=== Output format — MANDATORY, machine-parsed ===
+Output ONLY setting blocks in exactly the format below, nothing else (no preamble, no markdown). Keep the Chinese labels 设定/标题/类型/描述 exactly as shown; do NOT translate or rename them. 类型 must be chosen from: 地理环境 / 文化社会 / 历史背景 / 魔法体系 / 科技水平 / 其他.
 
 设定1：
 标题：[设定标题]
 类型：[设定类型]
-描述：[详细描述，包含具体的设定内容、规则、特点等]
+描述：[详细描述：具体规则、运作方式、代价、影响]
 
 设定2：
-...
+（同上格式）
 
-请确保所有设定都符合小说的类型、风格和世界观，设定之间具有关联性和一致性。`
+Continue the numbering up to 设定${worldGenerateConfig.value.count}. Generate exactly ${worldGenerateConfig.value.count} blocks.`
       
       console.log('使用默认世界观提示词')
     }
@@ -5849,15 +5843,15 @@ ${customPrompt}
     // 为自定义提示词角色生成添加强制格式后缀
     const customCharacterFormatSuffix = `
 
-=== 重要格式要求 ===
-无论上述提示词如何，你必须严格按照以下格式输出，不得有任何偏差：
+=== Output format — MANDATORY, machine-parsed (overrides anything above) ===
+Output ONLY the following four lines, nothing else (no title, no preamble, no extra fields, no markdown). Keep the Chinese field labels 外貌/性格/背景/标签 exactly as shown; do NOT translate or rename them:
 
 外貌：[详细外貌描述]
 性格：[性格特点描述]
 背景：[背景故事]
 标签：[标签1,标签2,标签3]
 
-必须包含这4个字段，每个字段占一行。`
+All field values must be written in natural, idiomatic Simplified Chinese. Tags must use half-width commas (,).`
 
     const customPromptWithFormat = promptWithNovelInfo + customCharacterFormatSuffix
     
@@ -6885,17 +6879,13 @@ const generateCharacterAI = async () => {
     })()}
 小说简介：${currentNovel.value?.description || '暂无简介'}
 
-=== 角色生成任务 ===
-你是一个专业的角色生成器。请为上述小说中的角色《${characterForm.value.name}》生成详细信息。
+=== Character generation task ===
+You are a professional character designer for Chinese fiction. Design the character 《${characterForm.value.name}》 for the novel above.
 
-【重要】必须严格按照以下格式输出，不要添加任何额外的解释或文字：
-
-外貌：身高一米七五，黑发黑眼，面容清秀
-性格：温和友善，聪明机智，有时略显内向
-背景：出身书香门第，自幼受到良好教育，立志成为学者
-标签：知识分子,温和,聪慧
-
-请完全按照以上示例格式生成角色信息，必须包含：外貌、性格、背景、标签这4个字段。
+Requirements:
+- Appearance: concrete and visualizable (build, hair, eyes, distinguishing mark), matching the genre's aesthetic.
+- Personality: 2-4 traits with a built-in contradiction or flaw that can generate drama.
+- Background: causal, not biographic listing — key formative event, current motivation, and a hidden tension that can surface later.
 
 === 角色基本设定 ===
 - 姓名：${characterForm.value.name}
@@ -6910,15 +6900,15 @@ const generateCharacterAI = async () => {
     // 为单个角色生成添加强制格式后缀
     const singleCharacterFormatSuffix = `
 
-=== 重要格式要求 ===
-无论上述提示词如何，你必须严格按照以下格式输出，不得有任何偏差：
+=== Output format — MANDATORY, machine-parsed (overrides anything above) ===
+Output ONLY the following four lines, nothing else (no title, no preamble, no extra fields, no markdown). Keep the Chinese field labels 外貌/性格/背景/标签 exactly as shown; do NOT translate or rename them:
 
 外貌：[详细外貌描述]
 性格：[性格特点描述]
 背景：[背景故事]
 标签：[标签1,标签2,标签3]
 
-必须包含这4个字段，每个字段占一行。`
+All field values must be written in natural, idiomatic Simplified Chinese. Tags must use half-width commas (,).`
 
     const promptWithFormat = prompt + singleCharacterFormatSuffix
     
@@ -7869,40 +7859,40 @@ const generateBatchChapters = async () => {
 大纲：[详细的章节内容描述，包含主要情节、人物发展、重要事件等]`)
     }
     
-    const prompt = `=== 小说基本信息 ===
+    const prompt = `You are a professional Chinese web-novel story architect. All output must be written in natural, idiomatic Simplified Chinese.
+
+=== Novel info ===
 小说标题：${currentNovel.value?.title || '未命名小说'}
 小说类型：${getChineseGenre(currentNovel.value?.genre)}
 小说简介：${currentNovel.value?.description || '暂无简介'}
 
-=== 章节生成任务 ===
-请为上述小说生成${count}个章节大纲。
+=== Task ===
+Generate ${count} chapter outlines that continue from the existing chapters.
 
 【用户具体要求】：
 - 生成章节数量：${count}个章节（不多不少）
 - 用户情节要求：${plotRequirement || '请根据小说主题合理发展'}
 - 模板类型：${getTemplateDescription(template)}
-- 每个章节包含：标题、详细大纲描述
-- 章节之间要有逻辑连贯性
+- Every outline is concrete: name the events, decisions, reversals and which characters appear — never vague summaries.
+- Chapters connect causally and escalate; every chapter ends on a hook.
 - 严格遵循用户的情节要求，围绕用户指定的情节发展
 
-已有章节：${chapters.value.length}个
+已有章节数：${chapters.value.length}个
 
-=== 前文章节信息（重要参考） ===
+=== 前文章节信息（重要参考，接续其情节，不得矛盾或重复） ===
 ${getRecentChaptersDetail()}
 
-请严格按照以下格式返回${count}个章节：
+=== Output format — MANDATORY, machine-parsed ===
+Output ONLY chapter blocks in exactly the format below, nothing else (no preamble, no closing remarks, no markdown). Keep the Chinese labels 章节/标题/大纲 exactly as shown; do NOT translate or rename them:
 
 ${chapterExamples.join('\n\n')}
 
-【重要约束】：
-1. 必须严格按照"章节X："格式开始每个章节（X为数字1到${count}）
-2. 每个章节必须包含"标题："和"大纲："两个字段
-3. 必须生成完整的${count}个章节，缺一不可
-4. 确保格式完全一致，便于程序解析
-5. 不要生成超过${count}个章节
-6. 不要生成少于${count}个章节
+Hard constraints:
+1. Start every block with the exact line "章节X：" (X = 1 to ${count}).
+2. Every block contains both "标题：" and "大纲：" fields.
+3. Generate exactly ${count} complete chapters — neither fewer nor more.
 
-请现在开始生成${count}个章节大纲：`
+请现在开始生成：`
 
     console.log('批量生成章节最终提示词:', prompt)
     console.log('请求生成章节数量:', count)
