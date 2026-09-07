@@ -13,7 +13,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  stop:
+    if: ${{ contains(github.event.head_commit.message, '[stop preview]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Previous preview cancelled by workflow concurrency.'
   browser:
+    if: ${{ !contains(github.event.head_commit.message, '[stop preview]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -47,6 +53,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
   preview:
+    if: ${{ !contains(github.event.head_commit.message, '[stop preview]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -65,6 +72,7 @@ jobs:
           echo 'f29324fe934d1e100617484c78deef803c4dc2cd351d645bbde42e96b4fccc5e  '"$RUNNER_TEMP/cloudflared" | sha256sum --check
           chmod +x "$RUNNER_TEMP/cloudflared"
       - name: Start isolated preview and tunnel
+        id: tunnel
         run: |
           node scripts/browser-preview.mjs > "$RUNNER_TEMP/preview.log" 2>&1 &
           echo "$!" > "$RUNNER_TEMP/preview.pid"
@@ -92,6 +100,8 @@ jobs:
                       (task_temp / 'preview-url.json').write_text(json.dumps(info, ensure_ascii=False, indent=2))
                       with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
                           summary.write(f"## Temporary browser preview\n\n[{url}]({url}) · [Test instructions]({url}/__test/)\n\nRevision: `{health['sha']}`\n\nExpires: {health['expiresAt']} (or when this run is cancelled).\n\nOnly built assets and synthetic fixtures are exposed. Quick Tunnel does not support SSE; the separate runner browser job checks incremental streaming.\n")
+                      with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+                          output.write('host=' + url.removeprefix('https://') + '\n')
                       print('Preview ready: ' + url, flush=True)
                       break
                   except Exception:
@@ -103,7 +113,7 @@ jobs:
       - name: Publish live preview URL before waiting
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: writer-preview-url
+          name: writer-preview-url-${{ steps.tunnel.outputs.host }}
           path: ${{ runner.temp }}/preview-url.json
           if-no-files-found: error
           retention-days: 1

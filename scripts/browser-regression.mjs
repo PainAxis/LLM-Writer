@@ -85,6 +85,27 @@ async function screenshot(name) {
   await page.screenshot({ path: path.join(artifacts, `${name}.png`), fullPage: true })
 }
 
+async function failureDiagnostics() {
+  const snapshot = { url: page.url(), browserErrors: [...errors] }
+  try {
+    snapshot.bodyText = (await page.locator('body').innerText({ timeout: 5000 })).slice(0, 6000)
+    snapshot.visibleControls = await page.locator('input:visible, [role="combobox"]:visible, button:visible').evaluateAll(elements => elements.slice(0, 80).map(element => ({
+      tag: element.tagName.toLowerCase(),
+      role: element.getAttribute('role'),
+      type: element.getAttribute('type'),
+      id: element.id,
+      label: element.getAttribute('aria-label'),
+      labelledBy: element.getAttribute('aria-labelledby'),
+      placeholder: element.getAttribute('placeholder'),
+      text: (element.innerText || '').trim().slice(0, 180),
+      disabled: element.matches(':disabled') || element.getAttribute('aria-disabled') === 'true',
+    })))
+  } catch (error) {
+    snapshot.diagnosticError = String(error)
+  }
+  return snapshot
+}
+
 async function dismissAnnouncement() {
   const acknowledgement = page.getByRole('button', { name: '我知道了', exact: true })
   try { await acknowledgement.waitFor({ state: 'visible', timeout: 2200 }) } catch { return }
@@ -94,7 +115,7 @@ async function dismissAnnouncement() {
 
 async function go(route) {
   await page.goto(`${previewURL}/#/${route}`)
-  await expect(page.locator('#app')).not.toBeEmpty()
+  await expect(page.locator('#app[data-v-app]')).not.toBeEmpty()
   await dismissAnnouncement()
 }
 
@@ -328,6 +349,8 @@ try {
 } catch (error) {
   report.error = error.stack || String(error)
   console.error(report.error)
+  report.diagnostics = await failureDiagnostics()
+  console.error('BROWSER FAILURE DIAGNOSTICS\n' + JSON.stringify(report.diagnostics, null, 2))
   process.exitCode = 1
 } finally {
   report.finishedAt = new Date().toISOString()

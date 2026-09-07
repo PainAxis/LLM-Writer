@@ -2,7 +2,7 @@
 
 Push the test branch `test/writer-browser-tunnel` to run `Writer browser tunnel`. The workflow leaves the default branch unchanged and runs two independent jobs:
 
-- `preview` builds the checked-out revision, exposes it through a Cloudflare Quick Tunnel, and uploads `writer-preview-url` **before** waiting. Its `preview-url.json` contains the URL, revision SHA, fake API address, and expiry time. The URL also appears in the job summary. The server expires after 40 minutes; cancelling the run also stops it. The job has a 45-minute limit.
+- `preview` builds the checked-out revision, exposes it through a Cloudflare Quick Tunnel, and uploads `writer-preview-url-<hostname>` **before** waiting. Its `preview-url.json` contains the URL, revision SHA, fake API address, and expiry time. The hostname is also in the artifact name, and the full URL appears in the job summary. The server expires after 40 minutes; cancelling the run also stops it. The job has a 45-minute limit. A push whose commit message includes `[stop preview]` cancels the previous run and starts no preview.
 - `browser` runs Chromium on the runner against the same production build and the local mock, then uploads `writer-browser-evidence` with the test report and screenshots.
 
 The preview serves only files from `dist` and the three synthetic DOCX fixtures listed at `/__test/`. It has no upload endpoint, external API proxy, real API credentials, repository file server, or server-side novel storage. `/__test/health` identifies the revision and `/__test/metrics` reports aggregate mock request counts without storing prompts.
