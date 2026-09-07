@@ -107,7 +107,7 @@ npm run smoke:prompts                 # Default prompts and merge rules
 
 ## 🐳 Docker Deployment
 
-See [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md) (Chinese) for details; for the refactoring notes see [REFACTORING.md](REFACTORING.md) (Chinese).
+See [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md) for details; for the refactoring notes see [REFACTORING.md](REFACTORING.md).
 
 ```bash
 # Development environment (port 3000)

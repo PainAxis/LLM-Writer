@@ -1,188 +1,189 @@
-# LLM-Writer 重构报告
+# LLM-Writer Refactoring Report
 
-> 原始参考项目：[91Writing](https://github.com/ponysb/91Writing) v0.7.0（本地留有原版副本，未改动，保持原状，不随本仓库分发）
-> 重构产物：`LLM-Writer`（本目录）。项目实现灵感来自 91Writing，除此之外与原项目无关联；原项目品牌元素（官方 API、交流群组等）均已移除。
+[English](REFACTORING.md) | [简体中文](REFACTORING.zh-CN.md)
 
-## 一、重构概览
+> Original reference project: [91Writing](https://github.com/ponysb/91Writing) v0.7.0 (a pristine local copy is retained without changes and is not distributed with this repository)
+> Refactored product: `LLM-Writer` (this directory). The project implementation is inspired by 91Writing and has no affiliation beyond that; all original project branding elements (official APIs, community groups, etc.) have been removed.
 
-| 维度 | 重构前 | 重构后 |
-|------|--------|--------|
-| 语言 | 全 JavaScript | 核心层 TypeScript（services/stores/router/composables/utils/config），视图层渐进迁移 |
-| 构建工具 | Vite 4.5 (Rollup) | Vite 8.2 (Rolldown) |
-| 框架 | Vue 3.3 / Pinia 2 / Router 4 | Vue 3.5 / Pinia 4 / Router 5 |
-| UI 库 | Element Plus 2.4 | Element Plus 2.14 |
-| ESLint | 8.x，配置文件缺失，lint 脚本不可用 | ESLint 10 flat config + Prettier 3 + vue/ts 规则，0 errors |
-| 首屏 JS | 2,427 KB（单 chunk） | 38.7 KB（分包+懒加载） |
-| API 配置实现 | 4 套互相独立/孤立的实现 | 1 套（`services/apiConfig.ts`） |
-| localStorage 访问 | 15 个文件 100+ 处直接读写 20+ 魔法键 | 统一 `utils/storage.ts` 唯一入口（11 文件 ~70 处裸调用全部收口，配额超限显式抛出） |
-| 流式"停止"按钮 | 仅重置 UI 状态，网络请求继续 | `AbortController` 真正取消请求 |
+## I. Refactoring Overview
 
-## 二、已完成工作
+| Dimension | Before Refactor | After Refactor |
+|-----------|-----------------|----------------|
+| Language | Pure JavaScript | Core layer TypeScript (services/stores/router/composables/utils/config), view layer progressively migrated |
+| Build Tool | Vite 4.5 (Rollup) | Vite 8.2 (Rolldown) |
+| Framework | Vue 3.3 / Pinia 2 / Router 4 | Vue 3.5 / Pinia 4 / Router 5 |
+| UI Library | Element Plus 2.4 | Element Plus 2.14 |
+| ESLint | 8.x, missing config file, lint script unusable | ESLint 10 flat config + Prettier 3 + vue/ts rules, 0 errors |
+| First-load JS | 2,427 KB (single chunk) | 38.7 KB (chunk splitting + lazy loading) |
+| API Config Implementation | 4 independent / isolated implementations | 1 unified implementation (`services/apiConfig.ts`) |
+| localStorage Access | 15 files, 100+ direct reads/writes across 20+ magic keys | Unified `utils/storage.ts` single entry point (all ~70 bare calls across 11 files closed off, explicit throws on quota exceeded) |
+| Streaming "Stop" Button | Only reset UI state, network request continued | `AbortController` genuinely cancels request |
 
-### Phase 1 清理
-- 删除约 12,300 行死代码：根目录旧版 `Writer.vue`/`api.js`、无路由引用的 `Home.vue` 及其 7 个孤儿组件、废弃的 `Writer_refactored.vue` + `components/writer/`、含硬编码 API Key 的 `api-test.js`、空文件 `prompt.txt`/`docker-deploy.md`、无关的 `modern-website.html`、双锁文件
-- 修复 `.gitignore`（dist/env/logs）、补齐缺失的 favicon（`public/favicon.svg`）
-- 依赖瘦身：移除从未使用的 axios / file-saver / highlight.js / @vueuse/core
+## II. Completed Work
 
-### Phase 2 工具链
-- TypeScript 5.9 + vue-tsc，`npm run build` / `npm run typecheck` 全绿
-- ESLint 10 flat config（`eslint.config.js`）+ Prettier（`.prettierrc.json`）
-- Vite 8（Rolldown 内核）+ `manualChunks` 手动分包
+### Phase 1: Cleanup
+- Deleted ~12,300 lines of dead code: root old `Writer.vue`/`api.js`, unrouted `Home.vue` and its 7 orphan components, obsolete `Writer_refactored.vue` + `components/writer/`, `api-test.js` with hardcoded API keys, empty files `prompt.txt`/`docker-deploy.md`, unrelated `modern-website.html`, dual lockfiles
+- Fixed `.gitignore` (dist/env/logs), added missing favicon (`public/favicon.svg`)
+- Dependency trimming: removed unused axios / file-saver / highlight.js / @vueuse/core
 
-### Phase 3 架构
-- `src/utils/storage.ts`：集中登记全部 localStorage 键（`StorageKeys`）、类型安全读写、防 JSON 异常
-- `src/services/apiConfig.ts`：**API 配置唯一事实来源**（后续品牌化改造：移除官方 API 概念，收敛为单一配置；`views/ApiConfig.vue` 重写为单表单）
-  - 消除了 4 套重复实现（store 内嵌 / `api.js` 内嵌 / `views/ApiConfig.vue` 孤儿键 `aiApiConfigs` / Dashboard 轮询 localStorage）
-  - 官方 baseURL 强制约束集中一处；旧 `apiConfig` 键自动迁移
-  - 响应式共享：Dashboard 的 1 秒轮询 + `forceUpdate` hack + storage 事件监听全部删除
-- `src/services/api.ts`：TS 重写，SSE 解析、计费挂钩、错误处理保持原行为；新增中断支持；修复 `analyzeArticle` 使用错误模型字段的 bug
-- `src/services/billing.ts`：TS 重写（本地模拟记账）
-- `src/stores/novel.ts`：TS 重写，配置委托给 apiConfig 模块，修复 3 处重复的 `generateUniqueId`
-- `views/ApiConfig.vue`：1,170 行孤立页面 → 复用统一 `components/ApiConfig.vue` 的 40 行薄壳
+### Phase 2: Toolchain
+- TypeScript 5.9 + vue-tsc, all green on `npm run build` / `npm run typecheck`
+- ESLint 10 flat config (`eslint.config.js`) + Prettier (`.prettierrc.json`)
+- Vite 8 (Rolldown core) + `manualChunks` manual code splitting
 
-### Phase 4 公共模块
-- `src/composables/useAIStream.ts`：流式生成统一状态机（状态/增量/中断/错误提示），替代 Writer 内 24 处同构样板
-- `src/utils/chapterParser.ts`：AI 章节响应的 5 级解析策略（原 Writer 内 270 行）
-- `src/config/defaultPrompts.ts`：默认提示词库单一来源（原 Writer/PromptsLibrary/ShortStory 各自维护）；修复默认提示词重复 id（两个 id=22）
-- Writer.vue 已接入上述模块（净删 ~550 行）
+### Phase 3: Architecture
+- `src/utils/storage.ts`: centralized registration of all localStorage keys (`StorageKeys`), type-safe read/write, JSON exception guards
+- `src/services/apiConfig.ts`: **Single source of truth for API config** (subsequent rebranding: removed official API concept, consolidated into single configuration; `views/ApiConfig.vue` rewritten into a single form)
+  - Eliminated 4 redundant implementations (embedded in store / embedded in `api.js` / `views/ApiConfig.vue` orphan key `aiApiConfigs` / Dashboard polling localStorage)
+  - Official baseURL enforcement centralized in one place; legacy `apiConfig` key automatically migrated
+  - Reactive sharing: removed Dashboard's 1-second polling + `forceUpdate` hack + storage event listeners entirely
+- `src/services/api.ts`: TS rewrite, preserved original behavior for SSE parsing, billing hooks, and error handling; added abort support; fixed bug where `analyzeArticle` used the wrong model field
+- `src/services/billing.ts`: TS rewrite (local simulated bookkeeping)
+- `src/stores/novel.ts`: TS rewrite, delegated configuration to apiConfig module, fixed 3 duplicated `generateUniqueId` calls
+- `views/ApiConfig.vue`: 1,170-line isolated page → 40-line thin wrapper reusing unified `components/ApiConfig.vue`
 
-### Phase 6 性能
-- 路由级懒加载：13 个子路由全部 `() => import(...)`，新增 404 页面（`views/NotFound.vue`）
+### Phase 4: Common Modules
+- `src/composables/useAIStream.ts`: unified state machine for streaming generation (status / delta / abort / error prompts), replacing 24 isomorphic boilerplate instances in Writer
+- `src/utils/chapterParser.ts`: 5-level parsing strategy for AI chapter responses (originally 270 lines inside Writer)
+- `src/config/defaultPrompts.ts`: single source of truth for default prompt library (previously maintained separately across Writer/PromptsLibrary/ShortStory); fixed duplicate default prompt ID (two id=22)
+- Writer.vue integrated with above modules (net deletion of ~550 lines)
+
+### Phase 6: Performance
+- Route-level lazy loading: all 13 subroutes converted to `() => import(...)`, added 404 page (`views/NotFound.vue`)
 - `main.js` → `main.ts`
-- Docker：node:18+pnpm → node:22+npm ci，dev 端口对齐（3000），移除无意义的 `depends_on`
+- Docker: node:18+pnpm → node:22+npm ci, aligned dev port (3000), removed pointless `depends_on`
 
+## II.V. LLM API Configuration Refactoring (Vercel AI SDK Integration)
 
-## 二·五、LLM API 配置重构（Vercel AI SDK 集成）
+- **Dependencies**: ai@7 + @ai-sdk/openai-compatible@3 + @ai-sdk/anthropic@4 + @ai-sdk/google@4 (aligned to @ai-sdk/provider@4 spec)
+- **Provider Preset Table** (`services/aiProviders.ts`): OpenAI / Anthropic / Google Gemini / DeepSeek / Groq / xAI / Moonshot Kimi / Alibaba Qwen / Zhipu GLM / custom OpenAI-compatible endpoints (ollama, lmstudio, etc.)
+  - Anthropic and Gemini use official native provider packages (previously did not support their native API formats)
+  - All others use openai-compatible layer; required declaration headers for Anthropic direct browser connection are automatically attached by presets
+- **api.ts rewrite**: replaced handcrafted fetch + SSE parser (~300 lines) with streamText/generateText; facade interface (`generateTextStream`, etc.) signatures preserved with zero caller modifications
+  - Free benefits: SDK built-in retries (maxRetries: 2), structured errors, real usage extraction
+  - Preserved abort / timeout semantics: 5-minute timeout + return partial content upon abort
+  - Services layer no longer calls ElMessage directly (decoupled from UI)
+- **Configuration model**: ApiConfig adds provider, customHeaders (CORS escape hatch, visual editing in config UI); legacy configuration automatically migrated (provider falls back to custom)
+- **Bundle control**: ai core and provider packages dynamically imported into independent async chunks (~400KB), loaded only when AI features are invoked for the first time, not affecting first screen
+- **Unsupported (architectural limitations)**: Bedrock / Vertex AI require server-side signature credentials, cannot be connected securely in pure front-end apps
+- **Model list synchronization**: `fetchProviderModels()` pulls from provider `/models` endpoints (OpenAI-compatible / Anthropic `{data:[{id}]}`, Google `{models:[{name}]}` filtered by generateContent), cached and persisted per provider (`providerModels`); one-click "fetch / sync model list" on config page, model dropdown in both config page and Dashboard shows "🛰️ Server Model List" group, built-in common models act only as fallback when unsynced
+- **Runtime verification**: `npm run smoke:ai` — local Mock SSE server end-to-end test (streaming parse / real usage billing / key probing / abort partial recovery / config persistence)
 
-- **依赖**：ai@7 + @ai-sdk/openai-compatible@3 + @ai-sdk/anthropic@4 + @ai-sdk/google@4（统一对齐 @ai-sdk/provider@4 spec）
-- **服务商预设表**（`services/aiProviders.ts`）：OpenAI / Anthropic / Google Gemini / DeepSeek / Groq / xAI / Moonshot Kimi / 通义千问 / 智谱 GLM / 自定义 OpenAI 兼容地址（ollama、lmstudio 等）
-  - Anthropic、Gemini 使用官方原生 provider 包（此前根本不支持其原生 API 格式）
-  - 其余全部走 openai-compatible 兼容层；Anthropic 浏览器直连所需声明头由预设自动附加
-- **api.ts 重写**：手写 fetch+SSE 解析（~300 行）替换为 streamText/generateText；门面接口（generateTextStream 等）签名不变，上层零改动
-  - 免费获得：SDK 内置重试（maxRetries: 2）、结构化错误、真实 usage 提取
-  - 中断/超时语义保持：5 分钟超时 + abort 后返回部分内容
-  - services 层不再直接弹 ElMessage（UI 耦合解除）
-- **配置模型**：ApiConfig 新增 provider、customHeaders（CORS 逃生舱，配置界面可视化编辑）；旧配置自动迁移（provider 回落 custom）
-- **Bundle 控制**：ai 内核与 provider 包经动态 import 独立为异步 chunk（~400KB），首次调用 AI 功能时才加载，不影响首屏
-- **不支持（架构限制）**：Bedrock / Vertex AI 需要服务端凭证签名，纯前端应用无法安全直连
-- **模型列表同步**：`fetchProviderModels()` 从服务商 `/models` 端点拉取（OpenAI 兼容/Anthropic `{data:[{id}]}`、Google `{models:[{name}]}` 过滤 generateContent），按服务商缓存并持久化（`providerModels`）；配置页一键"获取/同步模型列表"，配置页与 Dashboard 的模型下拉均显示"🛰️ 服务端模型列表"分组，内置常用模型仅作未同步时的兜底
-- **运行时验证**：`npm run smoke:ai` —— 本地 Mock SSE 服务器端到端测试（流式解析/真实 usage 计费/密钥探活/中断恢复部分内容/配置持久化）
+## II.VI. Frontend Visual System Refactoring ("Ink & Paper" Theme)
 
-## 二·六、前端视觉系统重构（"墨纸"主题）
+- **Design token centralization**: `src/style.css` rewritten as site-wide design system — brand color (indigo `#4f46e5`), cool slate-blue neutral scales (ink series), semantic colors, border radius / shadow specs, mapped to Element Plus CSS variables (`--el-color-primary`, etc.), automatically restyling EP components across all 15 views
+- **Legacy color cleanup**: 441 hardcoded legacy colors across 14 files (`#409eff`/`#304156`/`#f5f5f5`, etc., 2017 admin style) mechanically mapped to semantic CSS variables; future theme adjustments only require editing style.css in one place
+- **Dashboard shell reshaping**: 2017-style dark blue sidebar → light paper-textured sidebar + capsule menu interactions + gradient serif logo watermark; frosted glass header effect; page-fade transition animations on route change
+- **Common component texture unification** (global layer): large card border-radii + soft elevation shadows, capsule tags, rounded dialogs/message boxes, layered button shadows, table header styling, slim floating scrollbars, `::selection` brand color
+- **Dark mode**: light / dark / system tri-state theme (composables/useTheme.ts), syncs with system `prefers-color-scheme` in real time; Element Plus dark variables + custom ink/brand scales semantically inverted under html.dark; initTheme() executes prior to app mounting to prevent first-frame flash; cyclic toggle button provided in Dashboard header
+- **Modern font stack**: system font stack (SF Pro / PingFang SC / HarmonyOS Sans SC / MiSans), serif fonts used for logo and favicon to reflect "writing tool" identity; zero webfont dependencies
 
-- **设计令牌集中化**：`src/style.css` 重写为全站设计系统——品牌色（靛青 `#4f46e5`）、冷灰蓝中性色阶（ink 系列）、语义色、圆角/阴影规格，并整体映射到 Element Plus CSS 变量（`--el-color-primary` 等），全部 15 个视图的 EP 组件自动换肤
-- **旧配色清除**：14 个文件 441 处硬编码旧配色（`#409eff`/`#304156`/`#f5f5f5` 等 2017 admin 风格）机械映射为语义 CSS 变量，后续调主题只需改 style.css 一处
-- **Dashboard 外壳重塑**：2017 风深蓝侧栏 → 浅色纸面质感侧栏 + 胶囊菜单交互 + 渐变衬线 Logo 印记；头部毛玻璃效果；路由切换加入 page-fade 过渡动画
-- **公共组件质感统一**（全局层）：卡片大圆角+柔和悬浮阴影、胶囊形 Tag、对话框/消息框圆角、按钮层次阴影、表格头样式、纤细悬浮滚动条、`::selection` 品牌色
-- **夜间模式**：light / dark / system 三态主题（composables/useTheme.ts），跟随系统 prefers-color-scheme 实时切换；Element Plus 暗色变量 + 自定义 ink/brand 色阶在 html.dark 下语义反转；initTheme() 在应用挂载前执行避免首帧闪烁；Dashboard 头部提供循环切换按钮
-- **字体栈现代化**：系统字体栈（SF Pro / PingFang SC / HarmonyOS Sans SC / MiSans），Logo 与 favicon 使用衬线字体现"写作工具"身份；零 webfont 依赖
+## II.VII. Creative Feature Completion (2026-09-02)
 
-## 二·七、创作侧功能补齐（2026-09-02）
+### Storage Tiering (localStorage + IndexedDB)
+- **storage consolidation**: all ~70 bare `localStorage.*` calls across 11 files migrated to `storageGet/storageSet/storageRemove/storageClear` (+ Raw version bypassing JSON serialization); corrupted JSON changed from throwing exceptions to warn + fallback
+- **Quota protection**: on `storageSet` QuotaExceeded → clear renewable cache (server model lists) and retry once → if still exceeded, throw synchronously to restore view-layer "save failed" prompt semantics
+- **IndexedDB tiering**: `services/blobStore.ts` (lightweight single kv store wrapper with automatic fallback on failure) + `services/novelPersistence.ts` (novels key backend): overall content ≤ 1.5M characters writes directly to LS fast path; chapter bodies exceeding threshold (> 2K characters) sharded into IDB, LS keeps metadata + pointers, IDB-before-LS write order + stale shard cleanup; `initNovelPersistence()` hydration gate on startup; lazy migration (first write naturally triggers splitting)
+- **chunked key registration**: `registerChunkedKey(key, backend)`, storageGet/Set/Remove/Clear delegates entire keys to backend for registered keys, zero changes to view layer
 
-### 存储分层（localStorage + IndexedDB）
-- **storage 收口**：11 个文件 ~70 处裸 `localStorage.*` 全部迁入 `storageGet/storageSet/storageRemove/storageClear`（+ Raw 版本绕过 JSON 化）；损坏 JSON 由抛异常改为 warn+fallback
-- **配额防护**：`storageSet` 遇 QuotaExceeded → 清可再生缓存（服务端模型列表）重试一次 → 仍超限同步抛出，恢复视图层"保存失败"提示语义
-- **IndexedDB 分层**：`services/blobStore.ts`（单 kv store 薄封装，失败自动降级）+ `services/novelPersistence.ts`（novels 键后端）：整体 ≤1.5M 字符直写 LS 快路径；超阈值章节正文（>2K 字符）分片入 IDB，LS 留元数据+指针，先 IDB 后 LS 写序 + stale 分片清理；启动 `initNovelPersistence()` hydration 门闩；惰性迁移（首个写入自然触发拆分）
-- **chunked 键注册**：`registerChunkedKey(key, backend)`，storageGet/Set/Remove/Clear 对已注册键整键转交后端，视图层零改动
+### AI Assistant System + Context Budget Management
+- **API extensions**: `GenerateOptions` adds `system?`/`messages?` (messages take precedence); `model` truly wired up for the first time (billing based on actual model); `chatWithAI` third argument customizes persona and converges onto streaming path
+- **Assistant CRUD**: `stores/assistant.ts` (Pinia setup-style) — persona/default model management, per-assistant isolated session persistence, streaming placeholder items, cleanup on abort/failure; `views/AssistantManagement.vue` (TS)
+- **Context policy** (`utils/contextCompactor.ts` pure function): dual-dimension budget of max tokens / max messages; **truncation sliding window vs summary incremental summary as explicit binary choice, no silent degradation**; summary failure yields immediate toast + "⚠️ Pending Compaction" badge + dialog on next send (retry / skip one-off / cancel); summary != delete, local persistence retains complete original text
+- Settings adds "Context Management" card; token indicator bar and collapse badge in chat area
 
-### AI 助手系统 + 上下文容量管理
-- **API 扩展**：`GenerateOptions` 增 `system?`/`messages?`（messages 优先）；`model` 首次真正接通（计费按实际模型）；`chatWithAI` 第三参数自定义人设并收敛走流式路径
-- **助手 CRUD**：`stores/assistant.ts`（Pinia setup 式）——人设/默认模型管理、按助手隔离的会话持久化、流式占位条目、中断/失败清理；`views/AssistantManagement.vue`（TS）
-- **上下文策略**（`utils/contextCompactor.ts` 纯函数）：最大 Token 数/最大条数双量纲预算；**truncation 滑窗与 summary 增量摘要显式二选一，无静默降级**；摘要失败即时 toast + 「⚠️ 待压缩」徽标 + 下次发送时弹窗（重试/放弃单次豁免/取消）；摘要 ≠ 删除，本地持久化全量原文
-- Settings 新增「上下文管理」卡片；对话区 token 指示条与折叠徽标
+### Corpus Classification + Retrieval Recommendation
+- `utils/corpusRetrieval.ts` (pure function): **character bigram overlap** scoring (robust for Chinese without word segmentation), `extractKeywords`, `recommendCorpus` (minScore filter + top-K), `buildCorpusInjection` (prioritizes full entries, only truncates if first entry exceeds budget)
+- Corpus categories (customizable) + category filtering + title/content search; all-material generation dialog has "Recommend by Context" top-5 one-click merge and injection
+- `generatePersonalizedContent` updated to overlap score top-8 + 4000 character budget injection (signature preserved), eliminating the risk of large corpus blowing up context/billing
 
-### 语料库分类 + 检索推荐
-- `utils/corpusRetrieval.ts`（纯函数）：**字符 bigram 重合度**评分（中文无分词场景稳健）、`extractKeywords`、`recommendCorpus`（minScore 过滤 + top-K）、`buildCorpusInjection`（整条优先，仅首条超预算才截断）
-- 语料分类（可自定义）+ 分类筛选 + 标题/内容搜索；全素材生成对话框「按上下文推荐」top-5 一键合并注入
-- `generatePersonalizedContent` 改为重合度 top-8 + 4000 字符预算注入（签名不变），消除大语料库撑爆上下文/账单的隐患
+### Mind Map (Read-Only MVP)
+- `utils/mindmapData.ts` (pure function): novel → mind-elixir node tree (chapter outlines + event attachments, characters, worldbuilding, corpus grouped by category, orphan events grouped, unified truncation, empty data fallback)
+- `views/MindMap.vue` (TS): dynamic import (mind-elixir@4.3.1 isolated chunk ~89KB), `editable:false` + `disableEdit` dual lock read-only, fit to canvas, export PNG (@mind-elixir/export-mindmap)
 
-### 思维导图（只读 MVP）
-- `utils/mindmapData.ts`（纯函数）：novel → mind-elixir 节点树（章节大纲+事件挂载、人物、世界观、语料分类分组、孤儿事件归组、统一截断、空数据兜底）
-- `views/MindMap.vue`（TS）：动态 import（mind-elixir@4.3.1 独立 chunk ~89KB）、`editable:false`+`disableEdit` 双保险只读、适应画布、导出 PNG（@mind-elixir/export-mindmap）
+### Event Line Enhancement + Proxy Configuration
+- **Bug fix**: event `chapter` field previously stored chapter title instead of chapter number, `parseInt` evaluated to NaN causing events never to enter generation context; dialog rebound to chapter number + `migrateEventChapters()` (extracted as `utils/eventLine.ts` pure function) one-time migration for legacy data
+- Character association multi-select (`characterIds[]`, carried in generation context and mind map); list/timeline dual view (el-timeline, sorted by chapter number → timestamp → creation time)
+- **Proxy prefix**: `ApiConfig.proxyUrl?` optional prefix, uniformly applied in `aiProviders.applyProxyPrefix()` for model resolution and probing; smoke tests verify requests genuinely route through proxy
 
-### 事件线增强 + 代理配置
-- **修复存量 bug**：事件 `chapter` 字段存的是章节标题而非章号，`parseInt` 为 NaN 导致事件从未进入生成上下文；对话框改绑章号 + `migrateEventChapters()`（抽为 `utils/eventLine.ts` 纯函数）一次性迁移旧数据
-- 关联角色多选（`characterIds[]`，生成上下文与导图同步携带）；列表/时间线双视图（el-timeline，章节号→时间→创建时间排序）
-- **代理前缀**：`ApiConfig.proxyUrl?` 可选前缀，`aiProviders.applyProxyPrefix()` 在模型解析与探活统一应用；smoke 实证请求真实经代理命中
+### Quality Assurance
+- **Smoke test suite**: `scripts/smoke-*.ts` six scripts with 32 assertions (no browser dependency, Mock SSE + in-memory fake-IDB, CI-ready)
+- **Two rounds of code reviews fixed 9 accumulated issues**, including two real bugs: summary strategy off-by-one boundary gap (lost 1 message of history per send), IME Enter inadvertent send (`isComposing`/keyCode 229 check)
 
-### 质量保障
-- **smoke 测试套件**：`scripts/smoke-*.ts` 六脚本共 32 项断言（无浏览器依赖，Mock SSE + 内存 fake-IDB，可进 CI）
-- **两轮代码审查累计修复 9 个问题**，含两个真实 bug：summary 策略 off-by-one 边界缺口（每次发送丢 1 条历史）、中文输入法 Enter 误发送（`isComposing`/keyCode 229 判定）
-
-## 三、验证结果
+## III. Verification Results
 
 ```
-npm run build              # vue-tsc --noEmit && vite build → 通过
+npm run build              # vue-tsc --noEmit && vite build → Pass
 npm run typecheck          # 0 errors
-npm run lint               # 0 errors, 83 warnings（历史 JS 视图 unused-vars，基线持平）
-npm run preview            # HTTP 200，入口 chunk 正常
-npm run smoke:ai           # 10 项
-npm run smoke:compactor    # 6 项
-npm run smoke:persistence  # 5 项
-npm run smoke:corpus       # 4 项
-npm run smoke:mindmap      # 4 项
-npm run smoke:eventline    # 3 项   —— 六脚本共 32 项断言全部通过
+npm run lint               # 0 errors, 83 warnings (historical JS views unused-vars, baseline unchanged)
+npm run preview            # HTTP 200, entry chunk normal
+npm run smoke:ai           # 10 checks
+npm run smoke:compactor    # 6 checks
+npm run smoke:persistence  # 5 checks
+npm run smoke:corpus       # 4 checks
+npm run smoke:mindmap      # 4 checks
+npm run smoke:eventline    # 3 checks   —— all 32 assertions across six scripts passed
 ```
 
-构建产物（gzip 后）：
-- 首屏：index 21.2 KB + vendor-vue 11.7 KB；Element Plus 独立分包 327.7 KB（UI 常驻）
-- 按需异步 chunk：Writer 44.7 KB、vendor-editor 299.1 KB（仅编辑器页面）、AI SDK 独立 chunk（首次调用 AI 功能时加载）、MindElixir 30.6 KB（仅导图页面）
+Build output (gzipped):
+- First-load: index 21.2 KB + vendor-vue 11.7 KB; Element Plus isolated chunk 327.7 KB (resident UI)
+- On-demand async chunks: Writer 44.7 KB, vendor-editor 299.1 KB (editor page only), AI SDK isolated chunk (loaded upon first AI feature invocation), MindElixir 30.6 KB (mind map page only)
 
-## 四、后续路线图（建议顺序）
+## IV. Subsequent Roadmap (Suggested Order)
 
-1. **Writer.vue 继续拆分**（当前 ~10,550 行）：`useAIStream` 与解析器已就绪，按功能簇拆出：
-   - `writer/ChapterPanel`（章节 CRUD + 批量生成）
-   - `writer/CharacterPanel`（人物 CRUD + 批量生成，~1,100 行）
-   - `writer/WorldviewPanel`（世界观，~800 行）
+1. **Further splitting of Writer.vue** (currently ~10,550 lines): `useAIStream` and parsers ready; decompose by functional cluster:
+   - `writer/ChapterPanel` (chapter CRUD + batch generation)
+   - `writer/CharacterPanel` (character CRUD + batch generation, ~1,100 lines)
+   - `writer/WorldviewPanel` (worldbuilding, ~800 lines)
    - `writer/CorpusPanel` / `writer/EventPanel`
-   - `writer/dialogs/ContinueDialog`、`writer/dialogs/OptimizeDialog`、`writer/dialogs/PromptSelector`
-   - 持久化收口到 `saveNovelData` 单一入口
-2. **其余流式调用点迁移至 `useAIStream`**（模块就绪，部分已接入；chatWithAI 已收敛流式路径）
-3. **思维导图可编辑版**：需先设计 store 回写协议（只读 MVP 已上线）
-4. **按助手覆盖 contextPolicy**（`AssistantInfo.contextPolicy` 字段已预留）
-5. **视图层 TS 化**：按 `lang="ts"` 逐文件迁移（当前 `vue/block-lang` 规则已临时关闭，迁移完成后恢复）
-6. **lint warnings 清零**：历史代码的 unused vars 清理
-7. 二期候选：消息列表虚拟滚动、store 遗留 corpus 与 Writer corpusData 合并、暗色模式下导图画布底色校准
-8. 工程项：git 初始化建仓（当前无版本控制）
+   - `writer/dialogs/ContinueDialog`, `writer/dialogs/OptimizeDialog`, `writer/dialogs/PromptSelector`
+   - Consolidate persistence into single `saveNovelData` entry point
+2. **Migrate remaining streaming call sites to `useAIStream`** (module ready, partially integrated; `chatWithAI` converged to streaming path)
+3. **Editable Mind Map**: requires designing store write-back protocol (read-only MVP already launched)
+4. **Per-assistant contextPolicy override** (`AssistantInfo.contextPolicy` field already reserved)
+5. **Progressive TypeScript migration for view layer**: migrate file by file with `lang="ts"` (the `vue/block-lang` rule is temporarily disabled, to be re-enabled after migration)
+6. **Zero lint warnings**: clean up unused variables from historical code
+7. Phase 2 candidates: virtualized message lists, merge store legacy corpus with Writer corpusData, adjust mind map canvas background color in dark mode
+8. Engineering items: Git repository initialization (currently untracked)
 
-## 五、目录结构
+## V. Directory Structure
 
 ```
 src/
-├── main.ts                     # 启动链：initNovelPersistence 门闩 + initTheme
+├── main.ts                     # Startup chain: initNovelPersistence gate + initTheme
 ├── App.vue
-├── style.css                   # "墨纸"设计令牌 + EP 变量映射 + 暗色语义反转
-├── router/index.ts             # 15 个功能路由懒加载 + 404
-├── types/api.ts                # 共享类型（含 AssistantInfo/ContextPolicy）
+├── style.css                   # "Ink & Paper" design tokens + EP variable mapping + dark mode inversion
+├── router/index.ts             # 15 lazy-loaded feature routes + 404
+├── types/api.ts                # Shared types (including AssistantInfo/ContextPolicy)
 ├── config/
-│   ├── defaultPrompts.ts       # 默认提示词库（唯一来源）
+│   ├── defaultPrompts.ts       # Default prompt library (single source of truth)
 │   └── announcements.js
 ├── services/
-│   ├── aiProviders.ts          # 10 服务商预设 + 模型列表拉取 + 代理前缀
-│   ├── apiConfig.ts            # API 配置唯一事实来源
-│   ├── api.ts                  # Vercel AI SDK 封装（流式/中断/计费挂钩/system·messages）
-│   ├── billing.ts              # 本地模拟计费（token 估算委托 tokenBudget）
-│   ├── blobStore.ts            # IndexedDB 单 kv store 薄封装
-│   └── novelPersistence.ts     # novels 键 LS+IDB 分层后端（快路径/分片/hydrate）
+│   ├── aiProviders.ts          # 10 provider presets + model list fetching + proxy prefix
+│   ├── apiConfig.ts            # Single source of truth for API config
+│   ├── api.ts                  # Vercel AI SDK wrapper (streaming/abort/billing hooks/system·messages)
+│   ├── billing.ts              # Local simulated billing (token estimation delegated to tokenBudget)
+│   ├── blobStore.ts            # IndexedDB single kv store thin wrapper
+│   └── novelPersistence.ts     # novels key LS+IDB tiered backend (fast path/sharding/hydrate)
 ├── stores/
-│   ├── novel.ts                # 核心 Pinia store
-│   └── assistant.ts            # 助手 CRUD + 会话持久化 + 上下文压缩状态机
+│   ├── novel.ts                # Core Pinia store
+│   └── assistant.ts            # Assistant CRUD + session persistence + context compactor state machine
 ├── composables/
-│   ├── useAIStream.ts          # 流式生成统一状态机
-│   └── useTheme.ts             # light/dark/system 三态主题
+│   ├── useAIStream.ts          # Unified streaming generation state machine
+│   └── useTheme.ts             # light/dark/system tri-state theme
 ├── utils/
-│   ├── storage.ts              # localStorage 唯一入口 + chunked 键注册
-│   ├── tokenBudget.ts          # token 估算 + 截断预算登记表
-│   ├── contextCompactor.ts     # 上下文压缩纯函数（评估/滑窗/增量摘要）
-│   ├── corpusRetrieval.ts      # 语料 bigram 检索推荐纯函数
-│   ├── mindmapData.ts          # novel → mind-elixir 节点树
-│   ├── eventLine.ts            # 事件章号迁移纯函数
-│   ├── chapterParser.ts        # AI 章节响应 5 级解析
+│   ├── storage.ts              # localStorage single entry point + chunked key registration
+│   ├── tokenBudget.ts          # token estimation + truncation budget registry
+│   ├── contextCompactor.ts     # Context compaction pure functions (evaluation/sliding window/incremental summary)
+│   ├── corpusRetrieval.ts      # Corpus bigram retrieval & recommendation pure functions
+│   ├── mindmapData.ts          # novel → mind-elixir node tree
+│   ├── eventLine.ts            # Event chapter number migration pure function
+│   ├── chapterParser.ts        # AI chapter response 5-level parser
 │   └── id.ts
-├── components/                 # ApiConfig、AnnouncementDialog 等
-└── views/                      # 17 个页面（核心层 TS，视图层渐进 TS 化）
-    ├── Writer.vue              # 写作工作台（~10,550 行，待拆分）
-    ├── AssistantManagement.vue # AI 助手（TS）
-    ├── MindMap.vue             # 思维导图（TS）
+├── components/                 # ApiConfig, AnnouncementDialog, etc.
+└── views/                      # 17 pages (core layer TS, view layer progressively typed)
+    ├── Writer.vue              # Writing workbench (~10,550 lines, to be split)
+    ├── AssistantManagement.vue # AI Assistant (TS)
+    ├── MindMap.vue             # Mind Map (TS)
     └── ...
 ```

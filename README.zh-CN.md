@@ -107,7 +107,7 @@ npm run smoke:prompts                 # 默认提示词与合并规则
 
 ## 🐳 Docker 部署
 
-详见 [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md)，重构说明见 [REFACTORING.md](REFACTORING.md)。
+详见 [DOCKER_DEPLOY.zh-CN.md](DOCKER_DEPLOY.zh-CN.md)，重构说明见 [REFACTORING.zh-CN.md](REFACTORING.zh-CN.md)。
 
 ```bash
 # 开发环境（端口 3000）
