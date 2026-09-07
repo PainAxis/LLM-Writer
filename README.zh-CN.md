@@ -32,15 +32,17 @@
 - **上下文容量管理**：Token/条数双量纲预算、截断滑窗与增量摘要两种策略、失败显式弹窗处理（无静默降级）
 - **模型列表同步**：一键拉取服务商端模型列表并缓存；内置常用模型兜底
 - **提示词库**：分类管理、变量系统、导入导出、使用统计
-- **拆书分析**：TXT/DOCX 导入、5 维 AI 分析、结果管理
+- **拆书分析**：TXT 支持 UTF-8/GBK，DOCX 在浏览器中解析为纯文本；本地识别章节标题，无标题时可按长度分章；另提供 5 维 AI 分析与结果管理
 - **短文创作**：多模板短文/短篇写作
 - **写作目标**：日/周/月目标、进度跟踪、成就激励
 - **Token 计费**：本地用量统计与成本台账（模拟）
 
 ### 工程特性
-- **本地存储分层**：localStorage + IndexedDB 自动分层，长篇正文分片存储，配额超限防护与降级
+- **本地存储分层**：localStorage + IndexedDB 自动分层；长正文使用独立版本分片，元数据提交成功后才清理旧分片。保存状态等待实际提交，失败可重试；正文加载失败时暂停打开项目，保留原有数据
+- **系统备份**：v2 JSON 备份覆盖 20 个当前存储键，可选择小说、提示词、题材、目标、助手及设置；支持旧版备份导入，恢复前校验数据，写入失败时尝试回滚。所选设置包含 API 密钥
+- **工作台模块化**：项目加载、章节切换与自动保存集中到 `useWriterProject`，富文本编辑器封装为 `WriterEditor`；切换前等待保存，失败时保留编辑上下文
 - **暗色模式**：light / dark / system 三态主题，跟随系统自动切换
-- **按需加载**：路由级懒加载，AI SDK、编辑器、思维导图均为独立异步 chunk，首屏零负担
+- **按需加载**：路由级懒加载；首页静态依赖不包含 AI SDK、编辑器和思维导图库，写作编辑器在打开章节时加载，DOCX 解析器在导入时加载
 
 ## 🛠️ 技术栈
 
@@ -77,15 +79,25 @@ npm run format
 
 ### 冒烟测试
 
-无浏览器依赖的端到端验证脚本（本地 Mock SSE 服务器 + 内存 fake-IDB）：
+以下为无需浏览器的模块与集成回归，使用本地 Mock SSE、内存 fake-IDB 和文档夹具；不需要真实 API 密钥。修改后先运行 `npm run typecheck`、`npm run lint` 和相关冒烟脚本，生产构建使用 `npm run build`。
 
 ```bash
-npm run smoke:ai           # AI SDK：流式/计费/探活/中断/模型拉取/代理（10 项）
-npm run smoke:compactor    # 上下文压缩：预算/滑窗/增量摘要（6 项）
-npm run smoke:persistence  # 存储分层：直写/分片/回填/回滚（5 项）
-npm run smoke:corpus       # 语料检索：关键词/评分/注入预算（4 项）
-npm run smoke:mindmap      # 导图数据：分支/挂载/截断兜底（4 项）
-npm run smoke:eventline    # 事件线：章号迁移/兼容（3 项）
+npm run smoke:ai                      # AI SDK：流式、探活、中断、模型拉取与代理
+npm run smoke:ai-scope                # 请求隔离、取消及过期回调
+npm run smoke:compactor               # 上下文预算、滑窗与增量摘要
+npm run smoke:persistence             # 分片提交、失败恢复、排队与回填
+npm run smoke:persistence-retry       # 全局重试与当前编辑、回滚状态一致
+npm run smoke:writer-stream           # 切章、对话框生命周期及迟到的流式结果
+npm run smoke:writer-init             # 项目加载、素材隔离、切换与保存竞态
+npm run smoke:writer-actions          # 编辑/删除失败、重试与异步切章
+npm run smoke:management-persistence  # 管理页面等待保存后再更新界面
+npm run smoke:book-import             # TXT/DOCX 解析、编码与本地分章
+npm run smoke:backup                  # v2/旧版备份、校验、恢复与回滚
+npm run smoke:bundle                  # 内存生产构建，检查首页与功能依赖图
+npm run smoke:corpus                  # 关键词检索、评分与注入预算
+npm run smoke:mindmap                 # 导图分支、挂载与截断兜底
+npm run smoke:eventline               # 章号迁移与兼容
+npm run smoke:prompts                 # 默认提示词与合并规则
 ```
 
 ### 首次使用

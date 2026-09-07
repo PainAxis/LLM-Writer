@@ -25,6 +25,7 @@
               placeholder="请选择要管理的小说"
               style="width: 300px;"
               @change="handleNovelChange"
+              :disabled="isSavingChapters"
             >
               <el-option
                 v-for="novel in novels"
@@ -175,11 +176,14 @@
 
     <!-- 创建/编辑章节对话框 -->
     <el-dialog 
-      v-model="showCreateDialog" 
+      v-model="showCreateDialog"
+      :close-on-click-modal="!isSavingChapters"
+      :close-on-press-escape="!isSavingChapters"
+      :show-close="!isSavingChapters"
       :title="editingChapter ? '编辑章节' : '创建新章节'" 
       width="800px"
     >
-      <el-form :model="chapterForm" :rules="chapterRules" ref="chapterFormRef" label-width="80px">
+      <el-form :model="chapterForm" :disabled="isSavingChapters" :rules="chapterRules" ref="chapterFormRef" label-width="80px">
         <el-form-item label="章节标题" prop="title">
           <el-input 
             v-model="chapterForm.title" 
@@ -244,8 +248,8 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveChapter">保存</el-button>
+        <el-button @click="showCreateDialog = false" :disabled="isSavingChapters">取消</el-button>
+        <el-button type="primary" @click="saveChapter" :loading="isSavingChapters">保存</el-button>
       </template>
     </el-dialog>
 
@@ -271,9 +275,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
+import { subscribeNovelPersistenceStatus } from '@/services/novelPersistence'
 import { 
   Plus, EditPen, Calendar, Edit, View, MoreFilled, 
   CopyDocument, ArrowUp, ArrowDown, Delete 
@@ -291,6 +296,8 @@ const previewChapter = ref(null)
 const selectedChapters = ref([])
 const tagInput = ref('')
 const chapterFormRef = ref()
+const isSavingChapters = ref(false)
+const chapterDraft = ref(null)
 
 // 小说数据 - 从localStorage加载真实数据
 const novels = ref([])
@@ -388,31 +395,25 @@ const loadChapters = (novelId) => {
   }
 }
 
-const saveChaptersToNovel = () => {
-  if (!selectedNovelId.value) return
-  
+const saveChaptersToNovel = async (nextChapters = chapters.value, novelId = selectedNovelId.value) => {
+  if (isSavingChapters.value) throw new Error('正在保存章节，请稍后重试')
+  if (!novelId) throw new Error('请先选择小说')
+  const savedNovels = storageGet(StorageKeys.novels, [])
+  if (!savedNovels.some(n => n.id === novelId)) throw new Error('小说已不存在')
+  const nextNovels = savedNovels.map(novel => novel.id === novelId ? {
+    ...novel,
+    chapterList: nextChapters,
+    wordCount: nextChapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0),
+    chapters: nextChapters.length,
+    updatedAt: new Date()
+  } : novel)
+  isSavingChapters.value = true
   try {
-    const novels = storageGet(StorageKeys.novels, [])
-    const novelIndex = novels.findIndex(n => n.id === selectedNovelId.value)
-    
-    if (novelIndex > -1) {
-      // 更新章节列表
-      novels[novelIndex].chapterList = chapters.value
-      // 重新计算总字数
-      novels[novelIndex].wordCount = chapters.value.reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
-      // 更新章节数（兼容性）
-      novels[novelIndex].chapters = chapters.value.length
-      // 更新修改时间
-      novels[novelIndex].updatedAt = new Date()
-
-      storageSet(StorageKeys.novels, novels)
-      
-      // 同步更新本地的novels数据
-      loadNovels()
-    }
-  } catch (error) {
-    console.error('保存章节数据失败:', error)
-    ElMessage.error('保存失败')
+    await storageSet(StorageKeys.novels, nextNovels)
+    loadNovels()
+    loadChapters(selectedNovelId.value)
+  } finally {
+    isSavingChapters.value = false
   }
 }
 
@@ -426,98 +427,108 @@ const viewChapter = (chapter) => {
   showPreviewDialog.value = true
 }
 
-const duplicateChapter = (chapter) => {
+const duplicateChapter = async (chapter) => {
+  if (isSavingChapters.value) return
   const newChapter = {
-    ...chapter,
+    ...JSON.parse(JSON.stringify(chapter)),
     id: Date.now(),
     title: chapter.title + ' (副本)',
     status: 'draft',
     createdAt: new Date(),
     updatedAt: new Date()
   }
-  chapters.value.push(newChapter)
-  // 保存到localStorage
-  saveChaptersToNovel()
-  ElMessage.success('章节复制成功')
-}
-
-const moveChapter = (chapter, direction) => {
-  const index = chapters.value.findIndex(c => c.id === chapter.id)
-  if (direction === 'up' && index > 0) {
-    [chapters.value[index], chapters.value[index - 1]] = [chapters.value[index - 1], chapters.value[index]]
-    // 保存到localStorage
-    saveChaptersToNovel()
-    ElMessage.success('章节上移成功')
-  } else if (direction === 'down' && index < chapters.value.length - 1) {
-    [chapters.value[index], chapters.value[index + 1]] = [chapters.value[index + 1], chapters.value[index]]
-    // 保存到localStorage
-    saveChaptersToNovel()
-    ElMessage.success('章节下移成功')
+  try {
+    await saveChaptersToNovel([...chapters.value, newChapter])
+    ElMessage.success('章节复制成功')
+  } catch {
+    ElMessage.error('章节复制未保存，请重试')
   }
 }
 
-const deleteChapter = (chapter) => {
-  ElMessageBox.confirm(
-    `确定要删除章节「${chapter.title}」吗？此操作不可恢复。`,
-    '确认删除',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(() => {
-    const index = chapters.value.findIndex(c => c.id === chapter.id)
-    if (index > -1) {
-      chapters.value.splice(index, 1)
-      // 保存到localStorage
-      saveChaptersToNovel()
-      ElMessage.success('章节删除成功')
-    }
-  })
+const moveChapter = async (chapter, direction) => {
+  if (isSavingChapters.value) return
+  const index = chapters.value.findIndex(c => c.id === chapter.id)
+  const target = index + (direction === 'up' ? -1 : 1)
+  if (index < 0 || target < 0 || target >= chapters.value.length) return
+  const nextChapters = [...chapters.value]
+  ;[nextChapters[index], nextChapters[target]] = [nextChapters[target], nextChapters[index]]
+  try {
+    await saveChaptersToNovel(nextChapters)
+    ElMessage.success(direction === 'up' ? '章节上移成功' : '章节下移成功')
+  } catch {
+    ElMessage.error('章节顺序未保存，请重试')
+  }
 }
 
-const saveChapter = () => {
-  chapterFormRef.value.validate((valid) => {
-    if (valid) {
-      const wordCount = chapterForm.value.content.replace(/<[^>]*>/g, '').length
-      
-      if (editingChapter.value) {
-        // 编辑现有章节
-        const index = chapters.value.findIndex(c => c.id === editingChapter.value.id)
-        if (index > -1) {
-          chapters.value[index] = {
-            ...chapters.value[index],
-            ...chapterForm.value,
-            wordCount,
-            updatedAt: new Date()
-          }
-        }
-        ElMessage.success('章节更新成功')
-      } else {
-        // 创建新章节
-        const newChapter = {
-          id: Date.now(),
-          ...chapterForm.value,
-          wordCount,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          aiGenerated: false,
-          status: chapterForm.value.status || 'draft'
-        }
-        chapters.value.push(newChapter)
-        ElMessage.success('章节创建成功')
-      }
-      
-      // 保存到localStorage
-      saveChaptersToNovel()
-      
-      showCreateDialog.value = false
-      resetForm()
+const deleteChapter = async (chapter) => {
+  if (isSavingChapters.value) return
+  const novelId = selectedNovelId.value
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除章节「${chapter.title}」吗？此操作不可恢复。`,
+      '确认删除',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return // 用户取消确认
+  }
+  if (selectedNovelId.value !== novelId) return
+  try {
+    if (chapters.value.some(c => c.id === chapter.id)) {
+      await saveChaptersToNovel(chapters.value.filter(c => c.id !== chapter.id), novelId)
+      ElMessage.success('章节删除成功')
     }
-  })
+  } catch {
+    ElMessage.error('章节删除未保存，请重试')
+  }
+}
+
+const saveChapter = async () => {
+  if (isSavingChapters.value) return
+  try {
+    await chapterFormRef.value.validate()
+  } catch {
+    return
+  }
+  try {
+    const wordCount = chapterForm.value.content.replace(/<[^>]*>/g, '').length
+    const wasEditing = Boolean(editingChapter.value)
+    const nextChapters = [...chapters.value]
+    if (wasEditing) {
+      const index = nextChapters.findIndex(c => c.id === editingChapter.value.id)
+      if (index < 0) throw new Error('章节已不存在')
+      nextChapters[index] = {
+        ...nextChapters[index], ...chapterForm.value, tags: [...chapterForm.value.tags],
+        wordCount, updatedAt: new Date()
+      }
+    } else {
+      if (!selectedNovelId.value) throw new Error('请先选择小说')
+      if (!chapterDraft.value) {
+        chapterDraft.value = { id: Date.now(), novelId: selectedNovelId.value, createdAt: new Date() }
+      }
+      const draft = chapterDraft.value
+      if (draft.novelId !== selectedNovelId.value) throw new Error('请先返回创建草稿时选择的小说')
+      const index = nextChapters.findIndex(chapter => chapter.id === draft.id)
+      const existing = nextChapters[index]
+      const savedChapter = {
+        aiGenerated: false, ...existing, ...chapterForm.value, tags: [...chapterForm.value.tags],
+        id: draft.id, wordCount, createdAt: existing?.createdAt ?? draft.createdAt,
+        updatedAt: new Date(), status: chapterForm.value.status || 'draft'
+      }
+      if (index < 0) nextChapters.push(savedChapter)
+      else nextChapters[index] = savedChapter
+    }
+    await saveChaptersToNovel(nextChapters)
+    ElMessage.success(wasEditing ? '章节更新成功' : '章节创建成功')
+    showCreateDialog.value = false
+    resetForm()
+  } catch {
+    ElMessage.error('章节尚未保存，编辑内容已保留，请重试')
+  }
 }
 
 const resetForm = () => {
+  chapterDraft.value = null
   chapterForm.value = {
     title: '',
     summary: '',
@@ -552,14 +563,21 @@ const batchEdit = () => {
   ElMessage.info('批量编辑功能开发中...')
 }
 
-// 生命周期
+// 全局重试成功后同步列表；不重置正在编辑的表单。
+const handlePersistenceStatus = (status) => {
+  if (status.phase !== 'saved' || status.pending !== 0) return
+  loadNovels()
+  if (!novels.value.some(novel => novel.id === selectedNovelId.value)) selectedNovelId.value = null
+  loadChapters(selectedNovelId.value)
+}
+let unsubscribePersistence = () => {}
 onMounted(() => {
-  // 如果有默认小说，自动选择
-  if (novels.value.length > 0) {
-    selectedNovelId.value = novels.value[0].id
-    loadChapters(selectedNovelId.value)
-  }
+  loadNovels()
+  if (novels.value.length > 0) selectedNovelId.value = novels.value[0].id
+  loadChapters(selectedNovelId.value)
+  unsubscribePersistence = subscribeNovelPersistenceStatus(handlePersistenceStatus)
 })
+onUnmounted(() => unsubscribePersistence())
 
 // 监听对话框关闭
 watch(showCreateDialog, (newVal) => {
@@ -568,10 +586,6 @@ watch(showCreateDialog, (newVal) => {
   }
 })
 
-// 生命周期
-onMounted(() => {
-  loadNovels()
-})
 </script>
 
 <style scoped>

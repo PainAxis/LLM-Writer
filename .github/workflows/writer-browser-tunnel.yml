@@ -1,0 +1,131 @@
+name: Writer browser tunnel
+
+on:
+  push:
+    branches: ['test/writer-browser-tunnel']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: writer-browser-tunnel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stop:
+    if: ${{ contains(github.event.head_commit.message, '[stop preview]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Previous preview cancelled by workflow concurrency.'
+  browser:
+    if: ${{ !contains(github.event.head_commit.message, '[stop preview]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Verify preview boundaries and browser workflows
+        run: |
+          node scripts/smoke-browser-preview.mjs
+          node scripts/browser-preview.mjs > "$RUNNER_TEMP/browser-preview.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/__test/health > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/browser-regression.mjs
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: writer-browser-evidence
+          path: artifacts/browser
+          if-no-files-found: warn
+          retention-days: 7
+  preview:
+    if: ${{ !contains(github.event.head_commit.message, '[stop preview]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Install the official tunnel client
+        run: |
+          curl -fL --retry 3 https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64 -o "$RUNNER_TEMP/cloudflared"
+          echo 'f29324fe934d1e100617484c78deef803c4dc2cd351d645bbde42e96b4fccc5e  '"$RUNNER_TEMP/cloudflared" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/cloudflared"
+      - name: Start isolated preview and tunnel
+        id: tunnel
+        run: |
+          node scripts/browser-preview.mjs > "$RUNNER_TEMP/preview.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/preview.pid"
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/__test/health > "$RUNNER_TEMP/preview-health.json"; then break; fi
+            sleep 1
+          done
+          test -s "$RUNNER_TEMP/preview-health.json"
+          "$RUNNER_TEMP/cloudflared" tunnel --no-autoupdate --protocol http2 --url http://127.0.0.1:4173 > "$RUNNER_TEMP/tunnel.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/tunnel.pid"
+          python3 - <<'PY'
+          import json, os, pathlib, re, time, urllib.request
+          task_temp = pathlib.Path(os.environ['RUNNER_TEMP'])
+          for attempt in range(90):
+              log = (task_temp / 'tunnel.log').read_text()
+              matches = re.findall(r'https://[a-z0-9-]+\.trycloudflare\.com', log)
+              if matches:
+                  url = matches[-1]
+                  try:
+                      with urllib.request.urlopen(url + '/__test/health', timeout=5) as response:
+                          health = json.load(response)
+                      if health['sha'] != os.environ['GITHUB_SHA']:
+                          raise RuntimeError('Unexpected preview revision')
+                      info = {**health, 'url': url, 'instructions': url + '/__test/', 'mockApiUrl': url + '/__test/v1', 'mockApiKey': 'preview-test-key'}
+                      (task_temp / 'preview-url.json').write_text(json.dumps(info, ensure_ascii=False, indent=2))
+                      with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                          summary.write(f"## Temporary browser preview\n\n[{url}]({url}) · [Test instructions]({url}/__test/)\n\nRevision: `{health['sha']}`\n\nExpires: {health['expiresAt']} (or when this run is cancelled).\n\nOnly built assets and synthetic fixtures are exposed. Quick Tunnel does not support SSE; the separate runner browser job checks incremental streaming.\n")
+                      with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+                          output.write('host=' + url.removeprefix('https://') + '\n')
+                      print('Preview ready: ' + url, flush=True)
+                      break
+                  except Exception:
+                      pass
+              time.sleep(1)
+          else:
+              raise SystemExit('Tunnel did not become ready')
+          PY
+      - name: Publish live preview URL before waiting
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: writer-preview-url-${{ steps.tunnel.outputs.host }}
+          path: ${{ runner.temp }}/preview-url.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Keep preview available until its automatic expiry
+        run: |
+          while kill -0 "$(cat "$RUNNER_TEMP/preview.pid")" 2>/dev/null; do
+            kill -0 "$(cat "$RUNNER_TEMP/tunnel.pid")"
+            sleep 10
+          done
+      - name: Stop temporary services
+        if: always()
+        run: |
+          for name in preview tunnel; do
+            if test -f "$RUNNER_TEMP/$name.pid"; then kill "$(cat "$RUNNER_TEMP/$name.pid")" 2>/dev/null || true; fi
+          done

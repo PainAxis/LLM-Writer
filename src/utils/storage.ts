@@ -72,10 +72,10 @@ function resolveKey(key: StorageKey | string): string {
 export interface ChunkedKeyBackend {
   /** 同步读取（启动时已 hydrate 到内存） */
   get(): unknown
-  /** 写入：内存立即生效，持久化异步完成；快路径下配额错误同步抛出 */
-  set(value: unknown): void
+  /** 内存立即生效；返回值可 await，只有持久化成功后才完成。 */
+  set(value: unknown): void | Promise<void>
   /** 清除：内存缓存 + LS 键 + IDB 分片 */
-  remove(): void
+  remove(): void | Promise<void>
   /** 启动 hydrate 是否已完成 */
   isReady(): boolean
 }
@@ -91,7 +91,7 @@ export function registerChunkedKey(key: StorageKey | string, backend: ChunkedKey
 export function storageGet<T>(key: StorageKey | string, fallback: T): T {
   const resolved = resolveKey(key)
   const backend = chunkedBackends.get(resolved)
-  if (backend && backend.isReady()) {
+  if (backend) {
     return backend.get() as T
   }
   try {
@@ -138,30 +138,38 @@ export function writeSerializedWithRetry(target: string, serialized: string): vo
 }
 
 /** 删除键；已注册分片后端的键连同 IDB 分片一并清除 */
-export function storageRemove(key: StorageKey | string): void {
+export function storageRemove(key: StorageKey | string): void | Promise<void> {
   const resolved = resolveKey(key)
   const backend = chunkedBackends.get(resolved)
-  if (backend && backend.isReady()) {
-    backend.remove()
-    return
-  }
+  if (backend) return backend.remove()
   try {
     localStorage.removeItem(resolved)
   } catch (error) {
     console.error(`[storage] 删除 ${String(key)} 失败:`, error)
+    throw error
   }
 }
 
 /** 清空全部本地存储（含各分片后端的 IDB 数据） */
-export function storageClear(): void {
+export function storageClear(): Promise<void> {
+  const removals: Promise<void>[] = []
   try {
+    // 后端删除进入各自的保存队列，保证早先的异步写入不能在清除完成后复活。
     for (const backend of chunkedBackends.values()) {
-      if (backend.isReady()) backend.remove()
+      if (!backend.isReady()) throw new Error('数据仍在加载，请稍后重试')
+      removals.push(Promise.resolve(backend.remove()))
     }
-    localStorage.clear()
+    // 清除普通键；分片键仍由以上有序删除负责最终提交。
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index)
+      if (key !== null && !chunkedBackends.has(key)) localStorage.removeItem(key)
+    }
   } catch (error) {
-    console.error('[storage] 清空失败:', error)
+    removals.push(Promise.reject(error))
   }
+  const result = Promise.all(removals).then(() => undefined)
+  void result.catch(() => undefined)
+  return result
 }
 
 /** 可再生的缓存键（配额紧张时优先清除，需要时会自动重建） */
@@ -178,13 +186,10 @@ function isQuotaError(error: unknown): boolean {
 
 /** 序列化并写入；配额不足时先清除可再生缓存重试，仍失败则显式抛出。
  *  已注册分片后端的键整键转交后端处理。 */
-export function storageSet(key: StorageKey | string, value: unknown): void {
+export function storageSet(key: StorageKey | string, value: unknown): void | Promise<void> {
   const resolved = resolveKey(key)
   const backend = chunkedBackends.get(resolved)
-  if (backend && backend.isReady()) {
-    backend.set(value)
-    return
-  }
+  if (backend) return backend.set(value)
 
   let serialized: string
   try {
@@ -207,11 +212,11 @@ export function createPersistentState<T>(key: StorageKey | string, defaultValue:
       const value = storageGet<T | null>(key, null)
       return value === null ? structuredClone(defaultValue) : value
     },
-    save(value: T): void {
-      storageSet(key, value)
+    save(value: T): void | Promise<void> {
+      return storageSet(key, value)
     },
-    reset(): void {
-      storageSet(key, defaultValue)
+    reset(): void | Promise<void> {
+      return storageSet(key, defaultValue)
     },
   }
 }

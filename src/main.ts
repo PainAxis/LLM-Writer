@@ -29,7 +29,7 @@ async function bootstrap(): Promise<void> {
   try {
     await initNovelPersistence()
   } catch (error) {
-    console.error('数据层初始化失败，将以降级模式运行:', error)
+    console.error('数据层初始化失败，已暂停打开项目，等待重试:', error)
   }
   app.mount('#app')
 }
