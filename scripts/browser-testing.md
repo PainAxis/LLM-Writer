@@ -27,3 +27,13 @@ node scripts/browser-regression.mjs
 ```
 
 The default address is `http://127.0.0.1:4173`. `PREVIEW_PORT` changes the preview port; the browser script accepts `PREVIEW_URL` and `MOCK_API_URL` overrides. The temporary tunnel runs only on the GitHub-hosted runner.
+
+## Verified run
+
+Revision `2af761f1f65954059228f30588934678861ef447` passed all seven real Chromium scenarios with zero uncaught page errors in the [browser job](https://github.com/PainAxis/LLM-Writer/actions/runs/34103975835/job/101684696577): API setup, editor persistence after reload, stream cancellation, chapter-switch cancellation, DOCX import and invalid-file recovery, backup restoration, and large-content IndexedDB round trips. The [evidence artifact](https://github.com/PainAxis/LLM-Writer/actions/runs/34103975835/artifacts/10011672396) contains the report, trace, screenshots, and synthetic backups and is retained for seven days.
+
+Manual interaction through the preceding Cloudflare preview at revision `0518b00f0fcabfb82a0219beafd3a56d7b9acb10` verified novel/chapter creation, rich-text editing and recovery after reload, and DOCX parsing with literal script-like text. A final cloud-browser health-page recheck encountered `ERR_BLOCKED_BY_CLIENT`; the final revision's complete browser regression was verified on the GitHub runner as described above.
+
+The browser run exposed uncaught cancellation rejections in the AI SDK's unused browser telemetry path. Both generation paths now explicitly disable telemetry, and the request-scope regression also exercises the SDK's browser runtime branch. No page errors are filtered or ignored by the browser regression.
+
+The follow-up documentation commit uses `[stop preview]` to cancel the temporary preview through workflow concurrency while preserving the successful browser job and its evidence. All work is on `test/writer-browser-tunnel`; the default branch is unchanged.
