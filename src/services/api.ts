@@ -132,6 +132,7 @@ class APIService {
       this.throwIfAborted(signal)
       const result = await generateText({
         model,
+        telemetry: { isEnabled: false },
         ...(options.messages?.length ? { messages: options.messages } : { prompt: this.sanitizePrompt(prompt) }),
         system: options.system ? this.sanitizePrompt(options.system) : undefined,
         temperature,
@@ -189,6 +190,9 @@ class APIService {
 
       const result = streamText({
         model,
+        // This browser app has no telemetry integration. In AI SDK 7.0.91 the
+        // browser tracing branch leaves its completion promise unobserved on abort.
+        telemetry: { isEnabled: false },
         system: systemPrompt,
         ...(hasMessages ? { messages } : { prompt: cleanPrompt }),
         temperature,

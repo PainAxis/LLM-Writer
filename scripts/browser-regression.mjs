@@ -43,7 +43,16 @@ await context.route('**/*', async route => {
 })
 const page = await context.newPage()
 page.setDefaultTimeout(15_000)
-page.on('pageerror', error => errors.push(String(error)))
+page.on('pageerror', error => {
+  const entry = {
+    at: new Date().toISOString(),
+    scenario: report.tests.at(-1)?.name || 'bootstrap',
+    message: String(error),
+    stack: error.stack || null,
+  }
+  errors.push(entry)
+  console.error('BROWSER PAGE ERROR ' + JSON.stringify(entry))
+})
 page.on('console', message => {
   if (['warning', 'error'].includes(message.type())) consoleMessages.push({ type: message.type(), text: message.text() })
 })

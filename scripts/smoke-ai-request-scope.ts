@@ -5,6 +5,15 @@ import type { AddressInfo } from 'node:net'
 import type { StreamCallback } from '../src/types/api'
 import { createAIRequestScope, isAIRequestCancelled, type AIRequestState } from '../src/utils/aiRequestScope'
 
+// Exercise the actual SDK's browser branch: its Node tracing path observes a
+// completion promise that its browser path leaves unhandled on cancellation.
+// Keep Node APIs available to the local SSE server, changing only runtime detection.
+const originalRelease = Object.getOwnPropertyDescriptor(process, 'release')!
+Object.defineProperty(process, 'release', { ...originalRelease, value: { ...process.release, name: 'browser' } })
+const unhandledRejections: unknown[] = []
+const recordUnhandledRejection = (error: unknown) => unhandledRejections.push(error)
+process.on('unhandledRejection', recordUnhandledRejection)
+
 const storage = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', { value: {
   getItem: (key: string) => storage.get(key) ?? null,
@@ -238,6 +247,11 @@ async function main() {
   await bounded(rejects)
   await bounded(Promise.all([globalA.closed.promise, globalB.closed.promise]))
   console.log('✓ 兼容全局中断可关闭所有并发请求')
+  // Give all detached SDK continuations a turn before asserting, without
+  // weakening the browser CI's separate pageerror = [] requirement.
+  await new Promise<void>(resolve => setImmediate(resolve))
+  assert.deepEqual(unhandledRejections, [], '浏览器运行时取消/超时/服务端错误不能泄漏未处理的 Promise 拒绝')
+  console.log('✓ SDK 浏览器运行时无未处理 Promise 拒绝（取消、超时及服务端错误）')
 }
 
 main().then(() => {
@@ -249,4 +263,6 @@ main().then(() => {
   abortAll()
   server.closeAllConnections()
   server.close()
+  Object.defineProperty(process, 'release', originalRelease)
+  process.off('unhandledRejection', recordUnhandledRejection)
 })
