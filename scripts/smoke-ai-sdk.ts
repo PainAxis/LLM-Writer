@@ -123,14 +123,16 @@ async function main() {
   useApiConfig().updateConfig({ apiKey: 'test-key' })
   console.log('✓ 测试3 通过：连接测试（密钥校验）')
 
-  // ---- 测试 4：中断 → 返回部分内容 ----
+  // ---- 测试 4：中断 → 可识别的取消结果，保留部分内容 ----
   useApiConfig().updateConfig({ selectedModel: 'hang-model' })
-  const partialPromise = apiService.generateTextStream('测试中断', {}, null)
-  await new Promise((r) => setTimeout(r, 400))
-  apiService.abortActiveRequests()
-  const partial = await partialPromise
-  assert.strictEqual(partial, '你好，世界', '中断后应返回已获得的部分内容')
-  console.log('✓ 测试4 通过：中断后返回部分内容')
+  const partialPromise = apiService.generateTextStream('测试中断', {}, (_chunk, full) => {
+    if (full === '你好，世界') apiService.abortActiveRequests()
+  })
+  const { isAIRequestCancelled } = await import('../src/utils/aiRequestScope')
+  await assert.rejects(partialPromise, (error) => {
+    return isAIRequestCancelled(error) && error.partialContent === '你好，世界'
+  }, '中断应抛出取消异常并保留部分内容，不能继续执行成功分支')
+  console.log('✓ 测试4 通过：中断后保留部分内容且不会返回成功')
 
   // ---- 测试 5：模型列表拉取 ----
   const { fetchProviderModels } = await import('../src/services/aiProviders')

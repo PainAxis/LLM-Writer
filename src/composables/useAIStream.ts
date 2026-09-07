@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import apiService from '@/services/api'
+import { createAIRequestScope, isAIRequestCancelled } from '@/utils/aiRequestScope'
 import type { GenerateOptions } from '@/types/api'
 
 export interface RunStreamOptions {
@@ -27,20 +28,21 @@ export function useAIStream() {
   const isStreaming = ref(false)
   const streamingContent = ref('')
   const streamingType = ref('')
+  const scope = createAIRequestScope(
+    (prompt, options, onChunk) => apiService.generateTextStream(prompt, options, onChunk),
+    (state) => {
+      isStreaming.value = state.isStreaming
+      streamingContent.value = state.streamingContent
+      streamingType.value = state.streamingType
+    },
+  )
 
   async function run(options: RunStreamOptions): Promise<string | null> {
-    isStreaming.value = true
-    streamingType.value = options.type
-    streamingContent.value = ''
-
     try {
-      const result = await apiService.generateTextStream(
+      const result = await scope.generate(
         options.prompt,
-        options.generateOptions ?? {},
-        (chunk, fullContent) => {
-          streamingContent.value = fullContent
-          options.onChunk?.(chunk, fullContent)
-        },
+        { type: options.type, ...options.generateOptions },
+        options.onChunk ?? null,
       )
 
       if (!result.trim()) {
@@ -52,27 +54,19 @@ export function useAIStream() {
       }
       return result
     } catch (error) {
+      if (isAIRequestCancelled(error)) return error.partialContent || null
       console.error(`[${options.type}] 流式生成失败:`, error)
       ElMessage.error(`${options.errorPrefix ?? '生成'}失败: ${(error as Error).message}`)
       return null
-    } finally {
-      isStreaming.value = false
     }
   }
 
   /** 中断当前流式请求（真正取消网络请求） */
   function stop(message = '已停止生成'): void {
-    apiService.abortActiveRequests()
-    isStreaming.value = false
+    scope.stop()
     if (message) {
       ElMessage.info(message)
     }
-  }
-
-  /** 仅清理状态（不中断请求） */
-  function reset(): void {
-    isStreaming.value = false
-    streamingContent.value = ''
   }
 
   return {
@@ -80,7 +74,9 @@ export function useAIStream() {
     streamingContent,
     streamingType,
     run,
+    generate: scope.generate,
     stop,
-    reset,
+    reset: scope.reset,
+    dispose: scope.dispose,
   }
 }

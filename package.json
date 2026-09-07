@@ -18,7 +18,16 @@
     "smoke:corpus": "node --import tsx scripts/smoke-corpus-retrieval.ts",
     "smoke:mindmap": "node --import tsx scripts/smoke-mindmap-data.ts",
     "smoke:eventline": "node --import tsx scripts/smoke-event-line.ts",
-    "smoke:prompts": "node --import tsx scripts/smoke-default-prompts.ts"
+    "smoke:prompts": "node --import tsx scripts/smoke-default-prompts.ts",
+    "smoke:writer-init": "node --import tsx scripts/smoke-writer-init.ts",
+    "smoke:ai-scope": "node --import tsx scripts/smoke-ai-request-scope.ts",
+    "smoke:backup": "node --import tsx scripts/smoke-backup.ts",
+    "smoke:book-import": "node --import tsx scripts/smoke-book-import.ts",
+    "smoke:management-persistence": "node --import tsx scripts/smoke-management-persistence.ts",
+    "smoke:writer-actions": "node --import tsx scripts/smoke-writer-actions.ts",
+    "smoke:bundle": "node --import tsx scripts/smoke-bundle.ts",
+    "smoke:persistence-retry": "node --import tsx scripts/smoke-persistence-retry.ts",
+    "smoke:writer-stream": "node --import tsx scripts/smoke-writer-stream.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
@@ -30,6 +39,7 @@
     "@wangeditor/editor-for-vue": "^5.1.12",
     "ai": "^7.0.91",
     "element-plus": "^2.14.5",
+    "mammoth": "^1.12.2",
     "marked": "^18.0.11",
     "mind-elixir": "^4.3.1",
     "pinia": "^4.0.3",
@@ -42,6 +52,7 @@
     "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/tsconfig": "^0.9.1",
+    "@xmldom/xmldom": "^0.9.12",
     "eslint": "^10.9.1",
     "eslint-plugin-vue": "^10.10.0",
     "globals": "^17.12.0",

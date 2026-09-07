@@ -3,6 +3,7 @@ import { buildModelsProbe, getPreset, loadAISDK, resolveLanguageModel } from './
 import billingService from './billing'
 import { PREVIOUS_CONTENT_MAX_CHARS, trimTextFromEnd } from '@/utils/tokenBudget'
 import { buildCorpusInjection, recommendCorpus } from '@/utils/corpusRetrieval'
+import { AIRequestCancelledError } from '@/utils/aiRequestScope'
 
 /** 个性化生成时注入语料的字符预算 */
 const CORPUS_INJECTION_MAX_CHARS = 4000
@@ -30,12 +31,13 @@ interface UsageInfo {
  * - 配置由 apiConfig 模块统一管理，每次请求实时读取活动配置
  */
 class APIService {
-  private activeController: AbortController | null = null
+  private activeControllers = new Set<AbortController>()
 
-  /** 中断当前正在进行的流式请求 */
+  /** 兼容全局中断入口；视图应通过自己的 signal 取消所属请求。 */
   abortActiveRequests(): void {
-    this.activeController?.abort()
-    this.activeController = null
+    const controllers = [...this.activeControllers]
+    this.activeControllers.clear()
+    for (const controller of controllers) controller.abort()
   }
 
   private getConfig() {
@@ -58,21 +60,29 @@ class APIService {
 
   /** 清理提示词中的控制字符 */
   private sanitizePrompt(prompt: string): string {
-    return prompt.replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+    return prompt.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
   }
 
   /** 创建超时中断源（返回 signal 与清理函数） */
-  private createTimeoutSignal(): { signal: AbortSignal; clearTimeout: () => void; controller: AbortController } {
+  private createTimeoutSignal(externalSignal?: AbortSignal): { signal: AbortSignal; clearTimeout: () => void } {
     const controller = new AbortController()
-    this.activeController = controller
-    const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
+    this.activeControllers.add(controller)
+    const abortFromCaller = () => controller.abort(externalSignal?.reason)
+    if (externalSignal?.aborted) abortFromCaller()
+    else externalSignal?.addEventListener('abort', abortFromCaller, { once: true })
+    const timeout = setTimeout(() => controller.abort(new DOMException('AI请求超时，请重试', 'TimeoutError')), STREAM_TIMEOUT_MS)
     const clearTimeoutFn = () => {
       clearTimeout(timeout)
-      if (this.activeController === controller) {
-        this.activeController = null
-      }
+      externalSignal?.removeEventListener('abort', abortFromCaller)
+      this.activeControllers.delete(controller)
     }
-    return { signal: controller.signal, clearTimeout: clearTimeoutFn, controller }
+    return { signal: controller.signal, clearTimeout: clearTimeoutFn }
+  }
+
+  private throwIfAborted(signal: AbortSignal, partialContent = ''): void {
+    if (!signal.aborted) return
+    if (signal.reason instanceof Error && signal.reason.name === 'TimeoutError') throw signal.reason
+    throw new AIRequestCancelledError(partialContent)
   }
 
   private buildRequestBody(config: { maxTokens: number | null; temperature: number }, options: GenerateOptions, stream: boolean) {
@@ -91,7 +101,7 @@ class APIService {
     type: string,
   ): void {
     const inputTokens = usage?.inputTokens ?? estimatedInputTokens
-    const outputTokens = usage?.outputTokens ?? (status === 'success' ? billingService.estimateTokens(response) : 0)
+    const outputTokens = usage?.outputTokens ?? billingService.estimateTokens(response)
     billingService.recordAPICall({
       type,
       model,
@@ -110,24 +120,32 @@ class APIService {
     const config = this.getConfig()
     const estimatedInputTokens = billingService.estimateTokens(prompt)
     const { maxOutputTokens, temperature } = this.buildRequestBody(config, options, false)
-    const { signal, clearTimeout } = this.createTimeoutSignal()
+    const { signal, clearTimeout } = this.createTimeoutSignal(options.signal)
+    const effectiveModel = options.model?.trim() || config.selectedModel
 
     try {
+      this.throwIfAborted(signal)
       const { generateText } = await loadAISDK()
-      const model = await resolveLanguageModel(config)
+      const model = await resolveLanguageModel(
+        effectiveModel === config.selectedModel ? config : { ...config, selectedModel: effectiveModel },
+      )
+      this.throwIfAborted(signal)
       const result = await generateText({
         model,
-        prompt: this.sanitizePrompt(prompt),
+        ...(options.messages?.length ? { messages: options.messages } : { prompt: this.sanitizePrompt(prompt) }),
+        system: options.system ? this.sanitizePrompt(options.system) : undefined,
         temperature,
         maxOutputTokens,
         abortSignal: signal,
       })
 
+      this.throwIfAborted(signal)
       const content = result.text ?? ''
-      this.recordUsage(config.selectedModel, prompt, content, estimatedInputTokens, result.usage, 'success', options.type ?? 'generation')
+      this.recordUsage(effectiveModel, prompt, content, estimatedInputTokens, result.usage, 'success', options.type ?? 'generation')
       return content
     } catch (error) {
-      this.recordUsage(this.getConfig().selectedModel, prompt, '', estimatedInputTokens, undefined, 'failed', options.type ?? 'generation')
+      this.recordUsage(effectiveModel, prompt, '', estimatedInputTokens, undefined, 'failed', options.type ?? 'generation')
+      this.throwIfAborted(signal)
       throw error
     } finally {
       clearTimeout()
@@ -154,20 +172,20 @@ class APIService {
       : cleanPrompt
     const estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
     const { maxOutputTokens, temperature } = this.buildRequestBody(config, options, true)
-    const { clearTimeout, controller } = this.createTimeoutSignal()
+    const { clearTimeout, signal: abortSignal } = this.createTimeoutSignal(options.signal)
     const effectiveModel = options.model?.trim() ? options.model.trim() : config.selectedModel
-
-    // 合并外部传入的 signal（例如组件卸载时中断）
-    const abortSignal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal
 
     let fullContent = ''
     let usage: UsageInfo | undefined
+    let streamError: unknown
 
     try {
+      this.throwIfAborted(abortSignal)
       const { streamText } = await loadAISDK()
       const model = await resolveLanguageModel(
         effectiveModel === config.selectedModel ? config : { ...config, selectedModel: effectiveModel },
       )
+      this.throwIfAborted(abortSignal)
 
       const result = streamText({
         model,
@@ -177,12 +195,17 @@ class APIService {
         maxOutputTokens,
         abortSignal,
         maxRetries: 2,
+        onError: ({ error }) => { streamError = error },
       })
 
       for await (const chunk of result.textStream) {
+        this.throwIfAborted(abortSignal, fullContent)
         fullContent += chunk
         onChunk?.(chunk, fullContent)
       }
+      this.throwIfAborted(abortSignal, fullContent)
+      // SDK 的 textStream 只包含文本增量；服务端 error 事件需单独处理。
+      if (streamError) throw streamError
 
       // 读取真实用量；中断或无用量时由回退逻辑处理
       try {
@@ -191,6 +214,7 @@ class APIService {
       } catch {
         usage = undefined
       }
+      this.throwIfAborted(abortSignal, fullContent)
 
       if (!fullContent.trim()) {
         throw new Error('AI返回内容为空')
@@ -199,18 +223,8 @@ class APIService {
       this.recordUsage(effectiveModel, promptForEstimate, fullContent, estimatedInputTokens, usage, 'success', options.type ?? 'generation')
       return fullContent
     } catch (error) {
-      // 用户中断或网络问题：已有部分内容则返回部分内容
-      const isAbort =
-        controller.signal.aborted ||
-        (error instanceof DOMException && error.name === 'AbortError') ||
-        (error instanceof Error && (error.message.includes('abort') || error.message.includes('timeout')))
-
-      if (isAbort && fullContent.length > 0) {
-        this.recordUsage(effectiveModel, promptForEstimate, fullContent, estimatedInputTokens, usage, 'success', options.type ?? 'generation')
-        return fullContent
-      }
-
-      this.recordUsage(effectiveModel, promptForEstimate, fullContent, estimatedInputTokens, undefined, 'failed', options.type ?? 'generation')
+      this.recordUsage(effectiveModel, promptForEstimate, fullContent, estimatedInputTokens, usage, 'failed', options.type ?? 'generation')
+      this.throwIfAborted(abortSignal, fullContent)
       throw error
     } finally {
       clearTimeout()

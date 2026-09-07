@@ -487,6 +487,7 @@
                     <el-option label="发表" value="published" />
                   </el-select>
                   <span v-if="isSaving" class="saving-indicator">● 保存中...</span>
+                  <el-button v-else-if="saveError" type="danger" size="small" @click="saveCurrentChapter">保存失败，点击重试</el-button>
                 </div>
               </div>
               <div class="editor-header-right">
@@ -509,24 +510,7 @@
           </template>
           
           
-          <div class="editor-container">
-            <div class="editor-wrapper">
-              <Toolbar
-                :editor="editorRef"
-                :defaultConfig="toolbarConfig"
-                mode="default"
-                style="border-bottom: 1px solid var(--el-border-color-light);"
-              />
-              <Editor
-                v-model="content"
-                :defaultConfig="editorConfig"
-                mode="default"
-                @onCreated="handleCreated"
-                @onChange="onContentChange"
-                style="overflow-y: hidden;"
-              />
-            </div>
-          </div>
+          <WriterEditor ref="editorRef" v-model="content" @change="onContentChange" />
           
 
 
@@ -2257,17 +2241,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, shallowRef, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch, shallowRef, nextTick, defineAsyncComponent } from 'vue'
+import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft, Plus, Edit, Delete, Document, MoreFilled, ArrowDown, Star, Tools, ArrowRight, Check, InfoFilled, MagicStick, Close, CopyDocument, Search
 } from '@element-plus/icons-vue'
 import { recommendCorpus } from '@/utils/corpusRetrieval'
-import { migrateEventChapters as migrateEventChapterRefs } from '@/utils/eventLine'
-import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
-import '@wangeditor/editor/dist/css/style.css'
-import apiService from '../services/api'
+import { useWriterProject } from '@/composables/useWriterProject'
+const WriterEditor = defineAsyncComponent(() => import('@/components/writer/WriterEditor.vue'))
+import { useAIStream } from '@/composables/useAIStream'
+import { isAIRequestCancelled } from '@/utils/aiRequestScope'
 import { useApiConfig } from '../services/apiConfig'
 import { useNovelStore } from '../stores/novel'
 import { parseChapterResponse } from '../utils/chapterParser'
@@ -2285,6 +2269,11 @@ import {
 const route = useRoute()
 const router = useRouter()
 const novelStore = useNovelStore()
+const {
+  currentNovel, chapters, currentChapter, content, characters, worldSettings,
+  corpusData, events, contentWordCount, hasUnsavedChanges, isSaving, saveError,
+  saveNovelData, saveCurrentChapter, selectChapter: selectProjectChapter, initNovel, onContentChange, dispose,
+} = useWriterProject({ novelStore, notifyError: message => ElMessage.error(message) })
 const { activeConfig } = useApiConfig()
 
 // 检查API配置
@@ -2313,14 +2302,6 @@ const checkApiConfig = () => {
 const checkApiAndBalance = () => {
   return checkApiConfig()
 }
-
-// 响应式数据
-const currentNovel = ref(null)
-const chapters = ref([])
-const currentChapter = ref(null)
-const content = ref('')
-const hasUnsavedChanges = ref(false)
-const isSaving = ref(false)
 const showChapterDialog = ref(false)
 const editingChapter = ref(null)
 const editorRef = shallowRef()
@@ -2335,9 +2316,11 @@ const isGeneratingOutline = ref(false)
 const optimizeType = ref('grammar')
 
 // 流式生成相关数据
-const streamingContent = ref('')
-const isStreaming = ref(false)
-const streamingType = ref('') // 'content', 'chapter', 'optimize', 'continue'
+const writerStream = useAIStream()
+const { streamingContent, isStreaming } = writerStream
+const streamingType = ref('')
+let writerOperation = 0 // 'content', 'chapter', 'optimize', 'continue'
+let writerDialogOwner = ''
 const streamingChapter = ref(null)
 
 // 提示词相关数据
@@ -2481,8 +2464,8 @@ const optimizeForm = ref({
 const optimizePrompts = computed(() => {
   return availablePrompts.value.filter(prompt => prompt.category === 'polish')
 })
-const optimizeStreamingContent = ref('')
-const isOptimizeStreaming = ref(false)
+const optimizeStream = useAIStream()
+const { streamingContent: optimizeStreamingContent, isStreaming: isOptimizeStreaming } = optimizeStream
 
 // 新的续写对话框相关数据
 const showNewContinueDialog = ref(false)
@@ -2491,15 +2474,8 @@ const continueForm = ref({
   wordCount: 500, // 续写字数
   isStreaming: false
 })
-const continueStreamingContent = ref('')
-const isContinueStreaming = ref(false)
-
-// 管理数据
-const characters = ref([])
-// 使用store中的worldSettings
-const worldSettings = computed(() => novelStore.worldSettings)
-const corpusData = ref([])
-const events = ref([])
+const continueStream = useAIStream()
+const { streamingContent: continueStreamingContent, isStreaming: isContinueStreaming } = continueStream
 
 
 // 对话框状态
@@ -2607,64 +2583,8 @@ const sortedEvents = computed(() => {
   })
 })
 
-/** 迁移旧数据：chapter 存的是章节标题 → 换算为章号字符串（加载时执行一次，逻辑见 utils/eventLine） */
-const migrateEventChapters = () => {
-  const changed = migrateEventChapterRefs(events.value, chapters.value)
-  if (changed) {
-    saveNovelData()
-    console.log('已将事件的章节引用从标题迁移为章号')
-  }
-}
-
-// 编辑器配置
-const toolbarConfig = {}
-const editorConfig = {
-  placeholder: '开始您的创作...',
-  MENU_CONF: {
-    uploadImage: {
-      server: '/api/upload-image',
-      fieldName: 'file',
-      maxFileSize: 5 * 1024 * 1024,
-      allowedFileTypes: ['image/*']
-    }
-  }
-}
-
-// 计算属性
-const contentWordCount = computed(() => {
-  return content.value.replace(/<[^>]*>/g, '').length
-})
-
 // 方法
-const goBack = () => {
-  // 自动保存当前章节
-  saveCurrentChapter()
-  router.push('/novels')
-}
-
-const selectChapter = (chapter) => {
-  // 自动保存当前章节
-  saveCurrentChapter()
-  loadChapter(chapter)
-}
-
-const loadChapter = (chapter) => {
-  // 确保章节有正确的状态字段，如果没有则设置为草稿
-  if (!chapter.status || chapter.status === 'outline') {
-    chapter.status = 'draft'
-  }
-  currentChapter.value = chapter
-  content.value = chapter.content || ''
-}
-
-const saveCurrentChapter = () => {
-  if (currentChapter.value) {
-    currentChapter.value.content = content.value
-    currentChapter.value.wordCount = contentWordCount.value
-    currentChapter.value.updatedAt = new Date()
-    saveNovelData()
-  }
-}
+const goBack = () => router.push('/novels')
 
 const addNewChapter = () => {
   editingChapter.value = null
@@ -2686,75 +2606,63 @@ const editChapterTitle = (chapter) => {
   showChapterDialog.value = true
 }
 
-const saveChapter = () => {
+const saveChapter = async () => {
   if (!chapterForm.value.title.trim()) {
     ElMessage.warning('请输入章节标题')
     return
   }
-
+  const isNew = !editingChapter.value
   if (editingChapter.value) {
-    // 编辑现有章节
     editingChapter.value.title = chapterForm.value.title
     editingChapter.value.description = chapterForm.value.description
     editingChapter.value.status = chapterForm.value.status
-    ElMessage.success('章节信息已更新')
   } else {
-    // 新增章节
     const newChapter = {
       id: Date.now(),
       title: chapterForm.value.title,
       description: chapterForm.value.description,
-      content: '',
-      wordCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      content: '', wordCount: 0,
+      createdAt: new Date(), updatedAt: new Date(),
       status: chapterForm.value.status
     }
     chapters.value.push(newChapter)
-    ElMessage.success('章节创建成功')
-    
-    // 自动选择新章节
-    setTimeout(() => {
-      selectChapter(newChapter)
-    }, 100)
+    // Retrying a failed save updates the same draft instead of creating a duplicate.
+    editingChapter.value = newChapter
   }
-  
+  if (!(await saveNovelData())) return
+  if (isNew && !(await selectChapter(editingChapter.value))) return
+  ElMessage.success(isNew ? '章节创建成功' : '章节信息已更新')
   showChapterDialog.value = false
 }
 
 const deleteChapter = (chapter) => {
-  ElMessageBox.confirm(`确定要删除章节《${chapter.title}》吗？`, '确认删除', {
+  const novelId = currentNovel.value?.id
+  return ElMessageBox.confirm(`确定要删除章节《${chapter.title}》吗？`, '确认删除', {
     type: 'warning'
-  }).then(() => {
+  }).then(async () => {
+    if (currentNovel.value?.id !== novelId) return
     const index = chapters.value.findIndex(c => c.id === chapter.id)
-    if (index > -1) {
-      chapters.value.splice(index, 1)
-      
-      // 如果删除的是当前章节
-      if (currentChapter.value?.id === chapter.id) {
-        currentChapter.value = null
-        content.value = ''
-        
-        // 如果还有其他章节，自动选择第一个章节
-        if (chapters.value.length > 0) {
-          setTimeout(() => {
-            selectChapter(chapters.value[0])
-          }, 100)
-        }
-      }
-      
-      // 保存数据到localStorage，确保删除操作持久化
-      saveNovelData()
-      ElMessage.success('章节已删除')
+    if (index < 0) return
+    const previousChapter = currentChapter.value
+    const previousContent = content.value
+    chapters.value.splice(index, 1)
+    if (currentChapter.value?.id === chapter.id) {
+      currentChapter.value = null
+      content.value = ''
     }
+    if (!(await saveNovelData())) {
+      chapters.value.splice(index, 0, chapter)
+      currentChapter.value = previousChapter
+      content.value = previousContent
+      return
+    }
+    if (!currentChapter.value && chapters.value.length && !(await selectChapter(chapters.value[0]))) return
+    ElMessage.success('章节已删除')
   }).catch(() => {})
 }
 
 
 
-const handleCreated = (editor) => {
-  editorRef.value = editor
-}
 
 // 章节相关方法
 const handleChapterCommand = (command) => {
@@ -2807,11 +2715,11 @@ const getChapterStatusText = (status) => {
 const _generateChapters = async () => {
   if (!checkApiAndBalance()) return
   
-  isGeneratingChapters.value = true
-  isStreaming.value = true
+
   streamingType.value = 'chapter'
   streamingContent.value = ''
   
+  const operation = beginWriterOperation(isGeneratingChapters, '')
   try {
     const count = aiChapterForm.value.count
     const plotRequirement = aiChapterForm.value.plotRequirement
@@ -2875,7 +2783,7 @@ Continue the numbering up to 章节${count}. Generate exactly ${count} chapters.
     console.log('开始AI生成章节大纲:', prompt)
     
     // 流式调用AI生成
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await writerStream.generate(prompt, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'outline'
@@ -2911,20 +2819,22 @@ Continue the numbering up to 章节${count}. Generate exactly ${count} chapters.
     
     // 如果之前没有章节，自动选择第一个生成的章节
     if (wasEmpty && chapters.value.length > 0) {
-      setTimeout(() => {
-        selectChapter(chapters.value[0])
-      }, 100)
+      if (!(await selectChapter(chapters.value[0]))) return
+    if (operation !== writerOperation) return
     }
     
+    if (!(await saveNovelData())) return
+    if (operation !== writerOperation) return
+
     ElMessage.success(`成功生成${newChapters.length}个章节大纲`)
-    saveNovelData()
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成章节失败:', error)
     ElMessage.error(`章节生成失败: ${error.message}`)
   } finally {
-    isGeneratingChapters.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      isGeneratingChapters.value = false
+    }
   }
 }
 
@@ -2938,12 +2848,12 @@ const generateContent = async () => {
     return
   }
   
-  isGeneratingContent.value = true
-  isStreaming.value = true
+
   streamingType.value = 'content'
   streamingContent.value = ''
   streamingChapter.value = currentChapter.value
   
+  const operation = beginWriterOperation(isGeneratingContent, '')
   try {
     // 构建上下文信息
     const context = buildGenerationContext()
@@ -2954,7 +2864,7 @@ const generateContent = async () => {
     console.log('开始AI生成正文:', prompt.substring(0, 200) + '...')
     
     // 流式调用AI生成正文
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await writerStream.generate(prompt, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'generation'
@@ -2985,28 +2895,25 @@ const generateContent = async () => {
     hasUnsavedChanges.value = true
     currentChapter.value.status = 'draft'
     
+    if (!(await saveCurrentChapter())) return
+    if (operation !== writerOperation) return
+
     ElMessage.success('正文生成成功')
     
-    // 保存章节内容
-    setTimeout(() => {
-      saveCurrentChapter()
-      saveNovelData()
-    }, 1000)
-    
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成正文失败:', error)
     ElMessage.error(`正文生成失败: ${error.message}`)
   } finally {
-    isGeneratingContent.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
-    streamingChapter.value = null
+    if (operation === writerOperation) {
+      isGeneratingContent.value = false
+      streamingChapter.value = null
+    }
   }
 }
 
 const _generateChapterContent = async (chapter) => {
-  selectChapter(chapter)
-  generateContent()
+  if (await selectChapter(chapter)) await generateContent()
 }
 
 
@@ -3019,12 +2926,12 @@ const _optimizeText = async () => {
     return
   }
   
-  isOptimizing.value = true
-  isStreaming.value = true
+
   streamingType.value = 'optimize'
   streamingContent.value = ''
   streamingChapter.value = currentChapter.value
   
+  const operation = beginWriterOperation(isOptimizing, '')
   try {
     const currentContent = content.value.replace(/<[^>]*>/g, '').trim() // 移除HTML标签
     const optimizeTypeText = getOptimizeTypeText()
@@ -3041,7 +2948,7 @@ ${getOptimizeInstructions(optimizeType.value)}
 
     console.log(`开始AI${optimizeTypeText}:`, prompt.substring(0, 200) + '...')
     
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await writerStream.generate(prompt, {
       maxTokens: null, // 移除token限制
       temperature: 0.3, // 优化时使用较低的温度，保持内容稳定
       type: 'polish'
@@ -3067,22 +2974,20 @@ ${getOptimizeInstructions(optimizeType.value)}
     content.value = optimizedContent
     hasUnsavedChanges.value = true
     
+    if (!(await saveCurrentChapter())) return
+    if (operation !== writerOperation) return
+
     ElMessage.success(`文本${optimizeTypeText}完成`)
     
-    // 保存优化后的内容
-    setTimeout(() => {
-      saveCurrentChapter()
-      saveNovelData()
-    }, 1000)
-    
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI文本优化失败:', error)
     ElMessage.error(`文本优化失败: ${error.message}`)
   } finally {
-    isOptimizing.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
-    streamingChapter.value = null
+    if (operation === writerOperation) {
+      isOptimizing.value = false
+      streamingChapter.value = null
+    }
   }
 }
 
@@ -3138,14 +3043,7 @@ const _getStreamingTypeText = () => {
 
 // 停止流式生成
 const stopStreaming = () => {
-  isStreaming.value = false
-  isGeneratingContent.value = false
-  isGeneratingChapters.value = false
-  isOptimizing.value = false
-  streamingContent.value = ''
-  streamingType.value = ''
-  streamingChapter.value = null
-  ElMessage.info('已停止AI生成')
+  cancelWriterStream('已停止AI生成')
 }
 
 // 监听流式内容变化，自动滚动到底部
@@ -3731,15 +3629,14 @@ const _generateWithSelectedMaterials = async () => {
   }
   
   // 切换到目标章节
-  selectChapter(targetChapter.value)
+  const prompt = finalPrompt.value
+  if (!(await selectChapter(targetChapter.value))) return
   
   // 关闭对话框
   showChapterGenerateDialog.value = false
   
   // 使用自定义提示词生成内容
-  await generateContentWithPrompt(finalPrompt.value)
-  
-  ElMessage.success('正在使用选定的提示词和素材生成章节内容...')
+  await generateContentWithPrompt(prompt)
 }
 
 // 切换素材选择
@@ -4041,6 +3938,7 @@ const selectAllContextChapters = () => {
 
 // 显示批量生成对话框
 const showBatchGenerateDialog = () => {
+  cancelWriterDialog('characters')
   showBatchGenerateCharacterDialog.value = true
   // 重置配置
   batchGenerateConfig.value = {
@@ -4059,13 +3957,13 @@ const showBatchGenerateDialog = () => {
 const batchGenerateCharacters = async () => {
   if (!checkApiAndBalance()) return
   
-  batchGenerating.value = true
   batchGenerateResults.value = []
   generatedCharacters.value = []
   streamingContent.value = ''
-  isStreaming.value = true
+
   streamingType.value = 'batchCharacters'
   
+  const operation = beginWriterOperation(batchGenerating, 'characters')
   try {
     let finalPrompt = ''
     
@@ -4177,7 +4075,7 @@ Continue the numbering up to 角色${batchGenerateConfig.value.count}. Every blo
     console.log(finalPromptWithFormat)
     console.log('=== 提示词结束 ===')
 
-    const aiResponse = await apiService.generateTextStream(finalPromptWithFormat, {
+    const aiResponse = await writerStream.generate(finalPromptWithFormat, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'character'
@@ -4202,12 +4100,13 @@ Continue the numbering up to 角色${batchGenerateConfig.value.count}. Every blo
     
     ElMessage.success(`成功生成 ${generatedCharacters.value.length} 个角色`)
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('批量生成角色失败:', error)
     ElMessage.error(`批量生成失败: ${error.message}`)
   } finally {
-    batchGenerating.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      batchGenerating.value = false
+    }
   }
 }
 
@@ -4518,7 +4417,7 @@ const parseGeneratedCharacters = (content) => {
 }
 
 // 确认添加生成的角色
-const confirmAddGeneratedCharacters = () => {
+const confirmAddGeneratedCharacters = async () => {
   const selectedCharacters = generatedCharacters.value.filter(char => char.selected !== false)
   
   if (selectedCharacters.length === 0) {
@@ -4527,10 +4426,11 @@ const confirmAddGeneratedCharacters = () => {
   }
   
   // 添加到角色列表
-  characters.value.push(...selectedCharacters)
+  const existingIds = new Set(characters.value.map(character => character.id))
+  characters.value.push(...selectedCharacters.filter(character => !existingIds.has(character.id)))
   
   // 保存数据
-  saveNovelData()
+  if (!(await saveNovelData())) return
   
   // 关闭对话框
   showBatchGenerateCharacterDialog.value = false
@@ -4612,6 +4512,7 @@ const getWorldSettingType = (type) => {
 
 // 显示世界观生成对话框
 const openWorldGenerateDialog = () => {
+  cancelWriterDialog('worlds')
   showWorldGenerateDialog.value = true
   // 重置配置
   worldGenerateConfig.value = {
@@ -4651,12 +4552,12 @@ const getChineseGenre = (englishGenre) => {
 const generateWorldSettings = async () => {
   if (!checkApiAndBalance()) return
   
-  worldGenerating.value = true
   generatedWorldSettings.value = []
   streamingContent.value = ''
-  isStreaming.value = true
+
   streamingType.value = 'worldSettings'
   
+  const operation = beginWriterOperation(worldGenerating, 'worlds')
   try {
     let finalPrompt = ''
     
@@ -4721,7 +4622,7 @@ Continue the numbering up to 设定${worldGenerateConfig.value.count}. Generate 
       console.log('使用默认世界观提示词')
     }
 
-    const aiResponse = await apiService.generateTextStream(finalPrompt, {
+    const aiResponse = await writerStream.generate(finalPrompt, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'worldview'
@@ -4746,12 +4647,13 @@ Continue the numbering up to 设定${worldGenerateConfig.value.count}. Generate 
     
     ElMessage.success(`成功生成 ${generatedWorldSettings.value.length} 个世界观设定`)
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成世界观设定失败:', error)
     ElMessage.error(`世界观生成失败: ${error.message}`)
   } finally {
-    worldGenerating.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      worldGenerating.value = false
+    }
   }
 }
 
@@ -4933,7 +4835,7 @@ const parseGeneratedWorldSettings = (content) => {
 }
 
 // 确认添加生成的世界观设定
-const confirmAddGeneratedWorldSettings = () => {
+const confirmAddGeneratedWorldSettings = async () => {
   const selectedSettings = generatedWorldSettings.value.filter(setting => setting.selected !== false)
   
   if (selectedSettings.length === 0) {
@@ -4943,11 +4845,11 @@ const confirmAddGeneratedWorldSettings = () => {
   
   // 添加到世界观设定列表（使用store）
   selectedSettings.forEach(setting => {
-    novelStore.addWorldSetting(setting)
+    if (!worldSettings.value.some(existing => existing.id === setting.id)) novelStore.addWorldSetting(setting)
   })
   
   // 保存数据
-  saveNovelData()
+  if (!(await saveNovelData())) return
   
   // 关闭对话框
   showWorldGenerateDialog.value = false
@@ -4969,14 +4871,14 @@ const generateWorldSettingAI = async () => {
     return
   }
   
-  isGeneratingWorldSetting.value = true
   streamingContent.value = ''
-  isStreaming.value = true
+
   streamingType.value = 'worldSetting'
   
   // 清空描述字段，准备接收生成内容
   worldForm.value.description = ''
   
+  const operation = beginWriterOperation(isGeneratingWorldSetting, 'world')
   try {
     const categoryText = {
       'setting': '世界设定',
@@ -5021,7 +4923,7 @@ const generateWorldSettingAI = async () => {
 
 要求描述详细、生动，符合小说的类型、风格和整体世界观。`
 
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await writerStream.generate(prompt, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'worldview'
@@ -5038,12 +4940,13 @@ const generateWorldSettingAI = async () => {
     
     ElMessage.success('AI世界观设定生成完成')
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成世界观设定失败:', error)
     ElMessage.error(`设定生成失败: ${error.message}`)
   } finally {
-    isGeneratingWorldSetting.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      isGeneratingWorldSetting.value = false
+    }
   }
 }
 
@@ -5051,11 +4954,11 @@ const generateWorldSettingAI = async () => {
 const generateChaptersWithPrompt = async (customPrompt) => {
   if (!checkApiAndBalance()) return
   
-  isGeneratingChapters.value = true
-  isStreaming.value = true
+
   streamingType.value = 'chapter'
   streamingContent.value = ''
   
+  const operation = beginWriterOperation(isGeneratingChapters, '')
   try {
     console.log('使用自定义提示词生成章节:', customPrompt)
     
@@ -5084,7 +4987,7 @@ ${customPrompt}
 
 请确保生成的章节符合小说的整体风格、类型和世界观设定。`
     
-    const aiResponse = await apiService.generateTextStream(promptWithNovelInfo, {
+    const aiResponse = await writerStream.generate(promptWithNovelInfo, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'outline'
@@ -5113,15 +5016,18 @@ ${customPrompt}
       chapters.value.push(newChapter)
     })
     
+    if (!(await saveNovelData())) return
+    if (operation !== writerOperation) return
+
     ElMessage.success(`成功生成${newChapters.length}个章节大纲`)
-    saveNovelData()
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成章节失败:', error)
     ElMessage.error(`章节生成失败: ${error.message}`)
   } finally {
-    isGeneratingChapters.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      isGeneratingChapters.value = false
+    }
   }
 }
 
@@ -5134,12 +5040,12 @@ const generateContentWithPrompt = async (customPrompt) => {
     return
   }
   
-  isGeneratingContent.value = true
-  isStreaming.value = true
+
   streamingType.value = 'content'
   streamingContent.value = ''
   streamingChapter.value = currentChapter.value
   
+  const operation = beginWriterOperation(isGeneratingContent, '')
   try {
     console.log('使用自定义提示词生成正文:', customPrompt)
     
@@ -5334,7 +5240,7 @@ ${customPrompt}
     console.log(promptWithNovelInfo)
     console.log('=== 提示词结束 ===')
     
-    const aiResponse = await apiService.generateTextStream(promptWithNovelInfo, {
+    const aiResponse = await writerStream.generate(promptWithNovelInfo, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'generation'
@@ -5362,21 +5268,20 @@ ${customPrompt}
     hasUnsavedChanges.value = true
     currentChapter.value.status = 'draft'
     
+    if (!(await saveCurrentChapter())) return
+    if (operation !== writerOperation) return
+
     ElMessage.success('正文生成成功')
     
-    setTimeout(() => {
-      saveCurrentChapter()
-      saveNovelData()
-    }, 1000)
-    
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成正文失败:', error)
     ElMessage.error(`正文生成失败: ${error.message}`)
   } finally {
-    isGeneratingContent.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
-    streamingChapter.value = null
+    if (operation === writerOperation) {
+      isGeneratingContent.value = false
+      streamingChapter.value = null
+    }
   }
 }
 
@@ -5389,12 +5294,12 @@ const optimizeTextWithPrompt = async (customPrompt = null) => {
     return
   }
   
-  isOptimizing.value = true
-  isStreaming.value = true
+
   streamingType.value = 'optimize'
   streamingContent.value = ''
   streamingChapter.value = currentChapter.value
   
+  const operation = beginWriterOperation(isOptimizing, '')
   try {
     let promptToUse = customPrompt
     
@@ -5440,7 +5345,7 @@ ${getCurrentTextForOptimization()}
 
 请确保优化后的内容符合小说的整体风格、类型和世界观设定。`
     
-    const optimizedContent = await apiService.generateTextStream(promptWithNovelInfo, {
+    const optimizedContent = await writerStream.generate(promptWithNovelInfo, {
       maxTokens: null, // 移除token限制
       temperature: 0.7,
       type: 'optimize'
@@ -5451,22 +5356,19 @@ ${getCurrentTextForOptimization()}
     
     content.value = optimizedContent
     hasUnsavedChanges.value = true
+    if (!(await saveCurrentChapter())) return
+    if (operation !== writerOperation) return
     ElMessage.success('文本优化完成')
-    
-    // 关闭弹窗
     showOptimizePromptDialog.value = false
     
-    setTimeout(() => {
-      saveCurrentChapter()
-      saveNovelData()
-    }, 1000)
-    
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('文本优化失败:', error)
     ElMessage.error(`优化失败: ${error.message}`)
   } finally {
-    isOptimizing.value = false
-    isStreaming.value = false
+    if (operation === writerOperation) {
+      isOptimizing.value = false
+    }
   }
 }
 
@@ -5647,14 +5549,14 @@ const continueWritingWithPrompt = async (customPrompt) => {
     return
   }
   
-  isGeneratingContent.value = true
-  isStreaming.value = true
+
   streamingType.value = 'continue'
   streamingContent.value = ''
   streamingChapter.value = currentChapter.value
   
   const originalContent = content.value
   
+  const operation = beginWriterOperation(isGeneratingContent, '')
   try {
     console.log('使用自定义提示词续写:', customPrompt)
     
@@ -5747,7 +5649,7 @@ ${customPrompt}
 
 请确保续写内容符合小说的整体风格、类型和世界观设定，与前文保持完美连贯性。`
     
-    const aiResponse = await apiService.generateTextStream(promptWithNovelInfo, {
+    const aiResponse = await writerStream.generate(promptWithNovelInfo, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'continue'
@@ -5769,22 +5671,21 @@ ${customPrompt}
     content.value = originalContent + '\n' + formattedContent
     hasUnsavedChanges.value = true
     
+    if (!(await saveCurrentChapter())) return
+    if (operation !== writerOperation) return
+
     ElMessage.success('续写完成')
     
-    setTimeout(() => {
-      saveCurrentChapter()
-      saveNovelData()
-    }, 1000)
-    
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI续写失败:', error)
     ElMessage.error(`续写失败: ${error.message}`)
     content.value = originalContent
   } finally {
-    isGeneratingContent.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
-    streamingChapter.value = null
+    if (operation === writerOperation) {
+      isGeneratingContent.value = false
+      streamingChapter.value = null
+    }
   }
 }
 
@@ -5797,7 +5698,6 @@ const generateCharacterWithPrompt = async (customPrompt) => {
     return
   }
   
-  isStreaming.value = true
   streamingType.value = 'character'
   streamingContent.value = ''
   
@@ -5806,6 +5706,7 @@ const generateCharacterWithPrompt = async (customPrompt) => {
   characterForm.value.background = ''
   characterForm.value.tags = []
   
+  const operation = beginWriterOperation(null, 'character')
   try {
     console.log('使用自定义提示词生成人物:', customPrompt)
     
@@ -5859,7 +5760,7 @@ All field values must be written in natural, idiomatic Simplified Chinese. Tags 
     console.log(customPromptWithFormat)
     console.log('=== 提示词结束 ===')
 
-    const aiResponse = await apiService.generateTextStream(customPromptWithFormat, {
+    const aiResponse = await writerStream.generate(customPromptWithFormat, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'character'
@@ -5903,18 +5804,19 @@ All field values must be written in natural, idiomatic Simplified Chinese. Tags 
     
     ElMessage.success('AI角色生成完成')
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成角色失败:', error)
     ElMessage.error(`角色生成失败: ${error.message}`)
   } finally {
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+    }
   }
 }
 
 const generateChapterOutline = async () => {
   if (!checkApiAndBalance()) return
   
-  isGeneratingOutline.value = true
+  const operation = beginWriterOperation(isGeneratingOutline, 'chapter')
   try {
     const chapterTitle = chapterForm.value.title || '新章节'
     const context = buildGenerationContext()
@@ -5982,7 +5884,7 @@ ${chapters.value.map((ch, idx) => `第${idx + 1}章：${ch.title} - ${ch.descrip
 
     console.log('开始AI生成章节大纲:', prompt)
     
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await writerStream.generate(prompt, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'outline'
@@ -5996,10 +5898,13 @@ ${chapters.value.map((ch, idx) => `第${idx + 1}章：${ch.title} - ${ch.descrip
     }
     ElMessage.success('章节大纲生成成功')
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成大纲失败:', error)
     ElMessage.error(`大纲生成失败: ${error.message}`)
   } finally {
-    isGeneratingOutline.value = false
+    if (operation === writerOperation) {
+      isGeneratingOutline.value = false
+    }
   }
 }
 
@@ -6025,8 +5930,7 @@ const _continueWriting = async () => {
     return
   }
   
-  isGeneratingContent.value = true
-  isStreaming.value = true
+
   streamingType.value = 'continue'
   streamingContent.value = ''
   streamingChapter.value = currentChapter.value
@@ -6034,6 +5938,7 @@ const _continueWriting = async () => {
   // 保存续写前的原始内容
   const originalContent = content.value
   
+  const operation = beginWriterOperation(isGeneratingContent, '')
   try {
     const context = buildGenerationContext()
     const currentContent = content.value.replace(/<[^>]*>/g, '').trim() // 移除HTML标签
@@ -6100,7 +6005,7 @@ ${context.characters.map(char => `- ${char.name}：${char.personality || '暂无
 
     console.log('开始AI续写:', prompt.substring(0, 300) + '...')
     
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await writerStream.generate(prompt, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'continue'
@@ -6130,24 +6035,22 @@ ${context.characters.map(char => `- ${char.name}：${char.personality || '暂无
     content.value = originalContent + '\n' + formattedContent
     hasUnsavedChanges.value = true
     
+    if (!(await saveCurrentChapter())) return
+    if (operation !== writerOperation) return
+
     ElMessage.success('续写完成')
     
-    // 保存内容
-    setTimeout(() => {
-      saveCurrentChapter()
-      saveNovelData()
-    }, 1000)
-    
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI续写失败:', error)
     ElMessage.error(`续写失败: ${error.message}`)
     // 出错时恢复原始内容
     content.value = originalContent
   } finally {
-    isGeneratingContent.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
-    streamingChapter.value = null
+    if (operation === writerOperation) {
+      isGeneratingContent.value = false
+      streamingChapter.value = null
+    }
   }
 }
 
@@ -6165,6 +6068,8 @@ const enhanceContent = () => {
       selectedText = ''
     }
   }
+
+  resetOptimizeDialog()
   
   // 设置优化内容
   if (selectedText.trim()) {
@@ -6220,10 +6125,10 @@ const openContinueDialog = () => {
   }
   
   // 重置表单
+  continueStream.reset()
   continueForm.value.direction = ''
   continueForm.value.wordCount = 500
   continueStreamingContent.value = ''
-  isContinueStreaming.value = false
   
   showNewContinueDialog.value = true
 }
@@ -6238,10 +6143,11 @@ const getCurrentFullContent = () => {
 
 // 重置续写对话框
 const resetContinueDialog = () => {
+  continueStream.dispose()
   continueForm.value.direction = ''
   continueForm.value.wordCount = 500
   continueStreamingContent.value = ''
-  isContinueStreaming.value = false
+
 }
 
 // 开始新的续写
@@ -6251,7 +6157,6 @@ const startNewContinue = async () => {
     return
   }
   
-  isContinueStreaming.value = true
   continueStreamingContent.value = ''
   
   try {
@@ -6316,7 +6221,7 @@ ${context.characters.map(char => `- ${char.name}：${char.personality || '暂无
     console.log('开始新的AI续写:', prompt.substring(0, 200) + '...')
     
     // 流式调用AI续写
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await continueStream.generate(prompt, {
       maxTokens: null,
       temperature: 0.8,
       type: 'continue'
@@ -6334,18 +6239,14 @@ ${context.characters.map(char => `- ${char.name}：${char.personality || '暂无
     ElMessage.success('续写完成')
     
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI续写失败:', error)
     ElMessage.error(`续写失败: ${error.message}`)
-  } finally {
-    isContinueStreaming.value = false
   }
 }
 
 // 停止续写流式输出
-const stopContinueStreaming = () => {
-  isContinueStreaming.value = false
-  ElMessage.info('已停止续写')
-}
+const stopContinueStreaming = () => continueStream.stop('已停止续写')
 
 // 复制续写内容
 const copyContinueContent = async () => {
@@ -6364,7 +6265,7 @@ const copyContinueContent = async () => {
 }
 
 // 追加续写内容到文章
-const appendContinueContent = () => {
+const appendContinueContent = async () => {
   if (!continueStreamingContent.value) {
     ElMessage.warning('没有可追加的内容')
     return
@@ -6377,23 +6278,21 @@ const appendContinueContent = () => {
   content.value = content.value + '\n' + formattedContent
   hasUnsavedChanges.value = true
   
+  if (!(await saveCurrentChapter())) return
+
   ElMessage.success('续写内容已追加到文章')
   showNewContinueDialog.value = false
-  
-  // 自动保存
-  setTimeout(() => {
-    saveCurrentChapter()
-  }, 1000)
 }
 
 
 
 const resetOptimizeDialog = () => {
+  optimizeStream.dispose()
   optimizeForm.value.optimizedContent = ''
   optimizeForm.value.customPrompt = ''
   optimizeForm.value.selectedPrompt = null
   optimizeStreamingContent.value = ''
-  isOptimizeStreaming.value = false
+
 }
 
 const startNewOptimize = async () => {
@@ -6402,7 +6301,6 @@ const startNewOptimize = async () => {
     return
   }
   
-  isOptimizeStreaming.value = true
   optimizeStreamingContent.value = ''
   optimizeForm.value.optimizedContent = ''
   
@@ -6425,7 +6323,7 @@ ${optimizeForm.value.originalContent}
     console.log('开始新的AI优化:', fullPrompt.substring(0, 200) + '...')
     
     // 流式调用AI优化
-    const aiResponse = await apiService.generateTextStream(fullPrompt, {
+    const aiResponse = await optimizeStream.generate(fullPrompt, {
       maxTokens: null,
       temperature: 0.7,
       type: 'optimize'
@@ -6443,18 +6341,15 @@ ${optimizeForm.value.originalContent}
     ElMessage.success('内容润色完成')
     
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI润色失败:', error)
     ElMessage.error(`润色失败: ${error.message}`)
-  } finally {
-    isOptimizeStreaming.value = false
-    optimizeStreamingContent.value = ''
   }
 }
 
 const stopOptimizeStreaming = () => {
-  isOptimizeStreaming.value = false
-  optimizeStreamingContent.value = ''
-  ElMessage.info('已停止润色')
+  optimizeForm.value.optimizedContent = optimizeStreamingContent.value
+  optimizeStream.stop('已停止润色')
 }
 
 
@@ -6474,7 +6369,7 @@ const copyOptimizedContent = async () => {
   }
 }
 
-const replaceSelectedContent = () => {
+const replaceSelectedContent = async () => {
   if (!optimizeForm.value.optimizedContent) {
     ElMessage.warning('没有可替换的内容')
     return
@@ -6487,14 +6382,12 @@ const replaceSelectedContent = () => {
       if (selectedText) {
         // 替换选中的内容
         editorRef.value.insertText(optimizeForm.value.optimizedContent)
-        ElMessage.success('选择内容已替换为润色结果')
+        // Read the editor directly so saving does not depend on the next v-model tick.
+        content.value = editorRef.value.getHtml()
         hasUnsavedChanges.value = true
+        if (!(await saveCurrentChapter())) return
+        ElMessage.success('选择内容已替换为润色结果')
         showNewOptimizeDialog.value = false
-        
-        // 自动保存
-        setTimeout(() => {
-          saveCurrentChapter()
-        }, 1000)
       } else {
         ElMessage.warning('未找到选择的内容，请重新选择要替换的文本')
       }
@@ -6521,19 +6414,16 @@ const replaceFullContent = () => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
+  ).then(async () => {
     // 替换全文内容
     const formattedContent = formatGeneratedContent(optimizeForm.value.optimizedContent, currentChapter.value?.title || '')
     content.value = formattedContent
     hasUnsavedChanges.value = true
     
+    if (!(await saveCurrentChapter())) return
+
     ElMessage.success('全文内容已替换为润色结果')
     showNewOptimizeDialog.value = false
-    
-    // 自动保存
-    setTimeout(() => {
-      saveCurrentChapter()
-    }, 1000)
   }).catch(() => {
     // 用户取消
   })
@@ -6811,32 +6701,22 @@ const editCharacter = (character) => {
   showCharacterDialog.value = true
 }
 
-const saveCharacter = () => {
+const saveCharacter = async () => {
   if (!characterForm.value.name.trim()) {
     ElMessage.warning('请输入角色姓名')
     return
   }
-  
-  if (characterForm.value.id) {
-    // 编辑现有角色
-    const index = characters.value.findIndex(c => c.id === characterForm.value.id)
-    if (index > -1) {
-      characters.value[index] = { ...characterForm.value }
-    }
-    ElMessage.success('角色信息已更新')
-  } else {
-    // 新增角色
-    const newCharacter = {
-      ...characterForm.value,
-      id: Date.now(),
-      createdAt: new Date()
-    }
-    characters.value.push(newCharacter)
-    ElMessage.success('角色创建成功')
+  const isNew = !characterForm.value.id
+  if (isNew) {
+    characterForm.value.id = Date.now()
+    characterForm.value.createdAt = new Date()
   }
-  
+  const index = characters.value.findIndex(item => item.id === characterForm.value.id)
+  if (index > -1) characters.value[index] = { ...characterForm.value }
+  else characters.value.push({ ...characterForm.value })
+  if (!(await saveNovelData())) return
+  ElMessage.success(isNew ? '角色创建成功' : '角色信息已更新')
   showCharacterDialog.value = false
-  saveNovelData()
 }
 
 // AI生成角色
@@ -6849,7 +6729,7 @@ const generateCharacterAI = async () => {
   }
   
   // 设置流式生成状态
-  isStreaming.value = true
+
   streamingType.value = 'character'
   streamingContent.value = ''
   
@@ -6859,6 +6739,7 @@ const generateCharacterAI = async () => {
   characterForm.value.background = ''
   characterForm.value.tags = []
   
+  const operation = beginWriterOperation(null, 'character')
   try {
     const prompt = `=== 小说基本信息 ===
 小说标题：${currentNovel.value?.title || '未命名小说'}
@@ -6916,7 +6797,7 @@ All field values must be written in natural, idiomatic Simplified Chinese. Tags 
     console.log(promptWithFormat)
     console.log('=== 提示词结束 ===')
 
-    const aiResponse = await apiService.generateTextStream(promptWithFormat, {
+    const aiResponse = await writerStream.generate(promptWithFormat, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'character'
@@ -6961,11 +6842,12 @@ All field values must be written in natural, idiomatic Simplified Chinese. Tags 
     
     ElMessage.success('AI角色生成完成')
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成角色失败:', error)
     ElMessage.error(`角色生成失败: ${error.message}`)
   } finally {
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+    }
   }
 }
 
@@ -6995,21 +6877,20 @@ const handleCharacterAction = (command, character) => {
 
 // 删除角色
 const deleteCharacter = (character) => {
-  ElMessageBox.confirm(`确定要删除角色《${character.name}》吗？`, '确认删除', {
-    type: 'warning',
-    confirmButtonText: '删除',
-    cancelButtonText: '取消',
-    confirmButtonClass: 'el-button--danger'
-  }).then(() => {
-    const index = characters.value.findIndex(c => c.id === character.id)
-    if (index > -1) {
-      characters.value.splice(index, 1)
-      ElMessage.success('角色已删除')
-      saveNovelData()
+  const novelId = currentNovel.value?.id
+  return ElMessageBox.confirm(`确定要删除角色《${character.name}》吗？`, '确认删除', {
+    type: 'warning'
+  }).then(async () => {
+    if (currentNovel.value?.id !== novelId) return
+    const index = characters.value.findIndex(item => item.id === character.id)
+    if (index < 0) return
+    const [removed] = characters.value.splice(index, 1)
+    if (!(await saveNovelData())) {
+      characters.value.splice(index, 0, removed)
+      return
     }
-  }).catch(() => {
-    // 用户取消删除
-  })
+    ElMessage.success('角色已删除')
+  }).catch(() => {})
 }
 
 // 世界观管理方法
@@ -7029,12 +6910,19 @@ const editWorldSetting = (setting) => {
 }
 
 const deleteWorldSetting = (setting) => {
-  ElMessageBox.confirm(`确定要删除设定《${setting.title}》吗？`, '确认删除', {
+  const novelId = currentNovel.value?.id
+  return ElMessageBox.confirm(`确定要删除设定《${setting.title}》吗？`, '确认删除', {
     type: 'warning'
-  }).then(() => {
+  }).then(async () => {
+    if (currentNovel.value?.id !== novelId) return
+    const index = worldSettings.value.findIndex(item => item.id === setting.id)
+    if (index < 0) return
     novelStore.removeWorldSetting(setting.id)
+    if (!(await saveNovelData())) {
+      novelStore.worldSettings.splice(index, 0, setting)
+      return
+    }
     ElMessage.success('设定已删除')
-    saveNovelData()
   }).catch(() => {})
 }
 
@@ -7054,7 +6942,7 @@ const handleWorldSettingAction = (command, setting) => {
 }
 
 // 复制世界观设定
-const duplicateWorldSetting = (setting) => {
+const duplicateWorldSetting = async (setting) => {
   const newSetting = {
     ...setting,
     id: new Date().getTime(),
@@ -7063,8 +6951,8 @@ const duplicateWorldSetting = (setting) => {
     generated: false
   }
   novelStore.addWorldSetting(newSetting)
+  if (!(await saveNovelData())) return
   ElMessage.success('设定已复制')
-  saveNovelData()
 }
 
 // 格式化日期
@@ -7097,26 +6985,21 @@ const editCorpus = (corpus) => {
   showCorpusDialog.value = true
 }
 
-const deleteCorpus = async (corpus) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除语料"${corpus.title}"吗？`,
-      '删除确认',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    
+const deleteCorpus = (corpus) => {
+  const novelId = currentNovel.value?.id
+  return ElMessageBox.confirm(`确定要删除语料《${corpus.title}》吗？`, '确认删除', {
+    type: 'warning'
+  }).then(async () => {
+    if (currentNovel.value?.id !== novelId) return
     const index = corpusData.value.findIndex(item => item.id === corpus.id)
-    if (index > -1) {
-      corpusData.value.splice(index, 1)
-      ElMessage.success('语料删除成功')
+    if (index < 0) return
+    const [removed] = corpusData.value.splice(index, 1)
+    if (!(await saveNovelData())) {
+      corpusData.value.splice(index, 0, removed)
+      return
     }
-  } catch {
-    // 用户取消删除
-  }
+    ElMessage.success('语料已删除')
+  }).catch(() => {})
 }
 
 
@@ -7144,44 +7027,38 @@ const editEvent = (event) => {
   showEventDialog.value = true
 }
 
-const saveEvent = () => {
+const saveEvent = async () => {
   if (!eventForm.value.title.trim()) {
     ElMessage.warning('请输入事件标题')
     return
   }
-  
-  if (eventForm.value.id) {
-    // 编辑现有事件
-    const index = events.value.findIndex(e => e.id === eventForm.value.id)
-    if (index > -1) {
-      events.value[index] = { ...eventForm.value }
-    }
-    ElMessage.success('事件信息已更新')
-  } else {
-    // 新增事件
-    const newEvent = {
-      ...eventForm.value,
-      id: Date.now(),
-      createdAt: new Date()
-    }
-    events.value.push(newEvent)
-    ElMessage.success('事件创建成功')
+  const isNew = !eventForm.value.id
+  if (isNew) {
+    eventForm.value.id = Date.now()
+    eventForm.value.createdAt = new Date()
   }
-  
+  const index = events.value.findIndex(item => item.id === eventForm.value.id)
+  if (index > -1) events.value[index] = { ...eventForm.value }
+  else events.value.push({ ...eventForm.value })
+  if (!(await saveNovelData())) return
+  ElMessage.success(isNew ? '事件创建成功' : '事件信息已更新')
   showEventDialog.value = false
-  saveNovelData()
 }
 
 const deleteEvent = (event) => {
-  ElMessageBox.confirm(`确定要删除事件《${event.title}》吗？`, '确认删除', {
+  const novelId = currentNovel.value?.id
+  return ElMessageBox.confirm(`确定要删除事件《${event.title}》吗？`, '确认删除', {
     type: 'warning'
-  }).then(() => {
-    const index = events.value.findIndex(e => e.id === event.id)
-    if (index > -1) {
-      events.value.splice(index, 1)
-      ElMessage.success('事件已删除')
-      saveNovelData()
+  }).then(async () => {
+    if (currentNovel.value?.id !== novelId) return
+    const index = events.value.findIndex(item => item.id === event.id)
+    if (index < 0) return
+    const [removed] = events.value.splice(index, 1)
+    if (!(await saveNovelData())) {
+      events.value.splice(index, 0, removed)
+      return
     }
+    ElMessage.success('事件已删除')
   }).catch(() => {})
 }
 
@@ -7198,7 +7075,7 @@ const handleEventAction = (command, event) => {
 }
 
 // 更新章节状态
-const updateChapterStatus = () => {
+const updateChapterStatus = async () => {
   if (!currentChapter.value) return
   
   // 同步更新章节列表中的状态
@@ -7209,8 +7086,7 @@ const updateChapterStatus = () => {
   }
   
   // 保存更新
-  saveCurrentChapter()
-  saveNovelData()
+  if (!(await saveCurrentChapter())) return
   
   ElMessage.success(`章节状态已更新为：${getChapterStatusText(currentChapter.value.status)}`)
 }
@@ -7218,207 +7094,44 @@ const updateChapterStatus = () => {
 
 
 // 世界观保存方法
-const saveWorldSetting = () => {
+const saveWorldSetting = async () => {
   if (!worldForm.value.title.trim()) {
     ElMessage.warning('请输入设定标题')
     return
   }
-  
-  if (worldForm.value.id) {
-    // 编辑现有设定
-    novelStore.updateWorldSetting(worldForm.value.id, worldForm.value)
-    ElMessage.success('设定信息已更新')
-  } else {
-    // 新增设定
-    const newSetting = {
-      id: new Date().getTime(),
-      ...worldForm.value,
-      createdAt: new Date()
-    }
-    novelStore.addWorldSetting(newSetting)
-    ElMessage.success('设定创建成功')
+  const isNew = !worldForm.value.id
+  if (isNew) {
+    worldForm.value.id = Date.now()
+    worldForm.value.createdAt = new Date()
   }
-  
+  if (worldSettings.value.some(setting => setting.id === worldForm.value.id)) {
+    novelStore.updateWorldSetting(worldForm.value.id, worldForm.value)
+  } else {
+    novelStore.addWorldSetting({ ...worldForm.value })
+  }
+  if (!(await saveNovelData())) return
+  ElMessage.success(isNew ? '设定创建成功' : '设定信息已更新')
   showWorldDialog.value = false
-  saveNovelData()
 }
 
 // 语料库保存方法
-const saveCorpus = () => {
+const saveCorpus = async () => {
   if (!corpusForm.value.title.trim()) {
     ElMessage.warning('请输入语料标题')
     return
   }
-  
-  if (corpusForm.value.id) {
-    // 编辑现有语料
-    const index = corpusData.value.findIndex(c => c.id === corpusForm.value.id)
-    if (index > -1) {
-      corpusData.value[index] = { ...corpusForm.value }
-    }
-    ElMessage.success('语料信息已更新')
-  } else {
-    // 新增语料
-    const newCorpus = {
-      ...corpusForm.value,
-      id: Date.now(),
-      createdAt: new Date()
-    }
-    corpusData.value.push(newCorpus)
-    ElMessage.success('语料创建成功')
+  const isNew = !corpusForm.value.id
+  if (isNew) {
+    corpusForm.value.id = Date.now()
+    corpusForm.value.createdAt = new Date()
   }
-  
+  const index = corpusData.value.findIndex(item => item.id === corpusForm.value.id)
+  if (index > -1) corpusData.value[index] = { ...corpusForm.value }
+  else corpusData.value.push({ ...corpusForm.value })
+  if (!(await saveNovelData())) return
+  ElMessage.success(isNew ? '语料创建成功' : '语料信息已更新')
   showCorpusDialog.value = false
-  saveNovelData()
 }
-
-// 自动保存防抖定时器
-let autoSaveTimer = null
-
-const onContentChange = () => {
-  // 清除之前的定时器
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-  }
-  
-  // 设置新的定时器，2秒后自动保存
-  autoSaveTimer = setTimeout(() => {
-    autoSave()
-  }, 2000)
-}
-
-// 自动保存函数
-const autoSave = () => {
-  if (currentChapter.value) {
-    isSaving.value = true
-    
-    setTimeout(() => {
-      saveCurrentChapter()
-      isSaving.value = false
-      // 不显示保存成功消息，避免打扰用户
-    }, 300) // 短暂延迟以显示保存状态
-  }
-}
-
-// 数据保存方法
-const saveNovelData = () => {
-  if (!currentNovel.value) return
-  
-  const totalWordCount = chapters.value.reduce((sum, ch) => sum + (ch.wordCount || 0), 0)
-  
-  const novelData = {
-    ...currentNovel.value,
-    chapterList: chapters.value,
-    characters: characters.value,
-    worldSettings: novelStore.worldSettings,
-    corpusData: corpusData.value,
-    events: events.value,
-    updatedAt: new Date(),
-    wordCount: totalWordCount,
-    // 保持兼容性的字段
-    chapters: chapters.value.length,
-    totalWords: totalWordCount
-  }
-  
-  const novels = storageGet(StorageKeys.novels, [])
-  const index = novels.findIndex(n => n.id === currentNovel.value.id)
-  if (index > -1) {
-    novels[index] = novelData
-  } else {
-    novels.push(novelData)
-  }
-  storageSet(StorageKeys.novels, novels)
-}
-
-// 初始化
-const initNovel = () => {
-  const novelId = parseInt(route.query.novelId)
-  if (novelId) {
-    // 从localStorage加载小说数据
-    const novels = storageGet(StorageKeys.novels, [])
-    const novel = novels.find(n => n.id === novelId)
-    
-    if (novel) {
-      currentNovel.value = novel
-      
-      // 处理日期对象
-      if (novel.chapterList) {
-        chapters.value = novel.chapterList.map(chapter => {
-          // 修复旧数据中可能存在的'outline'状态
-          let fixedStatus = chapter.status || 'draft'
-          if (fixedStatus === 'outline') {
-            fixedStatus = 'draft'
-          }
-          
-          return {
-            ...chapter,
-            createdAt: new Date(chapter.createdAt),
-            updatedAt: new Date(chapter.updatedAt),
-            // 确保状态字段存在，兼容旧数据，并修复错误的'outline'状态
-            status: fixedStatus
-          }
-        })
-        
-        // 如果存在章节，自动选择第一章节
-        if (chapters.value.length > 0) {
-          selectChapter(chapters.value[0])
-        }
-        
-        // 保存修复后的数据
-        saveNovelData()
-      }
-      
-      // 加载相关数据
-      characters.value = novel.characters || []
-      // 加载世界观设定到store中
-      // 先清空store中的世界观设定
-      novelStore.worldSettings.splice(0, novelStore.worldSettings.length)
-      // 添加小说的世界观设定到store
-      if (novel.worldSettings && novel.worldSettings.length > 0) {
-        novel.worldSettings.forEach(setting => {
-          novelStore.worldSettings.push(setting)
-        })
-      }
-      corpusData.value = novel.corpusData || []
-      events.value = novel.events || []
-      migrateEventChapters()
-    } else {
-      ElMessage.error('小说不存在')
-      router.push('/novels')
-    }
-  } else {
-    ElMessage.error('缺少小说ID参数')
-    router.push('/novels')
-  }
-}
-
-// 生命周期
-onMounted(() => {
-  initNovel()
-  loadPrompts()
-})
-
-onUnmounted(() => {
-  // 页面卸载时自动保存
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-  }
-  saveCurrentChapter()
-  
-  if (editorRef.value) {
-    editorRef.value.destroy()
-  }
-})
-
-// 监听路由参数变化
-watch(() => route.query.novelId, () => {
-  if (route.query.novelId) {
-    // 重置当前章节
-    currentChapter.value = null
-    content.value = ''
-    initNovel()
-  }
-})
 
 // 批量生成角色提示词相关函数
 const openBatchCharacterPromptSelector = () => {
@@ -7645,22 +7358,13 @@ const generateChapterContentWithDialog = async () => {
   
   if (!checkApiAndBalance()) return
   
-  isGeneratingContent.value = true
   showChapterGenerateDialog.value = false
-  
-  try {
-    await generateContentWithPrompt(finalPrompt.value)
-    // 成功消息已在generateContentWithPrompt函数内部显示，这里不再重复显示
-  } catch (error) {
-    console.error('生成失败:', error)
-    ElMessage.error('生成失败: ' + error.message)
-  } finally {
-    isGeneratingContent.value = false
-  }
+  await generateContentWithPrompt(finalPrompt.value)
 }
 
 // 新增AI功能弹窗方法
 const openAISingleChapterDialog = () => {
+  cancelWriterDialog('single')
   aiSingleChapterForm.value = {
     title: '',
     plotRequirement: '',
@@ -7670,6 +7374,7 @@ const openAISingleChapterDialog = () => {
 }
 
 const openAIBatchChapterDialog = () => {
+  cancelWriterDialog('batch')
   aiBatchChapterForm.value = {
     count: 3,
     plotRequirement: '',
@@ -7679,6 +7384,7 @@ const openAIBatchChapterDialog = () => {
 }
 
 const _openAIOptimizeDialog = (chapter) => {
+  cancelWriterDialog('optimize')
   aiOptimizeForm.value = {
     optimizeType: 'grammar',
     customRequirement: '',
@@ -7699,7 +7405,7 @@ const resetAISingleChapterDialog = () => {
   singleChapterPromptVariables.value = {}
   singleChapterFinalPrompt.value = ''
   streamingContent.value = ''
-  isStreaming.value = false
+
 }
 
 const resetAIBatchChapterDialog = () => {
@@ -7714,7 +7420,7 @@ const resetAIBatchChapterDialog = () => {
   batchChapterFinalPrompt.value = ''
   activePromptCollapse.value = ['promptContent']
   streamingContent.value = ''
-  isStreaming.value = false
+
 }
 
 const resetAIOptimizeDialog = () => {
@@ -7725,7 +7431,7 @@ const resetAIOptimizeDialog = () => {
     optimizedContent: ''
   }
   streamingContent.value = ''
-  isStreaming.value = false
+
 }
 
 const generateSingleChapter = async () => {
@@ -7736,11 +7442,11 @@ const generateSingleChapter = async () => {
     return
   }
   
-  isGeneratingChapters.value = true
-  isStreaming.value = true
+
   streamingType.value = 'single-chapter'
   streamingContent.value = ''
   
+  const operation = beginWriterOperation(isGeneratingChapters, 'single')
   try {
     // 检查是否有选中的自定义提示词
     if (singleChapterSelectedPrompt.value && singleChapterFinalPrompt.value) {
@@ -7780,7 +7486,7 @@ ${chapters.value.map((ch, idx) => `第${idx + 1}章：${ch.title} - ${ch.descrip
 
     console.log('开始AI生成单章大纲:', prompt)
     
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await writerStream.generate(prompt, {
       maxTokens: null,
       temperature: 0.8,
       type: 'outline'
@@ -7805,16 +7511,18 @@ ${chapters.value.map((ch, idx) => `第${idx + 1}章：${ch.title} - ${ch.descrip
     }
     
     chapters.value.push(newChapter)
+    if (!(await saveNovelData())) return
+    if (operation !== writerOperation) return
     showAISingleChapterDialog.value = false
     ElMessage.success('单章大纲生成成功')
-    saveNovelData()
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI生成单章失败:', error)
     ElMessage.error(`单章生成失败: ${error.message}`)
   } finally {
-    isGeneratingChapters.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      isGeneratingChapters.value = false
+    }
   }
 }
 
@@ -7834,11 +7542,11 @@ const generateBatchChapters = async () => {
   
   console.log('使用默认模板生成')
   
-  isGeneratingChapters.value = true
-  isStreaming.value = true
+
   streamingType.value = 'batch-chapters'
   streamingContent.value = ''
   
+  const operation = beginWriterOperation(isGeneratingChapters, 'batch')
   try {
     const count = aiBatchChapterForm.value.count
     const plotRequirement = aiBatchChapterForm.value.plotRequirement
@@ -7898,7 +7606,7 @@ Hard constraints:
     console.log('请求生成章节数量:', count)
     console.log('前5章详细信息:', getRecentChaptersDetail())
     
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await writerStream.generate(prompt, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'outline'
@@ -7940,16 +7648,19 @@ Hard constraints:
       console.log(`添加章节 ${index + 1}:`, newChapter.title)
     })
     
+    if (!(await saveNovelData())) return
+    if (operation !== writerOperation) return
+
     showAIBatchChapterDialog.value = false
     ElMessage.success(`成功生成${newChapters.length}个章节大纲`)
-    saveNovelData()
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI批量生成章节失败:', error)
     ElMessage.error(`批量生成失败: ${error.message}`)
   } finally {
-    isGeneratingChapters.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      isGeneratingChapters.value = false
+    }
   }
 }
 
@@ -7961,12 +7672,12 @@ const startOptimizeContent = async () => {
     return
   }
   
-  isOptimizing.value = true
-  isStreaming.value = true
+
   streamingType.value = 'optimize'
   streamingContent.value = ''
   aiOptimizeForm.value.optimizedContent = ''
   
+  const operation = beginWriterOperation(isOptimizing, 'optimize')
   try {
     let optimizeInstruction = ''
     switch (aiOptimizeForm.value.optimizeType) {
@@ -8002,7 +7713,7 @@ ${aiOptimizeForm.value.originalContent}
 
     console.log('开始AI优化内容:', prompt)
     
-    const aiResponse = await apiService.generateTextStream(prompt, {
+    const aiResponse = await writerStream.generate(prompt, {
       maxTokens: null, // 移除token限制
       temperature: 0.7,
       type: 'optimize'
@@ -8018,12 +7729,13 @@ ${aiOptimizeForm.value.originalContent}
     aiOptimizeForm.value.optimizedContent = aiResponse
     ElMessage.success('内容优化完成')
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI优化失败:', error)
     ElMessage.error(`优化失败: ${error.message}`)
   } finally {
-    isOptimizing.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      isOptimizing.value = false
+    }
   }
 }
 
@@ -8048,11 +7760,11 @@ const selectPromptForSingleChapter = () => {
 const generateSingleChapterWithPrompt = async (customPrompt) => {
   if (!checkApiAndBalance()) return
   
-  isGeneratingChapters.value = true
-  isStreaming.value = true
+
   streamingType.value = 'single-chapter'
   streamingContent.value = ''
   
+  const operation = beginWriterOperation(isGeneratingChapters, 'single')
   try {
     // 在自定义提示词中确保包含用户填写的基本信息
     const promptWithUserInput = `=== 用户输入信息 ===
@@ -8086,7 +7798,7 @@ ${customPrompt}
 
     console.log('使用自定义提示词生成单章:', promptWithUserInput.substring(0, 300) + '...')
     
-    const aiResponse = await apiService.generateTextStream(promptWithUserInput, {
+    const aiResponse = await writerStream.generate(promptWithUserInput, {
       maxTokens: null,
       temperature: 0.8,
       type: 'outline'
@@ -8111,16 +7823,18 @@ ${customPrompt}
     }
     
     chapters.value.push(newChapter)
+    if (!(await saveNovelData())) return
+    if (operation !== writerOperation) return
     showAISingleChapterDialog.value = false
     ElMessage.success('使用自定义提示词生成单章成功')
-    saveNovelData()
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('使用自定义提示词生成单章失败:', error)
     ElMessage.error(`单章生成失败: ${error.message}`)
   } finally {
-    isGeneratingChapters.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      isGeneratingChapters.value = false
+    }
   }
 }
 
@@ -8227,11 +7941,11 @@ const selectPromptForOptimize = () => {
 const generateBatchChaptersWithPrompt = async (customPrompt) => {
   if (!checkApiAndBalance()) return
   
-  isGeneratingChapters.value = true
-  isStreaming.value = true
+
   streamingType.value = 'batch-chapters'
   streamingContent.value = ''
   
+  const operation = beginWriterOperation(isGeneratingChapters, 'batch')
   try {
     const count = aiBatchChapterForm.value.count
     const plotRequirement = aiBatchChapterForm.value.plotRequirement
@@ -8311,7 +8025,7 @@ ${customPrompt}`
     console.log('请求生成章节数量:', count)
     console.log('前5章详细信息:', getRecentChaptersDetail())
     
-    const aiResponse = await apiService.generateTextStream(promptWithFormat, {
+    const aiResponse = await writerStream.generate(promptWithFormat, {
       maxTokens: null, // 移除token限制
       temperature: 0.8,
       type: 'outline'
@@ -8353,18 +8067,117 @@ ${customPrompt}`
       console.log(`添加章节 ${index + 1}:`, newChapter.title)
     })
     
+    if (!(await saveNovelData())) return
+    if (operation !== writerOperation) return
+
     showAIBatchChapterDialog.value = false
     ElMessage.success(`成功使用自定义提示词生成${newChapters.length}个章节大纲`)
-    saveNovelData()
   } catch (error) {
+    if (isAIRequestCancelled(error)) return
     console.error('AI批量生成章节失败:', error)
     ElMessage.error(`批量生成失败: ${error.message}`)
   } finally {
-    isGeneratingChapters.value = false
-    isStreaming.value = false
-    streamingContent.value = ''
+    if (operation === writerOperation) {
+      isGeneratingChapters.value = false
+    }
   }
 }
+
+
+const stopWriterStreams = () => {
+  cancelWriterStream()
+  continueStream.dispose()
+  optimizeStream.dispose()
+  resetContinueDialog()
+  resetOptimizeDialog()
+  showNewContinueDialog.value = false
+  showNewOptimizeDialog.value = false
+  showAIOptimizeDialog.value = false
+  showOptimizePromptDialog.value = false
+  showChapterGenerateDialog.value = false
+  showPromptDialog.value = false
+  showAISingleChapterDialog.value = false
+  showAIBatchChapterDialog.value = false
+  showBatchGenerateCharacterDialog.value = false
+  showWorldGenerateDialog.value = false
+  generatedCharacters.value = []
+  generatedWorldSettings.value = []
+  batchGenerateResults.value = []
+  targetChapter.value = null
+  aiOptimizeForm.value.optimizedContent = ''
+  streamingContent.value = ''
+}
+
+const resetWriterGenerationFlags = () => {
+  for (const flag of [isGeneratingContent, isGeneratingChapters, isOptimizing,
+    isGeneratingOutline, batchGenerating, worldGenerating, isGeneratingWorldSetting]) {
+    flag.value = false
+  }
+}
+
+const cancelWriterStream = (message = '') => {
+  writerOperation += 1
+  writerDialogOwner = ''
+  writerStream.stop(message)
+  resetWriterGenerationFlags()
+  streamingChapter.value = null
+}
+
+const beginWriterOperation = (flag = null, owner = '') => {
+  writerStream.dispose()
+  resetWriterGenerationFlags()
+  if (flag) flag.value = true
+  writerDialogOwner = owner
+  return ++writerOperation
+}
+
+const cancelWriterDialog = (owner) => {
+  if (writerDialogOwner === owner) cancelWriterStream()
+}
+
+// Only a generation dialog that owns the current request may cancel it.
+// The prompt picker also closes normally when handing a request to the editor.
+for (const [dialog, owner] of [
+  [showAISingleChapterDialog, 'single'], [showAIBatchChapterDialog, 'batch'],
+  [showAIOptimizeDialog, 'optimize'], [showBatchGenerateCharacterDialog, 'characters'],
+  [showWorldGenerateDialog, 'worlds'], [showWorldDialog, 'world'],
+  [showCharacterDialog, 'character'], [showChapterDialog, 'chapter'],
+]) {
+  watch(dialog, opened => { if (!opened) cancelWriterDialog(owner) }, { flush: 'sync' })
+}
+
+const selectChapter = async (chapter) => {
+  if (currentChapter.value && currentChapter.value.id !== chapter.id) stopWriterStreams()
+  return selectProjectChapter(chapter)
+}
+
+// Deleting the selected chapter and loading another novel also change this ref.
+watch(() => currentChapter.value?.id, (id, previousId) => {
+  if (previousId !== undefined && id !== previousId) stopWriterStreams()
+}, { flush: 'sync' })
+
+// 页面离开前等待真实保存完成，失败时保留当前编辑上下文。
+onBeforeRouteLeave(async () => {
+  stopWriterStreams()
+  return saveCurrentChapter()
+})
+onBeforeRouteUpdate(async (to, from) => {
+  if (to.query.novelId === from.query.novelId) return true
+  stopWriterStreams()
+  return saveCurrentChapter()
+})
+onMounted(async () => {
+  const opened = await initNovel(route.query.novelId)
+  if (!opened && !currentNovel.value) { void router.replace('/novels'); return }
+  loadPrompts()
+})
+watch(() => route.query.novelId, async (id, previousId) => {
+  if (id !== previousId) await initNovel(id)
+})
+onUnmounted(() => {
+  stopWriterStreams()
+  void dispose()
+})
 </script>
 
 <style scoped>
@@ -8492,51 +8305,6 @@ ${customPrompt}`
   50% { opacity: 0.6; }
 }
 
-/* 编辑器内容样式优化 - 更适合小说阅读 */
-.editor-wrapper :deep(.w-e-text-container) {
-  background-color: var(--el-bg-color);
-  border: none;
-}
-
-.editor-wrapper :deep(.w-e-text) {
-  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans CN', 'WenQuanYi Micro Hei', sans-serif;
-  font-size: 16px;
-  line-height: 2.0;
-  color: #2c3e50;
-  padding: 30px 40px;
-  letter-spacing: 0.5px;
-  text-align: justify;
-}
-
-.editor-wrapper :deep(.w-e-text p) {
-  margin: 0 0 1.2em 0;
-  text-indent: 2em;
-  line-height: 2.0;
-}
-
-.editor-wrapper :deep(.w-e-text h1),
-.editor-wrapper :deep(.w-e-text h2),
-.editor-wrapper :deep(.w-e-text h3) {
-  margin: 1.5em 0 1em 0;
-  line-height: 1.6;
-  text-indent: 0;
-}
-
-.editor-wrapper :deep(.w-e-text h1) {
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.editor-wrapper :deep(.w-e-text h2) {
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.editor-wrapper :deep(.w-e-text h3) {
-  font-size: 18px;
-  font-weight: 600;
-}
-
 .chapters-list {
   max-height: calc(100vh - 190px);
   overflow-y: auto;
@@ -8595,19 +8363,6 @@ ${customPrompt}`
   text-align: center;
   padding: 40px 20px;
   color: var(--el-text-color-secondary);
-}
-
-.editor-container {
-  height: calc(100vh - 300px);
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.editor-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .preview-container {

@@ -1,21 +1,11 @@
 /**
- * 小说数据分层持久化：
- * - 小数据量：整体 JSON 直接写 localStorage（快路径，与历史行为一致）
- * - 数据量超过阈值：章节正文（>INLINE_CONTENT_MAX_CHARS）写入 IndexedDB，
- *   localStorage 只保留元数据 + contentRef 指针
- * - 启动时 hydrate 到内存缓存，视图层经 storageGet/storageSet 零改动读写
- *
- * 注意：正文分片落 IDB 为异步写（元数据写 LS 前先完成 IDB 写），
- * 极端情况下（写 IDB 后、元数据落 LS 前崩溃）回退为上次已持久化状态。
+ * 小说持久化：串行提交快照，长正文使用不可变、带版本的 IndexedDB 分片。
+ * localStorage 元数据是提交点；它写入成功前，上一版引用的正文绝不修改或删除。
  */
-
 import { StorageKeys, registerChunkedKey, writeSerializedWithRetry, type ChunkedKeyBackend } from '@/utils/storage'
-import { idbClear, idbDelete, idbGet, idbSet, isBlobStoreAvailable } from './blobStore'
+import { idbDeleteMany, idbGet, idbSetMany, isBlobStoreAvailable } from './blobStore'
 
-/** 整体 JSON 超过该字符数（约 3MB UTF-16）时启用分片写入 */
 const SPLIT_THRESHOLD_CHARS = 1_500_000
-
-/** 分片模式下，章节正文超过该字符数才移入 IDB（短内容仍内联在元数据里） */
 const INLINE_CONTENT_MAX_CHARS = 2_000
 
 interface ChapterLike {
@@ -24,183 +14,242 @@ interface ChapterLike {
   contentRef?: string
   [key: string]: unknown
 }
-
 interface NovelLike {
   id: unknown
   chapterList?: ChapterLike[]
   [key: string]: unknown
 }
 
-function contentBlobKey(novelId: unknown, chapterId: unknown): string {
-  return `novel:${String(novelId)}:chapter:${String(chapterId)}:content`
+export interface NovelPersistenceStatus {
+  phase: 'loading' | 'saved' | 'saving' | 'error'
+  /** 加载未成功时不能让视图读取残缺数据并自动保存。 */
+  blocked: boolean
+  error: string | null
+  pending: number
 }
-
-function hasContentRefs(novels: NovelLike[]): boolean {
-  return novels.some((novel) =>
-    (novel.chapterList ?? []).some((chapter) => typeof chapter.contentRef === 'string'),
-  )
-}
-
+type SaveRequest = { kind: 'save'; novels: NovelLike[] } | { kind: 'remove' }
 let cache: NovelLike[] = []
 let ready = false
-let idbEnabled = true
+let loadError: Error | null = null
+let committedKeys = new Set<string>()
+const garbageKeys = new Set<string>()
+let queue: Promise<void> = Promise.resolve()
+let latestResult: Promise<void> = queue
+let latestRequest: SaveRequest | null = null
+let revision = 0
+let status: NovelPersistenceStatus = { phase: 'loading', blocked: true, error: null, pending: 0 }
+const listeners = new Set<(value: NovelPersistenceStatus) => void>()
+const retryHandlers = new Set<() => Promise<void>>()
 
-/** 已写入 IDB 的分片键集合（用于清理与快路径降级判断） */
-const writtenBlobKeys = new Set<string>()
+/** 活跃编辑页可重试当前可见状态，避免重新执行页面已经回滚的失败操作。 */
+export function registerNovelPersistenceRetryHandler(handler: () => Promise<void>): () => void {
+  retryHandlers.add(handler)
+  return () => { retryHandlers.delete(handler) }
+}
 
-/** 把长正文从内存数组中剥离，返回 { 元数据数组, 待写 IDB 分片 } */
-/** 把长正文从内存数组中剥离，返回 { 元数据数组, 待写 IDB 分片 }（导出供冒烟演练） */
-export function splitContents(novels: NovelLike[]): { metadata: NovelLike[]; blobs: Array<{ key: string; content: string }> } {
-  const blobs: Array<{ key: string; content: string }> = []
-  const metadata = novels.map((novel) => {
-    if (!Array.isArray(novel.chapterList)) return novel
-    const chapters = novel.chapterList.map((chapter) => {
-      if (typeof chapter.content !== 'string' || chapter.content.length <= INLINE_CONTENT_MAX_CHARS) {
-        return chapter
+export function getNovelPersistenceStatus(): NovelPersistenceStatus {
+  return { ...status }
+}
+export function subscribeNovelPersistenceStatus(listener: (value: NovelPersistenceStatus) => void): () => void {
+  listeners.add(listener)
+  listener(getNovelPersistenceStatus())
+  return () => { listeners.delete(listener) }
+}
+function updateStatus(value: Partial<NovelPersistenceStatus>): void {
+  status = { ...status, ...value }
+  for (const listener of listeners) listener(getNovelPersistenceStatus())
+}
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error))
+}
+function observed(promise: Promise<void>): Promise<void> {
+  // 保持原 Promise 的拒绝语义供 await 使用，同时兼容仍忽略返回值的旧调用方。
+  void promise.catch(() => undefined)
+  return promise
+}
+function referencedKeys(novels: NovelLike[]): Set<string> {
+  return new Set(novels.flatMap((novel) => (novel.chapterList ?? [])
+    .flatMap((chapter) => typeof chapter.contentRef === 'string' ? [chapter.contentRef] : [])))
+}
+function snapshot(value: unknown): NovelLike[] {
+  if (!Array.isArray(value)) throw new Error('小说数据必须是数组')
+  const result = JSON.parse(JSON.stringify(value)) as NovelLike[]
+  for (const novel of result) {
+    for (const chapter of novel.chapterList ?? []) {
+      if (typeof chapter.contentRef === 'string' && typeof chapter.content !== 'string') {
+        throw new Error(`章节「${String(chapter.title ?? chapter.id)}」正文尚未加载，已阻止覆盖保存`)
       }
-      const key = contentBlobKey(novel.id, chapter.id)
-      blobs.push({ key, content: chapter.content })
-      const { content: _content, ...rest } = chapter
-      return { ...rest, contentRef: key }
-    })
-    return { ...novel, chapterList: chapters }
-  })
+      // 内存中正文始终为权威值；不能携带能在重启时覆盖新正文的旧指针。
+      delete chapter.contentRef
+    }
+  }
+  return result
+}
+
+/** 导出供回归检查；每次生成独立版本，兼容旧版固定键的读取。 */
+export function splitContents(novels: NovelLike[]): { metadata: NovelLike[]; blobs: Array<{ key: string; content: string }> } {
+  const version = globalThis.crypto?.randomUUID() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const blobs: Array<{ key: string; content: string }> = []
+  const metadata = snapshot(novels).map((novel, novelIndex) => ({
+    ...novel,
+    ...(Array.isArray(novel.chapterList) ? {
+      chapterList: novel.chapterList.map((chapter, chapterIndex) => {
+        if (typeof chapter.content !== 'string' || chapter.content.length <= INLINE_CONTENT_MAX_CHARS) return chapter
+        const key = `novel:${String(novel.id)}:chapter:${String(chapter.id)}:content:${version}:${novelIndex}:${chapterIndex}`
+        blobs.push({ key, content: chapter.content })
+        const { content: _content, ...rest } = chapter
+        return { ...rest, contentRef: key }
+      }),
+    } : {}),
+  }))
   return { metadata, blobs }
 }
 
-/** 从 IDB 把 contentRef 指回内存数组 */
-/** 从 IDB 把 contentRef 指回内存数组（导出供冒烟演练） */
+/** 全部分片成功读取后才回填；失败保留原始指针，不以空正文冒充成功。 */
 export async function hydrateContents(novels: NovelLike[]): Promise<void> {
-  const jobs: Array<Promise<void>> = []
-  for (const novel of novels) {
-    if (!Array.isArray(novel.chapterList)) continue
-    for (const chapter of novel.chapterList) {
-      if (typeof chapter.contentRef !== 'string') continue
-      const ref = chapter.contentRef
-      jobs.push(
-        idbGet(ref)
-          .then((content) => {
-            if (content === null) {
-              console.warn(`[novelPersistence] 分片缺失: ${ref}，正文置空`)
-              chapter.content = ''
-            } else {
-              chapter.content = content
-            }
-          })
-          .catch((error) => {
-            console.warn(`[novelPersistence] 分片读取失败: ${ref}`, error)
-            chapter.content = ''
-          }),
-      )
-    }
+  const chapters = novels.flatMap((novel) => novel.chapterList ?? [])
+  const loaded = await Promise.all(chapters.map(async (chapter) => {
+    if (typeof chapter.contentRef !== 'string' || typeof chapter.content === 'string') return null
+    const content = await idbGet(chapter.contentRef)
+    if (content === null) throw new Error(`章节「${String(chapter.title ?? chapter.id)}」正文分片缺失（${chapter.contentRef}）`)
+    return { chapter, content }
+  }))
+  for (const item of loaded) {
+    if (item) item.chapter.content = item.content
   }
-  await Promise.all(jobs)
+  for (const chapter of chapters) delete chapter.contentRef
 }
 
-/** 分片路径持久化：先写 IDB 分片，再写元数据到 localStorage */
-async function persistSplit(novels: NovelLike[]): Promise<void> {
-  const { metadata, blobs } = splitContents(novels)
-
-  await Promise.all(blobs.map(({ key, content }) => idbSet(key, content)))
-  for (const { key } of blobs) writtenBlobKeys.add(key)
-
-  // 清理已不在当前数据中的陈旧分片
-  const currentKeys = new Set(blobs.map(({ key }) => key))
-  const staleKeys = [...writtenBlobKeys].filter((key) => !currentKeys.has(key))
-  await Promise.all(staleKeys.map((key) => idbDelete(key).catch(() => undefined)))
-  for (const key of staleKeys) writtenBlobKeys.delete(key)
-
-  const metadataJson = JSON.stringify(metadata)
+async function collectGarbage(): Promise<void> {
+  const keys = [...garbageKeys].filter((key) => !committedKeys.has(key))
   try {
-    localStorage.setItem(StorageKeys.novels, metadataJson)
+    await idbDeleteMany(keys)
+    for (const key of keys) garbageKeys.delete(key)
   } catch (error) {
-    console.error('[novelPersistence] 元数据写入 localStorage 失败:', error)
+    // 提交已完成；清理失败只遗留无引用分片，下次提交时重试，不报告正文保存失败。
+    console.warn('[novelPersistence] 陈旧分片清理失败，将在下次保存重试:', error)
   }
+}
+async function persist(request: SaveRequest): Promise<void> {
+  let nextKeys = new Set<string>()
+  if (request.kind === 'remove') {
+    localStorage.removeItem(StorageKeys.novels)
+  } else {
+    const fullJson = JSON.stringify(request.novels)
+    if (!isBlobStoreAvailable() || fullJson.length <= SPLIT_THRESHOLD_CHARS) {
+      writeSerializedWithRetry(StorageKeys.novels, fullJson)
+    } else {
+      const { metadata, blobs } = splitContents(request.novels)
+      nextKeys = new Set(blobs.map(({ key }) => key))
+      let staged = false
+      try {
+        await idbSetMany(blobs)
+        staged = true
+        writeSerializedWithRetry(StorageKeys.novels, JSON.stringify(metadata))
+      } catch (error) {
+        if (staged) {
+          for (const key of nextKeys) garbageKeys.add(key)
+          await collectGarbage()
+        }
+        throw error
+      }
+    }
+  }
+  for (const key of committedKeys) garbageKeys.add(key)
+  committedKeys = nextKeys
+  await collectGarbage()
+}
+function enqueue(request: SaveRequest): Promise<void> {
+  latestRequest = request
+  const currentRevision = ++revision
+  updateStatus({ phase: 'saving', error: null, pending: status.pending + 1 })
+  const result = queue.then(() => persist(request)).then(() => {
+    updateStatus({ pending: status.pending - 1, ...(currentRevision === revision ? { phase: 'saved', error: null } : {}) })
+  }, (error: unknown) => {
+    updateStatus({ pending: status.pending - 1, phase: 'error', error: asError(error).message })
+    throw error
+  })
+  latestResult = observed(result)
+  queue = result.catch(() => undefined)
+  return result
 }
 
 const backend: ChunkedKeyBackend = {
   get(): unknown {
-    return cache
+    if (!ready) throw new Error('小说数据仍在加载')
+    if (loadError) throw loadError
+    // 调用方可以自由编辑读取结果，但不能悄悄改动排队/重试中的快照。
+    return snapshot(cache)
   },
-  set(value: unknown): void {
-    if (!Array.isArray(value)) {
-      cache = []
-      return
-    }
-    cache = value as NovelLike[]
-
-    let fullJson = ''
+  set(value: unknown): Promise<void> {
     try {
-      fullJson = JSON.stringify(cache)
+      if (!ready) throw new Error('小说数据仍在加载')
+      if (loadError) throw loadError
+      const next = snapshot(value)
+      cache = next
+      return enqueue({ kind: 'save', novels: next })
     } catch (error) {
-      console.error('[novelPersistence] 序列化小说数据失败:', error)
-      return
+      latestRequest = null
+      revision++
+      updateStatus({ phase: 'error', error: asError(error).message })
+      latestResult = observed(Promise.reject(error))
+      return latestResult
     }
-
-    if (!idbEnabled || fullJson.length <= SPLIT_THRESHOLD_CHARS) {
-      // 快路径：整体直写 localStorage（复用集中层配额清理重试；配额错误同步抛出）
-      writeSerializedWithRetry(StorageKeys.novels, fullJson)
-      return
-    }
-
-    void persistSplit(cache).catch((error) => {
-      console.error('[novelPersistence] 分片持久化失败:', error)
-    })
   },
-  remove(): void {
+  remove(): Promise<void> {
+    if (!ready || loadError) return observed(Promise.reject(loadError ?? new Error('小说数据仍在加载')))
     cache = []
-    try {
-      localStorage.removeItem(StorageKeys.novels)
-    } catch (error) {
-      console.error('[novelPersistence] localStorage 键删除失败:', error)
-    }
-    if (idbEnabled) {
-      void idbClear()
-        .then(() => writtenBlobKeys.clear())
-        .catch((error) => console.warn('[novelPersistence] IDB 清空失败:', error))
-    }
+    return enqueue({ kind: 'remove' })
   },
-  isReady(): boolean {
-    return ready
-  },
+  isReady: () => ready,
 }
 
-/**
- * 初始化小说数据分层持久化（应用挂载前调用一次）：
- * 注册分片后端 → 读取 localStorage 数据 → 含分片指针时从 IDB hydrate 正文。
- */
+/** 等待调用前的最新操作完成；最新保存失败时拒绝，供关闭/导出等操作使用。 */
+export function flushNovelPersistence(): Promise<void> {
+  return latestResult
+}
+/** 加载失败时重新读取已提交数据；保存失败时重试最近一次请求的完整快照。 */
+export function retryNovelPersistence(): Promise<void> {
+  if (loadError) return observed(initNovelPersistence())
+  const handlers = [...retryHandlers]
+  const handler = handlers[handlers.length - 1]
+  if (handler) return observed(Promise.resolve().then(handler))
+  if (latestRequest) return enqueue(latestRequest)
+  return latestResult
+}
+
+/** 启动前完成读取；发生错误时 App 阻止业务视图挂载，避免残缺数据被自动保存。 */
 export async function initNovelPersistence(): Promise<void> {
+  await queue
+  ready = false
+  loadError = null
+  updateStatus({ phase: 'loading', blocked: true, error: null, pending: 0 })
   registerChunkedKey(StorageKeys.novels, backend)
-
-  if (!isBlobStoreAvailable()) {
-    idbEnabled = false
-    console.warn('[novelPersistence] IndexedDB 不可用，全部数据保留在 localStorage')
-  }
-
   try {
     const raw = localStorage.getItem(StorageKeys.novels)
-    if (raw !== null) {
-      const data = JSON.parse(raw)
-      if (Array.isArray(data)) {
-        cache = data as NovelLike[]
-        if (hasContentRefs(cache)) {
-          if (idbEnabled) {
-            await hydrateContents(cache)
-          } else {
-            console.warn('[novelPersistence] IndexedDB 不可用且数据含分片指针，部分正文无法加载')
-          }
-        }
-      }
-    }
+    const novels: unknown = raw === null ? [] : JSON.parse(raw)
+    if (!Array.isArray(novels)) throw new Error('已保存的小说数据格式无效')
+    const restored = novels as NovelLike[]
+    const keys = referencedKeys(restored)
+    await hydrateContents(restored)
+    cache = restored
+    committedKeys = keys
+    latestRequest = null
+    latestResult = Promise.resolve()
+    ready = true
+    updateStatus({ phase: 'saved', blocked: false, error: null })
   } catch (error) {
-    console.error('[novelPersistence] 启动加载小说数据失败:', error)
-    cache = []
+    loadError = asError(error)
+    latestResult = observed(Promise.reject(loadError))
+    updateStatus({ phase: 'error', blocked: true, error: loadError.message })
+    throw loadError
+  } finally {
+    // 错误状态也交给后端处理，禁止 storageGet 回退读取未 hydrate 的原始元数据。
+    ready = true
   }
-
-  ready = true
 }
 
-/** 供调试/诊断：当前是否处于分片写入模式 */
+/** 当前环境是否支持分片存储。实际事务结果由保存状态报告。 */
 export function isNovelPersistenceSplitMode(): boolean {
-  return idbEnabled
+  return isBlobStoreAvailable()
 }

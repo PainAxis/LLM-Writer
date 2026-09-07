@@ -173,14 +173,18 @@
 
     <!-- 创建小说对话框 -->
     <el-dialog 
-      v-model="showCreateDialog" 
+      v-model="showCreateDialog"
+      :close-on-click-modal="!isSavingNovels"
+      :close-on-press-escape="!isSavingNovels"
+      :show-close="!isSavingNovels"
       title="创建新小说" 
       width="600px"
       @close="resetCreateForm"
     >
       <el-form 
         ref="createFormRef" 
-        :model="createForm" 
+        :model="createForm"
+        :disabled="isSavingNovels"
         :rules="createRules" 
         label-width="80px"
       >
@@ -290,8 +294,8 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="createNovel">创建</el-button>
+        <el-button @click="showCreateDialog = false" :disabled="isSavingNovels">取消</el-button>
+        <el-button type="primary" @click="createNovel" :loading="isSavingNovels">创建</el-button>
       </template>
     </el-dialog>
 
@@ -416,14 +420,18 @@
 
     <!-- 编辑小说信息对话框 -->
     <el-dialog 
-      v-model="showEditDialog" 
+      v-model="showEditDialog"
+      :close-on-click-modal="!isSavingNovels"
+      :close-on-press-escape="!isSavingNovels"
+      :show-close="!isSavingNovels"
       title="编辑小说信息" 
       width="600px"
       @close="resetEditForm"
     >
       <el-form 
         ref="editFormRef" 
-        :model="editForm" 
+        :model="editForm"
+        :disabled="isSavingNovels"
         :rules="editRules" 
         label-width="80px"
       >
@@ -532,7 +540,7 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showEditDialog = false">取消</el-button>
+        <el-button @click="showEditDialog = false" :disabled="isSavingNovels">取消</el-button>
         <el-button type="primary" @click="updateNovelInfo" :loading="isSavingEdit">保存修改</el-button>
       </template>
     </el-dialog>
@@ -540,7 +548,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Plus, Search, Document, EditPen, Calendar, Edit, View, 
@@ -549,6 +557,7 @@ import {
 import { useRouter } from 'vue-router'
 import apiService from '@/services/api'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
+import { subscribeNovelPersistenceStatus } from '@/services/novelPersistence'
 
 const router = useRouter()
 
@@ -571,6 +580,9 @@ const editFileInput = ref()
 const isGeneratingDescription = ref(false)
 const isGeneratingEditDescription = ref(false)
 const isSavingEdit = ref(false)
+const isSavingNovels = ref(false)
+// 一次创建表单生命周期使用同一身份，失败后的全局重试与再次提交不会重复创建。
+const createDraft = ref(null)
 
 // 小说数据 - 从localStorage加载
 const novels = ref([])
@@ -598,8 +610,6 @@ const loadNovels = () => {
     } else {
       // 如果没有保存的数据，初始化为空
       novels.value = []
-      // 保存空数据到localStorage
-      saveNovels()
     }
   } catch (error) {
     console.error('加载小说数据失败:', error)
@@ -607,13 +617,15 @@ const loadNovels = () => {
   }
 }
 
-// 保存小说数据到localStorage
-const saveNovels = () => {
+// 先提交独立快照，落盘完成后才更新列表，失败时表单与原列表仍可重试。
+const saveNovels = async (nextNovels = novels.value) => {
+  if (isSavingNovels.value) throw new Error('正在保存小说，请稍后重试')
+  isSavingNovels.value = true
   try {
-    storageSet(StorageKeys.novels, novels.value)
-  } catch (error) {
-    console.error('保存小说数据失败:', error)
-    ElMessage.error('保存数据失败')
+    await storageSet(StorageKeys.novels, nextNovels)
+    loadNovels()
+  } finally {
+    isSavingNovels.value = false
   }
 }
 
@@ -1086,35 +1098,39 @@ const exportAllNovels = () => {
   }
 }
 
-const duplicateNovel = (novel) => {
+const duplicateNovel = async (novel) => {
+  if (isSavingNovels.value) return
   const newNovel = {
-    ...novel,
+    ...JSON.parse(JSON.stringify(novel)),
     id: Date.now(),
     title: novel.title + ' (副本)',
     createdAt: new Date(),
     updatedAt: new Date()
   }
-  novels.value.push(newNovel)
-  // 保存到localStorage
-  saveNovels()
-  ElMessage.success('小说复制成功')
+  try {
+    await saveNovels([...novels.value, newNovel])
+    ElMessage.success('小说复制成功')
+  } catch {
+    ElMessage.error('小说复制未保存，请重试')
+  }
 }
 
 const deleteNovel = async (novel) => {
+  if (isSavingNovels.value) return
   try {
     await ElMessageBox.confirm(`确定要删除《${novel.title}》吗？此操作不可恢复。`, '确认删除', {
       type: 'warning'
     })
-    
-    const index = novels.value.findIndex(n => n.id === novel.id)
-    if (index > -1) {
-      novels.value.splice(index, 1)
-      // 保存到localStorage
-      saveNovels()
+  } catch {
+    return // 用户取消确认
+  }
+  try {
+    if (novels.value.some(n => n.id === novel.id)) {
+      await saveNovels(novels.value.filter(n => n.id !== novel.id))
       ElMessage.success('删除成功')
     }
   } catch {
-    // 用户取消删除
+    ElMessage.error('删除未保存，请重试')
   }
 }
 
@@ -1199,37 +1215,35 @@ const removeCover = () => {
 }
 
 const createNovel = async () => {
+  if (isSavingNovels.value) return
   try {
     await createFormRef.value.validate()
+  } catch {
+    return
+  }
+  try {
     
+    if (!createDraft.value) createDraft.value = { id: Date.now(), createdAt: new Date() }
+    const draft = createDraft.value
+    const existing = novels.value.find(novel => novel.id === draft.id)
     const newNovel = {
+      status: 'writing', chapters: 0, wordCount: 0, totalWords: 0,
+      avgWordsPerChapter: 0, writingDays: 0,
+      chapterList: [], writingRecords: [], characters: [], worldSettings: [], corpusData: [], events: [],
+      // 全局重试可能已保存此草稿；再次提交只更新表单字段，保留其章节和素材。
+      ...existing,
       ...createForm.value,
-      id: Date.now(),
-      status: 'writing',
-      chapters: 0,
-      wordCount: 0,
-      totalWords: 0,
-      avgWordsPerChapter: 0,
-      writingDays: 0,
-      createdAt: new Date(),
+      tags: [...createForm.value.tags],
+      id: draft.id,
+      createdAt: existing?.createdAt ?? draft.createdAt,
       updatedAt: new Date(),
-      chapterList: [],
-      writingRecords: [],
-      genrePrompt: genrePresets[createForm.value.genre]?.prompt || '',
-      // 章节管理需要的数据结构
-      characters: [],
-      worldSettings: [],
-      corpusData: [],
-      events: []
+      genrePrompt: genrePresets.value[createForm.value.genre]?.prompt || ''
     }
-    
-    novels.value.unshift(newNovel)
-    
-    // 更新类型使用计数
-    updateGenreUsageCount(createForm.value.genre)
-    
-    // 保存到localStorage
-    saveNovels()
+    const nextNovels = existing
+      ? novels.value.map(novel => novel.id === draft.id ? newNovel : novel)
+      : [newNovel, ...novels.value]
+    await saveNovels(nextNovels)
+    updateGenreUsageCount(newNovel.genre)
     
     ElMessage.success('小说创建成功！即将跳转到编辑区...')
     showCreateDialog.value = false
@@ -1241,7 +1255,7 @@ const createNovel = async () => {
     }, 1000)
   } catch (error) {
     console.error('创建小说失败:', error)
-    ElMessage.error('创建小说失败')
+    ElMessage.error('小说尚未保存，表单内容已保留，请重试')
   }
 }
 
@@ -1253,6 +1267,7 @@ const onGenreChange = (genre) => {
 }
 
 const resetCreateForm = () => {
+  createDraft.value = null
   createForm.value = {
     title: '',
     genre: '',
@@ -1416,43 +1431,33 @@ const generateEditDescription = async () => {
 
 // 保存小说信息修改
 const updateNovelInfo = async () => {
+  if (isSavingNovels.value || isSavingEdit.value) return
   try {
     await editFormRef.value.validate()
-    isSavingEdit.value = true
-    
-    const index = novels.value.findIndex(n => n.id === editingNovel.value.id)
-    if (index > -1) {
-      // 更新小说信息
-      novels.value[index] = {
-        ...novels.value[index],
-        title: editForm.value.title,
-        genre: editForm.value.genre,
-        status: editForm.value.status,
-        description: editForm.value.description,
-        cover: editForm.value.cover,
-        tags: editForm.value.tags,
-        updatedAt: new Date()
-      }
-      
-      // 更新类型使用计数（如果类型发生变化）
-      if (editingNovel.value.genre !== editForm.value.genre) {
-        updateGenreUsageCount(editForm.value.genre)
-      }
-      
-      // 保存到localStorage
-      saveNovels()
-      
-      ElMessage.success('小说信息更新成功')
-      showEditDialog.value = false
-      resetEditForm()
-      
-      // 如果当前正在查看详情，更新详情显示
-      if (selectedNovel.value && selectedNovel.value.id === editingNovel.value.id) {
-        selectedNovel.value = novels.value[index]
-      }
+  } catch {
+    return
+  }
+  isSavingEdit.value = true
+  try {
+    const editedNovel = editingNovel.value
+    const index = novels.value.findIndex(n => n.id === editedNovel?.id)
+    if (index < 0) throw new Error('小说已不存在')
+    const updated = {
+      ...novels.value[index],
+      ...editForm.value,
+      tags: [...editForm.value.tags],
+      updatedAt: new Date()
     }
-  } catch (error) {
-    console.error('保存小说信息失败:', error)
+    const nextNovels = [...novels.value]
+    nextNovels[index] = updated
+    await saveNovels(nextNovels)
+    if (editedNovel.genre !== updated.genre) updateGenreUsageCount(updated.genre)
+    if (selectedNovel.value?.id === editedNovel.id) selectedNovel.value = updated
+    ElMessage.success('小说信息更新成功')
+    showEditDialog.value = false
+    resetEditForm()
+  } catch {
+    ElMessage.error('小说信息尚未保存，修改内容已保留，请重试')
   } finally {
     isSavingEdit.value = false
   }
@@ -1594,13 +1599,17 @@ const generateDescriptionFromTemplate = () => {
   ElMessage.success('使用本地模板生成简介成功！')
 }
 
-// 生命周期
+// 全局重试也会提交当前页面的待存快照，列表必须同步，避免下一次操作覆盖刚恢复的数据。
+const handlePersistenceStatus = (status) => {
+  if (status.phase === 'saved' && status.pending === 0) loadNovels()
+}
+let unsubscribePersistence = () => {}
 onMounted(() => {
-  // 加载小说数据
   loadNovels()
-  // 加载类型数据
   loadGenres()
+  unsubscribePersistence = subscribeNovelPersistenceStatus(handlePersistenceStatus)
 })
+onUnmounted(() => unsubscribePersistence())
 </script>
 
 <style scoped>

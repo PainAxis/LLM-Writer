@@ -60,6 +60,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    WriterEditor: typeof import('./components/writer/WriterEditor.vue')['default']
     WritingGoals: typeof import('./components/WritingGoals.vue')['default']
   }
 }

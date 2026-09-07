@@ -32,15 +32,17 @@
 - **Context budget management**: dual-dimension budget (tokens / entries), sliding-window truncation vs incremental summary as explicit alternatives, failure handling via dialogs (no silent degradation)
 - **Model list sync**: one-click pull of server-side model lists with caching; built-in common models as fallback
 - **Prompt library**: category management, variable system, import & export, usage statistics
-- **Book analysis**: TXT/DOCX import, 5-dimension AI analysis, result management
+- **Book analysis**: UTF-8/GBK TXT decoding and browser-side DOCX text extraction; local chapter-heading detection and optional length-based splitting; 5-dimension AI analysis and result management
 - **Short fiction**: multi-template short-form writing
 - **Writing goals**: daily / weekly / monthly targets, progress tracking, achievement incentives
 - **Token billing**: local usage statistics and cost ledger (simulated)
 
 ### Engineering
-- **Tiered local storage**: localStorage + IndexedDB auto-tiering, long-form content sharding, quota protection and fallback
+- **Tiered local storage**: localStorage + IndexedDB auto-tiering with versioned content shards; old shards are cleaned up only after metadata commits. Save status follows actual completion and supports retry. Failed content loading blocks project access while preserving stored data
+- **System backups**: v2 JSON covers 20 current storage keys, with selectable novels, prompts, genres, goals, assistants and settings. Imports support legacy backups, validate data before restoring and attempt rollback on write failure. Selected settings include API keys
+- **Workbench modules**: `useWriterProject` handles project loading, chapter switching and autosave; `WriterEditor` encapsulates the rich-text editor. Navigation waits for saving and preserves the editing context on failure
 - **Dark mode**: light / dark / system themes, follows system preference automatically
-- **On-demand loading**: route-level lazy loading; the AI SDK, editor and mind map are separate async chunks with zero first-screen cost
+- **On-demand loading**: route-level lazy loading; the home page has no static dependency on the AI SDK, editor or mind-map libraries. The writing editor loads when a chapter is opened, and the DOCX parser loads during import
 
 ## 🛠️ Tech Stack
 
@@ -77,15 +79,25 @@ npm run format
 
 ### Smoke Tests
 
-Browser-independent end-to-end verification scripts (local Mock SSE server + in-memory fake IDB):
+These browser-independent module and integration regressions use a local Mock SSE server, in-memory fake IDB and document fixtures; no real API keys are required. After changes, run `npm run typecheck`, `npm run lint` and the relevant smoke scripts. Use `npm run build` for the production build.
 
 ```bash
-npm run smoke:ai           # AI SDK: streaming / billing / probing / abort / model fetch / proxy (10 tests)
-npm run smoke:compactor    # Context compaction: budget / sliding window / incremental summary (6 tests)
-npm run smoke:persistence  # Storage tiering: direct write / sharding / hydration / rollback (5 tests)
-npm run smoke:corpus       # Corpus retrieval: keywords / scoring / injection budget (4 tests)
-npm run smoke:mindmap      # Mind map data: branches / mounting / truncation fallback (4 tests)
-npm run smoke:eventline    # Event line: chapter-number migration / compatibility (3 tests)
+npm run smoke:ai                      # AI SDK: streaming, probing, abort, model fetch and proxy
+npm run smoke:ai-scope                # Request isolation, cancellation and stale callbacks
+npm run smoke:compactor               # Context budgets, sliding window and incremental summaries
+npm run smoke:persistence             # Shard commits, failure recovery, queues and hydration
+npm run smoke:persistence-retry       # Global retry keeps current edits and rollback state consistent
+npm run smoke:writer-stream           # Chapter switching, dialog lifecycle and late stream results
+npm run smoke:writer-init             # Project loading, material isolation and save/switch races
+npm run smoke:writer-actions          # Failed edits/deletes, retry and async chapter selection
+npm run smoke:management-persistence  # Management pages wait for durable saves before UI changes
+npm run smoke:book-import             # TXT/DOCX parsing, encodings and local chapter splitting
+npm run smoke:backup                  # v2/legacy backups, validation, restore and rollback
+npm run smoke:bundle                  # In-memory production build: home and feature dependency graphs
+npm run smoke:corpus                  # Keyword retrieval, scoring and injection budgets
+npm run smoke:mindmap                 # Mind-map branches, mounting and truncation fallback
+npm run smoke:eventline               # Chapter-number migration and compatibility
+npm run smoke:prompts                 # Default prompts and merge rules
 ```
 
 ### First Use

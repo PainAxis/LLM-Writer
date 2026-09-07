@@ -118,7 +118,7 @@
                   </el-button>
                   <el-button @click="exportSettings">
                     <el-icon><Setting /></el-icon>
-                    API配置
+                    系统设置
                   </el-button>
                 </div>
               </div>
@@ -132,6 +132,7 @@
                   <el-upload
                     :before-upload="beforeImport"
                     :show-file-list="false"
+                    :disabled="isImporting"
                     accept=".json"
                   >
                     <el-button type="success">
@@ -358,7 +359,8 @@
           <el-checkbox label="prompts">提示词库</el-checkbox>
           <el-checkbox label="novelGenres">小说类型</el-checkbox>
           <el-checkbox label="writingGoals">写作目标</el-checkbox>
-          <el-checkbox label="settings">API配置</el-checkbox>
+          <el-checkbox label="assistants">助手与会话</el-checkbox>
+          <el-checkbox label="settings">系统设置与用量</el-checkbox>
         </el-checkbox-group>
       </div>
       <template #footer>
@@ -374,7 +376,11 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Upload, Document, Setting, Delete, ChatLineSquare, Collection } from '@element-plus/icons-vue'
 import ApiConfig from '@/components/ApiConfig.vue'
-import { storageGet, storageSet, storageRemove, storageClear, StorageKeys } from '@/utils/storage'
+import { storageGet, storageRemove, storageClear, StorageKeys } from '@/utils/storage'
+import {
+  ALL_BACKUP_GROUPS, BackupValidationError, createBackup,
+  matchingBackupGroups, parseBackup, restoreBackup,
+} from '@/services/backup'
 import { useContextPolicy } from '@/stores/assistant'
 
 const { policy: contextPolicy, savePolicy: persistContextPolicy, resetPolicy } = useContextPolicy()
@@ -392,7 +398,12 @@ const resetContextPolicy = () => {
 // 响应式数据
 const activeTab = ref('api')
 const showImportDialog = ref(false)
-const importOptions = ref(['novels', 'prompts', 'novelGenres', 'writingGoals'])
+const importOptions = ref([...ALL_BACKUP_GROUPS])
+const isImporting = ref(false)
+const backupLabels = {
+  novels: '小说数据', prompts: '提示词库', novelGenres: '小说类型',
+  writingGoals: '写作目标', assistants: '助手与会话', settings: '系统设置与用量',
+}
 
 // 数据统计
 const dataStats = ref({
@@ -441,102 +452,27 @@ const calculateDataStats = () => {
   }
 }
 
-const exportAllData = () => {
-  const data = {
-    novels: storageGet(StorageKeys.novels, []),
-    prompts: storageGet(StorageKeys.prompts, []),
-    novelGenres: storageGet(StorageKeys.novelGenres, []),
-    writingGoals: storageGet(StorageKeys.writingGoals, []),
-    settings: {
-      apiConfig: storageGet(StorageKeys.legacySettingsApiConfig, {}),
-      tokenUsage: storageGet(StorageKeys.legacySettingsTokenUsage, {})
-    },
-    exportTime: new Date().toISOString(),
-    version: 'v0.7.0'
+const downloadBackup = (groups, label) => {
+  try {
+    const data = createBackup(groups)
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `LLM-Writer-${label}-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success(`${label}导出成功`)
+  } catch {
+    ElMessage.error('备份导出失败，请检查本地数据后重试')
   }
-  
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `LLM-Writer-完整备份-${new Date().toISOString().split('T')[0]}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-  
-  ElMessage.success('完整数据导出成功')
 }
 
-const exportNovels = () => {
-  const novels = storageGet(StorageKeys.novels, [])
-  const data = {
-    novels,
-    exportTime: new Date().toISOString(),
-    type: 'novels'
-  }
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `LLM-Writer-小说数据-${new Date().toISOString().split('T')[0]}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-  
-  ElMessage.success('小说数据导出成功')
-}
-
-const exportPrompts = () => {
-  const prompts = storageGet(StorageKeys.prompts, [])
-  const data = {
-    prompts,
-    exportTime: new Date().toISOString(),
-    type: 'prompts'
-  }
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `LLM-Writer-提示词库-${new Date().toISOString().split('T')[0]}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-  
-  ElMessage.success('提示词库导出成功')
-}
-
-const exportGenres = () => {
-  const genres = storageGet(StorageKeys.novelGenres, [])
-  const data = {
-    novelGenres: genres,
-    exportTime: new Date().toISOString(),
-    type: 'genres'
-  }
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `LLM-Writer-小说类型-${new Date().toISOString().split('T')[0]}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-  
-  ElMessage.success('小说类型数据导出成功')
-}
-
-const exportSettings = () => {
-  const settings = {
-    apiConfig: storageGet(StorageKeys.legacySettingsApiConfig, {}),
-    tokenUsage: storageGet(StorageKeys.legacySettingsTokenUsage, {}),
-    exportTime: new Date().toISOString(),
-    type: 'settings'
-  }
-  const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `LLM-Writer-系统设置-${new Date().toISOString().split('T')[0]}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-  
-  ElMessage.success('系统设置导出成功')
-}
+const exportAllData = () => downloadBackup(ALL_BACKUP_GROUPS, '完整备份')
+const exportNovels = () => downloadBackup(['novels'], '小说数据')
+const exportPrompts = () => downloadBackup(['prompts'], '提示词库')
+const exportGenres = () => downloadBackup(['novelGenres'], '小说类型')
+const exportSettings = () => downloadBackup(['settings'], '系统设置')
 
 const confirmImportOptions = () => {
   if (importOptions.value.length === 0) {
@@ -557,77 +493,58 @@ const confirmImportOptions = () => {
   showImportDialog.value = false
 }
 
-const beforeImport = (file) => {
-  const reader = new FileReader()
-  reader.onload = (e) => {
+const importFile = async (file) => {
+  if (isImporting.value) return
+  isImporting.value = true
+  try {
+    let input
     try {
-      const data = JSON.parse(e.target.result)
-      
-      ElMessageBox.confirm(
-        `即将导入以下数据类型：${importOptions.value.join('、')}。这将覆盖现有数据，是否继续？`,
-        '确认导入',
-        {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
-      ).then(() => {
-        let importCount = 0
-        
-        // 根据选择导入数据
-        if (importOptions.value.includes('novels') && data.novels) {
-          storageSet(StorageKeys.novels, data.novels)
-          importCount++
-        }
-        
-        if (importOptions.value.includes('prompts') && data.prompts) {
-          storageSet(StorageKeys.prompts, data.prompts)
-          // 重置内置提示词库版本号，使下次加载时按新默认库合并刷新（用户自建模板保留）
-          storageSet(StorageKeys.promptsVersion, 0)
-          importCount++
-        }
-        
-        if (importOptions.value.includes('novelGenres') && data.novelGenres) {
-          storageSet(StorageKeys.novelGenres, data.novelGenres)
-          importCount++
-        }
-        
-        if (importOptions.value.includes('writingGoals')) {
-          if (data.writingGoals) {
-            storageSet(StorageKeys.writingGoals, data.writingGoals)
-            importCount++
-          } else if (data.goals) {
-            storageSet(StorageKeys.writingGoals, data.goals)
-            importCount++
-          }
-        }
-        
-        if (importOptions.value.includes('settings') && data.settings) {
-          if (data.settings.apiConfig) {
-            storageSet(StorageKeys.legacySettingsApiConfig, data.settings.apiConfig)
-            importCount++
-          }
-          if (data.settings.tokenUsage) {
-            storageSet(StorageKeys.legacySettingsTokenUsage, data.settings.tokenUsage)
-            importCount++
-          }
-        }
-        
-        // 重新计算数据统计
-        calculateDataStats()
-        
-        if (importCount > 0) {
-          ElMessage.success(`成功导入 ${importCount} 项数据`)
-        } else {
-          ElMessage.warning('未找到匹配的数据进行导入')
-        }
-      })
+      input = JSON.parse(await file.text())
     } catch {
-      ElMessage.error('文件格式错误，请选择有效的备份文件')
+      throw new BackupValidationError('文件读取失败或 JSON 格式错误，请选择有效的备份文件')
     }
+    const data = parseBackup(input)
+    const groups = matchingBackupGroups(data, importOptions.value)
+    if (groups.length === 0) {
+      ElMessage.warning('备份中没有与导入选项匹配的数据')
+      return
+    }
+    try {
+      await ElMessageBox.confirm(
+        `即将导入：${groups.map(group => backupLabels[group]).join('、')}。这将覆盖对应数据，完成后将刷新页面，是否继续？`,
+        '确认导入',
+        { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+      )
+    } catch {
+      return
+    }
+    const count = await restoreBackup(input, groups)
+    calculateDataStats()
+    // 模块级 API、上下文和 Pinia 状态必须从新数据重新初始化。
+    try {
+      await ElMessageBox.alert(`成功导入 ${count} 类数据，点击确定刷新页面。`, '导入完成', {
+        confirmButtonText: '确定', type: 'success', showClose: false,
+        closeOnClickModal: false, closeOnPressEscape: false,
+      })
+    } finally {
+      location.reload()
+    }
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '导入失败，请检查备份文件与可用存储空间')
+  } finally {
+    isImporting.value = false
   }
-  reader.readAsText(file)
-  return false // 阻止自动上传
+}
+
+const beforeImport = (file) => {
+  void importFile(file)
+  return false // 阻止自动上传，文件只在本地读取
+}
+
+const reportClearFailure = (error) => {
+  if (error !== 'cancel' && error !== 'close') {
+    ElMessage.error('清除失败，请检查可用存储空间后重试')
+  }
 }
 
 const clearAllData = () => {
@@ -639,13 +556,13 @@ const clearAllData = () => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    storageClear()
+  ).then(async () => {
+    await storageClear()
     ElMessage.success('所有数据已清除')
     setTimeout(() => {
       location.reload()
     }, 1000)
-  })
+  }).catch(reportClearFailure)
 }
 
 const clearNovels = () => {
@@ -657,11 +574,11 @@ const clearNovels = () => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    storageRemove(StorageKeys.novels)
+  ).then(async () => {
+    await storageRemove(StorageKeys.novels)
     calculateDataStats()
     ElMessage.success('小说数据已清除')
-  })
+  }).catch(reportClearFailure)
 }
 
 const clearSettings = () => {
@@ -673,16 +590,20 @@ const clearSettings = () => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    // 清除API配置等设置
-    const settingsKeys = [StorageKeys.legacySettingsApiConfig, StorageKeys.legacySettingsTokenUsage]
-    settingsKeys.forEach(key => storageRemove(key))
+  ).then(async () => {
+    const settingsKeys = [
+      StorageKeys.apiConfig, StorageKeys.customModels, StorageKeys.providerModels,
+      StorageKeys.contextPolicy, StorageKeys.shortStoryConfig, StorageKeys.chapterSummaryPromptTemplate,
+      StorageKeys.theme, StorageKeys.officialApiConfig, StorageKeys.customApiConfig,
+      StorageKeys.legacySettingsApiConfig, StorageKeys.legacySettingsTokenUsage,
+    ]
+    for (const key of settingsKeys) await storageRemove(key)
     
     ElMessage.success('系统设置已重置')
     setTimeout(() => {
       location.reload()
     }, 1000)
-  })
+  }).catch(reportClearFailure)
 }
 
 // 生命周期
