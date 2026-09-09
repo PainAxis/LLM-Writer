@@ -1,31 +1,17 @@
 import { computed, ref } from 'vue'
-import type { WorldSetting } from '@/stores/novel'
-import { migrateEventChapters, type EventLike } from '@/utils/eventLine'
+import type {
+  WriterChapter,
+  WriterCharacter,
+  WriterCorpusItem,
+  WriterEvent,
+  WriterNovel,
+  WriterWorldSetting,
+} from '@/types/writer'
+import { migrateEventChapters } from '@/utils/eventLine'
 import { StorageKeys, storageGet, storageSet } from '@/utils/storage'
 import { registerNovelPersistenceRetryHandler } from '@/services/novelPersistence'
 
-export interface WriterChapter {
-  id: number
-  title: string
-  content?: string
-  wordCount?: number
-  status?: string
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  [key: string]: unknown
-}
-
-type Material = Record<string, unknown>
-
-export interface WriterNovel {
-  id: number
-  chapterList?: WriterChapter[]
-  characters?: Material[]
-  worldSettings?: WorldSetting[]
-  corpusData?: Material[]
-  events?: EventLike[]
-  [key: string]: unknown
-}
+export type { WriterChapter, WriterNovel } from '@/types/writer'
 
 interface BeforeUnloadTarget {
   addEventListener(type: 'beforeunload', handler: (event: BeforeUnloadEvent) => void): void
@@ -33,7 +19,7 @@ interface BeforeUnloadTarget {
 }
 
 interface WriterProjectOptions {
-  novelStore: { worldSettings: WorldSetting[] }
+  novelStore: { worldSettings: WriterWorldSetting[] }
   notifyError: (message: string) => void
   /** 可注入事件目标；Node 下默认不注册浏览器事件。 */
   beforeUnloadTarget?: BeforeUnloadTarget | null
@@ -41,6 +27,13 @@ interface WriterProjectOptions {
     load: () => WriterNovel[]
     save: (novels: WriterNovel[]) => void | Promise<void>
   }
+}
+
+export interface WriterChapterSelectionOptions {
+  /** Rechecked after persistence and before the target chapter is committed. */
+  isCurrent?: () => boolean
+  /** Reports the non-cancellable save separately from a later stale-intent rejection. */
+  onPersisted?: (saved: boolean) => void
 }
 
 // Stored project data is JSON. Cloning on both boundaries keeps mutable editor
@@ -57,9 +50,9 @@ export function useWriterProject(options: WriterProjectOptions) {
   const chapters = ref<WriterChapter[]>([])
   const currentChapter = ref<WriterChapter | null>(null)
   const content = ref('')
-  const characters = ref<Material[]>([])
-  const corpusData = ref<Material[]>([])
-  const events = ref<EventLike[]>([])
+  const characters = ref<WriterCharacter[]>([])
+  const corpusData = ref<WriterCorpusItem[]>([])
+  const events = ref<WriterEvent[]>([])
   const worldSettings = computed(() => options.novelStore.worldSettings)
   const contentWordCount = computed(() => content.value.replace(/<[^>]*>/g, '').length)
   const hasUnsavedChanges = ref(false)
@@ -168,11 +161,24 @@ export function useWriterProject(options: WriterProjectOptions) {
     content.value = chapter.content || ''
   }
 
-  async function selectChapter(chapter: WriterChapter): Promise<boolean> {
+  async function selectChapter(
+    chapter: WriterChapter,
+    selection: WriterChapterSelectionOptions = {},
+  ): Promise<boolean> {
+    const targetChapterId = chapter.id
     const requestedVersion = ++selectionVersion
-    if (!(await saveCurrentChapter())) return false
-    if (requestedVersion !== selectionVersion || disposed) return false
-    loadChapter(chapter)
+    const saved = await saveCurrentChapter()
+    selection.onPersisted?.(saved)
+    if (!saved) return false
+    if (requestedVersion !== selectionVersion || disposed || selection.isCurrent?.() === false) {
+      return false
+    }
+
+    // The list item may have been replaced while persistence was pending.
+    // Resolve by ID at commit time so the editor never points at a detached object.
+    const canonicalChapter = chapters.value.find(item => item.id === targetChapterId)
+    if (!canonicalChapter) return false
+    loadChapter(canonicalChapter)
     return true
   }
 

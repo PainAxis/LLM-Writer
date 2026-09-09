@@ -263,7 +263,9 @@ async function main() {
   })
   assert.equal(await navigating.initNovel('13'), true)
   navigating.content.value = '切章开始时的正文'
-  const selecting = navigating.selectChapter({ id: 1301, title: '下一章', content: '目标正文' })
+  const targetChapter = { id: 1301, title: '下一章', content: '目标正文' }
+  navigating.chapters.value.push(targetChapter)
+  const selecting = navigating.selectChapter(targetChapter)
   navigating.content.value = '等待提交时继续写下的正文'
   navigating.onContentChange()
   commits[0]()
@@ -276,6 +278,43 @@ async function main() {
   assert.equal(navigationDisk[0].chapterList![0].content, '等待提交时继续写下的正文')
   assert.equal(navigating.currentChapter.value!.id, 1301)
   console.log('✓ 测试9 通过：切章等待保存期间的新输入也完成落盘后才切换')
+
+  let releaseSelection: (() => void) | undefined
+  const guarded = useWriterProject({
+    novelStore: reactive({ worldSettings: [] as any[] }),
+    notifyError: message => assert.fail(message),
+    persistence: {
+      load: () => [makeNovel(14)],
+      save: () => new Promise<void>(resolve => { releaseSelection = resolve }),
+    },
+  })
+  assert.equal(await guarded.initNovel('14'), true)
+  const originalTarget = { id: 1401, title: '旧目标', content: '旧内容' }
+  guarded.chapters.value.push(originalTarget)
+  let currentIntent = true
+  const staleSelection = guarded.selectChapter(originalTarget, {
+    isCurrent: () => currentIntent,
+  })
+  currentIntent = false
+  releaseSelection!()
+  assert.equal(await staleSelection, false)
+  assert.equal(guarded.currentChapter.value!.id, 1400)
+
+  const canonicalSelection = guarded.selectChapter(originalTarget)
+  const replacementTarget = { id: 1401, title: '新目标', content: '新内容' }
+  guarded.chapters.value.splice(1, 1, replacementTarget)
+  const canonicalReplacement = guarded.chapters.value[1]
+  releaseSelection!()
+  assert.equal(await canonicalSelection, true)
+  assert.equal(guarded.currentChapter.value, canonicalReplacement)
+
+  guarded.loadChapter(guarded.chapters.value[0])
+  const deletedSelection = guarded.selectChapter(canonicalReplacement)
+  guarded.chapters.value.splice(1, 1)
+  releaseSelection!()
+  assert.equal(await deletedSelection, false)
+  assert.equal(guarded.currentChapter.value!.id, 1400)
+  console.log('✓ 测试10 通过：失效 intent 不切章，并在提交时重新解析 canonical 章节')
 
   console.log('\n=== ALL WRITER-INIT TESTS PASSED ===')
 }
