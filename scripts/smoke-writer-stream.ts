@@ -1,213 +1,266 @@
-/** Actual Writer handlers + project state + request scopes; no API key required. */
+/** Writer chapter-content races against the real project and request scope. */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { effectScope, ref, watch } from 'vue'
-import ts from 'typescript'
-import { createAIRequestScope, isAIRequestCancelled } from '../src/utils/aiRequestScope'
+import { effectScope, reactive, ref } from 'vue'
+import { useWriterChapterContentGeneration } from '../src/composables/useWriterChapterContentGeneration'
 import { useWriterProject, type WriterNovel } from '../src/composables/useWriterProject'
 import type { StreamCallback } from '../src/types/api'
+import type { PromptTemplate } from '../src/types/writer'
+import { createAIRequestScope } from '../src/utils/aiRequestScope'
 
-const script = readFileSync(new URL('../src/views/Writer.vue', import.meta.url), 'utf8')
-  .match(/<script\b[^>]*>([\s\S]*?)<\/script>/)![1]
-const source = ts.createSourceFile('Writer.ts', script, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-const names = new Set([
-  'generateContent', 'generateSingleChapter', 'openAISingleChapterDialog', 'selectChapter',
-  'stopStreaming', 'stopWriterStreams', 'resetWriterGenerationFlags', 'cancelWriterStream',
-  'beginWriterOperation', 'cancelWriterDialog', 'resetContinueDialog', 'resetOptimizeDialog',
-])
-const declarations: string[] = []
-const subscriptions: string[] = []
-for (const statement of source.statements) {
-  if (ts.isVariableStatement(statement)) {
-    for (const declaration of statement.declarationList.declarations) {
-      if (ts.isIdentifier(declaration.name) && names.has(declaration.name.text)) {
-        declarations.push(`const ${declaration.getText(source)}`)
-      }
-    }
-  } else if (ts.isForOfStatement(statement) && statement.getText(source).includes('cancelWriterDialog(owner)')) {
-    subscriptions.push(statement.getText(source))
-  } else if (ts.isExpressionStatement(statement) && statement.getText(source).startsWith('watch(() => currentChapter.value?.id')) {
-    subscriptions.push(statement.getText(source))
-  }
-}
-assert.equal(declarations.length, names.size)
-assert.equal(subscriptions.length, 2, 'Both dialog ownership and chapter changes must cancel stale requests')
-const executable = ts.transpileModule(`let writerOperation = 0; let writerDialogOwner = '';
-${declarations.join('\n')}
-${subscriptions.join('\n')}
-return {${[...names].join(',')}}`, {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
-}).outputText
+const writerSource = readFileSync(
+  new URL('../src/views/Writer.vue', import.meta.url),
+  'utf8',
+)
 
-function deferred<T = void>() {
+assert.match(writerSource, /useWriterChapterContentGeneration/)
+assert.match(
+  writerSource,
+  /const chapterContentGeneration\s*=\s*useWriterChapterContentGeneration\s*\(\s*\{/,
+)
+assert.match(writerSource, /stream:\s*useAIStream\(\)/)
+assert.match(
+  writerSource,
+  /const isGeneratingContent\s*=\s*chapterContentGeneration\.isBusy/,
+)
+assert.match(
+  writerSource,
+  /chapterContentGeneration\.isExpectedChapterSelection\(currentChapter\.value\)/,
+)
+assert.match(
+  writerSource,
+  /registerBarrier\('chapterContentCommit',[\s\S]*?wait:\s*chapterContentGeneration\.waitForCommit/,
+)
+assert.match(writerSource, /chapterContentGeneration\.dispose\(\)/)
+assert.doesNotMatch(
+  writerSource,
+  /const generateContentWithPrompt\s*=/,
+  'Writer.vue 不应重新拥有已下沉的正文请求实现',
+)
+
+function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
-  const promise = new Promise<T>(res => { resolve = res })
-  return { promise, resolve }
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done
+    reject = fail
+  })
+  return { promise, resolve, reject }
 }
 
-function streamFixture() {
-  const pending: Array<{ signal: AbortSignal; callback: StreamCallback | null; resolve: (text: string) => void }> = []
-  const isStreaming = ref(false)
+function requestScopeFixture() {
   const streamingContent = ref('')
-  const scope = createAIRequestScope((_prompt, options, callback) => {
-    const result = deferred<string>()
-    pending.push({ signal: options.signal!, callback, resolve: result.resolve })
-    return result.promise
-  }, state => {
-    isStreaming.value = state.isStreaming
+  const isStreaming = ref(false)
+  const pending: Array<{
+    signal: AbortSignal
+    callback: StreamCallback | null
+    resolve(value: string): void
+    reject(reason?: unknown): void
+  }> = []
+  const requestScope = createAIRequestScope((_prompt, options, callback) => {
+    const request = deferred<string>()
+    pending.push({
+      signal: options.signal!,
+      callback,
+      resolve: request.resolve,
+      reject: request.reject,
+    })
+    return request.promise
+  }, (state) => {
     streamingContent.value = state.streamingContent
+    isStreaming.value = state.isStreaming
   })
-  return { ...scope, pending, isStreaming, streamingContent }
+  return { ...requestScope, streamingContent, isStreaming, pending }
+}
+
+const prompt: PromptTemplate = {
+  id: 9,
+  title: '正文回归模板',
+  category: 'content',
+  content: '请生成《{章节标题}》正文',
 }
 
 async function fixture() {
-  const vueScope = effectScope()
-  const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
-  let disk: WriterNovel[] = [{ id: 1, title: '小说', chapterList: [
-    { id: 1, title: 'A', content: '<p>A原文</p>', status: 'draft' },
-    { id: 2, title: 'B', content: '<p>B原文</p>', status: 'draft' },
-  ] }]
-  let saveGate: ReturnType<typeof deferred> | undefined
-  const saving = deferred()
+  const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+  let disk: WriterNovel[] = [{
+    id: 1,
+    title: '测试小说',
+    chapterList: [
+      { id: 1, title: 'A', content: '<p>A原文</p>', status: 'draft' },
+      { id: 2, title: 'B', content: '<p>B原文</p>', status: 'draft' },
+    ],
+  }]
+  let saveGate: ReturnType<typeof deferred<void>> | null = null
+  let saveStarted: ReturnType<typeof deferred<void>> | null = null
+  const projectMessages: string[] = []
   const project = useWriterProject({
-    novelStore: { worldSettings: [], addWorldSetting: () => {}, updateWorldSetting: () => {}, removeWorldSetting: () => {} },
-    notifyError: () => {},
+    novelStore: reactive({ worldSettings: [] }),
+    notifyError: message => projectMessages.push(message),
     persistence: {
       load: () => clone(disk),
-      save: async novels => {
-        if (saveGate) { saving.resolve(); await saveGate.promise }
+      save: async (novels) => {
+        if (saveGate) {
+          saveStarted?.resolve()
+          await saveGate.promise
+        }
         disk = clone(novels)
       },
     },
   })
-  await project.initNovel('1')
-  const { selectChapter: selectProjectChapter, ...projectState } = project
-  const writerStream = streamFixture()
-  const continueStream = streamFixture()
-  const optimizeStream = streamFixture()
+  assert.equal(await project.initNovel('1'), true)
+
+  const stream = requestScopeFixture()
   const messages: string[] = []
-  const flags = Object.fromEntries([
-    'isGeneratingContent', 'isGeneratingChapters', 'isOptimizing', 'isGeneratingOutline',
-    'batchGenerating', 'worldGenerating', 'isGeneratingWorldSetting',
-  ].map(name => [name, ref(false)]))
-  const dialogs = Object.fromEntries([
-    'showNewContinueDialog', 'showNewOptimizeDialog', 'showAIOptimizeDialog', 'showOptimizePromptDialog',
-    'showChapterGenerateDialog', 'showPromptDialog', 'showAISingleChapterDialog', 'showAIBatchChapterDialog',
-    'showBatchGenerateCharacterDialog', 'showWorldGenerateDialog', 'showWorldDialog', 'showCharacterDialog', 'showChapterDialog',
-  ].map(name => [name, ref(false)]))
-  const dependencies = {
-    ...projectState, ...flags, ...dialogs, writerStream, continueStream, optimizeStream,
-    selectProjectChapter,
-    streamingContent: writerStream.streamingContent, isStreaming: writerStream.isStreaming,
-    continueStreamingContent: continueStream.streamingContent, optimizeStreamingContent: optimizeStream.streamingContent,
-    streamingType: ref(''), streamingChapter: ref<any>(null), targetChapter: ref<any>({ id: 1 }),
-    continueForm: ref({ direction: '', wordCount: 500 }),
-    optimizeForm: ref({ optimizedContent: '', customPrompt: '', selectedPrompt: null }),
-    aiOptimizeForm: ref({ optimizedContent: '旧润色' }),
-    aiSingleChapterForm: ref({ title: '新章节', plotRequirement: '', template: 'general' }),
-    singleChapterSelectedPrompt: ref(null), singleChapterFinalPrompt: ref(''),
-    generatedCharacters: ref([]), generatedWorldSettings: ref([]), batchGenerateResults: ref([]),
-    checkApiAndBalance: () => true, buildGenerationContext: () => ({}),
-    buildContentPrompt: () => '生成正文', formatGeneratedContent: (text: string, title: string) => `<p>${title}:${text}</p>`,
-    getTemplateDescription: () => '默认模板', getChineseGenre: () => '通用小说', isAIRequestCancelled, watch,
-    ElMessage: { success: (message: string) => messages.push(message), warning: () => {}, error: (message: string) => messages.push(`ERROR:${message}`) },
+  const scope = effectScope()
+  const controller = scope.run(() => useWriterChapterContentGeneration({
+    currentNovel: project.currentNovel,
+    chapters: project.chapters,
+    currentChapter: project.currentChapter,
+    content: project.content,
+    hasUnsavedChanges: project.hasUnsavedChanges,
+    characters: project.characters,
+    worldSettings: project.worldSettings,
+    corpusData: project.corpusData,
+    events: project.events,
+    prepare: () => true,
+    selectChapter: project.selectChapter,
+    persist: project.saveCurrentChapter,
+    notify: {
+      success: message => messages.push(`success:${message}`),
+      info: notice => messages.push(`info:${typeof notice === 'string' ? notice : notice.message}`),
+      warning: message => messages.push(`warning:${message}`),
+      error: message => messages.push(`error:${message}`),
+    },
+    stream,
+    buildPrompt: snapshot => ({ prompt: snapshot.prompt, contextLabels: [] }),
+    formatContent: response => `<p>${response}</p>`,
+  }))
+  assert.ok(controller)
+
+  const beginGeneration = () => {
+    assert.ok(project.currentChapter.value)
+    assert.equal(controller.open(project.currentChapter.value), true)
+    controller.selectPrompt(prompt)
+    return controller.generateChapterContentWithDialog()
   }
-  const methods = vueScope.run(() => new Function(...Object.keys(dependencies), executable)(...Object.values(dependencies)))
+
+  // Mirrors Writer's cancellation + persistence barrier + project switch order.
+  const selectChapterLikeWriter = async (chapterIndex: number) => {
+    if (controller.isBusy.value && !controller.isCommitting.value) controller.cancel()
+    if (!(await controller.waitForCommit())) return false
+    controller.reset()
+    return project.selectChapter(project.chapters.value[chapterIndex])
+  }
+
   return {
-    ...dependencies, methods, messages, disk: () => disk,
-    delaySave: () => { saveGate = deferred(); return saving.promise },
-    releaseSave: () => { saveGate?.resolve(); saveGate = undefined },
-    close: () => vueScope.stop(),
+    project,
+    controller,
+    stream,
+    messages,
+    projectMessages,
+    beginGeneration,
+    selectChapterLikeWriter,
+    disk: () => disk,
+    delaySave: () => {
+      saveGate = deferred<void>()
+      saveStarted = deferred<void>()
+      return saveStarted.promise
+    },
+    releaseSave: () => {
+      assert.ok(saveGate)
+      saveGate.resolve()
+      saveGate = null
+      saveStarted = null
+    },
+    close: () => {
+      controller.dispose()
+      scope.stop()
+      void project.dispose()
+    },
   }
+}
+
+async function flushUntil(predicate: () => boolean) {
+  for (let turn = 0; turn < 20 && !predicate(); turn += 1) await Promise.resolve()
+  assert.equal(predicate(), true)
+}
+
+async function testChapterSwitchCancelsLateContent() {
+  const f = await fixture()
+  const stale = f.beginGeneration()
+  assert.equal(f.stream.pending.length, 1)
+  f.stream.pending[0].callback?.('半截', 'A 的半截正文')
+
+  assert.equal(await f.selectChapterLikeWriter(1), true)
+  assert.equal(f.project.currentChapter.value?.id, 2)
+  assert.equal(f.project.content.value, '<p>B原文</p>')
+  assert.equal(f.stream.pending[0].signal.aborted, true)
+
+  f.stream.pending[0].callback?.('迟到', 'A 的迟到正文')
+  f.stream.pending[0].resolve('A 的迟到正文')
+  assert.equal(await stale, false)
+  assert.equal(f.project.content.value, '<p>B原文</p>')
+  assert.equal(f.disk()[0].chapterList?.[0].content, '<p>A原文</p>')
+  assert.equal(f.disk()[0].chapterList?.[1].content, '<p>B原文</p>')
+  assert.deepEqual(f.messages, [])
+  f.close()
+  console.log('✓ 真实 project + request scope：切章取消半截流，迟到正文不跨章写入')
+}
+
+async function testEditorConflictKeepsUserText() {
+  const f = await fixture()
+  const stale = f.beginGeneration()
+  assert.equal(f.stream.pending.length, 1)
+
+  f.project.content.value = '<p>用户在生成期间继续编辑</p>'
+  f.project.onContentChange()
+  assert.equal(f.stream.pending[0].signal.aborted, true)
+  f.stream.pending[0].resolve('迟到的 AI 正文')
+
+  assert.equal(await stale, false)
+  assert.equal(f.project.content.value, '<p>用户在生成期间继续编辑</p>')
+  assert.equal(f.disk()[0].chapterList?.[0].content, '<p>A原文</p>')
+  assert.ok(f.messages.includes('warning:正文已在生成期间发生修改，已保留当前编辑内容'))
+  assert.equal(await f.project.saveCurrentChapter(), true)
+  assert.equal(f.disk()[0].chapterList?.[0].content, '<p>用户在生成期间继续编辑</p>')
+  f.close()
+  console.log('✓ 同章编辑同步作废请求，并保留用户正文直至显式保存')
+}
+
+async function testCommitBarrierUsesProjectPersistence() {
+  const f = await fixture()
+  const saveStarted = f.delaySave()
+  const generation = f.beginGeneration()
+  f.stream.pending[0].resolve('完整正文')
+  await saveStarted
+  await flushUntil(() => f.controller.isCommitting.value)
+
+  const barrier = f.controller.waitForCommit()
+  assert.equal(barrier, generation, '页面保存屏障必须覆盖完整正文 action')
+  assert.equal(f.controller.reset(), false, '落盘期间不能清空正文工作区')
+  let settled = false
+  void barrier.then(() => { settled = true })
+  await Promise.resolve()
+  assert.equal(settled, false)
+
+  f.releaseSave()
+  assert.equal(await barrier, true)
+  assert.equal(await generation, true)
+  assert.equal(f.disk()[0].chapterList?.[0].content, '<p>完整正文</p>')
+  assert.equal(f.controller.targetChapter.value, null, '保存完成后执行延迟 reset')
+  assert.deepEqual(f.projectMessages, [])
+  f.close()
+  console.log('✓ 正文提交屏障等待真实 project 落盘，期间 reset 被延迟')
 }
 
 async function main() {
-  const switcher = await fixture()
-  switcher.showNewContinueDialog.value = true
-  switcher.showNewOptimizeDialog.value = true
-  const old = switcher.methods.generateContent()
-  switcher.writerStream.pending[0].callback?.('A部分', 'A部分')
-  const continuation = switcher.continueStream.generate('续写').catch(isAIRequestCancelled)
-  const optimization = switcher.optimizeStream.generate('润色').catch(isAIRequestCancelled)
-  await switcher.methods.selectChapter(switcher.chapters.value[1])
-  assert.equal(switcher.currentChapter.value?.id, 2)
-  assert.equal(switcher.content.value, '<p>B原文</p>')
-  assert.equal(switcher.targetChapter.value, null)
-  assert.equal(switcher.showNewContinueDialog.value, false)
-  assert.equal(switcher.showNewOptimizeDialog.value, false)
-  for (const scope of [switcher.writerStream, switcher.continueStream, switcher.optimizeStream]) {
-    assert.equal(scope.pending[0].signal.aborted, true)
-    scope.pending[0].callback?.('迟到', 'A残缺迟到')
-    scope.pending[0].resolve('A残缺迟到')
-  }
-  await Promise.all([old, continuation, optimization])
-  assert.equal(switcher.content.value, '<p>B原文</p>')
-  assert.equal(switcher.disk()[0].chapterList![1].content, '<p>B原文</p>')
-  assert.deepEqual(switcher.messages, [])
-  switcher.close()
-  console.log('✓ 切章同步取消3作用域，迟到正文不会写入新章节、旧对话框结果不可应用')
-
-  const dialog = await fixture()
-  dialog.showAISingleChapterDialog.value = true
-  const chapter = dialog.methods.generateSingleChapter()
-  const other = dialog.continueStream.generate('独立续写')
-  dialog.showAISingleChapterDialog.value = false
-  assert.equal(dialog.writerStream.pending[0].signal.aborted, true)
-  assert.equal(dialog.continueStream.pending[0].signal.aborted, false)
-  dialog.writerStream.pending[0].resolve('大纲：关闭后迟到')
-  await chapter
-  assert.equal(dialog.chapters.value.length, 2)
-  assert.equal(dialog.isGeneratingChapters.value, false)
-  assert.deepEqual(dialog.messages, [])
-  dialog.continueStream.pending[0].resolve('续写仍成功')
-  assert.equal(await other, '续写仍成功')
-  dialog.close()
-  console.log('✓ 关闭生成对话框取消所属请求，不创建迟到章节，也不误杀独立续写')
-
-  const reopening = await fixture()
-  reopening.showAISingleChapterDialog.value = true
-  const first = reopening.methods.generateSingleChapter()
-  reopening.methods.openAISingleChapterDialog()
-  assert.equal(reopening.writerStream.pending[0].signal.aborted, true)
-  reopening.writerStream.pending[0].resolve('大纲：旧请求')
-  await first
-  assert.equal(reopening.chapters.value.length, 2)
-  reopening.methods.beginWriterOperation(reopening.batchGenerating, 'characters')
-  const current = reopening.methods.generateContent()
-  assert.equal(reopening.batchGenerating.value, false)
-  assert.equal(reopening.isGeneratingContent.value, true)
-  reopening.methods.stopStreaming()
-  reopening.writerStream.pending[1].resolve('已取消正文')
-  await current
-  assert.equal(reopening.isGeneratingContent.value, false)
-  reopening.close()
-  console.log('✓ 重开对话框先取消旧请求，通用请求抢占/停止清除所有业务加载标记')
-
-  const pendingSave = await fixture()
-  const saveStarted = pendingSave.delaySave()
-  const completing = pendingSave.methods.generateContent()
-  pendingSave.writerStream.pending[0].resolve('完整正文')
-  await saveStarted
-  pendingSave.methods.stopStreaming()
-  pendingSave.releaseSave()
-  await completing
-  assert.deepEqual(pendingSave.messages, [], '保存等待期间已停止，返回后不能弹旧成功提示')
-  pendingSave.close()
-  console.log('✓ 网络完成后保存仍在等待时，停止操作抑制晚成功提示')
-
-  const deleted = await fixture()
-  const deletedRequest = deleted.methods.generateContent()
-  deleted.currentChapter.value = null
-  assert.equal(deleted.writerStream.pending[0].signal.aborted, true)
-  deleted.content.value = ''
-  deleted.writerStream.pending[0].callback?.('迟到', '已删除章节的文本')
-  deleted.writerStream.pending[0].resolve('已删除章节的文本')
-  await deletedRequest
-  assert.equal(deleted.content.value, '')
-  assert.deepEqual(deleted.messages, [])
-  deleted.close()
-  console.log('✓ 删除当前章节等直接引用变更也会同步取消流式写入')
+  await testChapterSwitchCancelsLateContent()
+  await testEditorConflictKeepsUserText()
+  await testCommitBarrierUsesProjectPersistence()
   console.log('\n=== WRITER STREAM TESTS PASSED ===')
 }
 
-main().catch(error => { console.error(error); process.exitCode = 1 })
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})
