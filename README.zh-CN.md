@@ -82,6 +82,7 @@ npm run format
 以下为无需浏览器的模块与集成回归，使用本地 Mock SSE、内存 fake-IDB 和文档夹具；不需要真实 API 密钥。修改后先运行 `npm run typecheck`、`npm run lint` 和相关冒烟脚本，生产构建使用 `npm run build`。
 
 ```bash
+npm run smoke:all                     # 串行执行全部模块冒烟测试
 npm run smoke:ai                      # AI SDK：流式、探活、中断、模型拉取与代理
 npm run smoke:ai-scope                # 请求隔离、取消及过期回调
 npm run smoke:compactor               # 上下文预算、滑窗与增量摘要
@@ -99,6 +100,8 @@ npm run smoke:mindmap                 # 导图分支、挂载与截断兜底
 npm run smoke:eventline               # 章号迁移与兼容
 npm run smoke:prompts                 # 默认提示词与合并规则
 ```
+
+CI 会在 PR 和 main 更新时执行严格 lint、生产构建、全部冒烟测试与 Chromium 回归。本地浏览器测试配置见[浏览器测试说明](scripts/browser-testing.md)。
 
 ### 首次使用
 1. 点击右上角「API配置」，选择服务商并填入 API 地址与密钥（可选：同步模型列表、配置代理前缀）

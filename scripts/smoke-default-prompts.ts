@@ -100,7 +100,6 @@ for (const id of [18, 19, 20, 25]) {
   assert.ok(c.includes('类型：'), `模板 ${id} 缺少 类型： 字段`)
   assert.ok(c.includes('描述：'), `模板 ${id} 缺少 描述： 字段`)
 }
-const TYPE_ENUM = ['地理环境', '文化社会', '历史背景', '魔法体系', '科技水平', '其他']
 for (const [id, type] of [[19, '魔法体系'], [20, '文化社会'], [25, '地理环境']] as const) {
   assert.ok(contentOf(id).includes(`类型：${type}`), `模板 ${id} 的类型值应为 ${type}（解析枚举内）`)
 }
