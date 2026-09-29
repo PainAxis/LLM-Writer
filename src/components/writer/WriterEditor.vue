@@ -18,6 +18,7 @@
 import { onBeforeUnmount, shallowRef } from 'vue'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import type { IDomEditor, IEditorConfig } from '@wangeditor/editor'
+import { destroyEditor } from '@/utils/destroyEditor'
 import '@wangeditor/editor/dist/css/style.css'
 
 const content = defineModel<string>({ required: true })
@@ -46,7 +47,7 @@ defineExpose({
   insertText: (text: string) => editor.value?.insertText(text),
 })
 
-onBeforeUnmount(() => editor.value?.destroy())
+onBeforeUnmount(() => destroyEditor(editor.value))
 </script>
 
 <style scoped>

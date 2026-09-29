@@ -841,6 +841,7 @@ import { MagicStick, EditPen, Download, Check, Loading, Plus, Setting, List, Doc
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import '@wangeditor/editor/dist/css/style.css'
 import { useAIStream } from '@/composables/useAIStream'
+import { destroyEditor } from '@/utils/destroyEditor'
 import { useShortStoryGeneration } from '@/composables/useShortStoryGeneration'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 import { DEFAULT_PROMPTS, PROMPTS_VERSION, mergeDefaultPrompts } from '../config/defaultPrompts'
@@ -1988,12 +1989,8 @@ onMounted(() => {
 // 组件卸载时销毁编辑器
 onBeforeUnmount(() => {
   generation.dispose()
-  if (editorRef.value) {
-    editorRef.value.destroy()
-  }
-  if (articleEditorRef.value) {
-    articleEditorRef.value.destroy()
-  }
+  destroyEditor(editorRef.value)
+  destroyEditor(articleEditorRef.value)
 })
 </script>
 
