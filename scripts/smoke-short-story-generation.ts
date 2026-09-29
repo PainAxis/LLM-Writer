@@ -3,6 +3,9 @@ import { ref } from 'vue'
 import { useShortStoryGeneration, type ShortStoryOperation } from '../src/composables/useShortStoryGeneration'
 import { createAIRequestScope } from '../src/utils/aiRequestScope'
 import type { GenerateOptions, StreamCallback } from '../src/types/api'
+import { useShortStoryConfig } from '../src/composables/useShortStoryConfig'
+import { createDefaultShortStoryConfig } from '../src/config/shortStory'
+import { buildShortArticlePrompt, buildShortStoryPrompt, buildShortStoryContinuation, buildShortStoryOptimization } from '../src/utils/shortStoryPrompts'
 
 const kinds: ShortStoryOperation[] = ['article', 'story', 'continue', 'optimize']
 
@@ -171,3 +174,29 @@ console.log('✓ Unmount aborts every scope and prevents future writes, notifica
   f.controller.dispose()
 }
 console.log('✓ Source edits cancel in-flight results; genuine errors and empty responses remain retryable')
+
+{
+  const defaults = createDefaultShortStoryConfig()
+  const configuration = useShortStoryConfig({ read: () => ({ genres: [], emotions: 'invalid' }), write: () => {} })
+  configuration.load()
+  configuration.data.genres[0]!.label = '临时修改'
+  configuration.reset()
+  assert.equal(configuration.data.genres[0]!.label, defaults.genres[0]!.label)
+  const another = createDefaultShortStoryConfig()
+  another.genres[0]!.label = '另一个草稿'
+  assert.equal(defaults.genres[0]!.label, '都市生活', 'Drafts must not share mutable reset defaults')
+  const failing = useShortStoryConfig({ read: () => { throw new Error('read failure') }, write: async () => { throw new Error('write failure') } })
+  failing.load()
+  assert.equal(failing.data.genres.length, defaults.genres.length)
+  await assert.rejects(failing.save(), /write failure/, 'Saving must report async storage failures')
+  const story = { title: '雨夜', protagonist: { name: '阿宁', gender: 'female', age: 26 }, genre: 'mystery', plotType: 'discovery', emotion: 'tense', timeFrame: 'ancient', location: '码头', wordCount: 1800, referenceText: '参考原文' }
+  const prompt = buildShortStoryPrompt(story, defaults, '寻找失物')
+  for (const value of ['雨夜', '阿宁（女性，26岁）', '悬疑推理', '发现真相', '紧张', '古代', '码头', '1800', '参考原文', '寻找失物']) assert.ok(prompt.includes(value), value)
+  const continuation = buildShortStoryContinuation('已有正文', story, defaults, '揭晓谜底', 600)
+  for (const value of ['已有正文', '揭晓谜底', '600字', '悬疑推理']) assert.ok(continuation.includes(value), value)
+  defaults.writingStyles[0]!.prompt = '自定义文风规则'
+  const article = buildShortArticlePrompt({ title: '短文', wordCount: 800, style: 'zhihu', prompt: '创作要求', references: [{ title: '参考标题', content: '参考内容' }] }, defaults)
+  for (const value of ['800', '短文', '创作要求', '参考标题', '参考内容', '自定义文风规则']) assert.ok(article.includes(value), value)
+  assert.match(buildShortStoryOptimization('选中的文字', '增加细节'), /【优化方向】\n增加细节\n\n【原文】\n选中的文字/)
+}
+console.log('✓ Typed prompts retain all user settings; config resets isolate defaults and propagate save failures')
