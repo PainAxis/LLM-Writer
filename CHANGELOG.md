@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+- Extracted typed modules and components from ShortStory, BookAnalysis, NovelManagement and ToolsLibrary; the parent view scripts remain partially migrated.
+- ShortStory configuration resets now create independent default values and await persistence.
+- Book imports ignore superseded results and retain the last usable document after a failed replacement.
+- Novel list sorting preserves the source collection order and uses actual chapter counts.
+- Tool template replacements preserve literal dollar characters in user input.
+- Added module and browser regressions for these feature boundaries and refreshed the project structure and roadmap.
+
 ## [1.0.0]
 
 Initial tagged release of LLM-Writer, a browser-based AI writing workspace.

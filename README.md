@@ -112,6 +112,7 @@ CI runs strict lint, the production build, all smoke suites and Chromium regress
 
 - [Project Structure](PROJECT_STRUCTURE.md)
 - [Roadmap](ROADMAP.md)
+- [Changelog](CHANGELOG.md) · [Download releases](https://github.com/PainAxis/LLM-Writer/releases) · [Release process](scripts/releasing.md)
 
 ## 🐳 Docker Deployment
 
