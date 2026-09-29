@@ -373,7 +373,7 @@ try {
     await workspace.getByRole('button', { name: '生成短文', exact: true }).click()
     await expect(workspace.locator('.streaming-content')).toContainText('联调生成片段 2')
     await workspace.getByRole('button', { name: '清空', exact: true }).click()
-    await page.getByRole('dialog', { name: '确认', exact: true }).getByRole('button', { name: '确定', exact: true }).click()
+    await page.getByRole('dialog', { name: '确认', exact: true }).getByRole('button', { name: 'OK', exact: true }).click()
     await expect.poll(async () => (await metrics()).cancelled).toBeGreaterThan(before.cancelled + 1)
     await expect(articleEditor).toHaveText('')
     await delay(1800)
