@@ -40,7 +40,9 @@ try {
     if (current.active === 0) break
     await delay(20)
   }
-  assert.deepEqual(await (await fetch(`${url}/__test/metrics`)).json(), { started: 2, completed: 1, cancelled: 1, active: 0 })
+  const { chunks, ...requests } = await (await fetch(`${url}/__test/metrics`)).json()
+  assert.ok(chunks >= 1, 'Metrics must record delivered SSE chunks')
+  assert.deepEqual(requests, { started: 2, completed: 1, cancelled: 1, active: 0 })
   console.log('✓ Preview: built files only, known DOCX fixtures, no uploads, fake API auth, JSON, incremental SSE and cancellation')
 } finally {
   server.closeAllConnections()

@@ -41,7 +41,7 @@ export async function startPreviewServer({ port = 4173, sha = 'local', ttlMs = 4
     })
   }
   const expiresAt = new Date(Date.now() + Math.max(1_000, Math.min(ttlMs, 45 * 60_000))).toISOString()
-  const stats = { started: 0, completed: 0, cancelled: 0, active: 0 }
+  const stats = { started: 0, completed: 0, cancelled: 0, active: 0, chunks: 0 }
   const testIndex = `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Writer 浏览器联调</title>
 <style>body{max-width:850px;margin:48px auto;padding:0 24px;font:18px/1.6 system-ui}code{background:#eee;padding:2px 6px}li{margin:12px 0}</style>
 <h1>Writer 临时联调</h1><p><a href="/">打开应用</a> · <a href="/__test/health">版本与到期时间</a> · <a href="/__test/metrics">Mock 请求计数</a></p>
@@ -132,6 +132,7 @@ export async function startPreviewServer({ port = 4173, sha = 'local', ttlMs = 4
           const emit = chunk => res.write(`data: ${JSON.stringify({ ...common, object: 'chat.completion.chunk', ...chunk })}\n\n`)
           const tick = () => {
             if (index < chunks.length) {
+              stats.chunks++
               emit({ choices: [{ index: 0, delta: { content: chunks[index++] }, finish_reason: null }] })
               return
             }
