@@ -105,9 +105,14 @@ npm run smoke:prompts                 # Default prompts and merge rules
 2. Create a novel project or go straight to "Writer"
 3. Start creating with AI generation, continuation and polishing
 
+## 📖 Project Documentation
+
+- [Project Structure](PROJECT_STRUCTURE.md)
+- [Roadmap](ROADMAP.md)
+
 ## 🐳 Docker Deployment
 
-See [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md) for details; for the refactoring notes see [REFACTORING.md](REFACTORING.md).
+See [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md) for details.
 
 ```bash
 # Development environment (port 3000)
