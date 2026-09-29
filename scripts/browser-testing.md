@@ -1,39 +1,33 @@
-# Temporary browser testing
+# Browser testing
 
-Push the test branch `test/writer-browser-tunnel` to run `Writer browser tunnel`. The workflow leaves the default branch unchanged and runs two independent jobs:
+## Continuous integration
 
-- `preview` builds the checked-out revision, exposes it through a Cloudflare Quick Tunnel, and uploads `writer-preview-url-<hostname>` **before** waiting. Its `preview-url.json` contains the URL, revision SHA, fake API address, and expiry time. The hostname is also in the artifact name, and the full URL appears in the job summary. The server expires after 40 minutes; cancelling the run also stops it. The job has a 45-minute limit. A push whose commit message includes `[stop preview]` cancels the previous run and starts no preview.
-- `browser` runs Chromium on the runner against the same production build and the local mock, then uploads `writer-browser-evidence` with the test report and screenshots.
+The `CI` workflow runs on pull requests targeting `main`, pushes to `main`, and manual dispatch. Its check names are `ci-quality` and `ci-browser`.
 
-The preview serves only files from `dist` and the three synthetic DOCX fixtures listed at `/__test/`. It has no upload endpoint, external API proxy, real API credentials, repository file server, or server-side novel storage. `/__test/health` identifies the revision and `/__test/metrics` reports aggregate mock request counts without storing prompts.
+- `ci-quality` installs locked dependencies, rejects lint warnings, builds the app (including type checking), and runs `npm run smoke:all` sequentially.
+- `ci-browser` builds the same revision and runs Chromium against a local preview and synthetic API. It uploads `artifacts/browser` as `browser-evidence-<attempt>` for seven days, including failure screenshots and a Playwright trace when browser execution starts.
 
-Configure a custom API in the app with the preview origin plus `/__test/v1`, key `preview-test-key`, and model `writer-mock` or `writer-mock-slow`. The slow model emits one chunk every 750 ms for about 36 seconds, allowing the stop button and chapter-switch cancellation to be checked. The three fixtures can be downloaded from `/__test/fixtures/`.
+Both jobs use Node 24 and read-only repository permissions. Browser regression never needs real API credentials or a public tunnel. The current CI results are the validation record for each commit.
 
-[Cloudflare documents that Quick Tunnels do not support SSE](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/#limitations). The tunnel is therefore used for page interactions; incremental streaming and abort behavior are independently checked by the runner's Chromium process against localhost. Do not count buffered Quick Tunnel responses as evidence that SSE transport works.
-
-To run the same preview locally after building:
+Run locally from the repository root:
 
 ```sh
+npm ci
+npx playwright install --with-deps chromium
 npm run build
-node scripts/smoke-browser-preview.mjs
-node scripts/browser-preview.mjs
+npm run test:browser
 ```
 
-Then, in another terminal with Chromium installed through Playwright:
+`test:browser` verifies the preview boundary, starts its own server on an available localhost port, runs the browser scenarios, and closes the server on completion or failure. `BROWSER_ARTIFACT_DIR` can override the output directory. The default `artifacts/` directory is ignored by Git.
 
-```sh
-npx playwright install chromium
-node scripts/browser-regression.mjs
-```
+The scenarios cover API setup, editor persistence after reload, streaming cancellation, chapter-switch cancellation, DOCX import and invalid-file recovery, backup restoration, and large-content IndexedDB round trips. Uncaught page errors fail the run.
 
-The default address is `http://127.0.0.1:4173`. `PREVIEW_PORT` changes the preview port; the browser script accepts `PREVIEW_URL` and `MOCK_API_URL` overrides. The temporary tunnel runs only on the GitHub-hosted runner.
+## Optional temporary preview
 
-## Verified run
+The separate `Writer browser tunnel` workflow remains available for manual interaction. Push `test/writer-browser-tunnel` or dispatch that workflow to start it. Its `preview` job exposes the built app through a Cloudflare Quick Tunnel and publishes the URL in the job summary and a `writer-preview-url-<hostname>` artifact. The preview expires after 40 minutes; cancelling the run also stops it. A commit containing `[stop preview]` cancels the previous run without starting another preview.
 
-Revision `2af761f1f65954059228f30588934678861ef447` passed all seven real Chromium scenarios with zero uncaught page errors in the [browser job](https://github.com/PainAxis/LLM-Writer/actions/runs/34103975835/job/101684696577): API setup, editor persistence after reload, stream cancellation, chapter-switch cancellation, DOCX import and invalid-file recovery, backup restoration, and large-content IndexedDB round trips. The [evidence artifact](https://github.com/PainAxis/LLM-Writer/actions/runs/34103975835/artifacts/10011672396) contains the report, trace, screenshots, and synthetic backups and is retained for seven days.
+The preview serves only `dist` assets and the three synthetic DOCX fixtures under `/__test/fixtures/`. It does not expose repository files, accept uploads, proxy external APIs, or store novel content on the server. `/__test/health` identifies the revision; `/__test/metrics` reports aggregate mock request counts without storing prompts.
 
-Manual interaction through the preceding Cloudflare preview at revision `0518b00f0fcabfb82a0219beafd3a56d7b9acb10` verified novel/chapter creation, rich-text editing and recovery after reload, and DOCX parsing with literal script-like text. A final cloud-browser health-page recheck encountered `ERR_BLOCKED_BY_CLIENT`; the final revision's complete browser regression was verified on the GitHub runner as described above.
+Configure a custom API with the preview origin plus `/__test/v1`, key `preview-test-key`, and model `writer-mock` or `writer-mock-slow`. The slow model allows cancellation to be exercised. These values are synthetic test configuration.
 
-The browser run exposed uncaught cancellation rejections in the AI SDK's unused browser telemetry path. Both generation paths now explicitly disable telemetry, and the request-scope regression also exercises the SDK's browser runtime branch. No page errors are filtered or ignored by the browser regression.
-
-The follow-up documentation commit uses `[stop preview]` to cancel the temporary preview through workflow concurrency while preserving the successful browser job and its evidence. All work is on `test/writer-browser-tunnel`; the default branch is unchanged.
+[Cloudflare Quick Tunnels do not support SSE](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/#limitations). Use the public preview for page interactions; the local Chromium job verifies incremental streaming and cancellation.

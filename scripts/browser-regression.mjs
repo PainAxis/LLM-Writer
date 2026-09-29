@@ -265,7 +265,9 @@ try {
     await dialog.getByRole('button', { name: '开始生成', exact: true }).click()
     await expect(dialog).toBeHidden()
     await expect.poll(async () => (await metrics()).active).toBeGreaterThan(0)
-    await expect(editor()).not.toHaveText(textA)
+    await expect.poll(async () => (await metrics()).chunks).toBeGreaterThan(before.chunks)
+    // Chapter generation commits once complete; in-flight text stays out of the editor.
+    await expect(editor()).toHaveText(textA)
     await selectChapter(chapterB)
     await expect.poll(async () => (await metrics()).cancelled).toBeGreaterThan(before.cancelled)
     await expect(editor()).toHaveText(textB)

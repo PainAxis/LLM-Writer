@@ -82,6 +82,7 @@ npm run format
 These browser-independent module and integration regressions use a local Mock SSE server, in-memory fake IDB and document fixtures; no real API keys are required. After changes, run `npm run typecheck`, `npm run lint` and the relevant smoke scripts. Use `npm run build` for the production build.
 
 ```bash
+npm run smoke:all                     # Run all module smoke suites sequentially
 npm run smoke:ai                      # AI SDK: streaming, probing, abort, model fetch and proxy
 npm run smoke:ai-scope                # Request isolation, cancellation and stale callbacks
 npm run smoke:compactor               # Context budgets, sliding window and incremental summaries
@@ -99,6 +100,8 @@ npm run smoke:mindmap                 # Mind-map branches, mounting and truncati
 npm run smoke:eventline               # Chapter-number migration and compatibility
 npm run smoke:prompts                 # Default prompts and merge rules
 ```
+
+CI runs strict lint, the production build, all smoke suites and Chromium regression on pull requests and main updates. For local browser setup, see [browser testing](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)
