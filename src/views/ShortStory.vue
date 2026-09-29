@@ -427,50 +427,22 @@
 
     <!-- 对话框 -->
     <!-- 短文提示词选择对话框 -->
-    <el-dialog v-model="showArticlePromptSelector" title="选择短文提示词模板" width="80%" :before-close="handleArticlePromptDialogClose">
-      <div class="prompt-selector">
-        <div class="search-bar">
-          <el-input v-model="articlePromptSearchKeyword" placeholder="搜索提示词模板..." prefix-icon="Search" size="small" clearable />
-        </div>
-        <div class="prompt-list">
-          <div v-for="prompt in filteredArticlePrompts" :key="prompt.id" class="prompt-item" @click="selectArticlePrompt(prompt)">
-            <div class="prompt-title">{{ prompt.title }}</div>
-            <div class="prompt-description">{{ prompt.description }}</div>
-            <div class="prompt-tags">
-              <el-tag v-for="tag in prompt.tags" :key="tag" size="small">{{ tag }}</el-tag>
-            </div>
-          </div>
-        </div>
-        <div v-if="filteredArticlePrompts.length === 0" class="empty-state">
-          <el-empty description="暂无短文提示词模板">
-            <el-button type="primary" @click="createPrompt">创建提示词</el-button>
-          </el-empty>
-        </div>
-      </div>
-    </el-dialog>
-
-    <!-- 短篇小说提示词选择对话框 -->
-    <el-dialog v-model="showStoryPromptSelector" title="选择短篇小说提示词模板" width="80%" :before-close="handleStoryPromptDialogClose">
-      <div class="prompt-selector">
-        <div class="search-bar">
-          <el-input v-model="storyPromptSearchKeyword" placeholder="搜索提示词模板..." prefix-icon="Search" size="small" clearable />
-        </div>
-        <div class="prompt-list">
-          <div v-for="prompt in filteredStoryPrompts" :key="prompt.id" class="prompt-item" @click="selectStoryPrompt(prompt)">
-            <div class="prompt-title">{{ prompt.title }}</div>
-            <div class="prompt-description">{{ prompt.description }}</div>
-            <div class="prompt-tags">
-              <el-tag v-for="tag in prompt.tags" :key="tag" size="small">{{ tag }}</el-tag>
-            </div>
-          </div>
-        </div>
-        <div v-if="filteredStoryPrompts.length === 0" class="empty-state">
-          <el-empty description="暂无短篇小说提示词模板">
-            <el-button type="primary" @click="createPrompt">创建提示词</el-button>
-          </el-empty>
-        </div>
-      </div>
-    </el-dialog>
+    <ShortStoryPromptSelector
+      v-model="showArticlePromptSelector"
+      title="选择短文提示词模板"
+      empty-message="暂无短文提示词模板"
+      :prompts="availablePrompts"
+      @select="selectArticlePrompt"
+      @create="createPrompt"
+    />
+    <ShortStoryPromptSelector
+      v-model="showStoryPromptSelector"
+      title="选择短篇小说提示词模板"
+      empty-message="暂无短篇小说提示词模板"
+      :prompts="availablePrompts"
+      @select="selectStoryPrompt"
+      @create="createPrompt"
+    />
 
     <!-- 续写对话框 -->
     <el-dialog 
@@ -842,6 +814,9 @@ import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import '@wangeditor/editor/dist/css/style.css'
 import { useAIStream } from '@/composables/useAIStream'
 import { destroyEditor } from '@/utils/destroyEditor'
+import ShortStoryPromptSelector from '@/components/short-story/ShortStoryPromptSelector.vue'
+import { useShortStoryConfig } from '@/composables/useShortStoryConfig'
+import { buildShortArticlePrompt, buildShortStoryPrompt, buildShortStoryContinuation, buildShortStoryOptimization } from '@/utils/shortStoryPrompts'
 import { useShortStoryGeneration } from '@/composables/useShortStoryGeneration'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 import { DEFAULT_PROMPTS, PROMPTS_VERSION, mergeDefaultPrompts } from '../config/defaultPrompts'
@@ -865,7 +840,6 @@ const articleData = reactive({
 const articleContent = ref('')
 const selectedArticlePromptTemplate = ref(null)
 const showArticlePromptSelector = ref(false)
-const articlePromptSearchKeyword = ref('')
 
 // 响应式数据
 const generatedStory = ref('')
@@ -941,43 +915,10 @@ const articleWordCount = computed(() => {
   return articleContent.value.replace(/<[^>]*>/g, '').trim().length
 })
 
-const filteredArticlePrompts = computed(() => {
-  const allPrompts = storageGet(StorageKeys.prompts, [])
-  const articlePrompts = allPrompts.filter(p => p.category === 'short-story')
-  
-  if (!articlePromptSearchKeyword.value) {
-    return articlePrompts
-  }
-  
-  const keyword = articlePromptSearchKeyword.value.toLowerCase()
-  return articlePrompts.filter(prompt => 
-    prompt.title.toLowerCase().includes(keyword) ||
-    prompt.description.toLowerCase().includes(keyword) ||
-    prompt.tags.some(tag => tag.toLowerCase().includes(keyword))
-  )
-})
-
 // 短篇小说提示词选择
 const showStoryPromptSelector = ref(false)
-const storyPromptSearchKeyword = ref('')
 
 // 计算属性 - 短篇小说提示词
-const filteredStoryPrompts = computed(() => {
-  const allPrompts = storageGet(StorageKeys.prompts, [])
-  const storyPrompts = allPrompts.filter(p => p.category === 'short-story')
-  
-  if (!storyPromptSearchKeyword.value) {
-    return storyPrompts
-  }
-  
-  const keyword = storyPromptSearchKeyword.value.toLowerCase()
-  return storyPrompts.filter(prompt => 
-    prompt.title.toLowerCase().includes(keyword) ||
-    prompt.description.toLowerCase().includes(keyword) ||
-    prompt.tags.some(tag => tag.toLowerCase().includes(keyword))
-  )
-})
-
 // 计算属性 - 提示词占位符
 const promptPlaceholder = computed(() => {
   if (selectedPromptTemplate.value) {
@@ -1039,57 +980,8 @@ const storyData = reactive({
   wordCount: 3000
 })
 
-// 默认配置数据
-const defaultConfigData = {
-  genres: [
-    { value: 'urban', label: '都市生活', description: '现代都市背景，贴近生活' },
-    { value: 'urban_evil', label: '都市恶灵', description: '都市背景的恐怖灵异故事' },
-    { value: 'fantasy', label: '奇幻冒险', description: '魔法世界，英雄历险' },
-    { value: 'romance', label: '浪漫爱情', description: '感人爱情故事' },
-    { value: 'mystery', label: '悬疑推理', description: '谜题解密，逻辑推理' },
-    { value: 'scifi', label: '科幻未来', description: '未来科技，星际探索' },
-    { value: 'horror', label: '惊悚恐怖', description: '恐怖氛围，惊心动魄' }
-  ],
-  plotTypes: [
-    { value: 'growth', label: '成长蜕变', description: '主角经历挫折后成长' },
-    { value: 'adventure', label: '冒险探索', description: '探索未知，寻找宝藏' },
-    { value: 'conflict', label: '冲突解决', description: '面对冲突，寻求解决' },
-    { value: 'redemption', label: '救赎重生', description: '犯错后的救赎之路' },
-    { value: 'discovery', label: '发现真相', description: '揭露隐藏的秘密' }
-  ],
-  emotions: [
-    { value: 'happy', label: '😊 欢乐', description: '轻松愉快的氛围' },
-    { value: 'sad', label: '😢 悲伤', description: '感人催泪的情感' },
-    { value: 'tense', label: '😰 紧张', description: '紧张刺激的氛围' },
-    { value: 'romantic', label: '💕 浪漫', description: '温馨浪漫的情调' },
-    { value: 'mysterious', label: '🔮 神秘', description: '神秘未知的氛围' }
-  ],
-  timeFrames: [
-    { value: 'ancient', label: '古代', description: '古代背景设定' },
-    { value: 'modern', label: '近代', description: '近代历史背景' },
-    { value: 'contemporary', label: '当代', description: '现代社会背景' },
-    { value: 'future', label: '未来', description: '未来科幻背景' }
-  ],
-  writingStyles: [
-    { value: 'zhihu', label: '知乎风格', description: '理性分析，逻辑清晰，适合深度思考类内容' },
-    { value: 'wechat', label: '公众号风格', description: '亲和力强，易于传播，适合大众阅读' },
-    { value: 'toutiao', label: '头条风格', description: '标题党，吸引眼球，适合热点话题' },
-    { value: 'xiaohongshu', label: '小红书风格', description: '生活化，年轻态，适合分享体验' },
-    { value: 'weibo', label: '微博风格', description: '简洁明快，热点话题，适合快速传播' },
-    { value: 'academic', label: '学术风格', description: '严谨专业，引经据典，适合学术论述' },
-    { value: 'news', label: '新闻风格', description: '客观中立，事实为主，适合新闻报道' },
-    { value: 'story', label: '故事风格', description: '叙事生动，情节丰富，适合故事创作' }
-  ]
-}
-
-// 配置数据
-const configData = reactive({
-  genres: [],
-  plotTypes: [],
-  emotions: [],
-  timeFrames: [],
-  writingStyles: []
-})
+const configuration = useShortStoryConfig()
+const configData = configuration.data
 
 // 计算属性
 const isConfigValid = computed(() => {
@@ -1141,21 +1033,11 @@ const clearArticleSelectedTemplate = () => {
   selectedArticlePromptTemplate.value = null
 }
 
-const handleArticlePromptDialogClose = () => {
-  showArticlePromptSelector.value = false
-  articlePromptSearchKeyword.value = ''
-}
-
 // 短篇小说提示词选择方法
 const selectStoryPrompt = (prompt) => {
   selectedPromptTemplate.value = prompt
   unifiedPrompt.value = prompt.content
   showStoryPromptSelector.value = false
-}
-
-const handleStoryPromptDialogClose = () => {
-  showStoryPromptSelector.value = false
-  storyPromptSearchKeyword.value = ''
 }
 
 const generateArticle = async () => {
@@ -1165,29 +1047,7 @@ const generateArticle = async () => {
     return
   }
   articleContent.value = ''
-  // 构建提示词
-  let prompt = `请根据以下要求创作一篇短文：
-
-标题：${articleData.title}
-字数：约${articleData.wordCount}字
-文风类型：${getStyleDescription(articleData.style)}
-
-创作要求：
-${articleData.prompt}`
-
-  // 添加参考文章
-  if (articleData.references.length > 0) {
-    prompt += `\n\n参考文章：\n`
-    articleData.references.forEach((ref, index) => {
-      if (ref.title || ref.content) {
-        prompt += `参考${index + 1}：\n`
-        if (ref.title) prompt += `标题：${ref.title}\n`
-        if (ref.content) prompt += `内容：${ref.content}\n\n`
-      }
-    })
-  }
-
-  prompt += `\n请创作一篇符合要求的${articleData.wordCount}字左右的短文，要求内容充实，语言流畅，符合指定的文风特点。`
+  const prompt = buildShortArticlePrompt(articleData, configData)
 
   await generation.start('article', {
     prompt,
@@ -1246,18 +1106,6 @@ const clearArticleContent = () => {
   }).catch(() => {})
 }
 
-const getStyleDescription = (style) => {
-  const styleInfo = customWritingStyles.value.find(s => s.value === style)
-  if (styleInfo) {
-    // 如果有文风提示词，返回完整信息
-    if (styleInfo.prompt) {
-      return `${styleInfo.label} - ${styleInfo.description}\n\n文风要求：${styleInfo.prompt}`
-    }
-    return `${styleInfo.label} - ${styleInfo.description}`
-  }
-  return '通用风格'
-}
-
 const createPrompt = () => {
   router.push('/prompts')
 }
@@ -1266,7 +1114,7 @@ const createPrompt = () => {
 
 const generateStory = async () => {
   if (generating.value) return
-  const prompt = buildStoryPrompt()
+  const prompt = buildShortStoryPrompt(storyData, configData, unifiedPrompt.value)
   generatedStory.value = ''
   await generation.start('story', {
     prompt,
@@ -1274,84 +1122,6 @@ const generateStory = async () => {
     successMessage: '小说生成成功！',
     errorPrefix: '小说生成失败',
   })
-}
-
-const buildStoryPrompt = () => {
-  const { protagonist, genre, plotType, emotion, timeFrame, location } = storyData
-  
-  let prompt = `请根据以下要求创作一篇短篇小说：\n\n`
-  
-  // 基础信息 - 始终包含所有参数设置
-  prompt += `【基础设定】\n`
-  prompt += `- 小说标题：${storyData.title}\n`
-  prompt += `- 主角姓名：${protagonist.name}`
-  if (protagonist.gender) {
-    prompt += `（${protagonist.gender === 'male' ? '男性' : '女性'}`
-    if (protagonist.age) {
-      prompt += `，${protagonist.age}岁`
-    }
-    prompt += `）`
-  }
-  prompt += `\n`
-  
-  // 所有设置参数都传递给AI
-  if (genre) {
-    const genreInfo = customGenres.value.find(g => g.value === genre)
-    prompt += `- 题材风格：${genreInfo?.label || genre}\n`
-  }
-  if (plotType) {
-    const plotInfo = customPlotTypes.value.find(p => p.value === plotType)
-    prompt += `- 情节类型：${plotInfo?.label || plotType}\n`
-  }
-  if (emotion) {
-    const emotionInfo = customEmotions.value.find(e => e.value === emotion)
-    // 修复表情符号处理，确保JSON序列化安全
-    let emotionLabel = emotion
-    if (emotionInfo && emotionInfo.label) {
-      // 移除所有表情符号和特殊字符，只保留文字
-      emotionLabel = emotionInfo.label.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim()
-      // 如果去掉表情符号后为空，使用原始emotion值
-      if (!emotionLabel) {
-        emotionLabel = emotion
-      }
-    }
-    prompt += `- 情绪氛围：${emotionLabel}\n`
-  }
-  if (timeFrame) {
-    const timeInfo = customTimeFrames.value.find(t => t.value === timeFrame)
-    prompt += `- 时间背景：${timeInfo?.label || timeFrame}\n`
-  }
-  if (location) {
-    prompt += `- 故事地点：${location}\n`
-  }
-  
-  // 字数要求 - 现在是数字形式
-  if (storyData.wordCount) {
-    prompt += `- 目标字数：${storyData.wordCount}字\n`
-  }
-  
-  // 创作要求部分 - 包含提示词模板和自定义要求
-  prompt += `\n【创作要求】\n`
-  
-  // 如果使用了提示词模板，将其作为创作要求的一部分
-  if (selectedPromptTemplate.value && unifiedPrompt.value) {
-    prompt += `${unifiedPrompt.value}\n\n`
-    console.log('已将提示词模板和所有参数设置传递给AI')
-  } else if (unifiedPrompt.value) {
-    prompt += `${unifiedPrompt.value}\n\n`
-  }
-  
-  if (storyData.referenceText) {
-    prompt += `【参考文本】\n${storyData.referenceText}\n\n`
-  }
-  
-  prompt += `请创作一篇完整的短篇小说，字数控制在${storyData.wordCount}字左右，要求情节完整，人物鲜明，语言生动。`
-  
-  // 添加调试日志
-  console.log('构建的prompt长度:', prompt.length)
-  console.log('prompt预览:', prompt.substring(0, 200) + '...')
-  
-  return prompt
 }
 
 const _regenerateStory = () => {
@@ -1384,7 +1154,7 @@ const performContinue = async () => {
     return
   }
   await generation.start('continue', {
-    prompt: buildContinuePrompt(currentText),
+    prompt: buildShortStoryContinuation(currentText, storyData, configData, continueDirection.value, continueWordCount.value),
     sourceContent,
     onText: (_text, isCurrent) => nextTick(() => {
       if (isCurrent() && continueTextRef.value) continueTextRef.value.scrollTop = continueTextRef.value.scrollHeight
@@ -1412,60 +1182,6 @@ const copyContinueText = async () => {
 
 // 追加续写内容到原文
 // 构建续写提示词
-const buildContinuePrompt = (currentText) => {
-  const { protagonist, genre, emotion } = storyData
-  
-  let prompt = `请继续续写以下短篇小说，保持风格和情节的连贯性：\n\n`
-  
-  // 添加原始设置信息，保持一致性
-  prompt += `【原始设定】\n`
-  prompt += `- 小说标题：${storyData.title}\n`
-  prompt += `- 主角姓名：${protagonist.name}`
-  if (protagonist.gender) {
-    prompt += `（${protagonist.gender === 'male' ? '男性' : '女性'}`
-    if (protagonist.age) {
-      prompt += `，${protagonist.age}岁`
-    }
-    prompt += `）`
-  }
-  prompt += `\n`
-  
-  if (genre) {
-    const genreInfo = customGenres.value.find(g => g.value === genre)
-    prompt += `- 题材风格：${genreInfo?.label || genre}\n`
-  }
-  if (emotion) {
-    const emotionInfo = customEmotions.value.find(e => e.value === emotion)
-    let emotionLabel = emotion
-    if (emotionInfo && emotionInfo.label) {
-      emotionLabel = emotionInfo.label.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim()
-      if (!emotionLabel) {
-        emotionLabel = emotion
-      }
-    }
-    prompt += `- 情绪氛围：${emotionLabel}\n`
-  }
-  
-  prompt += `\n【当前内容】\n${currentText}\n\n`
-  
-  prompt += `【续写要求】\n`
-  prompt += `请继续续写这个故事，保持以下要求：\n`
-  prompt += `1. 保持与前文的风格和语调一致\n`
-  prompt += `2. 情节发展自然流畅，不要突兀转折\n`
-  prompt += `3. 继续深入刻画人物性格\n`
-  prompt += `4. 续写长度约${continueWordCount.value}字\n`
-  prompt += `5. 推进故事情节向高潮或结局发展\n`
-  
-  // 添加用户指定的续写方向
-  if (continueDirection.value.trim()) {
-    prompt += `6. 按照以下方向发展：${continueDirection.value}\n`
-  }
-  
-  prompt += `\n请直接开始续写，不要重复前面的内容：`
-  
-  return prompt
-}
-
 const resetConfig = () => {
   ElMessageBox.confirm(
     '确定要重置所有配置吗？这将清空当前所有设置内容。',
@@ -1580,11 +1296,8 @@ const performOptimize = async () => {
     ElMessage.warning('请填写优化方向')
     return
   }
-  let prompt = `请根据以下要求优化这段文字：\n\n`
-  prompt += `【优化方向】\n${optimizeDirection.value}\n\n`
-  prompt += `【原文】\n${selectedTextForOptimize.value}\n\n`
-  prompt += `请直接输出优化后的文字，保持原文的基本意思，但要按照优化方向进行改进。`
-  
+  const prompt = buildShortStoryOptimization(selectedTextForOptimize.value, optimizeDirection.value)
+
   await generation.start('optimize', {
     prompt,
     sourceContent: optimizeSourceContent.value,
@@ -1712,53 +1425,11 @@ const getTextWordCount = (html) => {
 }
 
 // 配置管理方法
-const loadConfigData = () => {
-  try {
-    const config = storageGet(StorageKeys.shortStoryConfig, null)
-    if (config) {
-      Object.keys(defaultConfigData).forEach(key => {
-        configData[key] = config[key] || [...defaultConfigData[key]]
-      })
-      console.log('加载已保存的配置数据:', configData)
-    } else {
-      // 首次使用，加载默认配置
-      Object.keys(defaultConfigData).forEach(key => {
-        configData[key] = [...defaultConfigData[key]]
-      })
-      console.log('加载默认配置数据:', configData)
-    }
-  } catch (error) {
-    console.error('加载配置失败:', error)
-    // 出错时使用默认配置
-    Object.keys(defaultConfigData).forEach(key => {
-      configData[key] = [...defaultConfigData[key]]
-    })
-    console.log('出错后使用默认配置:', configData)
-  }
-  
-  // 确保配置数据包含至少一些数据源设置
-  if (configData.genres.length === 0) {
-    configData.genres = [...defaultConfigData.genres]
-  }
-  if (configData.plotTypes.length === 0) {
-    configData.plotTypes = [...defaultConfigData.plotTypes]
-  }
-  if (configData.emotions.length === 0) {
-    configData.emotions = [...defaultConfigData.emotions]
-  }
-  if (configData.timeFrames.length === 0) {
-    configData.timeFrames = [...defaultConfigData.timeFrames]
-  }
-  if (configData.writingStyles.length === 0) {
-    configData.writingStyles = [...defaultConfigData.writingStyles]
-  }
-  
-  console.log('最终配置数据:', configData)
-}
+const loadConfigData = configuration.load
 
-const saveConfigData = () => {
+const saveConfigData = async () => {
   try {
-    storageSet(StorageKeys.shortStoryConfig, configData)
+    await configuration.save()
     ElMessage.success('配置保存成功！')
     showConfigManager.value = false
   } catch (error) {
@@ -1792,9 +1463,9 @@ const removeWritingStyle = (index) => {
   configData.writingStyles.splice(index, 1)
 }
 
-const saveWritingStyleConfig = () => {
+const saveWritingStyleConfig = async () => {
   try {
-    storageSet(StorageKeys.shortStoryConfig, configData)
+    await configuration.save()
     ElMessage.success('文风配置保存成功！')
     showWritingStyleManager.value = false
   } catch (error) {
@@ -1804,17 +1475,7 @@ const saveWritingStyleConfig = () => {
 }
 
 const openConfigManager = () => {
-  console.log('准备打开配置管理器')
-  console.log('当前配置数据:', configData)
-  console.log('默认配置数据:', defaultConfigData)
-  
-  // 确保配置数据已加载
-  if (configData.genres.length === 0) {
-    console.log('配置数据为空，重新加载...')
-    loadConfigData()
-  }
-  
-  console.log('重新加载后的配置数据:', configData)
+  if (configData.genres.length === 0) loadConfigData()
   showConfigManager.value = true
 }
 
@@ -1828,9 +1489,7 @@ const resetToDefault = () => {
       type: 'warning',
     }
   ).then(() => {
-    Object.keys(defaultConfigData).forEach(key => {
-      configData[key] = [...defaultConfigData[key]]
-    })
+    configuration.reset()
     ElMessage.success('已恢复默认配置')
   }).catch(() => {
     // 用户取消
@@ -2764,18 +2423,6 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: #64748b;
   line-height: 1.4;
-}
-
-.prompt-selector {
-  display: flex;
-  gap: 20px;
-  min-height: 500px;
-}
-
-.prompt-list {
-  flex: 1;
-  max-height: 500px;
-  overflow-y: auto;
 }
 
 .prompt-grid {
@@ -3725,55 +3372,6 @@ onBeforeUnmount(() => {
   word-wrap: break-word;
   max-height: 350px;
   overflow-y: auto;
-}
-
-.prompt-selector {
-  height: 400px;
-  display: flex;
-  flex-direction: column;
-}
-
-.search-bar {
-  margin-bottom: 16px;
-}
-
-.prompt-list {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.prompt-item {
-  padding: 16px;
-  border: 1px solid #e1e5e9;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.prompt-item:hover {
-  border-color: var(--brand-500);
-  background: var(--brand-50);
-}
-
-.prompt-title {
-  font-weight: 500;
-  color: #2c3e50;
-  margin-bottom: 8px;
-}
-
-.prompt-description {
-  color: var(--el-text-color-regular);
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-
-.prompt-tags {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
 }
 
 /* 续写对话框样式 */
