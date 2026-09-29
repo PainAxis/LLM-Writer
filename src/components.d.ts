@@ -15,6 +15,7 @@ declare module 'vue' {
     ApiConfig: typeof import('./components/ApiConfig.vue')['default']
     BatchChapterGenerateDialog: typeof import('./components/writer/dialogs/BatchChapterGenerateDialog.vue')['default']
     BatchCharacterGenerateDialog: typeof import('./components/writer/dialogs/BatchCharacterGenerateDialog.vue')['default']
+    BookFileImportPanel: typeof import('./components/book-analysis/BookFileImportPanel.vue')['default']
     ChapterEditDialog: typeof import('./components/writer/dialogs/ChapterEditDialog.vue')['default']
     ChapterGenerateDialog: typeof import('./components/writer/dialogs/ChapterGenerateDialog.vue')['default']
     ChapterPanel: typeof import('./components/writer/panels/ChapterPanel.vue')['default']
