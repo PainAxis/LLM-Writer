@@ -105,9 +105,14 @@ npm run smoke:prompts                 # 默认提示词与合并规则
 2. 创建小说项目或直接进入「写作」
 3. 使用 AI 生成、续写、润色开始创作
 
+## 📖 项目文档
+
+- [目录结构](PROJECT_STRUCTURE.zh-CN.md)
+- [路线图](ROADMAP.zh-CN.md)
+
 ## 🐳 Docker 部署
 
-详见 [DOCKER_DEPLOY.zh-CN.md](DOCKER_DEPLOY.zh-CN.md)，重构说明见 [REFACTORING.zh-CN.md](REFACTORING.zh-CN.md)。
+详见 [DOCKER_DEPLOY.zh-CN.md](DOCKER_DEPLOY.zh-CN.md)。
 
 ```bash
 # 开发环境（端口 3000）
