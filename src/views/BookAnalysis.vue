@@ -538,7 +538,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
-  Document, DataAnalysis, Download, FolderAdd, 
+  Document, DataAnalysis, Download, FolderAdd,
   DocumentCopy, MagicStick, View, Edit
 } from '@element-plus/icons-vue'
 import { useNovelStore } from '@/stores/novel'
