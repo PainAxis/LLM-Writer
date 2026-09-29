@@ -112,6 +112,7 @@ CI 会在 PR 和 main 更新时执行严格 lint、生产构建、全部冒烟�
 
 - [目录结构](PROJECT_STRUCTURE.zh-CN.md)
 - [路线图](ROADMAP.zh-CN.md)
+- [更新日志](CHANGELOG.md) · [下载发布版](https://github.com/PainAxis/LLM-Writer/releases) · [发布流程](scripts/releasing.md)
 
 ## 🐳 Docker 部署
 

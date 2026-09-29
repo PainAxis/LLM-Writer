@@ -10,9 +10,9 @@ This overview describes the current source layout. Planned work is tracked in th
 |------|---------|
 | `src/` | Application source |
 | `public/` | Static assets, including the favicon |
-| `scripts/` | Module smoke tests, browser regression and preview tools, deployment scripts |
+| `scripts/` | Module smoke tests, browser regression, preview tools, release validation and deployment scripts |
 | `scripts/fixtures/` | Synthetic document-import fixtures |
-| `.github/workflows/` | GitHub Actions workflows, including the temporary browser preview |
+| `.github/workflows/` | Continuous validation, CI-gated releases and the optional temporary browser preview |
 | `package.json`, `package-lock.json` | Dependencies, locked versions and npm commands |
 | `vite.config.ts`, `tsconfig.json`, `eslint.config.js` | Build, TypeScript and lint configuration |
 | `Dockerfile`, `docker-compose.yml`, `nginx.conf` | Development and production deployment |
@@ -25,7 +25,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/style.css` | Shared design tokens, Element Plus variables and dark theme |
 | `src/router/index.ts` | Hash routing, lazy-loaded views and the fallback page |
 | `src/views/` | Feature pages: Writer, novel management, short stories, book analysis, assistants and other tools |
-| `src/components/` | Shared UI components and Writer panels, dialogs and editor |
+| `src/components/` | Shared UI and feature components, including Writer panels, dialogs and editor |
 | `src/composables/` | Reactive workflows for writing, AI streaming, prompt selection and themes |
 | `src/services/api.ts`, `src/services/aiProviders.ts`, `src/services/apiConfig.ts` | AI SDK facade, provider adapters, model discovery and shared API configuration |
 | `src/services/novelPersistence.ts`, `src/services/blobStore.ts` | Queued novel saves, versioned IndexedDB content shards and startup hydration |
@@ -34,8 +34,8 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/utils/storage.ts`, `src/utils/aiRequestScope.ts` | Central storage access and isolated, cancellable AI requests |
 | `src/utils/writer/` | Writer prompt builders and response parsers |
 | `src/utils/` | Context budgets/compaction, corpus retrieval, book imports, chapter parsing, event and mind-map data |
-| `src/types/` | Shared API and Writer types, plus library declarations |
-| `src/config/` | Default prompt catalog and announcements |
+| `src/types/` | Shared API, Writer, ShortStory, book-analysis, novel-management and tool types, plus library declarations |
+| `src/config/` | Default prompts, ShortStory defaults, typed tool definitions and announcements |
 
 ## Writer Workspace
 
@@ -50,3 +50,21 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/composables/useChapterContentWorkspace.ts` | Chapter-content dialog state, selected materials and generation context |
 | `src/composables/` | Separate Writer controllers for CRUD, continuation, polishing, generation and prompt orchestration |
 | `src/utils/writer/`, `src/types/writer.ts` | Prompt/parsing helpers and shared Writer contracts |
+
+## Other Feature Boundaries
+
+| Feature | Modules and responsibilities |
+|---------|-----------------------------|
+| ShortStory | `components/short-story/ShortStoryPromptSelector.vue`; `useShortStoryConfig.ts` for fresh defaults and async persistence; `useShortStoryGeneration.ts` for independent cancellable requests; `utils/shortStoryPrompts.ts` for prompt construction |
+| BookAnalysis | `components/book-analysis/BookFileImportPanel.vue`; `useBookAnalysisFile.ts` for latest-import ownership and encoding; `utils/bookAnalysisContext.ts` for chapter detection, selected ranges and prompts |
+| NovelManagement | `components/novel-management/NovelMetadataForm.vue` for create/edit fields; `utils/novelList.ts` for filters and non-mutating sorting |
+| ToolsLibrary | `components/tools/ToolCatalog.vue`; `config/tools.ts` as the tool registry; `utils/toolForms.ts` for required fields; `utils/toolPrompts.ts` for templates and selected novel/chapter context |
+| Editor teardown | `utils/destroyEditor.ts` cancels wangEditor selection throttling before destroying an editor |
+
+All paths in this table are relative to `src/`; `use*.ts` controllers are under `src/composables/`. Parent views still own the remaining orchestration.
+
+## Validation and Releases
+
+- [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
+- [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.
+- [Changelog](CHANGELOG.md): published changes and unreleased work.
