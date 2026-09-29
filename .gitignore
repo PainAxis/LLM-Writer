@@ -2,6 +2,7 @@ node_modules/
 dist/
 dist-ssr/
 artifacts/
+release/
 .history/
 *.local
 .env
