@@ -29,6 +29,7 @@
     "smoke:book-import": "node --import tsx scripts/smoke-book-import.ts",
     "smoke:book-workspace": "node --import tsx scripts/smoke-book-workspace.ts",
     "smoke:management-persistence": "node --import tsx scripts/smoke-management-persistence.ts",
+    "smoke:novel-list": "node --import tsx scripts/smoke-novel-list.ts",
     "smoke:writer-actions": "node --import tsx scripts/smoke-writer-actions.ts",
     "smoke:writer-chapter-crud": "node --import tsx scripts/smoke-writer-chapter-crud.ts",
     "smoke:writer-chapter-workspace": "node --import tsx scripts/smoke-writer-chapter-workspace.ts",

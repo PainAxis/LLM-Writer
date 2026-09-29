@@ -71,6 +71,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     EventEditDialog: typeof import('./components/writer/dialogs/EventEditDialog.vue')['default']
     EventPanel: typeof import('./components/writer/panels/EventPanel.vue')['default']
+    NovelMetadataForm: typeof import('./components/novel-management/NovelMetadataForm.vue')['default']
     OptimizeDialog: typeof import('./components/writer/dialogs/OptimizeDialog.vue')['default']
     PromptPickerDialog: typeof import('./components/writer/dialogs/PromptPickerDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

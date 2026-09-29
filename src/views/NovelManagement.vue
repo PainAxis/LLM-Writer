@@ -181,117 +181,14 @@
       width="600px"
       @close="resetCreateForm"
     >
-      <el-form 
-        ref="createFormRef" 
-        :model="createForm"
-        :disabled="isSavingNovels"
-        :rules="createRules" 
-        label-width="80px"
-      >
-        <el-form-item label="小说标题" prop="title">
-          <el-input v-model="createForm.title" placeholder="请输入小说标题" />
-        </el-form-item>
-        
-        <el-form-item label="类型" prop="genre">
-          <el-select v-model="createForm.genre" placeholder="请选择小说类型" @change="onGenreChange">
-            <el-option 
-              v-for="(preset, key) in genrePresets" 
-              :key="key"
-              :label="preset.name" 
-              :value="key"
-            >
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>{{ preset.name }}</span>
-                <el-tag size="small" type="info">{{ preset.tags.slice(0, 2).join('、') }}</el-tag>
-              </div>
-            </el-option>
-          </el-select>
-          <div v-if="createForm.genre && genrePresets[createForm.genre]" style="margin-top: 8px; font-size: 12px; color: var(--el-text-color-secondary);">
-            💡 {{ genrePresets[createForm.genre].prompt }}
-          </div>
-        </el-form-item>
-        
-        <el-form-item label="简介" prop="description">
-          <div class="description-input-group">
-            <el-input 
-              v-model="createForm.description" 
-              type="textarea" 
-              :rows="4"
-              placeholder="请输入小说简介或点击AI生成"
-            />
-            <div class="ai-generate-section" v-if="createForm.genre">
-              <el-button 
-                type="primary" 
-                size="small" 
-                @click="generateDescription" 
-                :loading="isGeneratingDescription"
-                :disabled="!createForm.title?.trim()"
-              >
-                <el-icon><Star /></el-icon>
-                {{ isGeneratingDescription ? 'AI生成中...' : 'AI智能生成' }}
-              </el-button>
-              <el-button 
-                v-if="createForm.description" 
-                size="small" 
-                @click="generateDescription" 
-                :loading="isGeneratingDescription"
-                :disabled="!createForm.title?.trim()"
-              >
-                重新生成
-              </el-button>
-              <span class="generate-tip">使用AI技术基于标题和类型智能生成</span>
-            </div>
-          </div>
-        </el-form-item>
-        
-        <el-form-item label="封面">
-          <div class="cover-upload-container">
-            <div class="cover-uploader" @click="triggerFileInput">
-              <img v-if="createForm.cover" :src="createForm.cover" class="cover-preview" />
-              <div v-else class="cover-uploader-placeholder">
-                <el-icon class="cover-uploader-icon"><Plus /></el-icon>
-                <div class="upload-text">点击上传封面</div>
-              </div>
-            </div>
-            <input 
-              ref="fileInput"
-              type="file" 
-              accept="image/*" 
-              style="display: none;"
-              @change="handleNativeFileChange"
-            />
-            <div v-if="createForm.cover" class="cover-actions">
-              <el-button size="small" type="danger" @click="removeCover">
-                <el-icon><Delete /></el-icon>
-                移除封面
-              </el-button>
-            </div>
-          </div>
-        </el-form-item>
-        
-        <el-form-item label="标签">
-          <el-input 
-            v-model="tagInput"
-            placeholder="输入标签后按回车添加"
-            @keyup.enter="addTag"
-          >
-            <template #append>
-              <el-button @click="addTag">添加</el-button>
-            </template>
-          </el-input>
-          <div class="tags-display" v-if="createForm.tags.length > 0">
-            <el-tag 
-              v-for="(tag, index) in createForm.tags"
-              :key="index"
-              closable
-              @close="removeTag(index)"
-              style="margin: 2px 4px 2px 0;"
-            >
-              {{ tag }}
-            </el-tag>
-          </div>
-        </el-form-item>
-      </el-form>
+      <NovelMetadataForm
+        ref="createFormRef" v-model="createForm" v-model:tag-input="tagInput"
+        mode="create" :genres="genrePresets" :rules="createRules"
+        :disabled="isSavingNovels" :generating="isGeneratingDescription"
+        @genre-change="onGenreChange" @generate="generateDescription"
+        @cover-change="handleNativeFileChange" @remove-cover="removeCover"
+        @add-tag="addTag" @remove-tag="removeTag"
+      />
       
       <template #footer>
         <el-button @click="showCreateDialog = false" :disabled="isSavingNovels">取消</el-button>
@@ -428,116 +325,13 @@
       width="600px"
       @close="resetEditForm"
     >
-      <el-form 
-        ref="editFormRef" 
-        :model="editForm"
-        :disabled="isSavingNovels"
-        :rules="editRules" 
-        label-width="80px"
-      >
-        <el-form-item label="小说标题" prop="title">
-          <el-input v-model="editForm.title" placeholder="请输入小说标题" />
-        </el-form-item>
-        
-        <el-form-item label="类型" prop="genre">
-          <el-select v-model="editForm.genre" placeholder="请选择小说类型" @change="onEditGenreChange">
-            <el-option 
-              v-for="(preset, key) in genrePresets" 
-              :key="key"
-              :label="preset.name" 
-              :value="key"
-            >
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span>{{ preset.name }}</span>
-                <el-tag size="small" type="info">{{ preset.tags.slice(0, 2).join('、') }}</el-tag>
-              </div>
-            </el-option>
-          </el-select>
-          <div v-if="editForm.genre && genrePresets[editForm.genre]" style="margin-top: 8px; font-size: 12px; color: var(--el-text-color-secondary);">
-            💡 {{ genrePresets[editForm.genre].prompt }}
-          </div>
-        </el-form-item>
-
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="editForm.status" placeholder="请选择小说状态">
-            <el-option label="创作中" value="writing" />
-            <el-option label="已完成" value="completed" />
-            <el-option label="已暂停" value="paused" />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="简介" prop="description">
-          <div class="description-input-group">
-            <el-input 
-              v-model="editForm.description" 
-              type="textarea" 
-              :rows="4"
-              placeholder="请输入小说简介或点击AI生成"
-            />
-            <div class="ai-generate-section" v-if="editForm.genre">
-              <el-button 
-                type="primary" 
-                size="small" 
-                @click="generateEditDescription" 
-                :loading="isGeneratingEditDescription"
-                :disabled="!editForm.title?.trim()"
-              >
-                <el-icon><Star /></el-icon>
-                {{ isGeneratingEditDescription ? 'AI生成中...' : 'AI重新生成' }}
-              </el-button>
-              <span class="generate-tip">使用AI技术基于标题和类型智能生成</span>
-            </div>
-          </div>
-        </el-form-item>
-        
-        <el-form-item label="封面">
-          <div class="cover-upload-container">
-            <div class="cover-uploader" @click="triggerEditFileInput">
-              <img v-if="editForm.cover" :src="editForm.cover" class="cover-preview" />
-              <div v-else class="cover-uploader-placeholder">
-                <el-icon class="cover-uploader-icon"><Plus /></el-icon>
-                <div class="upload-text">点击上传封面</div>
-              </div>
-            </div>
-            <input 
-              ref="editFileInput"
-              type="file" 
-              accept="image/*" 
-              style="display: none;"
-              @change="handleEditFileChange"
-            />
-            <div v-if="editForm.cover" class="cover-actions">
-              <el-button size="small" type="danger" @click="removeEditCover">
-                <el-icon><Delete /></el-icon>
-                移除封面
-              </el-button>
-            </div>
-          </div>
-        </el-form-item>
-        
-        <el-form-item label="标签">
-          <el-input 
-            v-model="editTagInput"
-            placeholder="输入标签后按回车添加"
-            @keyup.enter="addEditTag"
-          >
-            <template #append>
-              <el-button @click="addEditTag">添加</el-button>
-            </template>
-          </el-input>
-          <div class="tags-display" v-if="editForm.tags.length > 0">
-            <el-tag 
-              v-for="(tag, index) in editForm.tags"
-              :key="index"
-              closable
-              @close="removeEditTag(index)"
-              style="margin: 2px 4px 2px 0;"
-            >
-              {{ tag }}
-            </el-tag>
-          </div>
-        </el-form-item>
-      </el-form>
+      <NovelMetadataForm
+        ref="editFormRef" v-model="editForm" v-model:tag-input="editTagInput"
+        mode="edit" :genres="genrePresets" :rules="editRules"
+        :disabled="isSavingNovels" :generating="isGeneratingEditDescription"
+        @generate="generateEditDescription" @cover-change="handleEditFileChange"
+        @remove-cover="removeEditCover" @add-tag="addEditTag" @remove-tag="removeEditTag"
+      />
       
       <template #footer>
         <el-button @click="showEditDialog = false" :disabled="isSavingNovels">取消</el-button>
@@ -552,10 +346,12 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Plus, Search, Document, EditPen, Calendar, Edit, View, 
-  MoreFilled, Star, Download, CopyDocument, Delete
+  MoreFilled, Download, CopyDocument, Delete
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import apiService from '@/services/api'
+import NovelMetadataForm from '@/components/novel-management/NovelMetadataForm.vue'
+import { filterNovelList } from '@/utils/novelList'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 import { subscribeNovelPersistenceStatus } from '@/services/novelPersistence'
 
@@ -576,7 +372,6 @@ const tagInput = ref('')
 const editTagInput = ref('')
 const createFormRef = ref()
 const editFormRef = ref()
-const editFileInput = ref()
 const isGeneratingDescription = ref(false)
 const isGeneratingEditDescription = ref(false)
 const isSavingEdit = ref(false)
@@ -666,46 +461,9 @@ const editRules = {
 }
 
 // 计算属性
-const filteredNovels = computed(() => {
-  let result = novels.value
-  
-  // 状态筛选
-  if (statusFilter.value !== 'all') {
-    result = result.filter(novel => novel.status === statusFilter.value)
-  }
-  
-  // 类型筛选
-  if (genreFilter.value !== 'all') {
-    result = result.filter(novel => novel.genre === genreFilter.value)
-  }
-  
-  // 关键词搜索
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
-    result = result.filter(novel => 
-      novel.title.toLowerCase().includes(keyword) ||
-      novel.description.toLowerCase().includes(keyword)
-    )
-  }
-  
-  // 排序
-  result.sort((a, b) => {
-    switch (sortBy.value) {
-      case 'updated':
-        return new Date(b.updatedAt) - new Date(a.updatedAt)
-      case 'created':
-        return new Date(b.createdAt) - new Date(a.createdAt)
-      case 'wordCount':
-        return b.wordCount - a.wordCount
-      case 'chapters':
-        return b.chapters - a.chapters
-      default:
-        return 0
-    }
-  })
-  
-  return result
-})
+const filteredNovels = computed(() => filterNovelList(novels.value, {
+  status: statusFilter.value, genre: genreFilter.value, sort: sortBy.value, keyword: searchKeyword.value,
+}))
 
 // 方法
 const getStatusType = (status) => {
@@ -1145,13 +903,6 @@ const removeTag = (index) => {
   createForm.value.tags.splice(index, 1)
 }
 
-const fileInput = ref()
-
-const triggerFileInput = () => {
-  console.log('触发文件选择器')
-  fileInput.value?.click()
-}
-
 const handleNativeFileChange = (event) => {
   const file = event.target.files[0]
   console.log('原生文件选择事件触发:', file)
@@ -1326,11 +1077,6 @@ const removeEditTag = (index) => {
   editForm.value.tags.splice(index, 1)
 }
 
-// 触发编辑文件选择
-const triggerEditFileInput = () => {
-  editFileInput.value?.click()
-}
-
 // 处理编辑文件变化
 const handleEditFileChange = (event) => {
   const file = event.target.files[0]
@@ -1364,9 +1110,7 @@ const handleEditFileChange = (event) => {
 const removeEditCover = () => {
   editForm.value.cover = ''
   // 清除文件输入框的值
-  if (editFileInput.value) {
-    editFileInput.value.value = ''
-  }
+  editFormRef.value?.clearCoverInput()
 }
 
 // 生成编辑简介
@@ -1754,94 +1498,7 @@ onUnmounted(() => unsubscribePersistence())
   padding: 60px 0;
 }
 
-.cover-uploader {
-  border: 1px dashed #d9d9d9;
-  border-radius: 6px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  width: 120px;
-  height: 160px;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
-.cover-uploader:hover {
-  border-color: var(--brand-500);
-  background-color: var(--el-fill-color-light);
-}
-
-.cover-uploader-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  text-align: center;
-}
-
-.cover-uploader-icon {
-  font-size: 24px;
-  color: #8c939d;
-  margin-bottom: 8px;
-}
-
-.upload-text {
-  font-size: 12px;
-  color: #8c939d;
-  line-height: 1.2;
-}
-
-.cover-preview {
-  width: 120px;
-  height: 160px;
-  object-fit: cover;
-  display: block;
-  border-radius: 6px;
-}
-
-.cover-upload-container {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.cover-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.tags-display {
-  margin-top: 10px;
-}
-
-.tags-display .el-tag {
-  margin: 2px 4px 2px 0;
-}
-
-.description-input-group {
-  position: relative;
-}
-
-.ai-generate-section {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: var(--el-fill-color-light);
-  border-radius: 4px;
-  border: 1px solid #e9ecef;
-}
-
-.generate-tip {
-  font-size: 12px;
-  color: #6c757d;
-}
 
 .novel-details {
   max-height: 600px;
