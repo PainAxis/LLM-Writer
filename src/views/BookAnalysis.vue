@@ -4,72 +4,19 @@
       <!-- 左侧操作面板 -->
       <div class="left-panel">
         <!-- 文件上传区域 -->
-        <div class="panel-section">
-          <h3>📁 导入小说</h3>
-          
-          <!-- 编码选择 -->
-          <div class="encoding-selection" v-if="!uploadedFile">
-            <label>文件编码:</label>
-            <el-radio-group v-model="selectedEncoding" size="small">
-              <el-radio-button label="utf-8">UTF-8</el-radio-button>
-              <el-radio-button label="gbk">GBK/GB2312</el-radio-button>
-            </el-radio-group>
-          </div>
-          
-          <el-upload
-            class="upload-area"
-            drag
-            :auto-upload="false"
-            :disabled="analyzing || generatingSummary"
-            :on-change="handleFileChange"
-            :on-exceed="handleFileExceed"
-            accept=".txt,.docx"
-            :limit="1"
-            :show-file-list="false"
-          >
-            <el-icon class="el-icon--upload">
-              <UploadFilled />
-            </el-icon>
-            <div class="el-upload__text">
-              拖拽文件到此处或<em>点击上传</em>
-            </div>
-            <template #tip>
-              <div class="el-upload__tip">
-                支持 .txt 和 .docx 格式；编码选择仅用于 TXT
-              </div>
-            </template>
-          </el-upload>
-          
-          <p v-if="importingFile" role="status">正在读取文件...</p>
-          <div v-if="uploadedFile" class="file-info">
-            <div class="file-card">
-              <el-icon><Document /></el-icon>
-              <div class="file-details">
-                <span class="file-name">{{ uploadedFile.name }}</span>
-                <span class="file-size">{{ (uploadedFile.size / 1024).toFixed(1) }}KB</span>
-                <span class="file-encoding">{{ fileFormatLabel }}</span>
-              </div>
-              <div class="file-actions">
-                <el-button type="text" size="small" @click="rereadWithEncoding" :disabled="analyzing || generatingSummary" title="重新读取">
-                  重新读取
-                </el-button>
-                <el-button type="text" @click="removeFile" :disabled="analyzing || generatingSummary" class="remove-btn">
-                  <el-icon><Close /></el-icon>
-                </el-button>
-              </div>
-            </div>
-            
-            <!-- 编码切换 -->
-            <div v-if="!isDocx" class="encoding-switch">
-              <span>编码:</span>
-              <el-radio-group v-model="selectedEncoding" size="small" :disabled="analyzing || generatingSummary" @change="rereadWithEncoding">
-                <el-radio-button label="utf-8">UTF-8</el-radio-button>
-                <el-radio-button label="gbk">GBK/GB2312</el-radio-button>
-              </el-radio-group>
-            </div>
-          </div>
-        </div>
-        
+        <BookFileImportPanel
+          v-model:encoding="selectedEncoding"
+          :uploaded-file="uploadedFile"
+          :importing-file="importingFile"
+          :busy="analyzing || generatingSummary"
+          :is-docx="isDocx"
+          :file-format-label="fileFormatLabel"
+          @change="handleFileChange"
+          @exceed="handleFileExceed"
+          @reread="rereadWithEncoding"
+          @remove="removeFile"
+        />
+
         <!-- 分析设置 -->
         <div class="panel-section" v-if="bookContent">
           <h3>⚙️ 分析设置</h3>
@@ -591,24 +538,32 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
-  UploadFilled, Document, DataAnalysis, Download, FolderAdd, 
-  Close, DocumentCopy, MagicStick, View, Edit
+  Document, DataAnalysis, Download, FolderAdd,
+  DocumentCopy, MagicStick, View, Edit
 } from '@element-plus/icons-vue'
 import { useNovelStore } from '@/stores/novel'
 import { storageGet, storageGetRaw, storageSetRaw, StorageKeys } from '@/utils/storage'
-import { createBookImporter, splitBookLocally } from '@/utils/bookImport'
+import { splitBookLocally } from '@/utils/bookImport'
+import BookFileImportPanel from '@/components/book-analysis/BookFileImportPanel.vue'
+import { useBookAnalysisFile } from '@/composables/useBookAnalysisFile'
+import { detectBookChapters, readBookChapter, prepareBookAnalysis, buildBookAnalysisPrompt } from '@/utils/bookAnalysisContext'
 
 const novelStore = useNovelStore()
 
 // 响应式数据
-const uploadedFile = ref(null)
-const bookContent = ref('')
-const selectedEncoding = ref('utf-8')
-const importedEncoding = ref('utf-8')
-const importingFile = ref(false)
-const bookImporter = createBookImporter()
-const isDocx = computed(() => uploadedFile.value?.name.toLowerCase().endsWith('.docx'))
-const fileFormatLabel = computed(() => isDocx.value ? 'DOCX（自动解析）' : importedEncoding.value.toUpperCase())
+const fileWorkspace = useBookAnalysisFile({
+  isBusy: () => analyzing.value || generatingSummary.value,
+  onImported: content => {
+    resetBookAnalysis()
+    analysisStartWords.value = 1
+    analysisEndWords.value = Math.min(5000, content.length)
+    detectedChapters.value = detectBookChapters(content)
+  },
+  onRemoved: () => resetBookAnalysis(),
+  notify: { success: ElMessage.success, error: ElMessage.error },
+})
+const { uploadedFile, bookContent, selectedEncoding, importingFile, isDocx, fileFormatLabel,
+  handleFileChange, handleFileExceed, rereadWithEncoding, removeFile } = fileWorkspace
 const selectedTemplate = ref('')
 const selectedChapters = ref([])
 const analysisStartWords = ref(1)
@@ -751,93 +706,7 @@ const resetBookAnalysis = () => {
   currentDetailChapterContent.value = ''
 }
 
-const handleFileChange = async (file) => {
-  if (!file.raw || analyzing.value || generatingSummary.value) return
-  importingFile.value = true
-  try {
-    const result = await bookImporter.read(file.raw, selectedEncoding.value)
-    if (!result) return // 已被更新的上传或移除操作取代
-    resetBookAnalysis()
-    uploadedFile.value = file
-    bookContent.value = result.content
-    importedEncoding.value = result.encoding || 'utf-8'
-    if (result.encoding) selectedEncoding.value = result.encoding
-    analysisStartWords.value = 1
-    analysisEndWords.value = Math.min(5000, result.content.length)
-    detectChapters()
-    importingFile.value = false
-    ElMessage.success(`文件导入成功！(${fileFormatLabel.value})`)
-  } catch (error) {
-    importingFile.value = false
-    if (uploadedFile.value && !isDocx.value) selectedEncoding.value = importedEncoding.value
-    ElMessage.error(error instanceof Error ? error.message : '文件导入失败')
-  }
-}
-
-// 达到上传数量限制时，仍先解析新文件；成功后才替换当前书籍。
-const handleFileExceed = (files) => {
-  const file = files[0]
-  if (file) handleFileChange({ name: file.name, size: file.size, raw: file, status: 'ready' })
-}
-
-const rereadWithEncoding = () => {
-  if (uploadedFile.value) handleFileChange(uploadedFile.value)
-}
-
-// 检测章节
-const detectChapters = () => {
-  if (!bookContent.value) return
-  
-  const chapterRegex = /(第[一二三四五六七八九十百千万\d]+[章节]|Chapter\s*\d+)/gi
-  const lines = bookContent.value.split('\n')
-  const chapters = []
-  
-  let currentChapter = null
-  let currentContent = ''
-  
-  lines.forEach((line, index) => {
-    const match = line.match(chapterRegex)
-    if (match) {
-      // 保存上一章节
-      if (currentChapter) {
-        currentChapter.wordCount = currentContent.length
-        chapters.push(currentChapter)
-      }
-      
-      // 开始新章节
-      currentChapter = {
-        index: chapters.length,
-        title: line.trim() || `第${chapters.length + 1}章`,
-        startLine: index,
-        wordCount: 0
-      }
-      currentContent = ''
-    } else if (currentChapter) {
-      currentContent += line
-    }
-  })
-  
-  // 保存最后一章
-  if (currentChapter) {
-    currentChapter.wordCount = currentContent.length
-    chapters.push(currentChapter)
-  }
-  
-  detectedChapters.value = chapters
-}
-
-const removeFile = () => {
-  bookImporter.cancel()
-  importingFile.value = false
-  uploadedFile.value = null
-  bookContent.value = ''
-  resetBookAnalysis()
-  selectedEncoding.value = 'utf-8'
-  importedEncoding.value = 'utf-8'
-  ElMessage.success('文件已移除')
-}
-
-onBeforeUnmount(() => bookImporter.cancel())
+onBeforeUnmount(fileWorkspace.dispose)
 
 // 章节选择相关方法
 const selectAllChapters = () => {
@@ -905,95 +774,22 @@ const startAnalysis = async () => {
 }
 
 // 准备分析数据
-const prepareAnalysisData = async () => {
-  // 获取要分析的文本
-  let textToAnalyze = ''
-  let analysisInfo = ''
-  const chapterInfos = []
-  
-  if (selectedChapters.value.length > 0) {
-    // 分析选中的章节
-    selectedChapters.value.forEach(chapterIndex => {
-      const chapter = detectedChapters.value.find(c => c.index === chapterIndex)
-      if (chapter) {
-        let chapterContent = ''
-        
-        if (chapter.startPos !== undefined) {
-          // 本地自动拆分的章节，使用位置信息
-          chapterContent = bookContent.value.slice(chapter.startPos, chapter.endPos)
-        } else {
-          // 传统章节检测，使用行信息
-          const lines = bookContent.value.split('\n')
-          const chapterLines = lines.slice(chapter.startLine)
-          const nextChapter = detectedChapters.value.find(c => c.index === chapterIndex + 1)
-          const endLine = nextChapter ? nextChapter.startLine : lines.length
-          chapterContent = chapterLines.slice(0, endLine - chapter.startLine).join('\n')
-        }
-        
-        textToAnalyze += chapterContent + '\n\n'
-        chapterInfos.push({
-          title: chapter.title,
-          wordCount: chapter.wordCount,
-          summary: chapter.summary || '暂无简读'
-        })
-      }
-    })
-    analysisInfo = `分析章节：${selectedChapters.value.length}章`
-  } else {
-    // 分析指定字数区间
-    const startPos = Math.max(0, analysisStartWords.value - 1)
-    const endPos = Math.min(bookContent.value.length, analysisEndWords.value)
-    textToAnalyze = bookContent.value.slice(startPos, endPos)
-    analysisInfo = `分析范围：第${analysisStartWords.value} - ${analysisEndWords.value}字`
-  }
-  
-  // 获取选中的模板
-  const template = analysisTemplates.value.find(t => t.id == selectedTemplate.value)
-  if (!template) {
-    throw new Error('未找到分析模板，请检查提示词库设置。')
-  }
-  
-  return {
-    textToAnalyze,
-    analysisInfo,
-    chapterInfos,
-    template,
-    totalWordCount: bookContent.value.length,
-    fileName: uploadedFile.value?.name || '未知文件',
-    encoding: fileFormatLabel.value
-  }
-}
+const prepareAnalysisData = () => prepareBookAnalysis({
+  content: bookContent.value,
+  selectedChapters: selectedChapters.value,
+  chapters: detectedChapters.value,
+  start: analysisStartWords.value,
+  end: analysisEndWords.value,
+  templates: analysisTemplates.value,
+  templateId: selectedTemplate.value,
+  fileName: uploadedFile.value?.name || '未知文件',
+  encoding: fileFormatLabel.value,
+})
 
 const generateAnalysisResult = async (analysisData) => {
   const { textToAnalyze, analysisInfo, chapterInfos, template, totalWordCount, fileName, encoding } = analysisData
   
-  // 构建完整的AI提示词
-  const prompt = `你是一位专业的文学分析师和写作导师，请根据以下模板和要求对小说文本进行深度拆书分析。
-
-## 分析模板信息
-模板名称：${template.name}
-模板描述：${template.description || '专业拆书分析'}
-
-## 文本信息
-文件名：${fileName}
-编码格式：${encoding.toUpperCase()}
-总字数：${totalWordCount.toLocaleString()}字
-${analysisInfo}
-分析文本字数：${textToAnalyze.length.toLocaleString()}字
-
-## 章节信息
-${chapterInfos.length > 0 ? 
-  chapterInfos.map(chapter => `- ${chapter.title}：${chapter.wordCount}字，${chapter.summary}`).join('\n') :
-  '分析字数区间内容，无明确章节划分'
-}
-
-## 分析要求
-${template.content}
-
-## 待分析文本
-${textToAnalyze}
-
-请按照上述模板要求进行专业的拆书分析，输出应该结构清晰、专业详实，适合作为写作学习的参考资料。`
+  const prompt = buildBookAnalysisPrompt(analysisData)
 
   try {
     // 生成分析报告头部
@@ -1137,18 +933,7 @@ const loadChapterContent = () => {
   
   currentViewChapter.value = chapter
   
-  // 根据章节类型获取内容
-  if (chapter.startPos !== undefined) {
-    // 本地自动拆分的章节，使用位置信息
-    currentChapterContent.value = bookContent.value.slice(chapter.startPos, chapter.endPos)
-  } else {
-    // 传统章节检测，使用行信息
-    const lines = bookContent.value.split('\n')
-    const chapterLines = lines.slice(chapter.startLine)
-    const nextChapter = detectedChapters.value.find(c => c.index === selectedViewChapter.value + 1)
-    const endLine = nextChapter ? nextChapter.startLine : lines.length
-    currentChapterContent.value = chapterLines.slice(0, endLine - chapter.startLine).join('\n')
-  }
+  currentChapterContent.value = readBookChapter(bookContent.value, detectedChapters.value, chapter)
 }
 
 const copyChapterContent = async () => {
@@ -1192,18 +977,7 @@ const selectDetailChapter = (chapterIndex) => {
   currentDetailChapter.value = chapter
   activeDetailTab.value = 'content' // 默认显示完整内容
   
-  // 加载完整章节内容
-  if (chapter.startPos !== undefined) {
-    // 本地自动拆分的章节，使用位置信息
-    currentDetailChapterContent.value = bookContent.value.slice(chapter.startPos, chapter.endPos)
-  } else {
-    // 传统章节检测，使用行信息（兼容性处理）
-    const lines = bookContent.value.split('\n')
-    const chapterLines = lines.slice(chapter.startLine || 0)
-    const nextChapter = autoDetectedChapters.value.find(c => c.index === chapterIndex + 1)
-    const endLine = nextChapter ? (nextChapter.startLine || lines.length) : lines.length
-    currentDetailChapterContent.value = chapterLines.slice(0, endLine - (chapter.startLine || 0)).join('\n')
-  }
+  currentDetailChapterContent.value = readBookChapter(bookContent.value, autoDetectedChapters.value, chapter)
 }
 
 const copyDetailChapterContent = async () => {
@@ -1306,18 +1080,8 @@ const exportAllChapterContent = () => {
     allContent += `字数：${chapter.wordCount}字\n`
     allContent += `简读：${chapter.summary}\n\n`
     
-    // 获取完整章节内容
-    let chapterContent = ''
-    if (chapter.startPos !== undefined) {
-      chapterContent = bookContent.value.slice(chapter.startPos, chapter.endPos)
-    } else {
-      const lines = bookContent.value.split('\n')
-      const chapterLines = lines.slice(chapter.startLine || 0)
-      const nextChapter = autoDetectedChapters.value.find(c => c.index === index + 1)
-      const endLine = nextChapter ? (nextChapter.startLine || lines.length) : lines.length
-      chapterContent = chapterLines.slice(0, endLine - (chapter.startLine || 0)).join('\n')
-    }
-    
+    const chapterContent = readBookChapter(bookContent.value, autoDetectedChapters.value, chapter)
+
     allContent += `完整内容：\n${chapterContent}\n`
     
     if (index < autoDetectedChapters.value.length - 1) {
