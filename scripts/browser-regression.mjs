@@ -428,7 +428,13 @@ try {
     const workspace = page.locator('.short-story-page .workspace:visible')
     await workspace.getByRole('button', { name: '生成小说', exact: true }).click()
     await expect(workspace.locator('[contenteditable="true"]')).toContainText('联调生成片段 1')
-    await page.getByRole('menuitem', { name: '首页', exact: true }).click()
+    // Queue the editor's trailing selection throttle immediately before the
+    // same visible menu action unmounts it. This makes the teardown race repeatable.
+    await page.getByRole('menuitem', { name: '首页', exact: true }).evaluate(item => {
+      document.dispatchEvent(new Event('selectionchange'))
+      document.dispatchEvent(new Event('selectionchange'))
+      item.click()
+    })
     await expect(page.locator('.short-story-page')).toHaveCount(0)
     await expect.poll(async () => (await metrics()).cancelled).toBeGreaterThan(before.cancelled)
     await expect.poll(async () => (await metrics()).active).toBe(0)
