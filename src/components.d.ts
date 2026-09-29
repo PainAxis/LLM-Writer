@@ -78,6 +78,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     ShortStoryPromptSelector: typeof import('./components/short-story/ShortStoryPromptSelector.vue')['default']
     SingleChapterGenerateDialog: typeof import('./components/writer/dialogs/SingleChapterGenerateDialog.vue')['default']
+    ToolCatalog: typeof import('./components/tools/ToolCatalog.vue')['default']
     WorldGenerateDialog: typeof import('./components/writer/dialogs/WorldGenerateDialog.vue')['default']
     WorldviewEditDialog: typeof import('./components/writer/dialogs/WorldviewEditDialog.vue')['default']
     WorldviewPanel: typeof import('./components/writer/panels/WorldviewPanel.vue')['default']
