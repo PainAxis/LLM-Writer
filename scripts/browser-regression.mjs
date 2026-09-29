@@ -400,7 +400,7 @@ try {
     for (let attempt = 0; attempt < 2; attempt++) {
       before = await metrics()
       await workspace.getByRole('button', { name: '续写', exact: true }).click()
-      const dialog = page.locator('.modern-continue-dialog[role="dialog"]')
+      const dialog = page.locator('.modern-continue-dialog')
       await dialog.getByRole('button', { name: '开始续写', exact: true }).click()
       await expect(dialog.locator('.streaming-text-content')).toContainText('联调生成片段 1')
       await dialog.getByRole('button', { name: '取消', exact: true }).click()
