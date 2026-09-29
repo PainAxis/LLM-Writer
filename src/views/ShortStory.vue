@@ -158,7 +158,7 @@
                 <div class="streaming-content">{{ articleStreamingContent }}</div>
               </div>
               
-              <div v-else class="editor-wrapper">
+              <div v-show="!generatingArticle" class="editor-wrapper">
                 <Toolbar
                   :editor="articleEditorRef"
                   :defaultConfig="articleToolbarConfig"
@@ -835,17 +835,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, shallowRef, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, shallowRef, toRef, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { MagicStick, EditPen, Download, Check, Loading, Plus, Setting, List, DocumentCopy, Delete, InfoFilled } from '@element-plus/icons-vue'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import '@wangeditor/editor/dist/css/style.css'
-import { useNovelStore } from '@/stores/novel'
+import { useAIStream } from '@/composables/useAIStream'
+import { useShortStoryGeneration } from '@/composables/useShortStoryGeneration'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 import { DEFAULT_PROMPTS, PROMPTS_VERSION, mergeDefaultPrompts } from '../config/defaultPrompts'
 import { useRouter } from 'vue-router'
 
-const novelStore = useNovelStore()
 const router = useRouter()
 
 // 模块切换
@@ -861,17 +861,12 @@ const articleData = reactive({
 })
 
 // 短文模块状态
-const generatingArticle = ref(false)
 const articleContent = ref('')
-const articleStreamingContent = ref('')
 const selectedArticlePromptTemplate = ref(null)
 const showArticlePromptSelector = ref(false)
 const articlePromptSearchKeyword = ref('')
 
 // 响应式数据
-const generating = ref(false)
-const streamingContent = ref('')
-const continuingStory = ref(false)
 const generatedStory = ref('')
 const hasSelection = ref(false)
 const selectedText = ref('')
@@ -882,7 +877,6 @@ const unifiedPrompt = ref('')
 const showContinueDialog = ref(false)
 const continueDirection = ref('')
 const continueWordCount = ref(2000)
-const continueResult = ref('')
 const continueTextRef = ref(null)
 
 // 配置管理相关
@@ -902,9 +896,38 @@ const availablePrompts = ref([])
 const showOptimizeModal = ref(false)
 const selectedTextForOptimize = ref('')
 const optimizeDirection = ref('')
-const optimizing = ref(false)
-const optimizedResult = ref('')
 const optimizedTextRef = ref(null)
+
+const optimizeSourceContent = ref('')
+const generation = useShortStoryGeneration({
+  storyContent: generatedStory,
+  streams: { article: useAIStream(), story: useAIStream(), continue: useAIStream(), optimize: useAIStream() },
+  notify: { success: ElMessage.success, warning: ElMessage.warning, error: ElMessage.error },
+})
+const generatingArticle = toRef(generation.states.article, 'running')
+const articleStreamingContent = toRef(generation.states.article, 'text')
+const generating = toRef(generation.states.story, 'running')
+const streamingContent = toRef(generation.states.story, 'text')
+const continuingStory = toRef(generation.states.continue, 'running')
+const continueResult = toRef(generation.states.continue, 'text')
+const optimizing = toRef(generation.states.optimize, 'running')
+const optimizedResult = toRef(generation.states.optimize, 'text')
+
+watch(showContinueDialog, visible => {
+  if (!visible) generation.stop('continue')
+}, { flush: 'sync' })
+watch(showOptimizeModal, visible => {
+  if (!visible) generation.stop('optimize')
+}, { flush: 'sync' })
+
+const updateGeneratedEditor = (content, editor, text, isCurrent) => {
+  const html = text.replace(/\n/g, '<br/>')
+  content.value = html
+  const instance = editor.value
+  nextTick(() => {
+    if (isCurrent() && instance && editor.value === instance && content.value === html) instance.setHtml(html)
+  })
+}
 
 // 短文模块计算属性
 const isArticleConfigValid = computed(() => {
@@ -1087,6 +1110,7 @@ const handleTabClick = (tab) => {
 }
 
 const resetArticleConfig = () => {
+  generation.stop('article', true)
   articleData.title = ''
   articleData.wordCount = 800
   articleData.style = ''
@@ -1134,18 +1158,14 @@ const handleStoryPromptDialogClose = () => {
 }
 
 const generateArticle = async () => {
+  if (generatingArticle.value) return
   if (!isArticleConfigValid.value) {
     ElMessage.warning('请完善文章配置')
     return
   }
-
-  try {
-    generatingArticle.value = true
-    articleContent.value = ''
-    articleStreamingContent.value = ''
-
-    // 构建提示词
-    let prompt = `请根据以下要求创作一篇短文：
+  articleContent.value = ''
+  // 构建提示词
+  let prompt = `请根据以下要求创作一篇短文：
 
 标题：${articleData.title}
 字数：约${articleData.wordCount}字
@@ -1154,66 +1174,30 @@ const generateArticle = async () => {
 创作要求：
 ${articleData.prompt}`
 
-    // 添加参考文章
-    if (articleData.references.length > 0) {
-      prompt += `\n\n参考文章：\n`
-      articleData.references.forEach((ref, index) => {
-        if (ref.title || ref.content) {
-          prompt += `参考${index + 1}：\n`
-          if (ref.title) prompt += `标题：${ref.title}\n`
-          if (ref.content) prompt += `内容：${ref.content}\n\n`
-        }
-      })
-    }
-
-    prompt += `\n请创作一篇符合要求的${articleData.wordCount}字左右的短文，要求内容充实，语言流畅，符合指定的文风特点。`
-
-    // 调用AI生成
-    let accumulatedText = ''
-    await novelStore.generateContent(prompt, (chunk) => {
-      if (!generatingArticle.value) return // 如果已停止，不更新内容
-      
-      accumulatedText += chunk
-      articleStreamingContent.value = accumulatedText
-      
-      // 实时更新编辑器内容
-      const htmlContent = accumulatedText.replace(/\n/g, '<br/>')
-      articleContent.value = htmlContent
-      
-      // 同步更新编辑器显示
-      if (articleEditorRef.value) {
-        nextTick(() => {
-          if (articleEditorRef.value) {
-            articleEditorRef.value.setHtml(htmlContent)
-          }
-        })
+  // 添加参考文章
+  if (articleData.references.length > 0) {
+    prompt += `\n\n参考文章：\n`
+    articleData.references.forEach((ref, index) => {
+      if (ref.title || ref.content) {
+        prompt += `参考${index + 1}：\n`
+        if (ref.title) prompt += `标题：${ref.title}\n`
+        if (ref.content) prompt += `内容：${ref.content}\n\n`
       }
     })
-
-    if (generatingArticle.value) { // 只有在没被停止的情况下才设置最终内容
-      // 将换行转换为适合富文本编辑器的格式
-      const finalContent = accumulatedText.replace(/\n/g, '<br/>')
-      articleContent.value = finalContent
-      
-      // 确保编辑器显示最终内容
-      if (articleEditorRef.value) {
-        articleEditorRef.value.setHtml(finalContent)
-      }
-      
-      ElMessage.success('短文生成完成')
-    }
-
-  } catch (error) {
-    console.error('短文生成失败:', error)
-    ElMessage.error(`生成失败: ${error.message}`)
-  } finally {
-    generatingArticle.value = false
-    articleStreamingContent.value = ''
   }
+
+  prompt += `\n请创作一篇符合要求的${articleData.wordCount}字左右的短文，要求内容充实，语言流畅，符合指定的文风特点。`
+
+  await generation.start('article', {
+    prompt,
+    onText: (text, isCurrent) => updateGeneratedEditor(articleContent, articleEditorRef, text, isCurrent),
+    successMessage: '短文生成完成',
+    errorPrefix: '短文生成失败',
+  })
 }
 
 const stopArticleGeneration = () => {
-  generatingArticle.value = false
+  generation.stop('article')
   ElMessage.info('已停止生成')
 }
 
@@ -1255,6 +1239,7 @@ const clearArticleContent = () => {
   ElMessageBox.confirm('确定要清空内容吗？', '确认', {
     type: 'warning'
   }).then(() => {
+    generation.stop('article', true)
     articleContent.value = ''
     ElMessage.success('内容已清空')
   }).catch(() => {})
@@ -1280,73 +1265,14 @@ const createPrompt = () => {
 
 const generateStory = async () => {
   if (generating.value) return
-  
-  generating.value = true
+  const prompt = buildStoryPrompt()
   generatedStory.value = ''
-  
-  try {
-    const prompt = buildStoryPrompt()
-    
-    // 添加详细的调试信息
-    console.log('=== 短篇小说生成调试信息 ===')
-    console.log('prompt类型:', typeof prompt)
-    console.log('prompt长度:', prompt.length)
-    console.log('prompt内容:', prompt)
-    
-    // 检查prompt中是否包含可能导致JSON问题的字符
-    const problematicChars = prompt.match(/[\u0000-\u001F\u007F-\u009F]/g)
-    if (problematicChars) {
-      console.warn('发现控制字符:', problematicChars)
-    }
-    
-    // 检查是否有未转义的引号
-    const unescapedQuotes = prompt.match(/(?<!\\)"/g)
-    if (unescapedQuotes) {
-      console.warn('发现未转义的引号数量:', unescapedQuotes.length)
-    }
-    
-    // 尝试JSON序列化测试
-    try {
-      JSON.stringify({ content: prompt })
-      console.log('JSON序列化测试通过')
-    } catch (jsonError) {
-      console.error('JSON序列化测试失败:', jsonError)
-      throw new Error('提示词包含无法序列化的字符: ' + jsonError.message)
-    }
-    
-    // 使用流式返回
-    let accumulatedText = ''
-    await novelStore.generateContent(prompt, (chunk) => {
-      if (!generating.value) return // 如果已停止，不更新内容
-      
-      accumulatedText += chunk
-      streamingContent.value = accumulatedText
-      
-      // 将纯文本转换为HTML格式
-      const htmlContent = accumulatedText.replace(/\n/g, '<br/>')
-      generatedStory.value = htmlContent
-      
-      // 实时更新编辑器显示
-      if (editorRef.value) {
-        // 使用nextTick确保DOM更新
-        nextTick(() => {
-          if (editorRef.value) {
-            editorRef.value.setHtml(htmlContent)
-          }
-        })
-      }
-    })
-    
-    ElMessage.success('小说生成成功！')
-  } catch (error) {
-    console.error('=== 生成失败详细信息 ===')
-    console.error('错误类型:', error.constructor.name)
-    console.error('错误消息:', error.message)
-    console.error('错误堆栈:', error.stack)
-    ElMessage.error('生成失败：' + error.message)
-  } finally {
-    generating.value = false
-  }
+  await generation.start('story', {
+    prompt,
+    onText: (text, isCurrent) => updateGeneratedEditor(generatedStory, editorRef, text, isCurrent),
+    successMessage: '小说生成成功！',
+    errorPrefix: '小说生成失败',
+  })
 }
 
 const buildStoryPrompt = () => {
@@ -1436,6 +1362,11 @@ const _regenerateStory = () => {
 const continueStory = async () => {
   if (continuingStory.value) return
   
+  if (generating.value) {
+    ElMessage.warning('请先停止正文生成')
+    return
+  }
+  generation.stop('continue', true)
   // 显示续写弹窗
   showContinueDialog.value = true
   continueDirection.value = ''
@@ -1445,52 +1376,22 @@ const continueStory = async () => {
 // 执行续写
 const performContinue = async () => {
   if (continuingStory.value) return
-  
-  // 获取当前故事内容（去除HTML标签）
-  const currentText = generatedStory.value ? generatedStory.value.replace(/<[^>]*>/g, '') : ''
+  const sourceContent = generatedStory.value
+  const currentText = sourceContent.replace(/<[^>]*>/g, '')
   if (!currentText.trim()) {
     ElMessage.warning('请先生成一些内容再进行续写')
     return
   }
-  
-  continuingStory.value = true
-  continueResult.value = ''
-  
-  try {
-    // 构建续写提示词
-    const continuePrompt = buildContinuePrompt(currentText)
-    
-    console.log('=== 续写调试信息 ===')
-    console.log('续写prompt长度:', continuePrompt.length)
-    console.log('当前内容长度:', currentText.length)
-    console.log('续写方向:', continueDirection.value)
-    
-    // 使用流式返回，实时更新续写结果
-    let accumulatedText = ''
-    await novelStore.generateContent(continuePrompt, (chunk) => {
-      if (!continuingStory.value) return // 如果已停止，不更新内容
-      
-      accumulatedText += chunk
-      continueResult.value = accumulatedText
-      
-      // 自动滚动到底部
-      nextTick(() => {
-        if (continueTextRef.value) {
-          continueTextRef.value.scrollTop = continueTextRef.value.scrollHeight
-        }
-      })
-    })
-    
-    ElMessage.success('续写完成！')
-  } catch (error) {
-    console.error('续写失败:', error)
-    ElMessage.error('续写失败：' + error.message)
-  } finally {
-    continuingStory.value = false
-  }
+  await generation.start('continue', {
+    prompt: buildContinuePrompt(currentText),
+    sourceContent,
+    onText: (_text, isCurrent) => nextTick(() => {
+      if (isCurrent() && continueTextRef.value) continueTextRef.value.scrollTop = continueTextRef.value.scrollHeight
+    }),
+    successMessage: '续写完成！',
+    errorPrefix: '续写失败',
+  })
 }
-
-
 
 // 复制续写内容
 const copyContinueText = async () => {
@@ -1624,6 +1525,10 @@ const handleTextSelection = (_event) => {
 
 // 显示选段优化弹窗
 const showOptimizeDialog = () => {
+  if (generating.value) {
+    ElMessage.warning('请先停止正文生成')
+    return
+  }
   if (!editorRef.value) {
     ElMessage.warning('编辑器未初始化')
     return
@@ -1655,6 +1560,8 @@ const showOptimizeDialog = () => {
     return
   }
   
+  generation.stop('optimize', true)
+  optimizeSourceContent.value = generatedStory.value
   selectedTextForOptimize.value = selectedText.trim()
   optimizeDirection.value = ''
   optimizedResult.value = ''
@@ -1663,44 +1570,29 @@ const showOptimizeDialog = () => {
 
 // 执行优化
 const performOptimize = async () => {
+  if (optimizing.value) return
   if (!selectedTextForOptimize.value) {
     ElMessage.warning('没有选中的文本')
     return
   }
-  
   if (!optimizeDirection.value.trim()) {
     ElMessage.warning('请填写优化方向')
     return
   }
+  let prompt = `请根据以下要求优化这段文字：\n\n`
+  prompt += `【优化方向】\n${optimizeDirection.value}\n\n`
+  prompt += `【原文】\n${selectedTextForOptimize.value}\n\n`
+  prompt += `请直接输出优化后的文字，保持原文的基本意思，但要按照优化方向进行改进。`
   
-  optimizing.value = true
-  optimizedResult.value = ''
-  
-  try {
-    let prompt = `请根据以下要求优化这段文字：\n\n`
-    prompt += `【优化方向】\n${optimizeDirection.value}\n\n`
-    prompt += `【原文】\n${selectedTextForOptimize.value}\n\n`
-    prompt += `请直接输出优化后的文字，保持原文的基本意思，但要按照优化方向进行改进。`
-    
-    // 使用流式输出，实时显示优化过程
-    await novelStore.generateContent(prompt, (chunk) => {
-      optimizedResult.value += chunk
-      
-      // 自动滚动到底部，显示最新内容
-      nextTick(() => {
-        if (optimizedTextRef.value) {
-          optimizedTextRef.value.scrollTop = optimizedTextRef.value.scrollHeight
-        }
-      })
-    })
-    
-    ElMessage.success('优化完成！')
-  } catch (error) {
-    console.error('优化失败:', error)
-    ElMessage.error('优化失败：' + error.message)
-  } finally {
-    optimizing.value = false
-  }
+  await generation.start('optimize', {
+    prompt,
+    sourceContent: optimizeSourceContent.value,
+    onText: (_text, isCurrent) => nextTick(() => {
+      if (isCurrent() && optimizedTextRef.value) optimizedTextRef.value.scrollTop = optimizedTextRef.value.scrollHeight
+    }),
+    successMessage: '优化完成！',
+    errorPrefix: '优化失败',
+  })
 }
 
 // 复制优化后的文本
@@ -1727,6 +1619,10 @@ const copyOptimizedText = async () => {
 
 // 替换原文
 const replaceOriginalText = () => {
+  if (!generation.canUseResult('optimize')) {
+    ElMessage.warning('原文已改变或结果尚未完成，请重新选择并生成')
+    return
+  }
   if (!optimizedResult.value) {
     ElMessage.warning('没有优化结果可替换')
     return
@@ -2079,8 +1975,7 @@ const _goToPromptLibrary = () => {
 
 // 停止生成
 const stopGeneration = () => {
-  generating.value = false
-  streamingContent.value = ''
+  generation.stop('story')
   ElMessage.info('已停止生成')
 }
 
@@ -2091,7 +1986,8 @@ onMounted(() => {
 })
 
 // 组件卸载时销毁编辑器
-onUnmounted(() => {
+onBeforeUnmount(() => {
+  generation.dispose()
   if (editorRef.value) {
     editorRef.value.destroy()
   }

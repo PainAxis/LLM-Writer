@@ -20,7 +20,7 @@ npm run test:browser
 
 `test:browser` verifies the preview boundary, starts its own server on an available localhost port, runs the browser scenarios, and closes the server on completion or failure. `BROWSER_ARTIFACT_DIR` can override the output directory. The default `artifacts/` directory is ignored by Git.
 
-The scenarios cover API setup, editor persistence after reload, streaming cancellation, chapter-switch cancellation, DOCX import and invalid-file recovery, backup restoration, and large-content IndexedDB round trips. Uncaught page errors fail the run.
+The scenarios cover API setup, editor persistence after reload, streaming cancellation, chapter-switch cancellation, DOCX import and invalid-file recovery, backup restoration, large-content IndexedDB round trips, and ShortStory cancellation, restart, clearing, dialog closure and route unmount. Uncaught page errors fail the run.
 
 ## Optional temporary preview
 

@@ -14,6 +14,7 @@
     "format": "prettier --write \"src/**/*.{vue,ts,js,css,json}\"",
     "smoke:all": "node scripts/run-smoke.mjs",
     "test:browser": "node scripts/run-browser.mjs",
+    "smoke:short-story": "node --import tsx scripts/smoke-short-story-generation.ts",
     "smoke:ai": "node --import tsx scripts/smoke-ai-sdk.ts",
     "smoke:compactor": "node --import tsx scripts/smoke-context-compactor.ts",
     "smoke:persistence": "node --import tsx scripts/smoke-novel-persistence.ts",
