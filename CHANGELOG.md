@@ -6,7 +6,8 @@
 - Chapter digests retain the previous result until a replacement succeeds; closed novel forms discard pending cover reads.
 - Removed simulated tool progress timers and added lifecycle module/browser regressions.
 
-- Extracted typed modules and components from ShortStory, BookAnalysis, NovelManagement and ToolsLibrary; the parent view scripts remain partially migrated.
+- Migrated ShortStory, BookAnalysis, NovelManagement and ToolsLibrary parent views and Workspace orchestration to TypeScript, with an enforced language rule for these pages.
+- Fixed ShortStory exports containing an undefined synopsis and novel-detail chapter editing links; sparse legacy titles and numeric timestamps remain usable.
 - ShortStory configuration resets now create independent default values and await persistence.
 - Book imports ignore superseded results and retain the last usable document after a failed replacement.
 - Novel list sorting preserves the source collection order and uses actual chapter counts.

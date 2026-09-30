@@ -43,4 +43,15 @@ export default defineConfigWithVueTs(
       ],
     },
   },
+  {
+    name: 'app/typed-feature-views',
+    files: [
+      'src/views/ShortStory.vue',
+      'src/views/BookAnalysis.vue',
+      'src/views/NovelManagement.vue',
+      'src/views/ToolsLibrary.vue',
+    ],
+    rules: { 'vue/block-lang': ['error', { script: { lang: 'ts', allowNoLang: false } }] },
+  },
+
 )

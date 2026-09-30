@@ -1052,14 +1052,21 @@ onBeforeRouteUpdate(async (to, from) => {
   stopWriterStreams()
   return saveCurrentChapter()
 })
+const openRequestedChapter = async () => {
+  if (String(currentNovel.value?.id) !== String(route.query.novelId)) return
+  const chapter = chapters.value.find(item => String(item.id) === String(route.query.chapterId))
+  if (chapter) await selectChapter(chapter)
+}
 onMounted(async () => {
   const opened = await initNovel(route.query.novelId)
   if (!opened && !currentNovel.value) { void router.replace('/novels'); return }
+  if (opened) await openRequestedChapter()
   loadPrompts()
 })
 watch(() => route.query.novelId, async (id, previousId) => {
-  if (id !== previousId) await initNovel(id)
+  if (id !== previousId && await initNovel(id)) await openRequestedChapter()
 })
+watch(() => route.query.chapterId, openRequestedChapter)
 onUnmounted(() => {
   stopWriterStreams()
   chapterContentGeneration.dispose()

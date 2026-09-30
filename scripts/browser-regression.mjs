@@ -403,6 +403,15 @@ try {
     const partial = await storyEditor.innerText()
     await delay(1800)
     await expect(storyEditor).toHaveText(partial)
+    const exporting = page.waitForEvent('download')
+    await workspace.getByRole('button', { name: '导出', exact: true }).click()
+    const download = await exporting
+    const exportedStory = path.join(artifacts, 'short-story.txt')
+    await download.saveAs(exportedStory)
+    const storyText = await readFile(exportedStory, 'utf8')
+    assert.ok(storyText.startsWith('短篇生命周期测试'))
+    assert.ok(storyText.includes('联调生成片段'))
+    assert.ok(!storyText.includes('undefined'), 'Story export must contain only the title and body')
 
     for (let attempt = 0; attempt < 2; attempt++) {
       before = await metrics()
@@ -481,6 +490,11 @@ try {
     await expect(dialog.getByText('回归标签', { exact: true })).toBeVisible()
     await expect(dialog.locator('.cover-preview')).toHaveCount(0)
     await dialog.getByRole('button', { name: '取消', exact: true }).click()
+    await updated.getByRole('button', { name: '详情', exact: true }).click()
+    const details = page.getByRole('dialog', { name: '小说详情', exact: true })
+    await details.locator('.chapter-item').filter({ hasText: chapterB }).getByRole('button', { name: '编辑', exact: true }).click()
+    await expect(page.locator('.editor-header .chapter-title')).toHaveText(chapterB)
+    await expect(editor()).toHaveText(textB)
     await screenshot('11-novel-metadata-persisted')
   })
 
