@@ -1,13 +1,13 @@
 interface NovelListEntry {
-  title: string
+  title?: string
   description?: string
   status?: string
   genre?: string
   wordCount?: number
   chapters?: number
   chapterList?: unknown[]
-  createdAt?: string | Date
-  updatedAt?: string | Date
+  createdAt?: string | number | Date
+  updatedAt?: string | number | Date
 }
 
 interface NovelListQuery {
@@ -17,8 +17,12 @@ interface NovelListQuery {
   keyword: string
 }
 
-const timestamp = (value: string | Date | undefined) =>
-  value instanceof Date ? value.getTime() : Date.parse(value || '') || 0
+const timestamp = (value: string | number | Date | undefined) =>
+  value instanceof Date
+    ? value.getTime()
+    : typeof value === 'number'
+      ? value
+      : Date.parse(value || '') || 0
 
 /** Sorting the visible list must never reorder the persisted collection. */
 export function filterNovelList<T extends NovelListEntry>(novels: T[], query: NovelListQuery): T[] {
@@ -29,7 +33,7 @@ export function filterNovelList<T extends NovelListEntry>(novels: T[], query: No
         (query.status === 'all' || novel.status === query.status) &&
         (query.genre === 'all' || novel.genre === query.genre) &&
         (!keyword ||
-          novel.title.toLowerCase().includes(keyword) ||
+          (novel.title || '').toLowerCase().includes(keyword) ||
           (novel.description || '').toLowerCase().includes(keyword))
     )
     .sort((a, b) => {

@@ -72,3 +72,6 @@ assert.equal(
 console.log(
   '✓ Novel list filters compose, actual chapter counts drive sorting and source order remains intact'
 )
+
+assert.equal(filterNovelList([{ id: 1, description: 'legacy' }], { ...query, keyword: 'legacy' }).length, 1)
+assert.deepEqual(filterNovelList([{ id: 1, updatedAt: 100 }, { id: 2, updatedAt: 200 }], query).map(item => item.id), [2, 1])

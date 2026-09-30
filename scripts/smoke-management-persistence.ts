@@ -31,16 +31,20 @@ registerChunkedKey(StorageKeys.novels, {
 })
 
 function functionsFromFile(file: string, names: string[], dependencies: Record<string, unknown>) {
-  const text = readFileSync(new URL(`../src/views/${file}`, import.meta.url), 'utf8')
-  const script = text.match(/<script\b[^>]*>([\s\S]*?)<\/script>/)![1]
+  const controller = file === 'NovelManagement.vue'
+  const text = readFileSync(new URL(controller ? '../src/composables/useNovelManagementWorkspace.ts' : `../src/views/${file}`, import.meta.url), 'utf8')
+  const script = controller ? text : text.match(/<script\b[^>]*>([\s\S]*?)<\/script>/)![1]
   const source = ts.createSourceFile(file, script, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
   const declarations: string[] = []
-  for (const statement of source.statements) if (ts.isVariableStatement(statement)) {
+  const wanted = controller ? [...names, 'toDate'] : names
+  const factory = controller ? source.statements.find(ts.isFunctionDeclaration) : undefined
+  const statements = controller ? [...source.statements, ...(factory?.body?.statements ?? [])] : source.statements
+  for (const statement of statements) if (ts.isVariableStatement(statement)) {
     for (const decl of statement.declarationList.declarations) {
-      if (ts.isIdentifier(decl.name) && names.includes(decl.name.text)) declarations.push(`const ${decl.getText(source)}`)
+      if (ts.isIdentifier(decl.name) && wanted.includes(decl.name.text)) declarations.push(`const ${decl.getText(source)}`)
     }
   }
-  assert.equal(declarations.length, names.length, `${file} 应包含全部被测真实函数`)
+  assert.equal(declarations.length, wanted.length, `${file} 应包含全部被测真实函数`)
   const executable = ts.transpileModule(`${declarations.join('\n')}\nreturn { ${names.join(', ')} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
   }).outputText

@@ -55,13 +55,13 @@ This overview describes the current source layout. Planned work is tracked in th
 
 | Feature | Modules and responsibilities |
 |---------|-----------------------------|
-| ShortStory | `components/short-story/ShortStoryPromptSelector.vue`; `useShortStoryConfig.ts` for fresh defaults and async persistence; `useShortStoryGeneration.ts` for independent cancellable requests; `utils/shortStoryPrompts.ts` for prompt construction |
-| BookAnalysis | `components/book-analysis/BookFileImportPanel.vue`; `useBookAnalysisFile.ts` for latest-import ownership and encoding; `utils/bookAnalysisContext.ts` for chapter detection, selected ranges and prompts |
-| NovelManagement | `components/novel-management/NovelMetadataForm.vue` for create/edit fields; `utils/novelList.ts` for filters and non-mutating sorting |
-| ToolsLibrary | `components/tools/ToolCatalog.vue`; `config/tools.ts` as the tool registry; `utils/toolForms.ts` for required fields; `utils/toolPrompts.ts` for templates and selected novel/chapter context |
+| ShortStory | `useShortStoryWorkspace.ts`; `components/short-story/ShortStoryPromptSelector.vue`; `useShortStoryConfig.ts` for fresh defaults and async persistence; `useShortStoryGeneration.ts` for independent cancellable requests; `utils/shortStoryPrompts.ts` for prompt construction |
+| BookAnalysis | `useBookAnalysisWorkspace.ts`; `components/book-analysis/BookFileImportPanel.vue`; `useBookAnalysisFile.ts` for latest-import ownership and encoding; `utils/bookAnalysisContext.ts` for chapter detection, selected ranges and prompts |
+| NovelManagement | `useNovelManagementWorkspace.ts`; `components/novel-management/NovelMetadataForm.vue` for create/edit fields; `utils/novelList.ts` for filters and non-mutating sorting |
+| ToolsLibrary | `useToolsLibraryWorkspace.ts`; `components/tools/ToolCatalog.vue`; `config/tools.ts` as the tool registry; `utils/toolForms.ts` for required fields; `utils/toolPrompts.ts` for templates and selected novel/chapter context |
 | Editor teardown | `utils/destroyEditor.ts` cancels wangEditor selection throttling before destroying an editor |
 
-All paths in this table are relative to `src/`; `use*.ts` controllers are under `src/composables/`. Parent views still own the remaining orchestration.
+All paths in this table are relative to `src/`; `use*.ts` controllers are under `src/composables/`. The four parent views use `lang="ts"` to compose the UI; their Workspace controllers own reactive state, generation and persistence orchestration. `useGenerationTask.ts` shares request ownership and cancellation.
 
 ## Validation and Releases
 
