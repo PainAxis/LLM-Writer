@@ -127,7 +127,8 @@
             <el-icon><MagicStick /></el-icon>
             {{ generating ? '生成中...' : '生成内容' }}
           </el-button>
-          <el-button @click="clearForm" :disabled="generating">
+          <el-button v-if="generating" @click="stopGeneration">停止生成</el-button>
+          <el-button @click="clearForm">
             清空
           </el-button>
         </div>
@@ -143,7 +144,7 @@
           <h4>生成结果：</h4>
           <div class="result-content-wrapper">
             <el-input
-              v-model="displayContent"
+               :model-value="displayContent"
               type="textarea"
               :rows="15"
               readonly
@@ -169,10 +170,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MagicStick, CopyDocument, DocumentAdd } from '@element-plus/icons-vue'
 import { useNovelStore } from '@/stores/novel'
+import { useAIStream } from '@/composables/useAIStream'
+import { useGenerationTask } from '@/composables/useGenerationTask'
 import ToolCatalog from '@/components/tools/ToolCatalog.vue'
 import { TOOL_DEFINITIONS as toolsConfig } from '@/config/tools'
 import { buildToolPrompt } from '@/utils/toolPrompts'
@@ -182,7 +185,6 @@ import { storageGet, StorageKeys } from '@/utils/storage'
 const novelStore = useNovelStore()
 
 const showToolDialog = ref(false)
-const generating = ref(false)
 const generatedContent = ref('')
 const generatingProgress = ref(0)
 const generatingStatusText = ref('')
@@ -285,6 +287,7 @@ const openTool = (toolType) => {
 }
 
 const clearForm = () => {
+  stopGeneration()
   Object.keys(toolForm).forEach(key => {
     delete toolForm[key]
   })
@@ -295,100 +298,61 @@ const clearForm = () => {
   selectedPromptData.value = null
 }
 
+const generationTask = useGenerationTask({
+  stream: useAIStream(),
+  source: () => [showToolDialog.value, currentToolType.value, { ...toolForm }, selectedPromptData.value?.content],
+})
+const generating = generationTask.running
+onBeforeUnmount(generationTask.dispose)
+
+const stopGeneration = () => {
+  generationTask.stop()
+  generatingProgress.value = 0
+  generatingStatusText.value = ''
+}
+
 const generateContent = async () => {
+  if (generating.value || !showToolDialog.value) return
   if (!canGenerate.value) {
     ElMessage.warning('请填写所有必填字段')
     return
   }
-  
-  // 特殊验证：角色生成器的数量检查
-  if (currentToolType.value === 'character' && toolForm.count) {
-    const count = parseInt(toolForm.count)
-    if (isNaN(count) || count < 1 || count > 15) {
-      ElMessage.warning('角色数量必须是1-15之间的数字')
-      return
-    }
+  if (currentToolType.value === 'character' && !isValidCharacterCount(toolForm.count)) {
+    ElMessage.warning('角色数量必须是1-15之间的数字')
+    return
   }
-  
   if (!novelStore.isApiConfigured) {
     ElMessage.error('请先配置API密钥')
     return
   }
-  
-  generating.value = true
   generatedContent.value = ''
   generatingProgress.value = 0
   generatingStatusText.value = '正在准备生成...'
-  
-  try {
-    // 构建提示词
-    const prompt = buildPrompt()
-    console.log('工具生成提示词:', prompt)
-    
-    // 开始进度模拟
-    const progressInterval = setInterval(() => {
-      if (generatingProgress.value < 90) {
-        generatingProgress.value += Math.random() * 10
-        updateStatusText()
-      }
-    }, 500)
-    
-    // 调用API生成内容（带流式输出）
-    const response = await novelStore.generateContent(prompt, (chunk) => {
-      // 流式更新内容
-      generatedContent.value += chunk
-      
-      // 自动滚动到底部
+  await generationTask.start({
+    prompt: buildPrompt(),
+    options: { type: 'content_generation' },
+    onText: (text, isCurrent) => {
+      generatedContent.value = text
+      generatingProgress.value = Math.min(90, text.length / 30)
+      generatingStatusText.value = `已生成${text.length}字`
       nextTick(() => {
-        if (resultTextarea.value) {
-          const textarea = resultTextarea.value.$el.querySelector('textarea')
-          if (textarea) {
-            textarea.scrollTop = textarea.scrollHeight
-          }
-        }
+        if (!isCurrent()) return
+        const textarea = resultTextarea.value?.$el.querySelector('textarea')
+        if (textarea) textarea.scrollTop = textarea.scrollHeight
       })
-    })
-    
-    // 清除进度定时器
-    clearInterval(progressInterval)
-    generatingProgress.value = 100
-    generatingStatusText.value = '生成完成'
-    
-    if (!response || !response.trim()) {
-      throw new Error('AI返回内容为空')
-    }
-    
-    // 确保内容完整
-    if (!generatedContent.value) {
-      generatedContent.value = response
-    }
-    
-    ElMessage.success('内容生成成功！')
-    
-  } catch (error) {
-    console.error('生成内容失败:', error)
-    ElMessage.error('生成失败：' + error.message)
-    generatedContent.value = ''
-  } finally {
-    generating.value = false
-    generatingProgress.value = 0
-    generatingStatusText.value = ''
-  }
-}
-
-const updateStatusText = () => {
-  const progress = generatingProgress.value
-  if (progress < 20) {
-    generatingStatusText.value = '正在分析需求...'
-  } else if (progress < 40) {
-    generatingStatusText.value = '正在构思内容...'
-  } else if (progress < 60) {
-    generatingStatusText.value = '正在生成内容...'
-  } else if (progress < 80) {
-    generatingStatusText.value = '正在优化表达...'
-  } else {
-    generatingStatusText.value = '即将完成...'
-  }
+    },
+    onSuccess: () => {
+      generatingProgress.value = 100
+      generatingStatusText.value = '生成完成'
+      ElMessage.success('内容生成成功！')
+    },
+    onError: error => {
+      generatedContent.value = ''
+      generatingProgress.value = 0
+      generatingStatusText.value = '生成失败'
+      ElMessage.error('生成失败：' + error.message)
+    },
+  })
 }
 
 const buildPrompt = () => buildToolPrompt({

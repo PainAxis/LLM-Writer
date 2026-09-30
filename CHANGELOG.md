@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Isolated book analysis/digest, novel description and tool generation requests; stop, source changes, dialog closure and unmount abort streams and reject late writes.
+- Chapter digests retain the previous result until a replacement succeeds; closed novel forms discard pending cover reads.
+- Removed simulated tool progress timers and added lifecycle module/browser regressions.
+
 - Extracted typed modules and components from ShortStory, BookAnalysis, NovelManagement and ToolsLibrary; the parent view scripts remain partially migrated.
 - ShortStory configuration resets now create independent default values and await persistence.
 - Book imports ignore superseded results and retain the last usable document after a failed replacement.

@@ -185,14 +185,14 @@
         ref="createFormRef" v-model="createForm" v-model:tag-input="tagInput"
         mode="create" :genres="genrePresets" :rules="createRules"
         :disabled="isSavingNovels" :generating="isGeneratingDescription"
-        @genre-change="onGenreChange" @generate="generateDescription"
+        @genre-change="onGenreChange" @generate="generateDescription" @stop="createDescriptionTask.stop"
         @cover-change="handleNativeFileChange" @remove-cover="removeCover"
         @add-tag="addTag" @remove-tag="removeTag"
       />
       
       <template #footer>
         <el-button @click="showCreateDialog = false" :disabled="isSavingNovels">取消</el-button>
-        <el-button type="primary" @click="createNovel" :loading="isSavingNovels">创建</el-button>
+        <el-button type="primary" @click="createNovel" :loading="isSavingNovels" :disabled="isGeneratingDescription">创建</el-button>
       </template>
     </el-dialog>
 
@@ -329,27 +329,28 @@
         ref="editFormRef" v-model="editForm" v-model:tag-input="editTagInput"
         mode="edit" :genres="genrePresets" :rules="editRules"
         :disabled="isSavingNovels" :generating="isGeneratingEditDescription"
-        @generate="generateEditDescription" @cover-change="handleEditFileChange"
+        @generate="generateEditDescription" @stop="editDescriptionTask.stop" @cover-change="handleEditFileChange"
         @remove-cover="removeEditCover" @add-tag="addEditTag" @remove-tag="removeEditTag"
       />
       
       <template #footer>
         <el-button @click="showEditDialog = false" :disabled="isSavingNovels">取消</el-button>
-        <el-button type="primary" @click="updateNovelInfo" :loading="isSavingEdit">保存修改</el-button>
+        <el-button type="primary" @click="updateNovelInfo" :loading="isSavingEdit" :disabled="isGeneratingEditDescription">保存修改</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Plus, Search, Document, EditPen, Calendar, Edit, View, 
   MoreFilled, Download, CopyDocument, Delete
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
-import apiService from '@/services/api'
+import { useAIStream } from '@/composables/useAIStream'
+import { useGenerationTask } from '@/composables/useGenerationTask'
 import NovelMetadataForm from '@/components/novel-management/NovelMetadataForm.vue'
 import { filterNovelList } from '@/utils/novelList'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
@@ -372,8 +373,6 @@ const tagInput = ref('')
 const editTagInput = ref('')
 const createFormRef = ref()
 const editFormRef = ref()
-const isGeneratingDescription = ref(false)
-const isGeneratingEditDescription = ref(false)
 const isSavingEdit = ref(false)
 const isSavingNovels = ref(false)
 // 一次创建表单生命周期使用同一身份，失败后的全局重试与再次提交不会重复创建。
@@ -442,6 +441,18 @@ const editForm = ref({
   cover: '',
   tags: []
 })
+
+const createDescriptionTask = useGenerationTask({
+  stream: useAIStream(),
+  source: () => [showCreateDialog.value, createForm.value.title, createForm.value.genre, [...createForm.value.tags]],
+})
+const editDescriptionTask = useGenerationTask({
+  stream: useAIStream(),
+  source: () => [showEditDialog.value, editingNovel.value?.id, editForm.value.title, editForm.value.genre, [...editForm.value.tags]],
+})
+const isGeneratingDescription = createDescriptionTask.running
+const isGeneratingEditDescription = editDescriptionTask.running
+onUnmounted(() => { createDescriptionTask.dispose(); editDescriptionTask.dispose() })
 
 // 动态类型预设配置 - 从localStorage读取
 const genrePresets = ref({})
@@ -903,70 +914,46 @@ const removeTag = (index) => {
   createForm.value.tags.splice(index, 1)
 }
 
-const handleNativeFileChange = (event) => {
-  const file = event.target.files[0]
-  console.log('原生文件选择事件触发:', file)
-  
-  if (!file) {
-    console.log('没有选择文件')
-    return
-  }
-  
-  console.log('文件信息:', {
-    name: file.name,
-    type: file.type,
-    size: file.size
-  })
-  
-  // 验证文件类型
-  if (!file.type.startsWith('image/')) {
-    ElMessage.error('只能上传图片文件!')
-    console.log('文件类型验证失败:', file.type)
-    return
-  }
-  
-  // 验证文件大小（2MB）
-  if (file.size / 1024 / 1024 > 2) {
-    ElMessage.error('图片大小不能超过 2MB!')
-    console.log('文件大小验证失败:', (file.size / 1024 / 1024).toFixed(2) + 'MB')
-    return
-  }
-  
-  console.log('开始读取文件为base64...')
-  
-  // 转换为base64格式保存
+const coverReaders = { create: null, edit: null }
+const stopCover = mode => {
+  const reader = coverReaders[mode]
+  coverReaders[mode] = null
+  if (reader?.readyState === FileReader.LOADING) reader.abort()
+}
+const stopCreateCover = () => stopCover('create')
+const stopEditCover = () => stopCover('edit')
+watch(showCreateDialog, open => { if (!open) stopCreateCover() }, { flush: 'sync' })
+watch(showEditDialog, open => { if (!open) stopEditCover() }, { flush: 'sync' })
+onUnmounted(() => { stopCreateCover(); stopEditCover() })
+const readCover = (mode, event) => {
+  const input = event.target
+  const file = input.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) { ElMessage.error('只能上传图片文件!'); return }
+  if (file.size > 2 * 1024 * 1024) { ElMessage.error('图片大小不能超过 2MB!'); return }
+  stopCover(mode)
+  const draft = mode === 'create' ? createForm.value : editForm.value
   const reader = new FileReader()
-  reader.onload = (e) => {
-    console.log('FileReader读取成功')
-    createForm.value.cover = e.target.result // base64字符串
-    ElMessage.success('封面上传成功!')
-    console.log('封面base64长度:', e.target.result.length)
-    console.log('封面已保存到createForm.cover')
-    
-    // 清空input的值，这样可以重复选择同一个文件
-    event.target.value = ''
+  coverReaders[mode] = reader
+  reader.onload = () => {
+    if (coverReaders[mode] !== reader || typeof reader.result !== 'string') return
+    draft.cover = reader.result
+    coverReaders[mode] = null
+    input.value = ''
+    ElMessage.success('封面上传成功')
   }
-  reader.onerror = (e) => {
-    console.error('FileReader读取失败:', e)
+  reader.onerror = () => {
+    if (coverReaders[mode] !== reader) return
+    coverReaders[mode] = null
     ElMessage.error('封面读取失败，请重试')
   }
-  
-  // 读取文件为base64
   reader.readAsDataURL(file)
 }
-
-const _handleCoverSuccess = (_response, _file) => {
-  // 这个函数现在不会被调用，因为我们阻止了默认上传
-  // 但保留以备后续扩展
-}
-
-const removeCover = () => {
-  createForm.value.cover = ''
-  ElMessage.success('封面已移除')
-}
+const handleNativeFileChange = event => readCover('create', event)
+const removeCover = () => { stopCreateCover(); createForm.value.cover = '' }
 
 const createNovel = async () => {
-  if (isSavingNovels.value) return
+  if (isSavingNovels.value || isGeneratingDescription.value) return
   try {
     await createFormRef.value.validate()
   } catch {
@@ -1018,6 +1005,8 @@ const onGenreChange = (genre) => {
 }
 
 const resetCreateForm = () => {
+  createDescriptionTask.stop()
+  stopCreateCover()
   createDraft.value = null
   createForm.value = {
     title: '',
@@ -1031,6 +1020,8 @@ const resetCreateForm = () => {
 
 // 编辑小说信息
 const editNovelInfo = (novel) => {
+  editDescriptionTask.stop()
+  stopEditCover()
   editingNovel.value = novel
   editForm.value = {
     title: novel.title,
@@ -1045,6 +1036,8 @@ const editNovelInfo = (novel) => {
 
 // 重置编辑表单
 const resetEditForm = () => {
+  editDescriptionTask.stop()
+  stopEditCover()
   editForm.value = {
     title: '',
     genre: '',
@@ -1078,60 +1071,26 @@ const removeEditTag = (index) => {
 }
 
 // 处理编辑文件变化
-const handleEditFileChange = (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-  
-  // 验证文件类型
-  if (!file.type.startsWith('image/')) {
-    ElMessage.error('只能上传图片文件!')
-    return
-  }
-  
-  // 验证文件大小（2MB）
-  if (file.size / 1024 / 1024 > 2) {
-    ElMessage.error('图片大小不能超过 2MB!')
-    return
-  }
-  
-  // 读取文件为base64
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    editForm.value.cover = e.target.result
-    ElMessage.success('封面上传成功')
-  }
-  reader.onerror = () => {
-    ElMessage.error('文件读取失败')
-  }
-  reader.readAsDataURL(file)
-}
-
-// 移除编辑封面
+const handleEditFileChange = event => readCover('edit', event)
 const removeEditCover = () => {
+  stopEditCover()
   editForm.value.cover = ''
-  // 清除文件输入框的值
   editFormRef.value?.clearCoverInput()
 }
 
 // 生成编辑简介
 const generateEditDescription = async () => {
-  if (!editForm.value.title?.trim()) {
-    ElMessage.warning('请先填写小说标题')
+  const form = editForm.value
+  const task = editDescriptionTask
+  if (task.running.value) return
+  const title = form.title.trim()
+  if (!title || !form.genre) {
+    ElMessage.warning('请先填写小说标题和类型')
     return
   }
-  
-  if (!editForm.value.genre) {
-    ElMessage.warning('请先选择小说类型')
-    return
-  }
-
-  isGeneratingEditDescription.value = true
-  try {
-    const title = editForm.value.title.trim()
-    const genreInfo = genrePresets.value[editForm.value.genre]
-    
-    // 构建AI提示词
-    const prompt = `请为小说《${title}》重新生成一段简介。
+  const genreInfo = genrePresets.value[form.genre]
+  if (!genreInfo) { ElMessage.warning('所选小说类型已不存在'); return }
+  const prompt = `请为小说《${title}》重新生成一段简介。
 
 小说信息：
 - 标题：${title}
@@ -1146,36 +1105,18 @@ const generateEditDescription = async () => {
 5. 风格要符合${genreInfo.name}小说的特点
 
 请直接输出简介内容，不要包含其他解释文字：`
-
-    // 调用AI API流式生成简介
-    const generatedDescription = await apiService.generateTextStream(prompt, {
-      maxTokens: null, // 移除token限制
-      temperature: 0.8,
-      type: 'synopsis'
-    }, (chunk, fullContent) => {
-      // 实时更新简介内容
-      console.log('编辑简介生成流式回调 - chunk:', chunk, 'fullContent长度:', fullContent.length)
-      editForm.value.description = fullContent
-    })
-    
-    if (generatedDescription && generatedDescription.trim()) {
-      // 流式调用已经在回调中更新了内容，这里只需要显示成功消息
-      ElMessage.success('AI简介生成成功！您可以根据需要进行修改')
-    } else {
-      throw new Error('AI返回的内容为空')
-    }
-    
-  } catch (error) {
-    console.error('AI生成简介失败:', error)
-    ElMessage.error('AI生成失败，请手动修改简介')
-  } finally {
-    isGeneratingEditDescription.value = false
-  }
+  await task.start({
+    prompt,
+    options: { maxTokens: null, temperature: 0.8, type: 'synopsis' },
+    onText: text => { form.description = text },
+    onSuccess: () => ElMessage.success('AI简介生成成功！您可以根据需要进行修改'),
+    onError: () => ElMessage.error('AI生成失败，请手动修改简介'),
+  })
 }
 
 // 保存小说信息修改
 const updateNovelInfo = async () => {
-  if (isSavingNovels.value || isSavingEdit.value) return
+  if (isSavingNovels.value || isSavingEdit.value || isGeneratingEditDescription.value) return
   try {
     await editFormRef.value.validate()
   } catch {
@@ -1212,23 +1153,17 @@ const _editChapter = (_chapter) => {
 }
 
 const generateDescription = async () => {
-  if (!createForm.value.title?.trim()) {
-    ElMessage.warning('请先填写小说标题')
+  const form = createForm.value
+  const task = createDescriptionTask
+  if (task.running.value) return
+  const title = form.title.trim()
+  if (!title || !form.genre) {
+    ElMessage.warning('请先填写小说标题和类型')
     return
   }
-  
-  if (!createForm.value.genre) {
-    ElMessage.warning('请先选择小说类型')
-    return
-  }
-
-  isGeneratingDescription.value = true
-  try {
-    const title = createForm.value.title.trim()
-    const genreInfo = genrePresets.value[createForm.value.genre]
-    
-    // 构建AI提示词
-    const prompt = `请为小说《${title}》生成一段简介。
+  const genreInfo = genrePresets.value[form.genre]
+  if (!genreInfo) { ElMessage.warning('所选小说类型已不存在'); return }
+  const prompt = `请为小说《${title}》生成一段简介。
 
 小说信息：
 - 标题：${title}
@@ -1243,59 +1178,22 @@ const generateDescription = async () => {
 5. 风格要符合${genreInfo.name}小说的特点
 
 请直接输出简介内容，不要包含其他解释文字：`
-
-    console.log('开始AI生成简介，提示词:', prompt)
-    
-    // 调用AI API流式生成简介
-    const generatedDescription = await apiService.generateTextStream(prompt, {
-      maxTokens: null, // 移除token限制
-      temperature: 0.8,
-      type: 'synopsis'
-    }, (chunk, fullContent) => {
-      // 实时更新简介内容
-      console.log('简介生成流式回调 - chunk:', chunk, 'fullContent长度:', fullContent.length)
-      createForm.value.description = fullContent
-    })
-    
-    if (generatedDescription && generatedDescription.trim()) {
-      // 流式调用已经在回调中更新了内容，这里只需要显示成功消息
-      ElMessage.success('AI简介生成成功！您可以根据需要进行修改')
-    } else {
-      throw new Error('AI返回的内容为空')
-    }
-    
-  } catch (error) {
-    console.error('AI生成简介失败:', error)
-    
-    // 根据错误类型提供不同的提示
-    let errorMessage = 'AI生成失败'
-    if (error.message.includes('API请求失败') || error.message.includes('API Key')) {
-      errorMessage = 'AI服务暂时不可用'
-    } else if (error.message.includes('网络')) {
-      errorMessage = '网络连接失败'
-    } else {
-      errorMessage = 'AI生成遇到问题'
-    }
-    
-    // 提供备选的模板生成
-    ElMessageBox.confirm(
-      `${errorMessage}，是否使用本地智能模板生成简介？模板会根据您的标题和类型智能匹配。`, 
-      '生成选项', 
-      {
-        confirmButtonText: '使用智能模板',
-        cancelButtonText: '手动填写',
-        type: 'info'
+  await task.start({
+    prompt,
+    options: { maxTokens: null, temperature: 0.8, type: 'synopsis' },
+    onText: text => { form.description = text },
+    onSuccess: () => ElMessage.success('AI简介生成成功！您可以根据需要进行修改'),
+    onError: async (_error, isCurrent) => {
+      try {
+        await ElMessageBox.confirm('AI生成失败，是否使用本地智能模板生成简介？', '生成选项', {
+          confirmButtonText: '使用智能模板', cancelButtonText: '手动填写', type: 'info',
+        })
+        if (isCurrent()) generateDescriptionFromTemplate()
+      } catch {
+        if (isCurrent()) ElMessage.info('您可以手动填写简介，或稍后重试AI生成')
       }
-    ).then(() => {
-      generateDescriptionFromTemplate()
-    }).catch(() => {
-      // 用户选择手动填写
-      ElMessage.info('您可以手动填写简介，或稍后重试AI生成')
-    })
-    
-  } finally {
-    isGeneratingDescription.value = false
-  }
+    },
+  })
 }
 
 // 备选方案：使用本地模板生成简介
