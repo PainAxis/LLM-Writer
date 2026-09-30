@@ -4,7 +4,9 @@
     <aside class="assistant-list">
       <div class="list-header">
         <h3>AI 助手</h3>
-        <el-button type="primary" size="small" :icon="Plus" @click="openCreateDialog">新建</el-button>
+        <el-button type="primary" size="small" :icon="Plus" @click="openCreateDialog"
+          >新建</el-button
+        >
       </div>
 
       <div class="list-body">
@@ -21,12 +23,29 @@
             <div class="assistant-persona">{{ assistant.persona || '未设置人设' }}</div>
           </div>
           <div class="assistant-actions" @click.stop>
-            <el-button link size="small" :icon="Edit" @click="openEditDialog(assistant)" />
-            <el-button link size="small" type="danger" :icon="Delete" @click="confirmRemove(assistant)" />
+            <el-button
+              link
+              size="small"
+              :icon="Edit"
+              aria-label="编辑助手"
+              @click="openEditDialog(assistant)"
+            />
+            <el-button
+              link
+              size="small"
+              type="danger"
+              :icon="Delete"
+              aria-label="删除助手"
+              @click="confirmRemove(assistant)"
+            />
           </div>
         </div>
 
-        <el-empty v-if="store.assistants.length === 0" description="还没有助手，点击「新建」创建" :image-size="80" />
+        <el-empty
+          v-if="store.assistants.length === 0"
+          description="还没有助手，点击「新建」创建"
+          :image-size="80"
+        />
       </div>
     </aside>
 
@@ -36,17 +55,39 @@
         <div class="chat-header">
           <div class="chat-title">
             <span class="chat-name">{{ store.activeAssistant.name }}</span>
-            <el-tag v-if="store.activeAssistant.defaultModel" size="small" type="info" effect="plain">
+            <el-tag size="small" type="info" effect="plain">{{
+              store.activeAssistant.contextPolicyMode === 'custom' ? '自定义上下文' : '全局上下文'
+            }}</el-tag>
+            <el-tag
+              v-if="store.activeAssistant.defaultModel"
+              size="small"
+              type="info"
+              effect="plain"
+            >
               {{ store.activeAssistant.defaultModel }}
             </el-tag>
-            <el-tag v-if="store.activeSummary" size="small" type="info" effect="plain">已折叠摘要</el-tag>
-            <el-tooltip v-if="isPendingCompaction" content="存在未压缩内容，点击重试生成摘要" placement="bottom">
-              <el-tag size="small" type="warning" class="pending-tag" @click="store.retryCompaction()">⚠️ 待压缩</el-tag>
+            <el-tag v-if="store.activeSummary" size="small" type="info" effect="plain"
+              >已折叠摘要</el-tag
+            >
+            <el-tooltip
+              v-if="isPendingCompaction"
+              content="存在未压缩内容，点击重试生成摘要"
+              placement="bottom"
+            >
+              <el-tag
+                size="small"
+                type="warning"
+                class="pending-tag"
+                @click="store.retryCompaction()"
+                >⚠️ 待压缩</el-tag
+              >
             </el-tooltip>
           </div>
           <div class="header-right">
             <span class="context-meter">上下文 {{ contextText }}</span>
-            <el-button size="small" :icon="DeleteFilled" @click="confirmClearConversation">清空会话</el-button>
+            <el-button size="small" :icon="DeleteFilled" @click="confirmClearConversation"
+              >清空会话</el-button
+            >
           </div>
         </div>
 
@@ -73,30 +114,47 @@
             :rows="3"
             resize="none"
             placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-            :disabled="store.isStreaming"
+            :disabled="store.isStreaming || store.isPreparing"
             @keydown.enter.exact="onEnterKey"
           />
           <div class="input-actions">
             <el-button
-              v-if="!store.isStreaming"
+              v-if="!store.isStreaming && !store.isPreparing"
               type="primary"
               :icon="Promotion"
               :disabled="!inputText.trim()"
               @click="handleSend"
-            >发送</el-button>
-            <el-button v-else type="warning" :icon="VideoPause" @click="store.stop('已停止对话')">停止</el-button>
+              >发送</el-button
+            >
+            <el-button v-else type="warning" :icon="VideoPause" @click="store.stop('已停止对话')"
+              >停止</el-button
+            >
           </div>
         </div>
       </template>
 
-      <el-empty v-else class="chat-empty" description="选择或创建一个助手开始对话" :image-size="120" />
+      <el-empty
+        v-else
+        class="chat-empty"
+        description="选择或创建一个助手开始对话"
+        :image-size="120"
+      />
     </section>
 
     <!-- 新建 / 编辑助手 -->
-    <el-dialog v-model="showDialog" :title="editingId ? '编辑助手' : '新建助手'" width="560px">
+    <el-dialog
+      v-model="showDialog"
+      :title="editingId ? '编辑助手' : '新建助手'"
+      width="min(640px, 94vw)"
+    >
       <el-form :model="form" label-width="90px">
         <el-form-item label="名称" required>
-          <el-input v-model="form.name" maxlength="30" show-word-limit placeholder="例如：情节构思助手" />
+          <el-input
+            v-model="form.name"
+            maxlength="30"
+            show-word-limit
+            placeholder="例如：情节构思助手"
+          />
         </el-form-item>
         <el-form-item label="人设提示词">
           <el-input
@@ -109,15 +167,73 @@
           />
         </el-form-item>
         <el-form-item label="默认模型">
-          <el-select v-model="form.defaultModel" clearable filterable placeholder="跟随全局配置" style="width: 100%">
-            <el-option
-              v-for="model in modelOptions"
-              :key="model"
-              :label="model"
-              :value="model"
-            />
+          <el-select
+            v-model="form.defaultModel"
+            clearable
+            filterable
+            placeholder="跟随全局配置"
+            style="width: 100%"
+          >
+            <el-option v-for="model in modelOptions" :key="model" :label="model" :value="model" />
           </el-select>
         </el-form-item>
+        <el-form-item label="上下文设置">
+          <el-radio-group v-model="form.contextPolicyMode">
+            <el-radio value="global">跟随全局</el-radio>
+            <el-radio value="custom">自定义</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <p v-if="form.contextPolicyMode === 'global'" class="policy-hint">
+          使用系统设置中的上下文策略。切换策略保留完整会话，摘要会在下次需要时重新生成。
+        </p>
+        <template v-else>
+          <el-form-item label="上下文策略">
+            <el-radio-group v-model="form.contextPolicy.strategy">
+              <el-radio value="truncation">硬截断</el-radio>
+              <el-radio value="summary">滚动摘要</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="Token 预算">
+            <el-input-number
+              v-model="form.contextPolicy.maxTokens"
+              aria-label="Token 预算"
+              :min="0"
+              :max="1000000"
+              :step="1000"
+            />
+            <span class="policy-hint">0 = 不限</span>
+          </el-form-item>
+          <el-form-item label="消息条数">
+            <el-input-number
+              v-model="form.contextPolicy.maxTurns"
+              aria-label="消息条数"
+              :min="0"
+              :max="500"
+            />
+            <span class="policy-hint">用户和助手各算一条；0 = 不限</span>
+          </el-form-item>
+          <template v-if="form.contextPolicy.strategy === 'summary'">
+            <el-form-item label="摘要阈值">
+              <el-input-number
+                v-model="form.contextPolicy.summaryThreshold"
+                aria-label="摘要阈值"
+                :min="1"
+                :max="100"
+              />
+              <span class="policy-hint">达到预算的百分比时触发摘要</span>
+            </el-form-item>
+            <el-form-item label="保留原文">
+              <el-input-number
+                v-model="form.contextPolicy.retainTurns"
+                aria-label="保留原文"
+                :min="0"
+                :max="500"
+              />
+              <span class="policy-hint">最近保留的消息条数</span>
+            </el-form-item>
+          </template>
+          <p class="policy-hint">只影响发送给模型的上下文，本地会话保留完整原文。</p>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">取消</el-button>
@@ -135,6 +251,7 @@ import { useAssistantStore } from '@/stores/assistant'
 import { useApiConfig } from '@/services/apiConfig'
 import { FALLBACK_MODELS } from '@/services/aiProviders'
 import { estimateTokens } from '@/utils/tokenBudget'
+import { normalizeContextPolicy } from '@/utils/contextPolicy'
 import type { AssistantInfo } from '@/types/api'
 
 const store = useAssistantStore()
@@ -144,11 +261,11 @@ const inputText = ref('')
 const messagesRef = ref<HTMLElement | null>(null)
 
 const isPendingCompaction = computed(() =>
-  Boolean(store.activeAssistant && store.pendingCompaction[store.activeAssistant.id]),
+  Boolean(store.activeAssistant && store.pendingCompaction[store.activeAssistant.id])
 )
 
 const contextTokens = computed(() =>
-  estimateTokens(store.activeConversation.map((entry) => entry.content).join('\n')),
+  estimateTokens(store.activeConversation.map((entry) => entry.content).join('\n'))
 )
 
 const contextText = computed(() => {
@@ -163,27 +280,29 @@ const form = reactive({
   name: '',
   persona: '',
   defaultModel: '',
+  contextPolicyMode: 'global' as 'global' | 'custom',
+  contextPolicy: normalizeContextPolicy(undefined),
 })
 
 const modelOptions = computed(() =>
   Array.from(
-    new Set([activeConfig.value.selectedModel, ...FALLBACK_MODELS.map((model) => model.id)]),
-  ).filter(Boolean),
+    new Set([activeConfig.value.selectedModel, ...FALLBACK_MODELS.map((model) => model.id)])
+  ).filter(Boolean)
 )
 
 watch(
   () => store.activeConversation.length,
-  () => scrollToBottom(),
+  () => scrollToBottom()
 )
 
 watch(
   () => store.activeConversation[store.activeConversation.length - 1]?.content,
-  () => scrollToBottom(),
+  () => scrollToBottom()
 )
 
 watch(
   () => store.activeAssistantId,
-  () => scrollToBottom(),
+  () => scrollToBottom()
 )
 
 function scrollToBottom(): void {
@@ -199,6 +318,8 @@ function openCreateDialog(): void {
   form.name = ''
   form.persona = ''
   form.defaultModel = ''
+  form.contextPolicyMode = 'global'
+  form.contextPolicy = normalizeContextPolicy(store.activePolicy)
   showDialog.value = true
 }
 
@@ -207,18 +328,31 @@ function openEditDialog(assistant: AssistantInfo): void {
   form.name = assistant.name
   form.persona = assistant.persona
   form.defaultModel = assistant.defaultModel ?? ''
+  form.contextPolicyMode = assistant.contextPolicyMode === 'custom' ? 'custom' : 'global'
+  form.contextPolicy = normalizeContextPolicy(assistant.contextPolicy)
   showDialog.value = true
 }
 
 function saveDialog(): void {
   const name = form.name.trim()
   if (!name) return
+  if (
+    form.contextPolicyMode === 'custom' &&
+    form.contextPolicy.strategy === 'summary' &&
+    form.contextPolicy.maxTurns > 0 &&
+    form.contextPolicy.retainTurns >= form.contextPolicy.maxTurns
+  ) {
+    ElMessage.warning('保留原文条数须小于消息预算，为摘要留出空间')
+    return
+  }
 
   if (editingId.value !== null) {
     store.updateAssistant(editingId.value, {
       name,
       persona: form.persona,
       defaultModel: form.defaultModel,
+      contextPolicyMode: form.contextPolicyMode,
+      contextPolicy: normalizeContextPolicy(form.contextPolicy),
     })
     ElMessage.success('助手已更新')
   } else {
@@ -226,6 +360,8 @@ function saveDialog(): void {
       name,
       persona: form.persona,
       defaultModel: form.defaultModel || undefined,
+      contextPolicyMode: form.contextPolicyMode,
+      contextPolicy: normalizeContextPolicy(form.contextPolicy),
     })
     ElMessage.success('助手已创建')
   }
@@ -237,7 +373,7 @@ async function confirmRemove(assistant: AssistantInfo): Promise<void> {
     await ElMessageBox.confirm(
       `删除助手「${assistant.name}」将同时删除其全部会话记录，且不可恢复。确定删除吗？`,
       '确认删除',
-      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
     )
   } catch {
     return
@@ -256,7 +392,7 @@ async function confirmClearConversation(): Promise<void> {
     await ElMessageBox.confirm(
       `确定清空与「${assistant.name}」的全部会话记录吗？此操作不可恢复。`,
       '确认清空',
-      { confirmButtonText: '清空', cancelButtonText: '取消', type: 'warning' },
+      { confirmButtonText: '清空', cancelButtonText: '取消', type: 'warning' }
     )
   } catch {
     return
@@ -275,12 +411,19 @@ function onEnterKey(event: Event): void {
 
 async function handleSend(): Promise<void> {
   const text = inputText.value.trim()
-  if (!text || store.isStreaming || !store.activeAssistant) return
+  if (!text || store.isStreaming || store.isPreparing || !store.activeAssistant) return
+  const assistantId = store.activeAssistantId
 
   inputText.value = ''
   scrollToBottom()
   const reply = await store.sendMessage(text)
-  if (reply === null && !store.isStreaming) {
+  if (
+    reply === null &&
+    !store.isStreaming &&
+    !store.isPreparing &&
+    store.activeAssistantId === assistantId &&
+    !inputText.value.trim()
+  ) {
     // 发送失败：把内容还原回输入框，避免用户丢失输入
     inputText.value = text
   }
@@ -288,6 +431,11 @@ async function handleSend(): Promise<void> {
 </script>
 
 <style scoped>
+.policy-hint {
+  margin: 8px 0 8px 12px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
 .assistant-page {
   display: flex;
   gap: 16px;
@@ -384,7 +532,9 @@ async function handleSend(): Promise<void> {
   flex-shrink: 0;
 }
 
-.assistant-item:hover .assistant-actions {
+.assistant-item:hover .assistant-actions,
+.assistant-item.active .assistant-actions,
+.assistant-item:focus-within .assistant-actions {
   display: flex;
 }
 

@@ -55,6 +55,7 @@ This overview describes the current source layout. Planned work is tracked in th
 
 | Feature | Modules and responsibilities |
 |---------|-----------------------------|
+| AssistantManagement | `stores/assistant.ts` selects global/custom policies, guards summary ownership and isolates conversations; `utils/contextPolicy.ts` normalizes and resolves policies; [policy semantics](docs/assistant-context-policy.md) |
 | ShortStory | `useShortStoryWorkspace.ts`; `components/short-story/ShortStoryPromptSelector.vue`; `useShortStoryConfig.ts` for fresh defaults and async persistence; `useShortStoryGeneration.ts` for independent cancellable requests; `utils/shortStoryPrompts.ts` for prompt construction |
 | BookAnalysis | `useBookAnalysisWorkspace.ts`; `components/book-analysis/BookFileImportPanel.vue`; `useBookAnalysisFile.ts` for latest-import ownership and encoding; `utils/bookAnalysisContext.ts` for chapter detection, selected ranges and prompts |
 | NovelManagement | `useNovelManagementWorkspace.ts`; `components/novel-management/NovelMetadataForm.vue` for create/edit fields; `utils/novelList.ts` for filters and non-mutating sorting |

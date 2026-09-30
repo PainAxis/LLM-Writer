@@ -690,6 +690,91 @@ try {
     await screenshot('16-mindmap-edits-persisted')
   })
 
+  await step('17 Persist assistant policies and verify custom/global/summary request contexts', async () => {
+    await go('config')
+    await page.locator('.el-form-item').filter({ hasText: '模型选择' }).locator('.el-select__wrapper').click()
+    await page.getByRole('option', { name: /^writer-mock\s+自定义模型$/ }).click()
+    await page.getByRole('button', { name: '保存配置', exact: true }).click()
+    await go('assistants')
+    await page.getByRole('button', { name: '新建', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByPlaceholder('例如：情节构思助手').fill('独立上下文助手')
+    await dialog.getByText('自定义', { exact: true }).click()
+    const turns = () => dialog.locator('.el-form-item').filter({ hasText: '消息条数' }).getByRole('spinbutton')
+    await turns().fill('1')
+    await dialog.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(page.getByText('自定义上下文', { exact: true })).toBeVisible()
+    const requests = []
+    const recordRequest = request => {
+      if (!request.url().endsWith('/chat/completions') || request.method() !== 'POST') return
+      const body = request.postDataJSON()
+      if (body.stream) requests.push(body)
+    }
+    page.on('request', recordRequest)
+    const send = async (text, withSummary = false) => {
+      const count = requests.length
+      await page.getByPlaceholder('输入消息，Enter 发送，Shift+Enter 换行').fill(text)
+      await page.getByRole('button', { name: '发送', exact: true }).click()
+      if (withSummary) {
+        await page.getByRole('dialog', { name: '上下文管理', exact: true }).getByRole('button', { name: '重试摘要', exact: true }).click()
+      }
+      await expect.poll(() => requests.length).toBeGreaterThan(count)
+      await expect(page.getByRole('button', { name: '发送', exact: true })).toBeVisible()
+      return requests.at(-1)
+    }
+    const messages = request => request.messages.filter(message => message.role !== 'system')
+    try {
+      await send('独立第一条')
+      const narrow = await send('独立第二条')
+      assert.equal(messages(narrow).length, 1)
+      assert.equal(messages(narrow)[0].content, '独立第二条')
+      await page.reload()
+      await dismissAnnouncement()
+      await expect(page.locator('.message-row')).toHaveCount(4)
+      await expect(page.getByText('自定义上下文', { exact: true })).toBeVisible()
+      await page.getByRole('button', { name: '编辑助手', exact: true }).click()
+      await expect(turns()).toHaveValue('1')
+      await turns().fill('3')
+      await dialog.getByRole('button', { name: '取消', exact: true }).click()
+      await page.getByRole('button', { name: '编辑助手', exact: true }).click()
+      await expect(turns()).toHaveValue('1')
+      await dialog.getByText('跟随全局', { exact: true }).click()
+      await dialog.getByRole('button', { name: '保存', exact: true }).click()
+      const inherited = await send('跟随全局第三条')
+      assert.equal(messages(inherited).length, 5)
+      await expect(page.locator('.message-row')).toHaveCount(6)
+      await page.getByRole('button', { name: '编辑助手', exact: true }).click()
+      await dialog.getByText('自定义', { exact: true }).click()
+      await turns().fill('4')
+      await dialog.getByText('滚动摘要', { exact: true }).click()
+      await dialog.locator('.el-form-item').filter({ hasText: '保留原文' }).getByRole('spinbutton').fill('1')
+      await dialog.getByRole('button', { name: '保存', exact: true }).click()
+      const summarized = await send('摘要后第四条', true)
+      assert.equal(messages(summarized).length, 2)
+      assert.ok(summarized.messages.some(message => message.role === 'system' && message.content.includes('【此前对话摘要】')))
+      await expect(page.locator('.message-row')).toHaveCount(8)
+      await expect(page.getByText('已折叠摘要', { exact: true })).toBeVisible()
+      await settingsData()
+      const downloading = page.waitForEvent('download')
+      await page.getByRole('button', { name: '导出所有数据', exact: true }).click()
+      const download = await downloading
+      const target = path.join(artifacts, 'assistant-backup.json')
+      await download.saveAs(target)
+      const backup = JSON.parse(await readFile(target, 'utf8'))
+      assert.equal(backup.data.assistants[0].contextPolicyMode, 'custom')
+      assert.equal(backup.data.assistants[0].contextPolicy.strategy, 'summary')
+      const assistantId = backup.data.assistants[0].id
+      assert.equal(backup.data.assistantConversations[assistantId].length, 8)
+      await importBackup(target)
+      await go('assistants')
+      await expect(page.getByText('自定义上下文', { exact: true })).toBeVisible()
+      await expect(page.locator('.message-row')).toHaveCount(8)
+      await screenshot('17-assistant-policy-restored')
+    } finally {
+      page.off('request', recordRequest)
+    }
+  })
+
   assert.deepEqual(errors, [], 'The browser must not raise uncaught errors or unsaved-data navigation dialogs')
   console.log(`PASS ${report.tests.length} real-browser regression scenarios`)
 } catch (error) {

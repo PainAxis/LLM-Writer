@@ -54,7 +54,8 @@
     "smoke:writer-stream": "node --import tsx scripts/smoke-writer-stream.ts",
     "smoke:tools": "node --import tsx scripts/smoke-tools.ts",
     "smoke:generation-task": "node --import tsx scripts/smoke-generation-task.ts",
-    "smoke:mindmap-editing": "node --import tsx scripts/smoke-mindmap-editing.ts"
+    "smoke:mindmap-editing": "node --import tsx scripts/smoke-mindmap-editing.ts",
+    "smoke:assistant-policy": "node --import tsx scripts/smoke-assistant-policy.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

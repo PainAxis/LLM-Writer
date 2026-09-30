@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, reactive, watch, onScopeDispose } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAIStream } from '@/composables/useAIStream'
 import apiService from '@/services/api'
@@ -14,17 +14,26 @@ import {
   keptWithinBudget,
   type CompactorEntry,
 } from '@/utils/contextCompactor'
+import { normalizeContextPolicy, resolveAssistantContextPolicy } from '@/utils/contextPolicy'
 import type { AssistantChatEntry, AssistantInfo, ContextPolicy } from '@/types/api'
+
+type AssistantDraft = Pick<
+  AssistantInfo,
+  'name' | 'persona' | 'defaultModel' | 'contextPolicyMode'
+> & { contextPolicy?: ContextPolicy }
 
 export { DEFAULT_CONTEXT_POLICY }
 
 // ---- 全局上下文策略（模块级单例，Settings 与对话共用；对齐 apiConfig 模式） ----
-const policyState = createPersistentState<ContextPolicy>(StorageKeys.contextPolicy, DEFAULT_CONTEXT_POLICY)
-const globalPolicy = ref<ContextPolicy>({ ...DEFAULT_CONTEXT_POLICY, ...policyState.load() })
+const policyState = createPersistentState<ContextPolicy>(
+  StorageKeys.contextPolicy,
+  DEFAULT_CONTEXT_POLICY
+)
+const globalPolicy = ref<ContextPolicy>(normalizeContextPolicy(policyState.load()))
 
 export function useContextPolicy() {
   function savePolicy(policy: ContextPolicy): void {
-    globalPolicy.value = { ...DEFAULT_CONTEXT_POLICY, ...policy }
+    globalPolicy.value = normalizeContextPolicy(policy)
     policyState.save(globalPolicy.value)
   }
   function resetPolicy(): void {
@@ -34,10 +43,6 @@ export function useContextPolicy() {
   return { policy: globalPolicy, savePolicy, resetPolicy }
 }
 
-function normalizePolicy(policy: ContextPolicy | undefined): ContextPolicy {
-  return { ...DEFAULT_CONTEXT_POLICY, ...(policy ?? {}) }
-}
-
 /**
  * AI 助手 store：助手 CRUD + 按助手隔离的会话持久化 + 流式对话 + 上下文容量管理。
  */
@@ -45,9 +50,12 @@ export const useAssistantStore = defineStore('assistant', () => {
   const assistantsState = createPersistentState<AssistantInfo[]>(StorageKeys.assistants, [])
   const conversationsState = createPersistentState<Record<number, AssistantChatEntry[]>>(
     StorageKeys.assistantConversations,
-    {},
+    {}
   )
-  const summariesState = createPersistentState<Record<number, string>>(StorageKeys.assistantSummaries, {})
+  const summariesState = createPersistentState<Record<number, string>>(
+    StorageKeys.assistantSummaries,
+    {}
+  )
 
   const assistants = ref<AssistantInfo[]>(assistantsState.load())
   const conversations = ref<Record<number, AssistantChatEntry[]>>(conversationsState.load())
@@ -60,16 +68,73 @@ export const useAssistantStore = defineStore('assistant', () => {
   const { isStreaming, streamingType, run, stop } = useAIStream()
 
   const activeAssistant = computed<AssistantInfo | null>(
-    () => assistants.value.find((assistant) => assistant.id === activeAssistantId.value) ?? null,
+    () => assistants.value.find((assistant) => assistant.id === activeAssistantId.value) ?? null
   )
 
   const activeConversation = computed<AssistantChatEntry[]>(
-    () => conversations.value[activeAssistantId.value] ?? [],
+    () => conversations.value[activeAssistantId.value] ?? []
   )
 
   const activeSummary = computed<string>(() => summaries.value[activeAssistantId.value] ?? '')
 
-  const activePolicy = computed<ContextPolicy>(() => globalPolicy.value)
+  const activePolicy = computed<ContextPolicy>(() =>
+    resolveAssistantContextPolicy(activeAssistant.value, globalPolicy.value)
+  )
+  const isPreparing = ref(false)
+  const summaryRequests = new Map<number, AbortController>()
+  const contextRevisions = new Map<number, number>()
+  let sendRevision = 0
+  let sendingAssistantId: number | null = null
+  let activeReply: { assistantId: number; userEntryId: string; reply: AssistantChatEntry } | null =
+    null
+  const revisionOf = (id: number) => contextRevisions.get(id) ?? 0
+  const policyOf = (assistant: AssistantInfo) =>
+    resolveAssistantContextPolicy(assistant, globalPolicy.value)
+
+  function invalidateContext(id: number): void {
+    contextRevisions.set(id, revisionOf(id) + 1)
+    summaryRequests.get(id)?.abort()
+    summaryRequests.delete(id)
+    delete summaries.value[id]
+    delete pendingCompaction.value[id]
+  }
+
+  function stopChat(message?: string): void {
+    sendRevision++
+    isPreparing.value = false
+    if (sendingAssistantId !== null) {
+      summaryRequests.get(sendingAssistantId)?.abort()
+      summaryRequests.delete(sendingAssistantId)
+    }
+    sendingAssistantId = null
+    stop(message)
+    if (activeReply && !activeReply.reply.content.trim()) {
+      removeEntry(activeReply.assistantId, activeReply.reply.id)
+      removeEntry(activeReply.assistantId, activeReply.userEntryId)
+    }
+    activeReply = null
+    persistConversations()
+  }
+
+  let globalPolicyFingerprint = JSON.stringify(normalizeContextPolicy(globalPolicy.value))
+  watch(
+    globalPolicy,
+    () => {
+      const fingerprint = JSON.stringify(normalizeContextPolicy(globalPolicy.value))
+      if (fingerprint === globalPolicyFingerprint) return
+      globalPolicyFingerprint = fingerprint
+      for (const assistant of assistants.value) {
+        if (assistant.contextPolicyMode !== 'custom') invalidateContext(assistant.id)
+      }
+      persistSummaries()
+    },
+    { deep: true, flush: 'sync' }
+  )
+  onScopeDispose(() => {
+    stopChat()
+    for (const controller of summaryRequests.values()) controller.abort()
+    summaryRequests.clear()
+  })
 
   function persistAssistants(): void {
     assistantsState.save(assistants.value)
@@ -83,14 +148,15 @@ export const useAssistantStore = defineStore('assistant', () => {
     summariesState.save(summaries.value)
   }
 
-  function addAssistant(data: { name: string; persona: string; defaultModel?: string }): AssistantInfo {
+  function addAssistant(data: AssistantDraft): AssistantInfo {
     const now = new Date().toISOString()
     const assistant: AssistantInfo = {
       id: generateUniqueId(),
       name: data.name.trim(),
       persona: data.persona.trim(),
       defaultModel: data.defaultModel?.trim() || undefined,
-      contextPolicy: normalizePolicy(undefined),
+      contextPolicyMode: data.contextPolicyMode === 'custom' ? 'custom' : 'global',
+      contextPolicy: normalizeContextPolicy(data.contextPolicy),
       createdAt: now,
       updatedAt: now,
     }
@@ -100,12 +166,21 @@ export const useAssistantStore = defineStore('assistant', () => {
     return assistant
   }
 
-  function updateAssistant(id: number, patch: Partial<Pick<AssistantInfo, 'name' | 'persona' | 'defaultModel'>>): void {
+  function updateAssistant(id: number, patch: Partial<AssistantDraft>): void {
     const assistant = assistants.value.find((item) => item.id === id)
     if (!assistant) return
+    const previousPolicy = JSON.stringify(policyOf(assistant))
     if (patch.name !== undefined) assistant.name = patch.name.trim()
     if (patch.persona !== undefined) assistant.persona = patch.persona.trim()
-    if (patch.defaultModel !== undefined) assistant.defaultModel = patch.defaultModel.trim() || undefined
+    if (patch.defaultModel !== undefined)
+      assistant.defaultModel = patch.defaultModel.trim() || undefined
+    if (patch.contextPolicyMode !== undefined) assistant.contextPolicyMode = patch.contextPolicyMode
+    if (patch.contextPolicy !== undefined)
+      assistant.contextPolicy = normalizeContextPolicy(patch.contextPolicy)
+    if (previousPolicy !== JSON.stringify(policyOf(assistant))) {
+      invalidateContext(id)
+      persistSummaries()
+    }
     assistant.updatedAt = new Date().toISOString()
     persistAssistants()
   }
@@ -113,11 +188,14 @@ export const useAssistantStore = defineStore('assistant', () => {
   function removeAssistant(id: number): void {
     const index = assistants.value.findIndex((item) => item.id === id)
     if (index === -1) return
+    if (sendingAssistantId === id) stopChat()
+    invalidateContext(id)
     assistants.value.splice(index, 1)
     delete conversations.value[id]
     delete summaries.value[id]
     delete pendingCompaction.value[id]
     persistAssistants()
+    persistConversations()
     persistSummaries()
     if (activeAssistantId.value === id) {
       activeAssistantId.value = assistants.value[0]?.id ?? 0
@@ -125,10 +203,13 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   function setActiveAssistant(id: number): void {
+    if (isPreparing.value && id !== activeAssistantId.value) stopChat()
     activeAssistantId.value = id
   }
 
   function clearConversation(id: number): void {
+    if (sendingAssistantId === id) stopChat()
+    invalidateContext(id)
     delete conversations.value[id]
     delete summaries.value[id]
     delete pendingCompaction.value[id]
@@ -174,26 +255,53 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   /** 调用 AI 生成增量摘要；成功则更新并清除待压缩标记 */
-  async function generateSummaryNow(assistantId: number, folded: CompactorEntry[]): Promise<boolean> {
+  async function generateSummaryNow(
+    assistantId: number,
+    folded: CompactorEntry[]
+  ): Promise<boolean | null> {
+    const assistant = assistants.value.find((item) => item.id === assistantId)
+    if (!assistant) return null
     if (folded.length === 0) {
       pendingCompaction.value[assistantId] = false
       return true
+    }
+    const policy = JSON.stringify(policyOf(assistant))
+    const revision = revisionOf(assistantId)
+    summaryRequests.get(assistantId)?.abort()
+    const controller = new AbortController()
+    summaryRequests.set(assistantId, controller)
+    const ownsSummary = () => {
+      const current = assistants.value.find((item) => item.id === assistantId)
+      return (
+        !controller.signal.aborted &&
+        summaryRequests.get(assistantId) === controller &&
+        revisionOf(assistantId) === revision &&
+        !!current &&
+        JSON.stringify(policyOf(current)) === policy
+      )
     }
     const prompt = buildSummaryPrompt(summaries.value[assistantId] ?? '', folded)
     try {
       const summary = await apiService.generateText(prompt, {
         type: 'chat-summary',
+        model: assistant.defaultModel || undefined,
+        signal: controller.signal,
         maxTokens: 800,
         temperature: 0.3,
         system: '你是对话摘要助手。请忠实、精炼地概括对话内容，保留关键事实、决定与未尽事项。',
       })
+      if (!ownsSummary()) return null
+      if (!summary.trim()) return false
       summaries.value[assistantId] = summary.trim()
       persistSummaries()
       pendingCompaction.value[assistantId] = false
       return true
     } catch (error) {
+      if (!ownsSummary()) return null
       console.error('[assistant] 自动摘要失败:', error)
       return false
+    } finally {
+      if (summaryRequests.get(assistantId) === controller) summaryRequests.delete(assistantId)
     }
   }
 
@@ -210,7 +318,7 @@ export const useAssistantStore = defineStore('assistant', () => {
           cancelButtonText: '放弃摘要，直接发送',
           distinguishCancelAndClose: true,
           type: 'warning',
-        },
+        }
       )
       return 'retry'
     } catch (action) {
@@ -223,10 +331,11 @@ export const useAssistantStore = defineStore('assistant', () => {
     const assistant = activeAssistant.value
     if (!assistant || !pendingCompaction.value[assistant.id]) return
 
-    const policy = normalizePolicy(globalPolicy.value)
+    const policy = policyOf(assistant)
     const entries = toCompactorEntries(conversations.value[assistant.id] ?? [])
     const { folded } = foldEntries(entries, policy.retainTurns)
     const success = await generateSummaryNow(assistant.id, folded)
+    if (success === null) return
     if (success) {
       ElMessage.success('对话摘要已更新')
     } else {
@@ -241,9 +350,17 @@ export const useAssistantStore = defineStore('assistant', () => {
    */
   async function buildContext(
     assistant: AssistantInfo,
-    currentMessage: string,
-  ): Promise<{ system: string; messages: Array<{ role: 'user' | 'assistant'; content: string }>; droppedCount: number } | null> {
-    const policy = normalizePolicy(globalPolicy.value)
+    currentMessage: string
+  ): Promise<{
+    system: string
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>
+    droppedCount: number
+  } | null> {
+    const policy = policyOf(assistant)
+    const revision = revisionOf(assistant.id)
+    const ownsContext = () =>
+      revisionOf(assistant.id) === revision &&
+      assistants.value.some((item) => item.id === assistant.id)
     const entries = toCompactorEntries(conversations.value[assistant.id] ?? [])
     const withCurrent: CompactorEntry[] = [...entries, { isUser: true, content: currentMessage }]
 
@@ -262,6 +379,7 @@ export const useAssistantStore = defineStore('assistant', () => {
           let firstAttempt = true
           while (!decided) {
             const decision = await askSummaryDecision(firstAttempt)
+            if (!ownsContext()) return null
             firstAttempt = false
             if (decision === 'cancel') return null
             if (decision === 'send') {
@@ -271,6 +389,7 @@ export const useAssistantStore = defineStore('assistant', () => {
             }
             const { folded } = foldEntries(entries, policy.retainTurns)
             const success = await generateSummaryNow(assistant.id, folded)
+            if (success === null || !ownsContext()) return null
             if (success) {
               summary = summaries.value[assistant.id] ?? ''
               decided = true
@@ -313,30 +432,46 @@ export const useAssistantStore = defineStore('assistant', () => {
       throw new Error('请先选择助手')
     }
     const text = content.trim()
-    if (!text || isStreaming.value) {
+    if (!text || isStreaming.value || isPreparing.value) {
       return null
     }
 
-    const context = await buildContext(assistant, text)
-    if (context === null) {
+    const ticket = ++sendRevision
+    const revision = revisionOf(assistant.id)
+    sendingAssistantId = assistant.id
+    isPreparing.value = true
+    let context: Awaited<ReturnType<typeof buildContext>>
+    try {
+      context = await buildContext(assistant, text)
+    } finally {
+      if (ticket === sendRevision) isPreparing.value = false
+    }
+    if (
+      context === null ||
+      ticket !== sendRevision ||
+      revision !== revisionOf(assistant.id) ||
+      !assistants.value.some((item) => item.id === assistant.id)
+    ) {
+      if (ticket === sendRevision) sendingAssistantId = null
       return null
     }
 
+    const userEntryId = String(generateUniqueId())
     appendEntry(assistant.id, {
-      id: String(generateUniqueId()),
+      id: userEntryId,
       content: text,
       isUser: true,
       timestamp: new Date().toISOString(),
     })
-    const userEntryId = activeConversation.value[activeConversation.value.length - 1]?.id ?? ''
 
-    const replyEntry: AssistantChatEntry = {
+    const replyEntry = reactive<AssistantChatEntry>({
       id: `${generateUniqueId()}`,
       content: '',
       isUser: false,
       timestamp: new Date().toISOString(),
-    }
+    })
     appendEntry(assistant.id, replyEntry)
+    activeReply = { assistantId: assistant.id, userEntryId, reply: replyEntry }
 
     const result = await run({
       type: 'chat',
@@ -349,10 +484,18 @@ export const useAssistantStore = defineStore('assistant', () => {
       successMessage: '',
       errorPrefix: '对话',
       onChunk: (_chunk, fullContent) => {
-        replyEntry.content = fullContent
+        if (ticket === sendRevision) replyEntry.content = fullContent
       },
     })
 
+    if (ticket !== sendRevision) {
+      return replyEntry.content.trim() &&
+        conversations.value[assistant.id]?.some((entry) => entry.id === replyEntry.id)
+        ? replyEntry
+        : null
+    }
+    sendingAssistantId = null
+    activeReply = null
     if (result === null) {
       // 失败/取消：移除空占位与用户消息，配合视图把输入还原，保证干净重试
       removeEntry(assistant.id, replyEntry.id)
@@ -374,7 +517,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     const assistant = assistants.value.find((item) => item.id === assistantId)
     if (!assistant) return
 
-    const policy = normalizePolicy(globalPolicy.value)
+    const policy = policyOf(assistant)
     if (policy.strategy !== 'summary') return
 
     const entries = toCompactorEntries(conversations.value[assistantId] ?? [])
@@ -383,6 +526,7 @@ export const useAssistantStore = defineStore('assistant', () => {
 
     const { folded } = foldEntries(entries, policy.retainTurns)
     const success = await generateSummaryNow(assistantId, folded)
+    if (success === null) return
     if (!success) {
       pendingCompaction.value[assistantId] = true
       ElMessage.error('自动摘要失败，对话上下文已超限；可点击「待压缩」徽标重试')
@@ -400,6 +544,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     activeSummary,
     activePolicy,
     isStreaming,
+    isPreparing,
     streamingType,
     addAssistant,
     updateAssistant,
@@ -408,6 +553,6 @@ export const useAssistantStore = defineStore('assistant', () => {
     clearConversation,
     sendMessage,
     retryCompaction,
-    stop,
+    stop: stopChat,
   }
 })

@@ -28,7 +28,7 @@
 - **Mind map**: mind map generated from novel data (chapters / events / characters / worldbuilding / corpus), with editable titles/entities, validated save/cancel and PNG export
 
 ### AI & Utilities
-- **AI assistant system**: multi-persona assistants, per-assistant isolated chat history, streaming chat
+- **AI assistant system**: multi-persona assistants, per-assistant isolated chat history, streaming chat and global/custom context policies
 - **Context budget management**: dual-dimension budget (tokens / entries), sliding-window truncation vs incremental summary as explicit alternatives, failure handling via dialogs (no silent degradation)
 - **Model list sync**: one-click pull of server-side model lists with caching; built-in common models as fallback
 - **Prompt library**: category management, variable system, import & export, usage statistics

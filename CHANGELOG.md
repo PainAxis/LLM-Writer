@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Added opt-in per-assistant context policies for configuration, request budgets, summary compaction and retry, with legacy global defaults, backup compatibility and stale-summary guards.
+- Assistant reply streams are reactive; clearing/deleting conversations cancels active work and persists cleanup.
+
 - Added editable mind-map titles/entities with validated add/delete/reorder, retained body/metadata preservation, repaired references, conflict detection, awaited saves and retry-safe identities.
 
 - Isolated book analysis/digest, novel description and tool generation requests; stop, source changes, dialog closure and unmount abort streams and reject late writes.
