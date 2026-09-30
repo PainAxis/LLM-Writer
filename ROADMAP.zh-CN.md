@@ -12,11 +12,12 @@
 - BookAnalysis、NovelManagement 和 ToolsLibrary 的生成请求已有独立作用域，覆盖停止、来源变更、关闭对话框和卸载，并移除了工具页的模拟进度定时器。
 - undici 补丁已包含在 [v1.0.0](https://github.com/PainAxis/LLM-Writer/releases/tag/v1.0.0) 中；发布产物包含静态 ZIP、校验和及源码/CI 信息。
 - ShortStory、BookAnalysis、NovelManagement、ToolsLibrary 的父页面和 Workspace 编排控制器已迁移到 TypeScript，`vue/block-lang` 对这四页要求 `lang="ts"`；其他旧视图仍保留迁移例外。
+- 思维导图支持标题与条目编辑、增删和排序，校验后保留已有正文与元数据、调整关联、拒绝过期快照并等待保存完成；详见[编辑协议](docs/mindmap-editing.md)。
+
 
 下一步：
 
-1. **支持可编辑思维导图。** 在现有只读视图开放编辑前，先定义修改校验与小说 store 回写协议。
-2. **支持按助手覆盖上下文策略。** 将预留的 `AssistantInfo.contextPolicy` 字段接入配置与运行时策略选择；目前助手使用全局策略。
+1. **支持按助手覆盖上下文策略。** 将预留的 `AssistantInfo.contextPolicy` 字段接入配置与运行时策略选择；目前助手使用全局策略。
 
 后续候选事项：
 
