@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.0.1]
+
+Maintenance update for feature workspaces, mind-map editing and assistant context control.
+
+- The About page now reads the package version and links to its release notes instead of displaying the obsolete v0.7.0 current-version label.
 - Added opt-in per-assistant context policies for configuration, request budgets, summary compaction and retry, with legacy global defaults, backup compatibility and stale-summary guards.
 - Assistant reply streams are reactive; clearing/deleting conversations cancels active work and persists cleanup.
 
