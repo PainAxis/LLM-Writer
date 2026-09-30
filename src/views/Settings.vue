@@ -184,7 +184,7 @@
                   <h1>LLM-Writer</h1>
                 </div>
                 <div class="app-details">
-                  <p><strong>版本：</strong>v0.7.0</p>
+                  <p><strong>版本：</strong>v{{ appVersion }}</p>
                   <p><strong>更新时间：</strong>2025年7月9日</p>
                   <p><strong>开发者：</strong>LLM-Writer</p>
                   <p><strong>描述：</strong>基于AI技术的智能小说创作辅助工具，提供全方位的写作支持和创作灵感</p>
@@ -258,7 +258,12 @@
                 <h3>📋 更新日志</h3>
                 
                 <div class="log-item current-version">
-                  <h4>v0.7.0 (2025-07-9) - 当前版本</h4>
+                  <h4>v{{ appVersion }} - 当前版本</h4>
+                  <a :href="`https://github.com/PainAxis/LLM-Writer/releases/tag/v${appVersion}`" target="_blank" rel="noopener noreferrer">查看版本说明和下载</a>
+                </div>
+
+                <div class="log-item">
+                  <h4>v0.7.0 (2025-07-9)</h4>
                   <ul>
                     <li>• 优化API配置新增官方默认API</li>
                     <li>• 增加公告弹窗和教程说明</li>
@@ -376,6 +381,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Upload, Document, Setting, Delete, ChatLineSquare, Collection } from '@element-plus/icons-vue'
 import ApiConfig from '@/components/ApiConfig.vue'
+import { version as appVersion } from '../../package.json'
 import { storageGet, storageRemove, storageClear, StorageKeys } from '@/utils/storage'
 import {
   ALL_BACKUP_GROUPS, BackupValidationError, createBackup,
