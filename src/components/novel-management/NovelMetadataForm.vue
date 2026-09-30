@@ -37,6 +37,7 @@
       <div class="description-input-group">
         <el-input
           v-model="form.description"
+          :readonly="generating"
           type="textarea"
           :rows="4"
           placeholder="请输入小说简介或点击AI生成"
@@ -61,6 +62,7 @@
           >
             重新生成
           </el-button>
+          <el-button v-if="generating" size="small" @click="emit('stop')">停止生成</el-button>
           <span class="generate-tip">使用AI技术基于标题和类型智能生成</span>
         </div>
       </div>
@@ -129,6 +131,7 @@ defineProps<{
 const emit = defineEmits<{
   genreChange: [genre: string]
   generate: []
+  stop: []
   coverChange: [event: Event]
   removeCover: []
   addTag: []

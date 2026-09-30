@@ -65,7 +65,9 @@ function setup(kind: 'novels' | 'chapters') {
     showCreateDialog: ref(true), tagInput: ref(''),
   }
   if (kind === 'novels') Object.assign(shared, {
-    isSavingNovels: ref(false), createDraft: ref(null), isSavingEdit: ref(false), showEditDialog: ref(true),
+    isSavingNovels: ref(false), isGeneratingDescription: ref(false), isGeneratingEditDescription: ref(false),
+    createDescriptionTask: { stop() {} }, editDescriptionTask: { stop() {} },
+    stopCreateCover() {}, stopEditCover() {}, createDraft: ref(null), isSavingEdit: ref(false), showEditDialog: ref(true),
     selectedNovel: ref(cached[0]), editingNovel: ref(cached[0]),
     createForm: ref({ title: '新小说', genre: 'fantasy', description: '保留简介', tags: [] }),
     editForm: ref({ title: '修改标题', genre: 'fantasy', tags: [] }),

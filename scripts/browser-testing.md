@@ -20,9 +20,9 @@ npm run test:browser
 
 `test:browser` verifies the preview boundary, starts its own server on an available localhost port, runs the browser scenarios, and closes the server on completion or failure. `BROWSER_ARTIFACT_DIR` can override the output directory. The default `artifacts/` directory is ignored by Git.
 
-The scenarios cover API setup, editor persistence after reload, streaming cancellation, chapter-switch cancellation, DOCX import and invalid-file recovery, backup restoration, large-content IndexedDB round trips, ShortStory template selection/cancellation/restart/clearing/dialog closure/route unmount, novel metadata validation and persistence (status, tags and cover removal), and tool generation with result download. Uncaught page errors fail the run.
+The scenarios cover API setup, editor persistence after reload, streaming cancellation, chapter-switch cancellation, DOCX import and invalid-file recovery, backup restoration, large-content IndexedDB round trips, ShortStory template selection/cancellation/restart/clearing/dialog closure/route unmount, novel metadata validation and persistence (status, tags and cover removal), tool generation with result download, and book/novel/tool cancellation on source changes, dialog closure and unmount. Uncaught page errors fail the run.
 
-Repository administrators should require the exact check names `ci-quality` and `ci-browser` for pull requests to `main`, with the branch up to date before merging. Preserve the existing pull-request, deletion and force-push protections. These rules are repository settings, separate from the workflow file.
+The main ruleset requires the exact check names `ci-quality` and `ci-browser` for pull requests to `main`, with the branch up to date before merging. The existing pull-request, deletion and force-push protections remain active. These rules are repository settings, separate from the workflow file.
 
 ## Optional temporary preview
 

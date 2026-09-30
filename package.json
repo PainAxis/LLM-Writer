@@ -52,7 +52,8 @@
     "smoke:bundle": "node --import tsx scripts/smoke-bundle.ts",
     "smoke:persistence-retry": "node --import tsx scripts/smoke-persistence-retry.ts",
     "smoke:writer-stream": "node --import tsx scripts/smoke-writer-stream.ts",
-    "smoke:tools": "node --import tsx scripts/smoke-tools.ts"
+    "smoke:tools": "node --import tsx scripts/smoke-tools.ts",
+    "smoke:generation-task": "node --import tsx scripts/smoke-generation-task.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

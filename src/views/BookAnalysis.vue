@@ -142,6 +142,7 @@
               {{ analyzing ? '分析中...' : '开始拆书分析' }}
             </el-button>
             
+            <el-button v-if="analyzing" @click="stopAnalysis">停止分析</el-button>
             <el-button 
               v-if="analysisResult" 
               @click="exportResults" 
@@ -288,6 +289,7 @@
             </el-tab-pane>
             
             <el-tab-pane label="章节简读" name="summary">
+              <el-button v-if="generatingSummary" @click="summaryTask.stop">停止解读</el-button>
               <div class="summary-content">
                 <div class="chapter-meta">
                   <el-tag>{{ currentDetailChapter.title }}</el-tag>
@@ -541,14 +543,14 @@ import {
   Document, DataAnalysis, Download, FolderAdd,
   DocumentCopy, MagicStick, View, Edit
 } from '@element-plus/icons-vue'
-import { useNovelStore } from '@/stores/novel'
+import { useAIStream } from '@/composables/useAIStream'
+import { useGenerationTask } from '@/composables/useGenerationTask'
 import { storageGet, storageGetRaw, storageSetRaw, StorageKeys } from '@/utils/storage'
 import { splitBookLocally } from '@/utils/bookImport'
 import BookFileImportPanel from '@/components/book-analysis/BookFileImportPanel.vue'
 import { useBookAnalysisFile } from '@/composables/useBookAnalysisFile'
 import { detectBookChapters, readBookChapter, prepareBookAnalysis, buildBookAnalysisPrompt } from '@/utils/bookAnalysisContext'
 
-const novelStore = useNovelStore()
 
 // 响应式数据
 const fileWorkspace = useBookAnalysisFile({
@@ -568,7 +570,6 @@ const selectedTemplate = ref('')
 const selectedChapters = ref([])
 const analysisStartWords = ref(1)
 const analysisEndWords = ref(5000)
-const analyzing = ref(false)
 const analysisProgress = ref(0)
 const analysisStatus = ref('')
 const analysisResult = ref(null)
@@ -593,7 +594,6 @@ const selectedDetailChapter = ref(null)
 const currentDetailChapter = ref(null)
 const currentDetailChapterContent = ref('')
 const activeDetailTab = ref('content') // 默认显示完整内容
-const generatingSummary = ref(false)
 
 // 章节简读提示词
 const summaryPromptTemplate = ref(`You are a professional Chinese fiction editor. Write the summary in natural, idiomatic Simplified Chinese.
@@ -692,6 +692,8 @@ const getPlaceholder = () => {
 
 // 方法
 const resetBookAnalysis = () => {
+  analysisTask.stop()
+  summaryTask.stop()
   analysisResult.value = null
   detectedChapters.value = []
   selectedChapters.value = []
@@ -726,50 +728,60 @@ const startLocalChapterDetection = () => {
   ElMessage.success(`本地分章完成！共 ${chapters.length} 个章节`)
 }
 
+const analysisTask = useGenerationTask({
+  stream: useAIStream(),
+  source: () => [bookContent.value, selectedTemplate.value, [...selectedChapters.value], analysisStartWords.value, analysisEndWords.value],
+})
+const summaryTask = useGenerationTask({
+  stream: useAIStream(),
+  source: () => [bookContent.value, showChapterDetails.value, currentDetailChapter.value?.index,
+    currentDetailChapterContent.value, summaryPromptTemplate.value],
+})
+const analyzing = analysisTask.running
+const generatingSummary = summaryTask.running
+onBeforeUnmount(() => { analysisTask.dispose(); summaryTask.dispose() })
+
+const stopAnalysis = () => {
+  analysisTask.stop()
+  analysisStatus.value = '分析已停止'
+}
+
 const startAnalysis = async () => {
   if (importingFile.value || analyzing.value) return
   if (!selectedTemplate.value) {
     ElMessage.error('请选择分析模板')
     return
   }
-  
-  analyzing.value = true
-  analysisProgress.value = 0
-  analysisResult.value = ''
-  
-  // 初始化分析状态提示
-  ElMessage.info('开始AI拆书分析，请耐心等待...')
-  
   try {
-    // 步骤1: 文本预处理
-    analysisStatus.value = '文本预处理'
-    analysisProgress.value = 10
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // 步骤2: 准备分析数据
-    analysisStatus.value = '准备分析数据'
-    analysisProgress.value = 20
-    const analysisData = await prepareAnalysisData()
-    
-    // 步骤3: 调用AI分析
-    analysisStatus.value = 'AI深度分析中...'
+    const data = prepareAnalysisData()
+    const header = buildReportHeader(data)
+    analysisResult.value = header
     analysisProgress.value = 40
-    
-    // 生成分析结果
-    analysisResult.value = await generateAnalysisResult(analysisData)
-    analysisProgress.value = 100
-    analysisStatus.value = '分析完成'
-    analysisTime.value = new Date().toLocaleString()
-    
-    // 最终滚动到底部显示完整结果
-    scrollToBottom()
-    ElMessage.success('拆书分析完成！结果已生成，您可以编辑和导出。')
+    analysisStatus.value = 'AI深度分析中...'
+    await analysisTask.start({
+      prompt: buildBookAnalysisPrompt(data),
+      options: { type: 'content_generation' },
+      onText: (text, isCurrent) => {
+        analysisResult.value = header + text
+        analysisProgress.value = 40 + Math.min(55, text.length / 3000 * 55)
+        analysisStatus.value = `AI分析中... (已生成${text.length}字)`
+        scrollToBottom(isCurrent)
+      },
+      onSuccess: (text, isCurrent) => {
+        analysisResult.value = header + text + buildReportFooter(data)
+        analysisProgress.value = 100
+        analysisStatus.value = '分析完成'
+        analysisTime.value = new Date().toLocaleString()
+        scrollToBottom(isCurrent)
+        ElMessage.success('拆书分析完成！结果已生成，您可以编辑和导出。')
+      },
+      onError: error => {
+        analysisStatus.value = '分析失败'
+        ElMessage.error(`分析失败: ${error.message}`)
+      },
+    })
   } catch (error) {
-    console.error('拆书分析失败:', error)
     ElMessage.error(`分析失败: ${error.message}`)
-    analysisResult.value = `分析过程中出现错误：${error.message}\n\n请检查网络连接或API配置。`
-  } finally {
-    analyzing.value = false
   }
 }
 
@@ -786,14 +798,9 @@ const prepareAnalysisData = () => prepareBookAnalysis({
   encoding: fileFormatLabel.value,
 })
 
-const generateAnalysisResult = async (analysisData) => {
-  const { textToAnalyze, analysisInfo, chapterInfos, template, totalWordCount, fileName, encoding } = analysisData
-  
-  const prompt = buildBookAnalysisPrompt(analysisData)
-
-  try {
-    // 生成分析报告头部
-    const reportHeader = `《${template.name}报告》
+const buildReportHeader = (data) => {
+  const { textToAnalyze, analysisInfo, chapterInfos, template, totalWordCount, fileName, encoding } = data
+  return `《${template.name}报告》
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -815,8 +822,10 @@ ${chapterInfos.map((chapter, index) => `${index + 1}. ${chapter.title} (${chapte
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 `
+}
 
-    const reportFooter = `
+const buildReportFooter = ({ template, encoding }) => {
+  return `
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -829,42 +838,6 @@ ${chapterInfos.map((chapter, index) => `${index + 1}. ${chapter.title} (${chapte
 • API调用时间：${new Date().toISOString()}
 • 使用编码：${encoding.toUpperCase()}
 • 处理状态：成功`
-
-    // 初始化分析报告
-    analysisResult.value = reportHeader
-    console.log('初始化分析报告头部:', reportHeader.length, '字符')
-    
-    // 使用流式API调用
-    await novelStore.generateContentWithAPIStream(
-      '',  // keywords (不需要)
-      '',  // template (已包含在prompt中)
-      prompt,  // 使用outline参数传递完整prompt
-      4000,  // wordLimit
-      (chunk, fullContent) => {
-        // 实时更新分析结果
-        analysisResult.value = reportHeader + fullContent + reportFooter
-        console.log('流式更新:', fullContent.length, '字符')
-        
-        // 根据内容长度动态更新进度（40%-95%）
-        const contentLength = fullContent.length
-        const estimatedMaxLength = 3000 // 预估最大长度
-        const progressIncrement = Math.min(55, (contentLength / estimatedMaxLength) * 55)
-        analysisProgress.value = 40 + progressIncrement
-        
-        // 更新状态文本
-        analysisStatus.value = `AI分析中... (已生成${contentLength}字)`
-        
-        // 自动滚动到底部，显示最新内容
-        scrollToBottom()
-      }
-    )
-    
-    return analysisResult.value
-    
-  } catch (error) {
-    console.error('AI分析失败:', error)
-    throw new Error(`AI分析失败: ${error.message}`)
-  }
 }
 
 const _getTemplateName = () => {
@@ -873,8 +846,9 @@ const _getTemplateName = () => {
 }
 
 // 自动滚动到文本框底部
-const scrollToBottom = () => {
+const scrollToBottom = (isCurrent = () => true) => {
   nextTick(() => {
+    if (!isCurrent()) return
     if (analysisEditorRef.value) {
       const textarea = analysisEditorRef.value.textarea || analysisEditorRef.value.$el?.querySelector('textarea')
       if (textarea) {
@@ -1142,58 +1116,30 @@ const buildFullPrompt = () => {
 // AI生成章节简读
 const generateChapterSummaryWithAI = async () => {
   if (importingFile.value || generatingSummary.value) return
-  if (!currentDetailChapter.value || !currentDetailChapterContent.value) {
+  const chapter = currentDetailChapter.value
+  if (!chapter || !currentDetailChapterContent.value) {
     ElMessage.error('当前章节内容为空')
     return
   }
-  
   if (!summaryPromptTemplate.value.trim()) {
     ElMessage.error('请先设置提示词模板')
     return
   }
-  
-  generatingSummary.value = true
-  
-  try {
-    // 构建完整的AI提示词
-    const prompt = buildFullPrompt()
-    
-    // 调用AI生成简读
-    const summary = await novelStore.generateContent(prompt)
-    
-    // 更新章节简读
-    const chapterIndex = currentDetailChapter.value.index
-    const chapterInList = autoDetectedChapters.value.find(c => c.index === chapterIndex)
-    if (chapterInList) {
-      chapterInList.summary = summary.trim()
-      currentDetailChapter.value.summary = summary.trim()
-    }
-    
-    ElMessage.success('章节简读生成完成！')
-    
-  } catch (error) {
-    console.error('生成章节简读失败:', error)
-    ElMessage.error(`生成失败: ${error.message}`)
-  } finally {
-    generatingSummary.value = false
-  }
+  await summaryTask.start({
+    prompt: buildFullPrompt(),
+    options: { type: 'content_generation' },
+    onSuccess: summary => {
+      const target = autoDetectedChapters.value.find(c => c === chapter)
+      if (!target) return
+      target.summary = summary.trim()
+      ElMessage.success('章节简读生成完成！')
+    },
+    onError: error => ElMessage.error(`生成失败: ${error.message}`),
+  })
 }
 
-// 重新生成章节简读
-const regenerateChapterSummary = async () => {
-  if (!currentDetailChapter.value || importingFile.value || generatingSummary.value) return
-  
-  // 清空当前简读
-  currentDetailChapter.value.summary = ''
-  const chapterIndex = currentDetailChapter.value.index
-  const chapterInList = autoDetectedChapters.value.find(c => c.index === chapterIndex)
-  if (chapterInList) {
-    chapterInList.summary = ''
-  }
-  
-  // 重新生成
-  await generateChapterSummaryWithAI()
-}
+// Keep the previous digest until a replacement finishes successfully.
+const regenerateChapterSummary = generateChapterSummaryWithAI
 
 // 保存提示词模板到本地存储
 const saveSummaryPromptTemplate = () => {
