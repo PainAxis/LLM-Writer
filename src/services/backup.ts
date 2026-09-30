@@ -114,6 +114,7 @@ function validateValue(key: StorageKey, value: unknown): void {
       records(value, path, (item, p) => {
         check(number(item.id) && string(item.name) && string(item.persona), p)
         fields(item, ['defaultModel', 'createdAt', 'updatedAt'], string, p)
+        fields(item, ['contextPolicyMode'], v => v === 'global' || v === 'custom', p)
         if ('contextPolicy' in item) policy(item.contextPolicy, `${p}.contextPolicy`)
       })
       break

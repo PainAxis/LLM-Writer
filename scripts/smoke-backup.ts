@@ -50,7 +50,7 @@ const fixture: Partial<Record<StorageKey, unknown>> = {
   [StorageKeys.lastReadAnnouncementVersion]: 'v1',
   [StorageKeys.lastReadAnnouncementDate]: '2026-09-01',
   [StorageKeys.theme]: 'dark',
-  [StorageKeys.assistants]: [{ id: 1, name: '助手', persona: '人设', contextPolicy: policy }],
+  [StorageKeys.assistants]: [{ id: 1, name: '助手', persona: '人设', contextPolicyMode: 'custom', contextPolicy: policy }],
   [StorageKeys.assistantConversations]: { 1: [{ id: 'message', content: '对话', isUser: true, timestamp: '2026-09-01' }] },
   [StorageKeys.assistantSummaries]: { 1: '摘要' },
   [StorageKeys.contextPolicy]: policy,
@@ -84,6 +84,8 @@ async function main() {
     assert.deepEqual(Object.keys(category.data).sort(), [...BACKUP_GROUPS[group]].sort())
     assert.equal(await restoreBackup(category, [group]), 1)
   }
+  assert.throws(() => parseBackup({ format: 'llm-writer-backup', version: 2, data: { assistants: [{ id: 1, name: '助手', persona: '', contextPolicyMode: 'invalid' }] } }), /contextPolicyMode/)
+  assert.ok(parseBackup({ format: 'llm-writer-backup', version: 2, data: { assistants: [{ id: 1, name: '旧助手', persona: '', contextPolicy: policy }] } }))
   const novelsBefore = store.get(StorageKeys.novels)
   await restoreBackup({ novels: [], prompts: [] }, ['prompts'])
   assert.equal(store.get(StorageKeys.novels), novelsBefore)

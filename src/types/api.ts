@@ -44,12 +44,12 @@ export interface GenerateOptions {
 export interface ContextPolicy {
   /** 上下文预算上限（token），0 = 不限 */
   maxTokens: number
-  /** 上下文保留的最大对话轮数，0 = 不限 */
+  /** 上下文保留的最大消息条数（用户/助手各算一条），0 = 不限 */
   maxTurns: number
   strategy: 'summary' | 'truncation'
   /** 上下文达到有效预算的百分比时触发压缩（仅 summary 策略） */
   summaryThreshold: number
-  /** 压缩时保留原文的最近轮数 */
+  /** 压缩时保留原文的最近消息条数 */
   retainTurns: number
 }
 
@@ -61,6 +61,8 @@ export interface AssistantInfo {
   persona: string
   /** 按助手覆盖的默认模型，空 = 跟随全局活动配置 */
   defaultModel?: string
+  /** 缺省/历史数据跟随全局；显式 custom 才启用独立策略 */
+  contextPolicyMode?: 'global' | 'custom'
   contextPolicy: ContextPolicy
   createdAt: string
   updatedAt: string

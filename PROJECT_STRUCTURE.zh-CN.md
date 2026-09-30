@@ -55,6 +55,7 @@
 
 | 功能 | 模块与职责 |
 |------|------------|
+| AI 助手 | `stores/assistant.ts` 选择全局/独立策略并隔离会话及摘要归属；`utils/contextPolicy.ts` 归一化并选择策略；[策略说明](docs/assistant-context-policy.md) |
 | ShortStory | `useShortStoryWorkspace.ts`； `components/short-story/ShortStoryPromptSelector.vue`；`useShortStoryConfig.ts` 管理独立默认值和异步保存；`useShortStoryGeneration.ts` 管理独立可取消请求；`utils/shortStoryPrompts.ts` 构建提示词 |
 | BookAnalysis | `useBookAnalysisWorkspace.ts`； `components/book-analysis/BookFileImportPanel.vue`；`useBookAnalysisFile.ts` 管理最新导入请求和编码；`utils/bookAnalysisContext.ts` 处理分章、选择范围与提示词 |
 | NovelManagement | `useNovelManagementWorkspace.ts`； `components/novel-management/NovelMetadataForm.vue` 复用创建/编辑表单；`utils/novelList.ts` 处理筛选和不修改原集合的排序 |
