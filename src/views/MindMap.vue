@@ -2,33 +2,50 @@
   <div class="mindmap-page">
     <div class="mindmap-toolbar">
       <el-select
-        v-model="selectedNovelId"
+        :model-value="selectedNovelId"
+        :disabled="saving"
         filterable
         placeholder="选择小说"
         style="width: 260px"
-        @change="renderSelected"
+        @change="changeNovel"
       >
-        <el-option
-          v-for="novel in novels"
-          :key="novel.id"
-          :label="novel.title"
-          :value="novel.id"
-        />
+        <el-option v-for="novel in novels" :key="novel.id" :label="novel.title" :value="novel.id" />
       </el-select>
 
       <el-button size="default" :icon="Aim" :disabled="!mind" @click="fitView">适应画布</el-button>
-      <el-button size="default" :icon="Download" :disabled="!mind" :loading="exporting" @click="exportPng">
+      <el-button
+        size="default"
+        :icon="Download"
+        :disabled="!mind"
+        :loading="exporting"
+        @click="exportPng"
+      >
         导出 PNG
       </el-button>
 
+      <el-button v-if="!editing" :disabled="!activeNovel || !mind" @click="startEditing"
+        >编辑导图</el-button
+      >
+      <template v-else>
+        <el-button type="primary" :loading="saving" :disabled="!dirty" @click="saveEdits"
+          >保存修改</el-button
+        >
+        <el-button :disabled="saving" @click="cancelEditing">取消编辑</el-button>
+      </template>
+      <span v-if="editing" class="mindmap-stats"
+        >双击修改标题或名称；右键或 Tab 添加条目，Delete
+        删除。同一分类内可调整顺序。正文和其他字段保留。</span
+      >
       <span v-if="activeNovel" class="mindmap-stats">
-        章节 {{ activeNovel.chapterList?.length || 0 }} · 人物 {{ activeNovel.characters?.length || 0 }} · 世界观
-        {{ activeNovel.worldSettings?.length || 0 }} · 事件 {{ activeNovel.events?.length || 0 }} · 语料
+        章节 {{ activeNovel.chapterList?.length || 0 }} · 人物
+        {{ activeNovel.characters?.length || 0 }} · 世界观
+        {{ activeNovel.worldSettings?.length || 0 }} · 事件 {{ activeNovel.events?.length || 0 }} ·
+        语料
         {{ activeNovel.corpusData?.length || 0 }}
       </span>
     </div>
 
-    <div ref="mapContainer" class="mindmap-canvas">
+    <div ref="mapContainer" class="mindmap-canvas" :class="{ 'is-saving': saving }">
       <el-empty
         v-if="!activeNovel && novels.length === 0"
         description="暂无小说数据，请先在「小说列表」创建作品"
@@ -46,101 +63,213 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { onMounted, onUnmounted, nextTick, ref, shallowRef } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Aim, Download } from '@element-plus/icons-vue'
 import { storageGet, StorageKeys } from '@/utils/storage'
-import { buildMindMapData, type NovelLike } from '@/utils/mindmapData'
+import { buildMindMapData } from '@/utils/mindmapData'
+import { buildEditableMindMapData, mindMapGroupId, MIND_MAP_SECTIONS } from '@/utils/mindmapEditing'
+import { useMindMapDraft } from '@/composables/useMindMapDraft'
+import type { WriterNovel } from '@/types/writer'
 import type MindElixirCtor from 'mind-elixir'
+import type { NodeObj, Topic } from 'mind-elixir'
 
-/** mind-elixir 实例类型（运行时动态加载，首屏零开销） */
 type MindElixirInstance = InstanceType<typeof MindElixirCtor>
-
-interface NovelSummary extends NovelLike {
-  id: number
-  title: string
-}
-
-const novels = ref<NovelSummary[]>(storageGet<NovelSummary[]>(StorageKeys.novels, []))
-const selectedNovelId = ref<number>(0)
-const activeNovel = ref<NovelSummary | null>(null)
-
+const novels = ref<WriterNovel[]>(storageGet<WriterNovel[]>(StorageKeys.novels, []))
+const selectedNovelId = ref(0)
+const activeNovel = ref<WriterNovel | null>(null)
 const mapContainer = ref<HTMLElement | null>(null)
-const mind = ref<MindElixirInstance | null>(null)
+const mind = shallowRef<MindElixirInstance | null>(null)
 const exporting = ref(false)
+const draft = useMindMapDraft()
+const { editing, dirty, saving } = draft
+const groupIds = new Set(
+  Object.keys(MIND_MAP_SECTIONS).map((section) =>
+    mindMapGroupId(section as keyof typeof MIND_MAP_SECTIONS)
+  )
+)
+let disposed = false
+let renderRevision = 0
+let creating: Promise<MindElixirInstance | null> | null = null
+const isEntity = (node?: NodeObj) => !!node?.parent && groupIds.has(node.parent.id)
+const groupOf = (node?: NodeObj) => (isEntity(node) ? node!.parent!.id : null)
+const selectedTopic = (topic?: Topic) => topic ?? mind.value?.currentNode ?? undefined
 
 onMounted(async () => {
-  if (novels.value.length > 0) {
+  window.addEventListener('beforeunload', beforeUnload)
+  if (novels.value.length) {
     selectedNovelId.value = novels.value[0].id
     await renderSelected()
   }
 })
-
 onUnmounted(() => {
-  try {
-    mind.value?.destroy?.()
-  } catch {
-    // 实例可能未完成初始化
-  }
+  disposed = true
+  renderRevision++
+  window.removeEventListener('beforeunload', beforeUnload)
+  mind.value?.destroy()
   mind.value = null
 })
-
-async function ensureInstance(): Promise<MindElixirInstance | null> {
-  if (mind.value || !mapContainer.value) return mind.value
-  const MindElixir = (await import('mind-elixir')).default
-  const instance = new MindElixir({
-    el: mapContainer.value,
-    locale: 'zh_CN',
-    // 只读模式：关闭一切编辑入口
-    editable: false,
-    draggable: false,
-    contextMenu: false,
-    toolBar: false,
-    keypress: false,
-    overflowHidden: true,
-  })
-  instance.disableEdit()
-  mind.value = instance
-  return instance
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (!dirty.value && !saving.value) return
+  event.preventDefault()
+  event.returnValue = ''
 }
-
+async function allowDiscard(): Promise<boolean> {
+  if (saving.value) return false
+  if (!dirty.value) return true
+  try {
+    await ElMessageBox.confirm('放弃未保存的导图修改？', '取消编辑', {
+      confirmButtonText: '放弃修改',
+      cancelButtonText: '继续编辑',
+      type: 'warning',
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+onBeforeRouteLeave(async () => {
+  if (!(await allowDiscard())) return false
+  draft.cancel()
+  return true
+})
+async function changeNovel(id: number) {
+  if (id === selectedNovelId.value || !(await allowDiscard())) return
+  draft.cancel()
+  selectedNovelId.value = id
+  novels.value = storageGet<WriterNovel[]>(StorageKeys.novels, [])
+  await renderSelected()
+}
+async function ensureInstance(): Promise<MindElixirInstance | null> {
+  if (mind.value) return mind.value
+  if (creating) return creating
+  const container = mapContainer.value
+  if (!container || disposed) return null
+  creating = (async () => {
+    const MindElixir = (await import('mind-elixir')).default
+    if (disposed || mapContainer.value !== container) return null
+    const instance = new MindElixir({
+      el: container,
+      locale: 'zh_CN',
+      editable: true,
+      draggable: true,
+      contextMenu: true,
+      contextMenuOption: { focus: false, link: false },
+      toolBar: false,
+      keypress: true,
+      overflowHidden: false,
+      newTopicName: '新条目',
+      before: {
+        beginEdit: (element) => !groupIds.has(selectedTopic(element)?.nodeObj.id ?? ''),
+        setNodeTopic: (element) => !groupIds.has(element.nodeObj.id),
+        addChild: (element) => groupIds.has(selectedTopic(element)?.nodeObj.id ?? ''),
+        insertSibling: (_position, element) => isEntity(selectedTopic(element)?.nodeObj),
+        insertParent: () => false,
+        removeNode: (element) => isEntity(selectedTopic(element)?.nodeObj),
+        removeNodes: (elements) => elements.every((element) => isEntity(element.nodeObj)),
+        copyNode: () => false,
+        copyNodes: () => false,
+        moveUpNode: (element) => isEntity(selectedTopic(element)?.nodeObj),
+        moveDownNode: (element) => isEntity(selectedTopic(element)?.nodeObj),
+        moveNodeIn: (elements, target) =>
+          groupIds.has(target.nodeObj.id) &&
+          elements.every((element) => groupOf(element.nodeObj) === target.nodeObj.id),
+        moveNodeBefore: (elements, target) =>
+          isEntity(target.nodeObj) &&
+          elements.every((element) => groupOf(element.nodeObj) === groupOf(target.nodeObj)),
+        moveNodeAfter: (elements, target) =>
+          isEntity(target.nodeObj) &&
+          elements.every((element) => groupOf(element.nodeObj) === groupOf(target.nodeObj)),
+      },
+    })
+    instance.bus.addListener('operation', (operation) => {
+      if (operation.name !== 'beginEdit') draft.markDirty()
+    })
+    mind.value = instance
+    return instance
+  })()
+  try {
+    return await creating
+  } finally {
+    creating = null
+  }
+}
 async function renderSelected(): Promise<void> {
+  const revision = ++renderRevision
   const novel = novels.value.find((item) => item.id === selectedNovelId.value) ?? null
   activeNovel.value = novel
   if (!novel) return
-
   const instance = await ensureInstance()
-  if (!instance) return
-
-  const data = buildMindMapData(novel)
-  if (!instance.nodes || instance.nodes.childElementCount === 0) {
-    instance.init(data)
-  } else {
-    instance.refresh(data)
-  }
+  if (!instance || disposed || revision !== renderRevision) return
+  const data = editing.value ? buildEditableMindMapData(novel) : buildMindMapData(novel)
+  if (!instance.nodes || instance.nodes.childElementCount === 0) instance.init(data)
+  else instance.refresh(data)
+  if (editing.value) instance.enableEdit()
+  else instance.disableEdit()
   fitView()
 }
-
-function fitView(): void {
-  if (!mind.value) return
+async function startEditing() {
+  if (!activeNovel.value || saving.value) return
+  draft.begin(activeNovel.value)
+  await renderSelected()
+}
+async function cancelEditing() {
+  if (!(await allowDiscard())) return
+  draft.cancel()
+  novels.value = storageGet<WriterNovel[]>(StorageKeys.novels, [])
+  await renderSelected()
+}
+async function saveEdits() {
+  if (!mind.value || saving.value) return
+  mapContainer.value?.querySelector<HTMLElement>('#input-box')?.blur()
+  await nextTick()
+  const data = mind.value.getData()
   try {
-    mind.value.scale(1)
-    mind.value.toCenter()
+    const { changes } = draft.prepare(data)
+    if (changes.removed) {
+      try {
+        await ElMessageBox.confirm(
+          `将删除 ${changes.removed} 个条目${changes.removedChapters ? `，其中 ${changes.removedChapters} 个章节的正文也会删除` : ''}。确认保存？`,
+          '确认删除',
+          {
+            confirmButtonText: '保存并删除',
+            cancelButtonText: '继续编辑',
+            type: 'warning',
+          }
+        )
+      } catch {
+        return
+      }
+    }
+    mind.value.disableEdit()
+    await draft.save(data)
+    draft.cancel()
+    novels.value = storageGet<WriterNovel[]>(StorageKeys.novels, [])
+    await renderSelected()
+    ElMessage.success('导图修改已保存')
   } catch (error) {
-    console.warn('[mindmap] 画布适配失败:', error)
+    ElMessage.error(error instanceof Error ? error.message : String(error))
+  } finally {
+    if (editing.value && !disposed) mind.value?.enableEdit()
   }
 }
-
+function fitView(): void {
+  if (!mind.value) return
+  mind.value.scale(1)
+  mind.value.toCenter()
+}
 async function exportPng(): Promise<void> {
   if (!mind.value || !activeNovel.value) return
   exporting.value = true
   try {
     const { downloadImage } = await import('@mind-elixir/export-mindmap')
+    if (disposed || !mind.value) return
     await downloadImage(mind.value, 'png')
-    ElMessage.success('导图已导出为 PNG')
+    if (!disposed) ElMessage.success('导图已导出为 PNG')
   } catch (error) {
-    console.error('[mindmap] 导出失败:', error)
-    ElMessage.error(`导出失败: ${(error as Error).message}`)
+    if (!disposed)
+      ElMessage.error(`导出失败: ${error instanceof Error ? error.message : String(error)}`)
   } finally {
     exporting.value = false
   }
@@ -176,6 +305,15 @@ async function exportPng(): Promise<void> {
   background: #f7f8fa;
   position: relative;
   overflow: hidden;
+}
+
+.mindmap-canvas :deep(#cm-add_parent),
+.mindmap-canvas :deep(#cm-summary) {
+  display: none;
+}
+
+.mindmap-canvas.is-saving {
+  pointer-events: none;
 }
 
 .mindmap-empty {

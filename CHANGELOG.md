@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Added editable mind-map titles/entities with validated add/delete/reorder, retained body/metadata preservation, repaired references, conflict detection, awaited saves and retry-safe identities.
+
 - Isolated book analysis/digest, novel description and tool generation requests; stop, source changes, dialog closure and unmount abort streams and reject late writes.
 - Chapter digests retain the previous result until a replacement succeeds; closed novel forms discard pending cover reads.
 - Removed simulated tool progress timers and added lifecycle module/browser regressions.

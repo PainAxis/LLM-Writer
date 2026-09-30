@@ -25,7 +25,7 @@
 - **Corpus library**: category management, title/content search, **context-aware material recommendation with one-click injection** (character bigram relevance scoring)
 - **Event line**: chapter association, multi-select participating characters, list / timeline views
 - **Writing tools library**: 10 generators — outline / characters / ideas / titles / genre / worldbuilding / golden finger / golden opening / synopsis / conflict
-- **Mind map**: read-only mind map generated from novel data (chapters / events / characters / worldbuilding / corpus), with PNG export
+- **Mind map**: mind map generated from novel data (chapters / events / characters / worldbuilding / corpus), with editable titles/entities, validated save/cancel and PNG export
 
 ### AI & Utilities
 - **AI assistant system**: multi-persona assistants, per-assistant isolated chat history, streaming chat
