@@ -99,7 +99,7 @@
         <div class="header-right">
           <!-- 主题切换：light / dark / system -->
           <el-tooltip :content="themeTooltip" placement="bottom">
-            <el-button class="theme-toggle" @click="onToggleTheme">
+            <el-button class="theme-toggle" :aria-label="themeTooltip" @click="onToggleTheme">
               <el-icon><Sunny v-if="themeMode === 'light'" /><Moon v-else-if="themeMode === 'dark'" /><Monitor v-else /></el-icon>
             </el-button>
           </el-tooltip>

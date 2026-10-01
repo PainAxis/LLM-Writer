@@ -11,3 +11,5 @@ Chapter reorder/delete adjusts numeric event chapter references. Deleting charac
 Editing is disabled during persistence. Switching novels or leaving the route requires discarding a dirty draft; browser unload is guarded while dirty or saving. Cancelling an edit before saving writes nothing. Rendering and dynamic library initialization reject stale selection/unmount work.
 
 Validation: `npm run smoke:mindmap-editing` covers identity, structure, preserved data, repaired references, conflicts and asynchronous save/retry. Chromium regression covers graph editing, entity creation/removal, deletion confirmation, reload and draft cancellation through the visible UI.
+
+The canvas follows the app's light/dark/system theme, including live system color-scheme changes. Theme updates apply CSS variables without refreshing the graph, preserving the active selection and unsaved nodes. PNG export uses the active theme background. Chromium regression checks draft preservation, live system changes, save/reload and the actual background pixels of exported light/dark PNGs.

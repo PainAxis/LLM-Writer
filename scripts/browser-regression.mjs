@@ -6,6 +6,7 @@
  * All app state changes go through the visible UI; storage evaluation is read-only.
  */
 import assert from 'node:assert/strict'
+import { inflateSync } from 'node:zlib'
 import { Buffer } from 'node:buffer'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -864,6 +865,63 @@ try {
     const saved = await exportBackup('unified-corpus-backup.json')
     assert.deepEqual(saved.data.data.novels.find(n => n.id === novelId).corpusData, portable.items)
     await screenshot('19-unified-corpus-backup')
+  })
+
+  await step('20 Follow light/dark/system themes without losing mind-map drafts', async () => {
+    await page.emulateMedia({ colorScheme: 'light' })
+    await go('mindmap')
+    const toggle = page.locator('.theme-toggle')
+    for (let i = 0; i < 3 && await toggle.getAttribute('aria-label') !== '当前：亮色模式（点击切换）'; i++) await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-label', '当前：亮色模式（点击切换）')
+    const canvas = page.locator('.mindmap-canvas .map-canvas')
+    const background = () => canvas.evaluate(node => getComputedStyle(node).backgroundColor)
+    await expect.poll(background).toBe('rgb(246, 246, 246)')
+    const original = await page.evaluate(() => JSON.parse(localStorage.getItem('novels'))[0].title)
+    await page.getByRole('button', { name: '编辑导图', exact: true }).click()
+    const rootTopic = page.locator('.mindmap-canvas me-root me-tpc')
+    await rootTopic.dblclick()
+    const input = page.locator('#input-box[contenteditable="true"]')
+    await input.fill('主题切换保留草稿')
+    await input.press('Enter')
+    await expect(page.getByRole('button', { name: '保存修改', exact: true })).toBeEnabled()
+    await toggle.click()
+    await expect.poll(background).toBe('rgb(37, 37, 38)')
+    await expect(rootTopic).toHaveText('主题切换保留草稿')
+    const readPixel = async name => {
+      const downloading = page.waitForEvent('download')
+      await page.getByRole('button', { name: '导出 PNG', exact: true }).click()
+      const download = await downloading
+      const target = path.join(artifacts, name)
+      await download.saveAs(target)
+      const png = await readFile(target)
+      assert.equal(png.subarray(1, 4).toString(), 'PNG')
+      const chunks = []
+      for (let offset = 8; offset < png.length;) {
+        const length = png.readUInt32BE(offset)
+        if (png.subarray(offset + 4, offset + 8).toString() === 'IDAT') chunks.push(png.subarray(offset + 8, offset + 8 + length))
+        offset += length + 12
+      }
+      // The first pixel has zero left/up neighbours for every PNG row filter.
+      return [...inflateSync(Buffer.concat(chunks)).subarray(1, 4)]
+    }
+    assert.ok((await readPixel('20-dark-mindmap.png')).every(value => value < 100))
+    await screenshot('20-dark-mindmap-draft')
+    await toggle.click() // dark -> system
+    await expect(toggle).toHaveAttribute('aria-label', '当前：跟随系统（点击切换）')
+    await expect.poll(background).toBe('rgb(246, 246, 246)')
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await expect(page.locator('html')).toHaveClass(/dark/)
+    await expect.poll(background).toBe('rgb(37, 37, 38)')
+    await page.emulateMedia({ colorScheme: 'light' })
+    await expect.poll(background).toBe('rgb(246, 246, 246)')
+    await expect(rootTopic).toHaveText('主题切换保留草稿')
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('novels'))[0].title), original)
+    assert.ok((await readPixel('20-light-mindmap.png')).every(value => value > 200))
+    await page.getByRole('button', { name: '保存修改', exact: true }).click()
+    await expect(page.getByText('导图修改已保存', { exact: true })).toBeVisible()
+    await page.reload()
+    await dismissAnnouncement()
+    await expect(page.locator('.mindmap-canvas me-root me-tpc')).toContainText('主题切换保留草稿')
   })
 
   assert.deepEqual(errors, [], 'The browser must not raise uncaught errors or unsaved-data navigation dialogs')

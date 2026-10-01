@@ -55,15 +55,16 @@
 
 | 功能 | 模块与职责 |
 |------|------------|
-| AI 助手 | `stores/assistant.ts` 选择全局/独立策略并隔离会话及摘要归属；`utils/contextPolicy.ts` 归一化并选择策略；[策略说明](docs/assistant-context-policy.md) |
+| AI 助手 | `stores/assistant.ts` 选择全局/独立策略并隔离会话及摘要归属；`useVirtualMessages.ts` 测量可见消息、保持滚动锚点并跟随新回复；`utils/contextPolicy.ts` 归一化并选择策略；[策略说明](docs/assistant-context-policy.md) |
 | ShortStory | `useShortStoryWorkspace.ts`； `components/short-story/ShortStoryPromptSelector.vue`；`useShortStoryConfig.ts` 管理独立默认值和异步保存；`useShortStoryGeneration.ts` 管理独立可取消请求；`utils/shortStoryPrompts.ts` 构建提示词 |
 | BookAnalysis | `useBookAnalysisWorkspace.ts`； `components/book-analysis/BookFileImportPanel.vue`；`useBookAnalysisFile.ts` 管理最新导入请求和编码；`utils/bookAnalysisContext.ts` 处理分章、选择范围与提示词 |
 | NovelManagement | `useNovelManagementWorkspace.ts`； `components/novel-management/NovelMetadataForm.vue` 复用创建/编辑表单；`utils/novelList.ts` 处理筛选和不修改原集合的排序 |
 | ToolsLibrary | `useToolsLibraryWorkspace.ts`； `components/tools/ToolCatalog.vue`；`config/tools.ts` 统一工具定义；`utils/toolForms.ts` 校验必填项；`utils/toolPrompts.ts` 处理模板及所选小说/章节上下文 |
+| Writer 语料 | 每部小说的 `corpusData` 为唯一来源；`useWriterMaterialCrud.ts` 执行原子导入，`utils/corpusTransfer.ts` 校验旧版和独立语料文件；[格式](docs/corpus.md) |
 | 思维导图 | `useMindMapDraft.ts` 检查来源冲突并等待保存；`utils/mindmapEditing.ts` 生成编辑快照、校验并保留实体字段；[编辑协议](docs/mindmap-editing.md) |
 | 编辑器销毁 | `utils/destroyEditor.ts` 在销毁 wangEditor 前取消待执行的选区节流回调 |
 
-表中路径相对于 `src/`；`use*.ts` 控制器位于 `src/composables/`。四个父页面使用 `lang="ts"` 组装界面，各自的 Workspace 控制器负责响应式状态、生成与持久化编排；`useGenerationTask.ts` 统一请求归属和取消。
+表中路径相对于 `src/`；`use*.ts` 控制器位于 `src/composables/`。全部父页面使用 `lang="ts"`，由统一视图语言规则强制检查；四个功能的 Workspace 控制器负责响应式状态、生成与持久化编排；`useGenerationTask.ts` 统一请求归属和取消。
 
 ## 校验与发布
 
