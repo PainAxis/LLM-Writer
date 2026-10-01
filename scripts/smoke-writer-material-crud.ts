@@ -321,6 +321,35 @@ async function testGlobalMutationLock() {
   console.log('✓ 四类素材共用一个事务锁，路由可等待当前完整快照保存')
 }
 
+async function testLegacyCorpusTransfer() {
+  const f = fixture()
+  const file = { text: async () => JSON.stringify([{ id: 13, content: '旧版文本', createdAt: '2020-01-01', extension: 'kept' }]) }
+  f.save(false)
+  assert.equal(await f.crud.importCorpusFile(file), false)
+  assert.equal(f.corpusData.value.length, 1, 'Failed persistence restores the previous corpus')
+  f.save(true)
+  assert.equal(await f.crud.importCorpusFile(file), true)
+  assert.equal(f.corpusData.value.length, 2)
+  assert.notEqual(f.corpusData.value[1].id, 13, 'Import collisions never overwrite existing records')
+  assert.equal(f.corpusData.value[1].extension, 'kept')
+  assert.equal(await f.crud.importCorpusFile({ text: async () => '[null]' }), false)
+  assert.equal(f.corpusData.value.length, 2)
+
+  let finishRead!: (text: string) => void
+  const reading = f.crud.importCorpusFile({ text: () => new Promise(resolve => { finishRead = resolve }) })
+  assert.equal(f.crud.isMutating.value, true, 'File decoding participates in the shared mutation barrier')
+  const barrier = f.crud.waitForMutation()
+  assert.equal(await f.crud.importGeneratedCharacters([{ id: 31, name: 'blocked' }]), false)
+  f.currentNovel.value = { id: 2, title: 'Another project' }
+  f.corpusData.value = [{ id: 32, content: 'Other corpus' }]
+  finishRead(await file.text())
+  assert.equal(await barrier, false)
+  assert.equal(await reading, false)
+  assert.deepEqual(f.corpusData.value, [{ id: 32, content: 'Other corpus' }])
+  assert.equal(f.crud.isMutating.value, false)
+  console.log('✓ Legacy corpus import is atomic, awaited, collision-safe and tied to the original project')
+}
+
 async function main() {
   await testCreateTransactions()
   await testEditDraftIsolationAndRollback()
@@ -328,6 +357,7 @@ async function main() {
   await testGeneratedMaterialImports()
   await testNovelRaceGuards()
   await testGlobalMutationLock()
+  await testLegacyCorpusTransfer()
   console.log('\n=== ALL WRITER MATERIAL CRUD TESTS PASSED ===')
 }
 

@@ -57,7 +57,8 @@
     "smoke:mindmap-editing": "node --import tsx scripts/smoke-mindmap-editing.ts",
     "smoke:assistant-policy": "node --import tsx scripts/smoke-assistant-policy.ts",
     "smoke:legacy-view-data": "node --import tsx scripts/smoke-legacy-view-data.ts",
-    "smoke:virtual-messages": "node --import tsx scripts/smoke-virtual-messages.ts"
+    "smoke:virtual-messages": "node --import tsx scripts/smoke-virtual-messages.ts",
+    "smoke:corpus-transfer": "node --import tsx scripts/smoke-corpus-transfer.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
