@@ -3,10 +3,15 @@
     <template #header>
       <div class="card-header">
         <span>📚 语料库</span>
-        <el-button size="small" type="primary" @click="emit('add')">
+        <div class="transfer-actions">
+          <input ref="fileInput" type="file" accept=".json,application/json" aria-label="导入语料文件" hidden @change="importFile" />
+          <el-button size="small" :disabled="busy" @click="fileInput?.click()">导入</el-button>
+          <el-button size="small" :disabled="busy || !corpusData.length" @click="exportFile">导出</el-button>
+        <el-button size="small" type="primary" :disabled="busy" @click="emit('add')">
           <el-icon><Plus /></el-icon>
           新增
         </el-button>
+        </div>
       </div>
     </template>
 
@@ -34,7 +39,7 @@
       <div v-for="corpus in filteredCorpusData" :key="corpus.id" class="corpus-item">
         <div class="corpus-content">
           <div class="corpus-header">
-            <h4>{{ corpus.title }}</h4>
+            <h4>{{ corpus.title || corpus.content.slice(0, 32) }}</h4>
             <el-tag :type="getCorpusType(corpus.type)">{{ getCorpusTypeText(corpus.type) }}</el-tag>
             <el-tag v-if="getCorpusCategory(corpus)" size="small" effect="plain">
               {{ getCorpusCategory(corpus) }}
@@ -53,8 +58,8 @@
           </el-tooltip>
         </div>
         <div class="corpus-actions">
-          <el-button size="small" @click="emit('edit', corpus)">编辑</el-button>
-          <el-button size="small" type="danger" @click="emit('delete', corpus)">删除</el-button>
+          <el-button size="small" :disabled="busy" @click="emit('edit', corpus)">编辑</el-button>
+          <el-button size="small" type="danger" :disabled="busy" @click="emit('delete', corpus)">删除</el-button>
         </div>
       </div>
 
@@ -64,7 +69,7 @@
 
       <div v-if="corpusData.length === 0" class="empty-state">
         <p>暂无语料数据</p>
-        <el-button size="small" @click="emit('add')">添加第一个语料</el-button>
+        <el-button size="small" :disabled="busy" @click="emit('add')">添加第一个语料</el-button>
       </div>
     </div>
   </el-card>
@@ -72,19 +77,37 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { createCorpusExport } from '@/utils/corpusTransfer'
 import { Plus, Search } from '@element-plus/icons-vue'
 import type { TagProps } from 'element-plus'
 import type { WriterCorpusItem, WriterCorpusType } from '@/types/writer'
 
 const props = defineProps<{
   corpusData: readonly WriterCorpusItem[]
+  busy?: boolean
 }>()
 
 const emit = defineEmits<{
+  import: [file: File]
   add: []
   edit: [corpus: WriterCorpusItem]
   delete: [corpus: WriterCorpusItem]
 }>()
+
+const fileInput = ref<HTMLInputElement | null>(null)
+function importFile() {
+  const file = fileInput.value?.files?.[0]
+  if (file && !props.busy) emit('import', file)
+  if (fileInput.value) fileInput.value.value = ''
+}
+function exportFile() {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(createCorpusExport(props.corpusData), null, 2)], { type: 'application/json' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'LLM-Writer-corpus.json'
+  link.click()
+  URL.revokeObjectURL(url)
+}
 
 const corpusFilter = ref('')
 const corpusSearch = ref('')
@@ -145,6 +168,11 @@ const filteredCorpusData = computed<WriterCorpusItem[]>(() => {
   align-items: center;
   justify-content: space-between;
   font-weight: 600;
+}
+
+.transfer-actions {
+  display: flex;
+  gap: 4px;
 }
 
 .corpus-toolbar {

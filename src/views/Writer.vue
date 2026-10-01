@@ -70,6 +70,8 @@
         <div v-show="activeTab === 'corpus'" class="panel-content">
           <CorpusPanel
             :corpus-data="corpusData"
+            :busy="materialCrud.isMutating.value"
+            @import="materialCrud.importCorpusFile"
             @add="addCorpus"
             @edit="editCorpus"
             @delete="deleteCorpus"

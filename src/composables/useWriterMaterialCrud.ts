@@ -1,3 +1,4 @@
+import { parseCorpus, mergeCorpus } from '@/utils/corpusTransfer'
 import { computed, ref, watch, type Ref } from 'vue'
 import type {
   WriterChapter,
@@ -546,6 +547,36 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
     }
   }
 
+  const importCorpusFile = (file: { text: () => Promise<string> }): Promise<boolean> => {
+    const context = captureNovelContext()
+    if (!context || isAnyMaterialMutation()) return Promise.resolve(false)
+    isMutatingCorpus.value = true
+    const request = (async () => {
+      try {
+        const imported = parseCorpus(JSON.parse(await file.text()))
+        if (!isCurrentNovel(context)) return false
+        if (!imported.length) throw new Error('语料文件为空')
+        const previous = options.corpusData.value
+        options.corpusData.value = mergeCorpus(previous, imported)
+        const optimistic = options.corpusData.value
+        const rollback = () => {
+          if (options.corpusData.value === optimistic) options.corpusData.value = previous
+        }
+        if (!(await performPersistence(context, rollback))) return false
+        options.notify.success(`已导入 ${imported.length} 条语料`)
+        return true
+      } catch (error) {
+        if (isCurrentNovel(context)) options.notify.warning(error instanceof Error ? error.message : '语料导入失败')
+        return false
+      } finally {
+        isMutatingCorpus.value = false
+      }
+    })()
+    pendingMutation = request
+    void request.then(() => { if (pendingMutation === request) pendingMutation = null })
+    return request
+  }
+
   const deleteCorpus = async (corpus: WriterCorpusItem) => {
     const context = captureNovelContext()
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
@@ -691,7 +722,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
     addCharacter, editCharacter, saveCharacter, deleteCharacter, importGeneratedCharacters,
     addWorldSetting, editWorldSetting, saveWorldSetting, deleteWorldSetting, duplicateWorldSetting,
     importGeneratedWorldSettings,
-    addCorpus, editCorpus, saveCorpus, deleteCorpus,
+    addCorpus, editCorpus, saveCorpus, deleteCorpus, importCorpusFile,
     addEvent, editEvent, saveEvent, deleteEvent,
   }
 }

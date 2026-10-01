@@ -17,7 +17,8 @@ Completed foundations:
 
 - Assistant message lists use measured virtual rows and preserve scroll intent while streaming; full history remains in context processing and backups.
 
+- Corpus has one source in each novel's `corpusData`; Writer imports legacy standalone JSON, exports portable files and waits for atomic persistence. See [corpus data](docs/corpus.md).
+
 Further candidates:
 
-- Consolidate the legacy store corpus and Writer's `corpusData`.
 - Adjust the mind-map canvas background for dark mode.

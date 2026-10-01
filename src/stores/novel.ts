@@ -20,11 +20,6 @@ export interface ChatEntry {
   timestamp: string
 }
 
-export interface CorpusItem {
-  id: number
-  content: string
-  createdAt: string
-}
 
 export interface Character {
   id: number
@@ -67,7 +62,6 @@ export const useNovelStore = defineStore('novel', () => {
   const selectedTemplate = ref<TemplateInfo | null>(null)
   const keywords = ref('')
   const isGenerating = ref(false)
-  const corpus = ref<CorpusItem[]>([])
   const characters = ref<Character[]>([])
   const worldSettings = ref<WorldSetting[]>([])
 
@@ -225,63 +219,6 @@ export const useNovelStore = defineStore('novel', () => {
 
   const setGenerating = (status: boolean) => {
     isGenerating.value = status
-  }
-
-  // ---------- 语料库 ----------
-  const addCorpus = (text: string) => {
-    corpus.value.push({
-      id: generateUniqueId(),
-      content: text,
-      createdAt: new Date().toISOString(),
-    })
-  }
-
-  const removeCorpus = (id: number) => {
-    const index = corpus.value.findIndex((item) => item.id === id)
-    if (index > -1) {
-      corpus.value.splice(index, 1)
-    }
-  }
-
-  const addCorpusFromFile = async (file: File) => {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const content = e.target?.result as string
-        addCorpus(content)
-        resolve(content)
-      }
-      reader.onerror = reject
-      reader.readAsText(file)
-    })
-  }
-
-  const exportCorpus = () => {
-    const data = JSON.stringify(corpus.value, null, 2)
-    const blob = new Blob([data], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'corpus.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const importCorpus = async (file: File) => {
-    return new Promise<CorpusItem[]>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        try {
-          const data = JSON.parse(e.target?.result as string) as CorpusItem[]
-          corpus.value = data
-          resolve(data)
-        } catch {
-          reject(new Error('语料库文件格式错误'))
-        }
-      }
-      reader.onerror = reject
-      reader.readAsText(file)
-    })
   }
 
   // ---------- 本地文本分析 ----------
@@ -549,26 +486,6 @@ export const useNovelStore = defineStore('novel', () => {
     }
   }
 
-  const generatePersonalizedContent = async (prompt: string) => {
-    assertApiConfigured()
-
-    if (corpus.value.length === 0) {
-      throw new Error('请先添加语料库内容')
-    }
-
-    setGenerating(true)
-    try {
-      const result = await apiService.generatePersonalizedContent(prompt, corpus.value)
-      setGeneratedContent(result)
-      return result
-    } catch (error) {
-      console.error('生成个性化内容失败:', error)
-      throw error
-    } finally {
-      setGenerating(false)
-    }
-  }
-
   const generateContentWithAPI = async (keywords: string, template: TemplateInfo | null, outline: string, wordLimit: number) => {
     assertApiConfigured()
 
@@ -643,7 +560,6 @@ export const useNovelStore = defineStore('novel', () => {
     selectedTemplate,
     keywords,
     isGenerating,
-    corpus,
     characters,
     worldSettings,
     articleStats,
@@ -677,8 +593,6 @@ export const useNovelStore = defineStore('novel', () => {
     setTemplate,
     setKeywords,
     setGenerating,
-    addCorpus,
-    removeCorpus,
     addCharacter,
     removeCharacter,
     addWorldSetting,
@@ -696,12 +610,8 @@ export const useNovelStore = defineStore('novel', () => {
     sendChatMessageWithAPI,
     generateSummaryWithAPI,
     getWritingAdviceWithAPI,
-    generatePersonalizedContent,
     generateContentWithAPI,
     generateContentWithAPIStream,
-    addCorpusFromFile,
-    exportCorpus,
-    importCorpus,
     setGeneratingSummary,
     setArticleSummary,
     generateContent,
