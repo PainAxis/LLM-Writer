@@ -176,7 +176,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { toDate } from '@/utils/dates'
+import type { WriterTimestamp } from '@/types/writer'
+import type { FormInstance, FormRules } from 'element-plus'
+import type { GenreDefinition } from '@/types/management'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
@@ -185,10 +189,10 @@ import {
 } from '@element-plus/icons-vue'
 
 // 响应式数据
-const genres = ref([])
+const genres = ref<GenreDefinition[]>([])
 const showCreateDialog = ref(false)
-const editingGenre = ref(null)
-const formRef = ref()
+const editingGenre = ref<GenreDefinition | null>(null)
+const formRef = ref<FormInstance>()
 const tagInput = ref('')
 const isSaving = ref(false)
 
@@ -197,12 +201,12 @@ const genreForm = ref({
   code: '',
   name: '',
   prompt: '',
-  tags: [],
+  tags: [] as string[],
   examples: ''
 })
 
 // 表单验证规则
-const genreRules = {
+const genreRules: FormRules = {
   code: [
     { required: true, message: '请输入类型代码', trigger: 'blur' },
     { pattern: /^[a-zA-Z0-9_-]+$/, message: '代码只能包含字母、数字、下划线和横线', trigger: 'blur' },
@@ -217,14 +221,14 @@ const genreRules = {
 }
 
 // 验证代码唯一性
-function validateCodeUnique(rule, value, callback) {
+function validateCodeUnique(_rule: unknown, value: string, callback: (error?: Error) => void) {
   if (!value) {
     callback()
     return
   }
   
   const existingGenre = genres.value.find(g => 
-    g.code === value && (!editingGenre.value || g.code !== editingGenre.value.code)
+    g.code === value && (!editingGenre.value || g.code !== editingGenre.value?.code)
   )
   
   if (existingGenre) {
@@ -304,7 +308,7 @@ const loadDefaultGenres = () => {
 // 加载类型数据
 const loadGenres = () => {
   try {
-    const parsed = storageGet(StorageKeys.novelGenres, null)
+    const parsed = storageGet<GenreDefinition[] | null>(StorageKeys.novelGenres, null)
     if (parsed) {
       // 确保包含默认类型
       const defaultGenres = loadDefaultGenres()
@@ -334,7 +338,7 @@ const saveGenres = () => {
 }
 
 // 编辑类型
-const editGenre = (genre) => {
+const editGenre = (genre: GenreDefinition) => {
   editingGenre.value = genre
   genreForm.value = {
     code: genre.code,
@@ -347,7 +351,7 @@ const editGenre = (genre) => {
 }
 
 // 处理类型操作
-const handleGenreAction = async (command, genre) => {
+const handleGenreAction = async (command: string, genre: GenreDefinition) => {
   switch (command) {
     case 'duplicate':
       duplicateGenre(genre)
@@ -359,7 +363,7 @@ const handleGenreAction = async (command, genre) => {
 }
 
 // 复制类型
-const duplicateGenre = (genre) => {
+const duplicateGenre = (genre: GenreDefinition) => {
   genreForm.value = {
     code: `${genre.code}_copy`,
     name: `${genre.name}（副本）`,
@@ -372,7 +376,7 @@ const duplicateGenre = (genre) => {
 }
 
 // 删除类型
-const deleteGenre = async (genre) => {
+const deleteGenre = async (genre: GenreDefinition) => {
   if (genre.isDefault) {
     ElMessage.warning('系统预设类型不能删除')
     return
@@ -406,13 +410,14 @@ const addTag = () => {
 }
 
 // 移除标签
-const removeTag = (index) => {
+const removeTag = (index: number) => {
   genreForm.value.tags.splice(index, 1)
 }
 
 // 保存类型
 const saveGenre = async () => {
   try {
+    if (!formRef.value) return
     await formRef.value.validate()
     isSaving.value = true
     
@@ -427,7 +432,7 @@ const saveGenre = async () => {
     
     if (editingGenre.value) {
       // 编辑现有类型
-      const index = genres.value.findIndex(g => g.code === editingGenre.value.code)
+      const index = genres.value.findIndex(g => g.code === editingGenre.value?.code)
       if (index > -1) {
         genres.value[index] = genreData
       }
@@ -454,7 +459,7 @@ const resetForm = () => {
     code: '',
     name: '',
     prompt: '',
-    tags: [],
+    tags: [] as string[],
     examples: ''
   }
   tagInput.value = ''
@@ -463,8 +468,8 @@ const resetForm = () => {
 }
 
 // 格式化日期
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('zh-CN')
+const formatDate = (date: WriterTimestamp | undefined) => {
+  return toDate(date).toLocaleDateString('zh-CN')
 }
 
 // 生命周期

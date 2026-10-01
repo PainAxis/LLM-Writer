@@ -376,7 +376,8 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import type { BackupGroup } from '@/services/backup'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Upload, Document, Setting, Delete, ChatLineSquare, Collection } from '@element-plus/icons-vue'
@@ -458,7 +459,7 @@ const calculateDataStats = () => {
   }
 }
 
-const downloadBackup = (groups, label) => {
+const downloadBackup = (groups: BackupGroup[], label: string) => {
   try {
     const data = createBackup(groups)
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -489,8 +490,8 @@ const confirmImportOptions = () => {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = '.json'
-  input.onchange = (e) => {
-    const file = e.target.files[0]
+  input.onchange = () => {
+    const file = input.files?.[0]
     if (file) {
       beforeImport(file)
     }
@@ -499,7 +500,7 @@ const confirmImportOptions = () => {
   showImportDialog.value = false
 }
 
-const importFile = async (file) => {
+const importFile = async (file: File) => {
   if (isImporting.value) return
   isImporting.value = true
   try {
@@ -542,12 +543,12 @@ const importFile = async (file) => {
   }
 }
 
-const beforeImport = (file) => {
+const beforeImport = (file: File) => {
   void importFile(file)
   return false // 阻止自动上传，文件只在本地读取
 }
 
-const reportClearFailure = (error) => {
+const reportClearFailure = (error: unknown) => {
   if (error !== 'cancel' && error !== 'close') {
     ElMessage.error('清除失败，请检查可用存储空间后重试')
   }

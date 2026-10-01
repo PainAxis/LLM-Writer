@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { ref } from 'vue'
 import ts from 'typescript'
+import { toDate } from '../src/utils/dates'
 import { registerChunkedKey, StorageKeys, storageGet, storageSet } from '../src/utils/storage'
 import { initNovelPersistence, retryNovelPersistence, subscribeNovelPersistenceStatus } from '../src/services/novelPersistence'
 
@@ -80,7 +81,7 @@ function setup(kind: 'novels' | 'chapters') {
     updateGenreUsageCount: () => {},
   })
   else Object.assign(shared, {
-    selectedNovelId: ref(1), chapterDraft: ref(null), chapters: ref(clone(cached[0].chapterList)), isSavingChapters: ref(false),
+    toDate, selectedNovelId: ref(1), chapterDraft: ref(null), chapters: ref(clone(cached[0].chapterList)), isSavingChapters: ref(false),
     chapterForm: ref({ title: '新章节', content: '保留章节正文', status: 'draft', tags: [] }),
     chapterFormRef: ref({ validate: async () => true }), editingChapter: ref(null),
   })

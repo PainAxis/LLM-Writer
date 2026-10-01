@@ -307,7 +307,9 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import type { FormInstance, UploadInstance, UploadFile } from 'element-plus'
+import type { PromptTemplate } from '@/config/defaultPrompts'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -323,16 +325,16 @@ const searchKeyword = ref('')
 const showAddDialog = ref(false)
 
 const showImportDialog = ref(false)
-const editingPrompt = ref(null)
+const editingPrompt = ref<PromptTemplate | null>(null)
 
 const tagInput = ref('')
-const formRef = ref()
-const uploadRef = ref()
+const formRef = ref<FormInstance>()
+const uploadRef = ref<UploadInstance>()
 
 // 导入相关数据
 const importMethod = ref('file')
 const importJsonText = ref('')
-const previewPrompts = ref([])
+const previewPrompts = ref<PromptTemplate[]>([])
 
 // 分类定义
 const categories = ref([
@@ -359,7 +361,7 @@ const categories = ref([
 ])
 
 // 提示词数据
-const prompts = ref([])
+const prompts = ref<PromptTemplate[]>([])
 
 // 表单数据
 const promptForm = ref({
@@ -367,7 +369,7 @@ const promptForm = ref({
   category: '',
   description: '',
   content: '',
-  tags: []
+  tags: [] as string[]
 })
 
 // 表单验证规则
@@ -404,7 +406,7 @@ const filteredPrompts = computed(() => {
 })
 
 // 方法
-const getCategoryIcon = (category) => {
+const getCategoryIcon = (category: string) => {
   const cat = categories.value.find(c => c.key === category)
   return cat ? cat.icon : '📝'
 }
@@ -415,13 +417,13 @@ const handleSearch = () => {
 
 
 
-const editPrompt = (prompt) => {
+const editPrompt = (prompt: PromptTemplate) => {
   editingPrompt.value = prompt
-  promptForm.value = { ...prompt }
+  promptForm.value = { ...prompt, tags: [...prompt.tags] }
   showAddDialog.value = true
 }
 
-const copyPrompt = async (prompt) => {
+const copyPrompt = async (prompt: PromptTemplate) => {
   try {
     await navigator.clipboard.writeText(prompt.content)
     ElMessage.success('提示词已复制到剪贴板')
@@ -430,7 +432,7 @@ const copyPrompt = async (prompt) => {
   }
 }
 
-const deletePrompt = async (prompt) => {
+const deletePrompt = async (prompt: PromptTemplate) => {
   try {
     await ElMessageBox.confirm('确定要删除这个提示词吗？', '确认删除', {
       type: 'warning'
@@ -519,26 +521,28 @@ const addTag = () => {
   }
 }
 
-const removeTag = (index) => {
+const removeTag = (index: number) => {
   promptForm.value.tags.splice(index, 1)
 }
 
 const savePrompt = async () => {
   try {
+    if (!formRef.value) return
     await formRef.value.validate()
     
     if (editingPrompt.value) {
       // 编辑模式
-      const index = prompts.value.findIndex(p => p.id === editingPrompt.value.id)
+      const index = prompts.value.findIndex(p => p.id === editingPrompt.value?.id)
       if (index > -1) {
-        prompts.value[index] = { ...promptForm.value, id: editingPrompt.value.id }
+        prompts.value[index] = { ...prompts.value[index], ...promptForm.value, id: editingPrompt.value.id }
       }
       ElMessage.success('提示词更新成功')
     } else {
       // 新增模式
       const newPrompt = {
         ...promptForm.value,
-        id: Date.now()
+        id: Date.now(),
+        isDefault: false
       }
       prompts.value.push(newPrompt)
       ElMessage.success('提示词添加成功')
@@ -558,7 +562,7 @@ const resetForm = () => {
     category: '',
     description: '',
     content: '',
-    tags: []
+    tags: [] as string[]
   }
   editingPrompt.value = null
   tagInput.value = ''
@@ -567,18 +571,19 @@ const resetForm = () => {
 
 
 // 导入功能相关方法
-const getCategoryName = (categoryKey) => {
+const getCategoryName = (categoryKey: string) => {
   const category = categories.value.find(c => c.key === categoryKey)
   return category ? category.name : '未知分类'
 }
 
-const handleFileChange = (file) => {
+const handleFileChange = (file: UploadFile) => {
   const reader = new FileReader()
-  reader.onload = (e) => {
-    importJsonText.value = e.target.result
+  reader.onload = () => {
+    if (typeof reader.result !== 'string') return
+    importJsonText.value = reader.result
     parseImportData()
   }
-  reader.readAsText(file.raw)
+  if (file.raw) reader.readAsText(file.raw)
 }
 
 const parseImportData = () => {
@@ -591,7 +596,7 @@ const parseImportData = () => {
   
   try {
     const data = JSON.parse(importJsonText.value)
-    let importData = []
+    let importData: unknown[] = []
     
     // 支持不同的格式
     if (data.prompts && Array.isArray(data.prompts)) {
@@ -608,8 +613,8 @@ const parseImportData = () => {
     }
     
     // 验证和处理每个提示词对象
-    const validPrompts = []
-    const errors = []
+    const validPrompts: PromptTemplate[] = []
+    const errors: string[] = []
     
     importData.forEach((item, index) => {
       const validation = validatePromptItem(item, index)
@@ -640,43 +645,32 @@ const parseImportData = () => {
     }
     
   } catch (error) {
-    ElMessage.error('JSON格式错误：' + error.message)
+    ElMessage.error('JSON格式错误：' + (error instanceof Error ? error.message : '未知错误'))
   }
 }
 
-const validatePromptItem = (item, index) => {
-  const requiredFields = ['title', 'category', 'description', 'content']
-  const missing = requiredFields.filter(field => !item[field])
-  
-  if (missing.length > 0) {
-    return {
-      valid: false,
-      error: `第${index + 1}项缺少必需字段：${missing.join(', ')}`
-    }
+const validatePromptItem = (input: unknown, index: number):
+  { valid: true; prompt: PromptTemplate } | { valid: false; error: string } => {
+  const invalid = (detail: string): { valid: false; error: string } => ({ valid: false, error: `第${index + 1}项${detail}` })
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return invalid('必须是提示词对象')
+  const item = input as Record<string, unknown>
+  const { title, category, description, content, tags } = item
+  if (typeof title !== 'string' || !title.trim()
+    || typeof category !== 'string' || !category.trim()
+    || typeof description !== 'string' || !description.trim()
+    || typeof content !== 'string' || !content.trim()) {
+    return invalid('标题、分类、描述和内容必须是非空文本')
   }
-  
-  // 验证分类是否有效
   const validCategories = categories.value.map(c => c.key).filter(k => k !== 'all')
-  if (!validCategories.includes(item.category)) {
-    return {
-      valid: false,
-      error: `第${index + 1}项分类"${item.category}"无效，请使用：${validCategories.join(', ')}`
-    }
+  if (!validCategories.includes(category)) return invalid(`分类「${category}」无效`)
+  if (tags !== undefined && (!Array.isArray(tags) || !tags.every(tag => typeof tag === 'string'))) {
+    return invalid('标签必须是文本数组')
   }
-  
-  // 构造标准的提示词对象
-  const prompt = {
-    id: Date.now() + Math.random(), // 临时ID，导入时会重新生成
-    title: item.title.trim(),
-    category: item.category,
-    description: item.description.trim(),
-    content: item.content.trim(),
-    tags: Array.isArray(item.tags) ? item.tags : [],
-    
-    isDefault: false
-  }
-  
-  return { valid: true, prompt }
+  return { valid: true, prompt: {
+    id: Date.now() + Math.random(), title: title.trim(), category,
+    description: description.trim(), content: content.trim(),
+    tags: Array.isArray(tags) ? tags : [], isDefault: false,
+  } }
 }
 
 const confirmImport = () => {
@@ -718,10 +712,10 @@ onMounted(() => {
 
 // 加载提示词数据（内置默认库升级时自动合并刷新，用户自建模板保留）
 const loadPrompts = () => {
-  const parsed = storageGet(StorageKeys.prompts, null)
+  const parsed = storageGet<PromptTemplate[] | null>(StorageKeys.prompts, null)
   if (parsed && Array.isArray(parsed)) {
     try {
-      const version = storageGet(StorageKeys.promptsVersion, 0)
+      const version = storageGet<number>(StorageKeys.promptsVersion, 0)
       if (version !== PROMPTS_VERSION) {
         prompts.value = mergeDefaultPrompts(parsed)
         savePrompts()

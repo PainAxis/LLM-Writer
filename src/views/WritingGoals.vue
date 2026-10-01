@@ -418,7 +418,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { toDate } from '@/utils/dates'
+import type { WriterTimestamp } from '@/types/writer'
+import type { FormInstance, TagProps } from 'element-plus'
+import type { WritingGoal, GoalForm } from '@/types/management'
 import { ref, computed, onMounted } from 'vue'
 import {
   Plus, Trophy, Medal, EditPen, Calendar,
@@ -428,19 +432,19 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 
 // 响应式数据
-const goals = ref([])
+const goals = ref<WritingGoal[]>([])
 const showCreateDialog = ref(false)
 const showProgressDialog = ref(false)
 const showDetailsDialog = ref(false)
 const historyFilter = ref('all')
-const editingGoal = ref(null)
-const selectedGoal = ref(null)
+const editingGoal = ref<WritingGoal | null>(null)
+const selectedGoal = ref<WritingGoal | null>(null)
 const progressIncrement = ref(0)
 const progressNote = ref('')
-const formRef = ref(null)
+const formRef = ref<FormInstance>()
 
 // 表单数据
-const goalForm = ref({
+const goalForm = ref<GoalForm>({
   title: '',
   type: '',
   targetValue: 1000,
@@ -460,13 +464,13 @@ const formRules = {
 
 // 从localStorage加载数据
 const loadGoals = () => {
-  const savedGoals = storageGet(StorageKeys.writingGoals, null)
+  const savedGoals = storageGet<WritingGoal[] | null>(StorageKeys.writingGoals, null)
   if (savedGoals) {
     try {
       goals.value = savedGoals.map(goal => ({
         ...goal,
-        startDate: new Date(goal.startDate),
-        endDate: new Date(goal.endDate),
+        startDate: toDate(goal.startDate),
+        endDate: toDate(goal.endDate),
         progressHistory: goal.progressHistory || []
       }))
     } catch (error) {
@@ -539,8 +543,8 @@ const filteredHistoryGoals = computed(() => {
 })
 
 // 方法
-const getGoalIcon = (type) => {
-  const icons = {
+const getGoalIcon = (type: string) => {
+  const icons: Record<string, string> = {
     daily: '📝',
     weekly: '📊',
     monthly: '📈',
@@ -551,8 +555,8 @@ const getGoalIcon = (type) => {
   return icons[type] || '🎯'
 }
 
-const getGoalTypeText = (type) => {
-  const texts = {
+const getGoalTypeText = (type: string) => {
+  const texts: Record<string, string> = {
     daily: '每日字数',
     weekly: '每周字数',
     monthly: '每月字数',
@@ -563,15 +567,15 @@ const getGoalTypeText = (type) => {
   return texts[type] || '未知类型'
 }
 
-const getProgressColor = (ratio) => {
+const getProgressColor = (ratio: number) => {
   if (ratio >= 1) return 'var(--el-color-success)'
   if (ratio >= 0.8) return 'var(--el-color-warning)'
   if (ratio >= 0.5) return 'var(--brand-500)'
   return 'var(--el-color-danger)'
 }
 
-const getStatusType = (status) => {
-  const types = {
+const getStatusType = (status: string) => {
+  const types: Record<string, TagProps['type']> = {
     active: 'success',
     completed: 'success',
     failed: 'danger',
@@ -580,8 +584,8 @@ const getStatusType = (status) => {
   return types[status] || 'info'
 }
 
-const getStatusText = (status) => {
-  const texts = {
+const getStatusText = (status: string) => {
+  const texts: Record<string, string> = {
     all: '全部',
     active: '进行中',
     completed: '已完成',
@@ -591,18 +595,18 @@ const getStatusText = (status) => {
   return texts[status] || '未知'
 }
 
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('zh-CN')
+const formatDate = (date: WriterTimestamp) => {
+  return toDate(date).toLocaleDateString('zh-CN')
 }
 
-const isOverdue = (endDate) => {
-  return new Date() > new Date(endDate)
+const isOverdue = (endDate: WriterTimestamp) => {
+  return new Date() > toDate(endDate)
 }
 
-const getRemainingTime = (endDate) => {
+const getRemainingTime = (endDate: WriterTimestamp) => {
   const now = new Date()
-  const end = new Date(endDate)
-  const diff = end - now
+  const end = toDate(endDate)
+  const diff = end.getTime() - now.getTime()
   
   if (diff <= 0) return '已过期'
   
@@ -613,9 +617,9 @@ const getRemainingTime = (endDate) => {
   return `${hours}小时`
 }
 
-const getAverageProgress = (goal) => {
-  const totalDays = Math.ceil((new Date(goal.endDate) - new Date(goal.startDate)) / (1000 * 60 * 60 * 24))
-  const passedDays = Math.ceil((new Date() - new Date(goal.startDate)) / (1000 * 60 * 60 * 24))
+const getAverageProgress = (goal: WritingGoal) => {
+  const totalDays = Math.ceil((toDate(goal.endDate).getTime() - toDate(goal.startDate).getTime()) / (1000 * 60 * 60 * 24))
+  const passedDays = Math.ceil((Date.now() - toDate(goal.startDate).getTime()) / (1000 * 60 * 60 * 24))
   const expectedProgress = (goal.targetValue / totalDays) * passedDays
   const actualProgress = goal.currentValue
   
@@ -626,27 +630,27 @@ const getAverageProgress = (goal) => {
   }
 }
 
-const editGoal = (goal) => {
+const editGoal = (goal: WritingGoal) => {
   editingGoal.value = goal
   goalForm.value = {
     title: goal.title,
     type: goal.type,
     targetValue: goal.targetValue,
-    description: goal.description,
-    dateRange: [goal.startDate, goal.endDate],
-    reminder: goal.reminder,
-    reminderTime: goal.reminderTime
+    description: goal.description ?? '',
+    dateRange: [toDate(goal.startDate), toDate(goal.endDate)],
+    reminder: goal.reminder ?? false,
+    reminderTime: goal.reminderTime ?? null
   }
   showCreateDialog.value = true
 }
 
-const pauseGoal = (goal) => {
+const pauseGoal = (goal: WritingGoal) => {
   goal.status = 'paused'
   saveGoalsToStorage()
   ElMessage.success('目标已暂停')
 }
 
-const deleteGoal = async (goal) => {
+const deleteGoal = async (goal: WritingGoal) => {
   try {
     await ElMessageBox.confirm('确定要删除这个目标吗？', '确认删除', {
       type: 'warning'
@@ -663,34 +667,36 @@ const deleteGoal = async (goal) => {
   }
 }
 
-const updateProgress = (goal) => {
+const updateProgress = (goal: WritingGoal) => {
   selectedGoal.value = goal
   progressIncrement.value = 0
   progressNote.value = ''
   showProgressDialog.value = true
 }
 
-const viewGoalDetails = (goal) => {
+const viewGoalDetails = (goal: WritingGoal) => {
   selectedGoal.value = goal
   showDetailsDialog.value = true
 }
 
 const saveGoal = async () => {
   try {
+    if (!formRef.value) return
     await formRef.value.validate()
+    if (goalForm.value.dateRange?.length !== 2) return
     
     const goalData = {
       ...goalForm.value,
       startDate: goalForm.value.dateRange[0],
       endDate: goalForm.value.dateRange[1],
-      currentValue: 0,
-      status: 'active',
-      progressHistory: []
+      currentValue: editingGoal.value?.currentValue ?? 0,
+      status: editingGoal.value?.status ?? 'active',
+      progressHistory: editingGoal.value?.progressHistory ?? []
     }
     
     if (editingGoal.value) {
       // 编辑模式
-      const index = goals.value.findIndex(g => g.id === editingGoal.value.id)
+      const index = goals.value.findIndex(g => g.id === editingGoal.value?.id)
       if (index > -1) {
         goals.value[index] = { ...goals.value[index], ...goalData }
       }
@@ -714,7 +720,7 @@ const saveGoal = async () => {
 }
 
 const saveProgress = () => {
-  if (progressIncrement.value > 0) {
+  if (selectedGoal.value && progressIncrement.value > 0) {
     selectedGoal.value.currentValue += progressIncrement.value
     
     // 添加进度记录

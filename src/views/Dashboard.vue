@@ -188,7 +188,8 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import type { CustomModelOption } from '@/types/api'
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useApiConfig } from '@/services/apiConfig'
@@ -212,7 +213,7 @@ const { customModels: savedCustomModels, providerModels, activeConfig, isApiConf
 const isCollapse = ref(false)
 const showApiConfig = ref(false)
 const showAnnouncement = ref(false)
-const currentAnnouncement = ref({})
+const currentAnnouncement = ref(getLatestAnnouncement())
 const activeMenu = ref('/')
 const currentModel = ref('')
 
@@ -233,7 +234,7 @@ const currentServerModels = computed(() => providerModels.value[activeConfig.val
 
 const localModels = computed(() => {
   const serverSet = new Set(currentServerModels.value)
-  const deduped = []
+  const deduped: CustomModelOption[] = []
   for (const model of FALLBACK_MODELS) {
     if (!deduped.some((m) => m.id === model.id) && !serverSet.has(model.id)) {
       deduped.push(model)
@@ -248,7 +249,7 @@ const localModels = computed(() => {
 })
 
 const pageTitle = computed(() => {
-  const titleMap = {
+  const titleMap: Record<string, string> = {
     '/': '首页',
     '/novels': '小说列表',
     '/prompts': '提示词库',
@@ -269,7 +270,7 @@ const toggleSidebar = () => {
   isCollapse.value = !isCollapse.value
 }
 
-const handleMenuSelect = (index) => {
+const handleMenuSelect = (index: string) => {
   router.push(index)
 }
 
@@ -288,11 +289,11 @@ const handleAnnouncementClose = () => {
 }
 
 // 模型相关功能
-const isKnownModel = (modelId) => {
+const isKnownModel = (modelId: string) => {
   return currentServerModels.value.includes(modelId) || localModels.value.some((m) => m.id === modelId)
 }
 
-const handleModelChange = (modelId) => {
+const handleModelChange = (modelId: string) => {
   try {
     if (!isKnownModel(modelId)) {
       ElMessage.error('未知的模型类型')
@@ -316,11 +317,11 @@ const handleModelChange = (modelId) => {
     }
   } catch (error) {
     console.error('切换模型失败:', error)
-    ElMessage.error('切换模型失败: ' + error.message)
+    ElMessage.error('切换模型失败: ' + (error instanceof Error ? error.message : '未知错误'))
   }
 }
 
-const getModelDisplayName = (modelId) => {
+const getModelDisplayName = (modelId: string) => {
   return modelId
 }
 

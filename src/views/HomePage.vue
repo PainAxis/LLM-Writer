@@ -228,7 +228,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { toDate } from '@/utils/dates'
+import type { WriterNovel } from '@/types/writer'
+import type { WritingGoal } from '@/types/management'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -244,7 +247,7 @@ const router = useRouter()
 const showGoalsDialog = ref(false)
 const stats = computed(() => {
   // 从本地存储获取真实的小说数据
-  const novelsData = storageGet(StorageKeys.novels, [])
+  const novelsData = storageGet<WriterNovel[]>(StorageKeys.novels, [])
   
   // 使用计费服务获取真实的token使用统计
   const usageStats = billingService.getUsageStats()
@@ -273,7 +276,7 @@ const activeGoals = computed(() => {
   void goalsRefreshTrigger.value
   
   // 从本地存储获取真实的写作目标数据
-  const goalsData = storageGet(StorageKeys.writingGoals, [])
+  const goalsData = storageGet<WritingGoal[]>(StorageKeys.writingGoals, [])
   const active = goalsData.filter(goal => goal.status === 'active')
   
   // 按优先级排序（priority字段，数字越小优先级越高），如果没有priority则按创建时间排序
@@ -283,7 +286,7 @@ const activeGoals = computed(() => {
     }
     if (a.priority !== undefined) return -1
     if (b.priority !== undefined) return 1
-    return new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+    return toDate(a.createdAt || 0).getTime() - toDate(b.createdAt || 0).getTime()
   })
 })
 
@@ -313,18 +316,19 @@ const currentGoal = computed(() => {
 
 const recentNovels = computed(() => {
   // 从本地存储获取真实的小说数据
-  const novelsData = storageGet(StorageKeys.novels, [])
+  const novelsData = storageGet<WriterNovel[]>(StorageKeys.novels, [])
   
   // 按更新时间排序，取前3个
   return novelsData
-    .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
+    .slice()
+    .sort((a, b) => toDate(b.updatedAt || 0).getTime() - toDate(a.updatedAt || 0).getTime())
     .slice(0, 3)
     .map(novel => ({
       id: novel.id,
       title: novel.title,
       description: novel.description,
       wordCount: novel.wordCount || 0,
-      updatedAt: new Date(novel.updatedAt || Date.now()),
+      updatedAt: toDate(novel.updatedAt || Date.now()),
       cover: novel.cover
     }))
 })
@@ -339,7 +343,7 @@ const _weeklyProgress = computed(() => {
 })
 
 // 新增辅助函数
-const getGoalProgress = (goal) => {
+const getGoalProgress = (goal: WritingGoal) => {
   if (!goal.targetValue || goal.targetValue === 0) return 0
   return Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100))
 }
@@ -350,8 +354,8 @@ const calculateStreak = () => {
   return 0
 }
 
-const _getGoalTypeText = (type) => {
-  const typeMap = {
+const _getGoalTypeText = (type: string) => {
+  const typeMap: Record<string, string> = {
     daily: '每日',
     weekly: '每周', 
     monthly: '每月',
@@ -361,16 +365,16 @@ const _getGoalTypeText = (type) => {
 }
 
 // 方法
-const formatNumber = (num) => {
+const formatNumber = (num = 0) => {
   if (num >= 10000) {
     return (num / 10000).toFixed(1) + '万'
   }
   return num.toLocaleString()
 }
 
-const formatTime = (date) => {
+const formatTime = (date: Date) => {
   const now = new Date()
-  const diff = now - date
+  const diff = now.getTime() - date.getTime()
   const hours = Math.floor(diff / (1000 * 60 * 60))
   const days = Math.floor(hours / 24)
   
@@ -383,7 +387,7 @@ const formatTime = (date) => {
   }
 }
 
-const getProgressColor = (percentage) => {
+const getProgressColor = (percentage: number) => {
   if (percentage >= 100) return 'var(--el-color-success)'
   if (percentage >= 80) return 'var(--el-color-warning)'
   if (percentage >= 60) return 'var(--brand-500)'
@@ -394,7 +398,7 @@ const createNovel = () => {
   router.push('/novels')
 }
 
-const openNovel = (novel) => {
+const openNovel = (novel: { id: number }) => {
   // 跳转到小说编辑页面
   router.push(`/writer?novelId=${novel.id}`)
 }

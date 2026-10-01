@@ -79,7 +79,7 @@
           >
             <div class="chapter-checkbox">
               <el-checkbox 
-                v-model="selectedChapters"
+                :model-value="selectedChapters.includes(chapter.id)" @change="checked => toggleChapterSelection(chapter.id, checked)"
                 :label="chapter.id"
               />
             </div>
@@ -265,7 +265,7 @@
           </div>
         </div>
         <div class="preview-content">
-          <p v-for="(paragraph, index) in previewChapter.content.split('\n')" :key="index">
+          <p v-for="(paragraph, index) in (previewChapter.content || '').split('\n')" :key="index">
             {{ paragraph }}
           </p>
         </div>
@@ -274,7 +274,12 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { toDate } from '@/utils/dates'
+import type { WriterTimestamp } from '@/types/writer'
+import type { FormInstance, TagProps } from 'element-plus'
+import type { ManagedNovel, ManagedChapter } from '@/types/management'
+import type { NovelPersistenceStatus } from '@/services/novelPersistence'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
@@ -288,22 +293,22 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 
 // 响应式数据
-const selectedNovelId = ref(null)
+const selectedNovelId = ref<number | null>(null)
 const showCreateDialog = ref(false)
 const showPreviewDialog = ref(false)
-const editingChapter = ref(null)
-const previewChapter = ref(null)
-const selectedChapters = ref([])
+const editingChapter = ref<ManagedChapter | null>(null)
+const previewChapter = ref<ManagedChapter | null>(null)
+const selectedChapters = ref<number[]>([])
 const tagInput = ref('')
-const chapterFormRef = ref()
+const chapterFormRef = ref<FormInstance>()
 const isSavingChapters = ref(false)
-const chapterDraft = ref(null)
+const chapterDraft = ref<{ id: number; novelId: number; createdAt: Date } | null>(null)
 
 // 小说数据 - 从localStorage加载真实数据
-const novels = ref([])
+const novels = ref<ManagedNovel[]>([])
 
 // 章节数据
-const chapters = ref([])
+const chapters = ref<ManagedChapter[]>([])
 
 // 表单数据
 const chapterForm = ref({
@@ -311,7 +316,7 @@ const chapterForm = ref({
   summary: '',
   content: '',
   status: 'draft',
-  tags: []
+  tags: [] as string[]
 })
 
 // 表单验证规则
@@ -333,12 +338,12 @@ const selectedNovel = computed(() => {
 // 方法
 const loadNovels = () => {
   try {
-    const parsedNovels = storageGet(StorageKeys.novels, null)
+    const parsedNovels = storageGet<ManagedNovel[] | null>(StorageKeys.novels, null)
     if (parsedNovels) {
       novels.value = parsedNovels.map(novel => ({
         ...novel,
-        createdAt: new Date(novel.createdAt),
-        updatedAt: new Date(novel.updatedAt)
+        createdAt: toDate(novel.createdAt),
+        updatedAt: toDate(novel.updatedAt)
       }))
     }
   } catch (error) {
@@ -347,29 +352,29 @@ const loadNovels = () => {
   }
 }
 
-const formatNumber = (num) => {
+const formatNumber = (num = 0) => {
   if (num >= 10000) {
     return (num / 10000).toFixed(1) + '万'
   }
   return num.toLocaleString()
 }
 
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString('zh-CN')
+const formatDate = (date: WriterTimestamp | undefined) => {
+  return toDate(date).toLocaleDateString('zh-CN')
 }
 
-const getChapterStatusType = (status) => {
-  const typeMap = {
-    draft: '',
+const getChapterStatusType = (status: string = 'draft') => {
+  const typeMap: Record<string, TagProps['type']> = {
+    draft: 'info',
     writing: 'warning',
     completed: 'success',
     published: 'info'
   }
-  return typeMap[status] || ''
+  return typeMap[status] || 'info'
 }
 
-const getChapterStatusText = (status) => {
-  const textMap = {
+const getChapterStatusText = (status: string = 'draft') => {
+  const textMap: Record<string, string> = {
     draft: '草稿',
     writing: '写作中',
     completed: '已完成',
@@ -378,17 +383,17 @@ const getChapterStatusText = (status) => {
   return textMap[status] || '未知'
 }
 
-const handleNovelChange = (novelId) => {
+const handleNovelChange = (novelId: number | null) => {
   loadChapters(novelId)
 }
 
-const loadChapters = (novelId) => {
+const loadChapters = (novelId: number | null) => {
   const novel = novels.value.find(n => n.id === novelId)
   if (novel && novel.chapterList) {
     chapters.value = novel.chapterList.map(chapter => ({
       ...chapter,
-      createdAt: new Date(chapter.createdAt),
-      updatedAt: new Date(chapter.updatedAt)
+      createdAt: toDate(chapter.createdAt),
+      updatedAt: toDate(chapter.updatedAt)
     }))
   } else {
     chapters.value = []
@@ -398,7 +403,7 @@ const loadChapters = (novelId) => {
 const saveChaptersToNovel = async (nextChapters = chapters.value, novelId = selectedNovelId.value) => {
   if (isSavingChapters.value) throw new Error('正在保存章节，请稍后重试')
   if (!novelId) throw new Error('请先选择小说')
-  const savedNovels = storageGet(StorageKeys.novels, [])
+  const savedNovels = storageGet<ManagedNovel[]>(StorageKeys.novels, [])
   if (!savedNovels.some(n => n.id === novelId)) throw new Error('小说已不存在')
   const nextNovels = savedNovels.map(novel => novel.id === novelId ? {
     ...novel,
@@ -417,17 +422,17 @@ const saveChaptersToNovel = async (nextChapters = chapters.value, novelId = sele
   }
 }
 
-const editChapter = (chapter) => {
+const editChapter = (chapter: ManagedChapter) => {
   // 跳转到Writer页面进行编辑
   router.push(`/writer?novelId=${selectedNovelId.value}&chapterId=${chapter.id}`)
 }
 
-const viewChapter = (chapter) => {
+const viewChapter = (chapter: ManagedChapter) => {
   previewChapter.value = chapter
   showPreviewDialog.value = true
 }
 
-const duplicateChapter = async (chapter) => {
+const duplicateChapter = async (chapter: ManagedChapter) => {
   if (isSavingChapters.value) return
   const newChapter = {
     ...JSON.parse(JSON.stringify(chapter)),
@@ -445,7 +450,7 @@ const duplicateChapter = async (chapter) => {
   }
 }
 
-const moveChapter = async (chapter, direction) => {
+const moveChapter = async (chapter: ManagedChapter, direction: 'up' | 'down') => {
   if (isSavingChapters.value) return
   const index = chapters.value.findIndex(c => c.id === chapter.id)
   const target = index + (direction === 'up' ? -1 : 1)
@@ -460,7 +465,7 @@ const moveChapter = async (chapter, direction) => {
   }
 }
 
-const deleteChapter = async (chapter) => {
+const deleteChapter = async (chapter: ManagedChapter) => {
   if (isSavingChapters.value) return
   const novelId = selectedNovelId.value
   try {
@@ -486,6 +491,7 @@ const deleteChapter = async (chapter) => {
 const saveChapter = async () => {
   if (isSavingChapters.value) return
   try {
+    if (!chapterFormRef.value) return
     await chapterFormRef.value.validate()
   } catch {
     return
@@ -495,7 +501,7 @@ const saveChapter = async () => {
     const wasEditing = Boolean(editingChapter.value)
     const nextChapters = [...chapters.value]
     if (wasEditing) {
-      const index = nextChapters.findIndex(c => c.id === editingChapter.value.id)
+      const index = nextChapters.findIndex(c => c.id === editingChapter.value?.id)
       if (index < 0) throw new Error('章节已不存在')
       nextChapters[index] = {
         ...nextChapters[index], ...chapterForm.value, tags: [...chapterForm.value.tags],
@@ -534,7 +540,7 @@ const resetForm = () => {
     summary: '',
     content: '',
     status: 'draft',
-    tags: []
+    tags: [] as string[]
   }
   editingChapter.value = null
   tagInput.value = ''
@@ -547,8 +553,14 @@ const addChapterTag = () => {
   }
 }
 
-const removeChapterTag = (index) => {
+const removeChapterTag = (index: number) => {
   chapterForm.value.tags.splice(index, 1)
+}
+
+const toggleChapterSelection = (id: number, checked: string | number | boolean) => {
+  selectedChapters.value = checked
+    ? [...new Set([...selectedChapters.value, id])]
+    : selectedChapters.value.filter(selected => selected !== id)
 }
 
 const sortChapters = () => {
@@ -564,7 +576,7 @@ const batchEdit = () => {
 }
 
 // 全局重试成功后同步列表；不重置正在编辑的表单。
-const handlePersistenceStatus = (status) => {
+const handlePersistenceStatus = (status: NovelPersistenceStatus) => {
   if (status.phase !== 'saved' || status.pending !== 0) return
   loadNovels()
   if (!novels.value.some(novel => novel.id === selectedNovelId.value)) selectedNovelId.value = null
