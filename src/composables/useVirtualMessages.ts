@@ -118,7 +118,7 @@ export function useVirtualMessages<T extends { id: string; content: string }>(
     heights.clear()
     heightRevision.value++
     void scrollToBottom()
-  }, { immediate: true, flush: 'post' })
+  }, { immediate: true, flush: 'sync' })
   watch(() => [items.value.length, items.value.at(-1)?.content], () => {
     if (!items.value.length) {
       heights.clear()

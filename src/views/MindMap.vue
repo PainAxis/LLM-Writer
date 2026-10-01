@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, nextTick, ref, shallowRef } from 'vue'
+import { onMounted, onUnmounted, nextTick, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Aim, Download } from '@element-plus/icons-vue'
@@ -73,7 +73,8 @@ import { buildEditableMindMapData, mindMapGroupId, MIND_MAP_SECTIONS } from '@/u
 import { useMindMapDraft } from '@/composables/useMindMapDraft'
 import type { WriterNovel } from '@/types/writer'
 import type MindElixirCtor from 'mind-elixir'
-import type { NodeObj, Topic } from 'mind-elixir'
+import { useTheme } from '@/composables/useTheme'
+import type { NodeObj, Topic, Theme } from 'mind-elixir'
 
 type MindElixirInstance = InstanceType<typeof MindElixirCtor>
 const novels = ref<WriterNovel[]>(storageGet<WriterNovel[]>(StorageKeys.novels, []))
@@ -82,6 +83,12 @@ const activeNovel = ref<WriterNovel | null>(null)
 const mapContainer = ref<HTMLElement | null>(null)
 const mind = shallowRef<MindElixirInstance | null>(null)
 const exporting = ref(false)
+const { resolvedTheme } = useTheme()
+let themes: Record<'light' | 'dark', Theme> | null = null
+watch(resolvedTheme, mode => {
+  // Applying CSS variables preserves selection, open editors and unsaved nodes.
+  if (mind.value && themes) mind.value.changeTheme(themes[mode], false)
+})
 const draft = useMindMapDraft()
 const { editing, dirty, saving } = draft
 const groupIds = new Set(
@@ -148,9 +155,11 @@ async function ensureInstance(): Promise<MindElixirInstance | null> {
   if (!container || disposed) return null
   creating = (async () => {
     const MindElixir = (await import('mind-elixir')).default
+    themes = { light: MindElixir.THEME, dark: MindElixir.DARK_THEME }
     if (disposed || mapContainer.value !== container) return null
     const instance = new MindElixir({
       el: container,
+      theme: themes[resolvedTheme.value],
       locale: 'zh_CN',
       editable: true,
       draggable: true,
@@ -301,8 +310,7 @@ async function exportPng(): Promise<void> {
   min-height: 400px;
   border: 1px solid var(--ink-200);
   border-radius: var(--radius-lg);
-  /* 导图节点为浅色样式，画布固定浅色底避免暗色模式下对比混乱 */
-  background: #f7f8fa;
+  background: var(--el-bg-color-page);
   position: relative;
   overflow: hidden;
 }

@@ -10,9 +10,11 @@ const systemPrefersDark =
     ? window.matchMedia('(prefers-color-scheme: dark)')
     : null
 
+const systemIsDark = ref(systemPrefersDark?.matches ?? false)
+
 const resolvedTheme = computed<'light' | 'dark'>(() => {
   if (themeMode.value === 'system') {
-    return systemPrefersDark?.matches ? 'dark' : 'light'
+    return systemIsDark.value ? 'dark' : 'light'
   }
   return themeMode.value
 })
@@ -35,8 +37,8 @@ function cycleTheme(): ThemeMode {
 }
 
 // 跟随系统：监听系统配色变化
-systemPrefersDark?.addEventListener?.('change', () => {
-  if (themeMode.value === 'system') applyTheme()
+systemPrefersDark?.addEventListener?.('change', event => {
+  systemIsDark.value = event.matches
 })
 
 watch(resolvedTheme, applyTheme, { immediate: true })

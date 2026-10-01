@@ -22,13 +22,13 @@
 ### Writing Workbench
 - **Novel management**: template-based project creation, metadata, three-state chapters (draft / done / published), covers, import & export
 - **AI writing assistant**: smart continuation (200-5000 chars), content polishing (grammar / style / emotion / logic), all-material generation, streaming output, interrupt anytime
-- **Corpus library**: category management, title/content search, **context-aware material recommendation with one-click injection** (character bigram relevance scoring)
+- **Corpus library**: per-novel data with legacy JSON import and portable export; category management, title/content search, **context-aware material recommendation with one-click injection** (character bigram relevance scoring)
 - **Event line**: chapter association, multi-select participating characters, list / timeline views
 - **Writing tools library**: 10 generators — outline / characters / ideas / titles / genre / worldbuilding / golden finger / golden opening / synopsis / conflict
-- **Mind map**: mind map generated from novel data (chapters / events / characters / worldbuilding / corpus), with editable titles/entities, validated save/cancel and PNG export
+- **Mind map**: mind map generated from novel data (chapters / events / characters / worldbuilding / corpus), with editable titles/entities, validated save/cancel and theme-aware PNG export
 
 ### AI & Utilities
-- **AI assistant system**: multi-persona assistants, per-assistant isolated chat history, streaming chat and global/custom context policies
+- **AI assistant system**: multi-persona assistants, per-assistant isolated chat history, measured virtual scrolling, streaming chat and global/custom context policies
 - **Context budget management**: dual-dimension budget (tokens / entries), sliding-window truncation vs incremental summary as explicit alternatives, failure handling via dialogs (no silent degradation)
 - **Model list sync**: one-click pull of server-side model lists with caching; built-in common models as fallback
 - **Prompt library**: category management, variable system, import & export, usage statistics
@@ -96,6 +96,8 @@ npm run smoke:book-import             # TXT/DOCX parsing, encodings and local ch
 npm run smoke:backup                  # v2/legacy backups, validation, restore and rollback
 npm run smoke:bundle                  # In-memory production build: home and feature dependency graphs
 npm run smoke:corpus                  # Keyword retrieval, scoring and injection budgets
+npm run smoke:corpus-transfer         # Legacy/portable files, validation and collision preservation
+npm run smoke:virtual-messages        # Long-history windows and measured row boundaries
 npm run smoke:mindmap                 # Mind-map branches, mounting and truncation fallback
 npm run smoke:eventline               # Chapter-number migration and compatibility
 npm run smoke:prompts                 # Default prompts and merge rules

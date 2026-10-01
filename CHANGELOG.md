@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.0.2]
+
+Complete the remaining view, conversation, corpus and theme maintenance work.
+
+- Migrated every remaining view to TypeScript and enforced the script language rule across all views, with shared management types, typed forms and legacy date handling.
+- Editing writing goals preserves progress, history and status; prompt edits isolate tag drafts and imports reject invalid field types per item.
+- Virtualized assistant histories with measured variable-height rows, stable reading anchors, latest-message navigation and conditional stream following. Full histories remain available to context processing and backups.
+- Unified corpus data in each novel's `corpusData`, removing unused in-memory store state. Writer imports legacy JSON and portable files without overwriting records, retains metadata, resolves ID collisions and awaits atomic persistence with rollback and project ownership checks.
+- Mind maps follow light/dark/system themes without replacing editable graphs or losing drafts. Live system color-scheme changes now update the app, and PNG exports use the active background.
+- Added regression coverage for legacy view data, 10,000-row virtual windows, corpus import failure/races and 2,000-message browser histories, plus portable corpus and light/dark PNG verification. Required CI runs 45 module smoke suites and 20 Chromium scenarios.
+- Updated the project structure, roadmap and feature documentation; all four previously listed roadmap candidates are complete.
+
 ## [1.0.1]
 
 Maintenance update for feature workspaces, mind-map editing and assistant context control.

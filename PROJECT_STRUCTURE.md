@@ -33,7 +33,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/stores/novel.ts`, `src/stores/assistant.ts` | Pinia state for writing and assistant conversations |
 | `src/utils/storage.ts`, `src/utils/aiRequestScope.ts` | Central storage access and isolated, cancellable AI requests |
 | `src/utils/writer/` | Writer prompt builders and response parsers |
-| `src/utils/` | Context budgets/compaction, corpus retrieval, book imports, chapter parsing, event and mind-map data |
+| `src/utils/` | Context budgets/compaction, corpus retrieval/portable transfer, virtual message windows, book imports, chapter parsing, event and mind-map data |
 | `src/types/` | Shared API, Writer, ShortStory, book-analysis, novel-management and tool types, plus library declarations |
 | `src/config/` | Default prompts, ShortStory defaults, typed tool definitions and announcements |
 
@@ -55,15 +55,16 @@ This overview describes the current source layout. Planned work is tracked in th
 
 | Feature | Modules and responsibilities |
 |---------|-----------------------------|
-| AssistantManagement | `stores/assistant.ts` selects global/custom policies, guards summary ownership and isolates conversations; `utils/contextPolicy.ts` normalizes and resolves policies; [policy semantics](docs/assistant-context-policy.md) |
+| AssistantManagement | `stores/assistant.ts` selects global/custom policies, guards summary ownership and isolates conversations; `useVirtualMessages.ts` measures visible rows and preserves scroll anchors; `utils/contextPolicy.ts` normalizes and resolves policies; [policy semantics](docs/assistant-context-policy.md) |
 | ShortStory | `useShortStoryWorkspace.ts`; `components/short-story/ShortStoryPromptSelector.vue`; `useShortStoryConfig.ts` for fresh defaults and async persistence; `useShortStoryGeneration.ts` for independent cancellable requests; `utils/shortStoryPrompts.ts` for prompt construction |
 | BookAnalysis | `useBookAnalysisWorkspace.ts`; `components/book-analysis/BookFileImportPanel.vue`; `useBookAnalysisFile.ts` for latest-import ownership and encoding; `utils/bookAnalysisContext.ts` for chapter detection, selected ranges and prompts |
 | NovelManagement | `useNovelManagementWorkspace.ts`; `components/novel-management/NovelMetadataForm.vue` for create/edit fields; `utils/novelList.ts` for filters and non-mutating sorting |
 | ToolsLibrary | `useToolsLibraryWorkspace.ts`; `components/tools/ToolCatalog.vue`; `config/tools.ts` as the tool registry; `utils/toolForms.ts` for required fields; `utils/toolPrompts.ts` for templates and selected novel/chapter context |
+| Writer corpus | `corpusData` is the per-novel source; `useWriterMaterialCrud.ts` owns atomic imports and `utils/corpusTransfer.ts` validates legacy/portable files; [format](docs/corpus.md) |
 | MindMap | `useMindMapDraft.ts` for conflict checks and awaited saves; `utils/mindmapEditing.ts` for editable snapshots, validation and lossless entity updates; [protocol](docs/mindmap-editing.md) |
 | Editor teardown | `utils/destroyEditor.ts` cancels wangEditor selection throttling before destroying an editor |
 
-All paths in this table are relative to `src/`; `use*.ts` controllers are under `src/composables/`. The four parent views use `lang="ts"` to compose the UI; their Workspace controllers own reactive state, generation and persistence orchestration. `useGenerationTask.ts` shares request ownership and cancellation.
+All paths in this table are relative to `src/`; `use*.ts` controllers are under `src/composables/`. All parent views use `lang="ts"`, enforced by the shared view language rule; the four feature Workspace controllers own reactive state, generation and persistence orchestration. `useGenerationTask.ts` shares request ownership and cancellation.
 
 ## Validation and Releases
 

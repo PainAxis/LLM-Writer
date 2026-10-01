@@ -1,6 +1,6 @@
 {
   "name": "llm-writer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AI智能小说创作工具（纯前端）",
   "license": "GPL-3.0-or-later",
   "type": "module",

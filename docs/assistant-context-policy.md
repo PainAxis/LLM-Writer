@@ -9,3 +9,5 @@ Each assistant chooses **Follow global** or **Custom** in its create/edit dialog
 Context preparation prevents duplicate sends while awaiting a summary decision. A summary request that loses ownership cannot restore cleared state or a pending marker. Backup v2 includes and validates the mode and policy; backups without a mode remain compatible.
 
 Validation: `smoke:assistant-policy` exercises the real store with injected storage/transports (request payloads, per-assistant isolation, reload, compaction/retry, policy changes and late work). Backup smoke and Chromium regression cover policy round-trips, editing cancellation, custom truncation, return to global settings, rolling-summary payloads and preservation of local history.
+
+Conversation rendering is virtualized for long histories. Measured rows keep a stable reading position; incoming chunks follow the latest message only while the reader stays near the bottom. Home/End and the return-to-latest button navigate the history. The store retains every entry; virtualization does not change context budgets, summaries or backup data.
