@@ -775,6 +775,58 @@ try {
     }
   })
 
+  await step('18 Virtualize long assistant histories and preserve scroll intent', async () => {
+    await settingsData()
+    const downloadEvent = page.waitForEvent('download')
+    await page.getByRole('button', { name: '导出所有数据', exact: true }).click()
+    const download = await downloadEvent
+    const target = path.join(artifacts, 'virtual-history-backup.json')
+    await download.saveAs(target)
+    const backup = JSON.parse(await readFile(target, 'utf8'))
+    const assistant = backup.data.assistants[0]
+    assistant.contextPolicyMode = 'custom'
+    assistant.contextPolicy = { maxTokens: 4000, maxTurns: 2, strategy: 'truncation', summaryThreshold: 80, retainTurns: 1 }
+    assistant.defaultModel = 'writer-mock-slow'
+    const history = Array.from({ length: 2000 }, (_, index) => ({
+      id: `history-${index}`, isUser: index % 2 === 0,
+      content: `历史消息 ${String(index).padStart(4, '0')}\n` + (index % 13 === 0 ? '多行内容\n'.repeat(20) : '保留完整原文'),
+      timestamp: new Date().toISOString(),
+    }))
+    backup.data.assistantConversations = { [assistant.id]: history }
+    backup.data.assistantSummaries = {}
+    backup.data.assistants.push({ ...assistant, id: assistant.id + 1, name: '空白会话助手' })
+    await importBackup({ name: 'long-history.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) })
+    await go('assistants')
+    const messages = page.locator('.chat-messages')
+    await expect(messages.getByText(/历史消息 1999/)).toBeVisible()
+    assert.ok(await page.locator('.message-row').count() < 50)
+    const count = () => page.evaluate(id => JSON.parse(localStorage.getItem('assistantConversations'))[id].length, assistant.id)
+    assert.equal(await count(), 2000)
+    await messages.focus()
+    await messages.press('Control+Home')
+    await expect(messages.getByText(/历史消息 0000/)).toBeVisible()
+    await expect(page.getByRole('button', { name: '返回最新', exact: true })).toBeVisible()
+    await page.waitForTimeout(300)
+    assert.equal(await messages.evaluate(node => node.scrollTop), 0, 'Measurement preserves the top anchor')
+    await page.getByRole('button', { name: '返回最新', exact: true }).click()
+    await expect(messages.getByText(/历史消息 1999/)).toBeVisible()
+    await page.locator('.chat-input textarea').fill('验证流式滚动意图')
+    await page.getByRole('button', { name: '发送', exact: true }).click()
+    await expect(page.getByRole('button', { name: '停止', exact: true })).toBeVisible()
+    await messages.focus()
+    await messages.press('Control+Home')
+    await expect(messages.getByText(/历史消息 0000/)).toBeVisible()
+    await expect(page.getByRole('button', { name: '发送', exact: true })).toBeVisible({ timeout: 45_000 })
+    assert.equal(await messages.evaluate(node => node.scrollTop), 0, 'Streaming does not pull a reader back to the bottom')
+    assert.equal(await count(), 2002)
+    await page.locator('.assistant-item').filter({ hasText: '空白会话助手' }).click()
+    await expect(messages.getByText('开始与助手对话，会话将按助手隔离保存')).toBeVisible()
+    await page.locator('.assistant-item').filter({ hasText: assistant.name }).click()
+    await expect(messages.getByText('验证流式滚动意图', { exact: true })).toBeVisible()
+    assert.ok(await page.locator('.message-row').count() < 50)
+    await screenshot('18-virtual-assistant-history')
+  })
+
   assert.deepEqual(errors, [], 'The browser must not raise uncaught errors or unsaved-data navigation dialogs')
   console.log(`PASS ${report.tests.length} real-browser regression scenarios`)
 } catch (error) {
