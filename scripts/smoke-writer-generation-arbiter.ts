@@ -483,7 +483,7 @@ await testUnregisterAndDispose()
 
 const writerSource = readFileSync(new URL('../src/views/Writer.vue', import.meta.url), 'utf8')
 assert.match(writerSource, /useWriterGenerationArbiter\(\{/)
-assert.match(writerSource, /prepareIndependentWriterAI = owner => generationArbiter\.prepare\(owner\)/)
+assert.match(writerSource, /prepareIndependentWriterAI = \(owner: string\) => generationArbiter\.prepare\(owner\)/)
 for (const owner of [
   'chapterContent',
   'continue',

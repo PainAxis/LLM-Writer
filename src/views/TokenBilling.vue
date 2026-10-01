@@ -326,7 +326,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { toDate } from '@/utils/dates'
+import type { WriterTimestamp } from '@/types/writer'
+import type { TagProps } from 'element-plus'
+import type { BillingRecord } from '@/services/billing'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
@@ -339,12 +343,12 @@ import billingService from '../services/billing'
 const statisticsTimeRange = ref('7d')
 const typeFilter = ref('all')
 const modelFilter = ref('all')
-const dateRange = ref([])
+const dateRange = ref<Date[] | null>([])
 const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = ref(20)
 const showDetailsDialog = ref(false)
-const selectedRecord = ref(null)
+const selectedRecord = ref<BillingRecord | null>(null)
 
 // Token统计数据
 const todayStats = computed(() => {
@@ -372,11 +376,11 @@ const totalTokens = computed(() => {
 })
 
 // 使用记录数据
-const billingRecords = ref([])
+const billingRecords = ref<BillingRecord[]>([])
 
 // 模型筛选项从实际计费记录动态生成
 const modelFilterOptions = computed(() => {
-  return [...new Set(billingRecords.value.map((record) => String(record.model)))].sort()
+  return [...new Set(billingRecords.value.map((record: BillingRecord) => String(record.model)))].sort()
 })
 
 // 加载计费记录
@@ -426,7 +430,7 @@ const filteredRecords = computed(() => {
     )
   }
   
-  return result.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  return result.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 })
 
 const paginatedRecords = computed(() => {
@@ -440,26 +444,26 @@ const totalFilteredTokens = computed(() => {
 })
 
 // 方法
-const formatNumber = (num) => {
+const formatNumber = (num = 0) => {
   return num.toLocaleString()
 }
 
-const formatDateTime = (date) => {
-  return new Date(date).toLocaleString('zh-CN')
+const formatDateTime = (date: WriterTimestamp) => {
+  return toDate(date).toLocaleString('zh-CN')
 }
 
-const getTypeColor = (type) => {
-  const colors = {
+const getTypeColor = (type: string) => {
+  const colors: Record<string, TagProps['type']> = {
     generation: 'primary',
     polish: 'success',
     outline: 'warning',
     chat: 'info'
   }
-  return colors[type] || 'default'
+  return colors[type] || 'info'
 }
 
-const getTypeText = (type) => {
-  const texts = {
+const getTypeText = (type: string) => {
+  const texts: Record<string, string> = {
     generation: '文本生成',
     polish: '文本润色',
     outline: '大纲生成',
@@ -468,17 +472,17 @@ const getTypeText = (type) => {
   return texts[type] || '未知'
 }
 
-const getStatusColor = (status) => {
-  const colors = {
+const getStatusColor = (status: string) => {
+  const colors: Record<string, TagProps['type']> = {
     success: 'success',
     failed: 'danger',
     pending: 'warning'
   }
-  return colors[status] || 'default'
+  return colors[status] || 'info'
 }
 
-const getStatusText = (status) => {
-  const texts = {
+const getStatusText = (status: string) => {
+  const texts: Record<string, string> = {
     success: '成功',
     failed: '失败',
     pending: '处理中'
@@ -508,12 +512,14 @@ const exportBilling = () => {
   }
 }
 
-const viewRecordDetails = (record) => {
+const viewRecordDetails = (row: unknown) => {
+  const record = billingRecords.value.find(item => item === row)
+  if (!record) return
   selectedRecord.value = record
   showDetailsDialog.value = true
 }
 
-const copyContent = async (content) => {
+const copyContent = async (content: string) => {
   try {
     await navigator.clipboard.writeText(content)
     ElMessage.success('内容已复制到剪贴板')

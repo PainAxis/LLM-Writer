@@ -11,13 +11,12 @@ Completed foundations:
 - ShortStory uses isolated generation scopes for articles, stories, continuation and optimization, with cancellation/restart/clear/dialog-close/unmount coverage.
 - BookAnalysis, NovelManagement and ToolsLibrary generation use isolated scopes covering stop, source changes, dialog closure and unmount; tool progress no longer uses simulated timers.
 - The undici patch is included in [v1.0.0](https://github.com/PainAxis/LLM-Writer/releases/tag/v1.0.0). Releases include a static ZIP, checksum and source/CI metadata.
-- ShortStory, BookAnalysis, NovelManagement and ToolsLibrary parent views and Workspace controllers are fully typed. `vue/block-lang` requires `lang="ts"` for these four pages; unrelated legacy views retain their migration exception.
+- All views use TypeScript, and `vue/block-lang` requires `lang="ts"` throughout `src/views`. Shared domain types cover management data, form handles and legacy timestamps. The four feature Workspace controllers are fully typed.
 - Editable mind maps validate title/entity changes, preserve retained bodies and metadata, repair links, reject stale snapshots and await persistence; see [the editing protocol](docs/mindmap-editing.md).
 - Assistants can follow global or custom context policies across configuration, sending, compaction and retry. Legacy assistants follow global settings; full local histories and backup compatibility are preserved. See [policy semantics](docs/assistant-context-policy.md).
 
 Further candidates:
 
-- Migrate other legacy views and gradually remove their TypeScript language-rule exceptions.
 - Virtualize long assistant message lists.
 - Consolidate the legacy store corpus and Writer's `corpusData`.
 - Adjust the mind-map canvas background for dark mode.

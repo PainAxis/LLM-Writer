@@ -11,13 +11,12 @@
 - ShortStory 的文章、故事、续写和优化已有独立生成作用域，覆盖取消、重启、清空、关闭对话框和页面卸载。
 - BookAnalysis、NovelManagement 和 ToolsLibrary 的生成请求已有独立作用域，覆盖停止、来源变更、关闭对话框和卸载，并移除了工具页的模拟进度定时器。
 - undici 补丁已包含在 [v1.0.0](https://github.com/PainAxis/LLM-Writer/releases/tag/v1.0.0) 中；发布产物包含静态 ZIP、校验和及源码/CI 信息。
-- ShortStory、BookAnalysis、NovelManagement、ToolsLibrary 的父页面和 Workspace 编排控制器已迁移到 TypeScript，`vue/block-lang` 对这四页要求 `lang="ts"`；其他旧视图仍保留迁移例外。
+- 全部视图已使用 TypeScript，`vue/block-lang` 对 `src/views` 统一要求 `lang="ts"`；管理数据、表单引用和历史日期具有明确类型。四个功能的 Workspace 控制器也已完成类型迁移。
 - 思维导图支持标题与条目编辑、增删和排序，校验后保留已有正文与元数据、调整关联、拒绝过期快照并等待保存完成；详见[编辑协议](docs/mindmap-editing.md)。
 - 助手可跟随全局或使用独立上下文策略，配置、发送、摘要和重试统一选择策略；旧助手继续跟随全局，完整会话和备份兼容保持。详见[策略说明](docs/assistant-context-policy.md)。
 
 后续候选事项：
 
-- 继续迁移其他旧视图，逐步取消 TypeScript 语言规则的例外。
 - 对较长的助手消息列表采用虚拟滚动。
 - 合并 store 遗留语料与 Writer 的 `corpusData`。
 - 调整暗色模式下的思维导图画布底色。

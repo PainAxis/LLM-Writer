@@ -355,7 +355,9 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import type { Ref } from 'vue'
+import type { WriterChapter, WriterCorpusItem } from '@/types/writer'
 import { ref, computed, onMounted, onUnmounted, watch, shallowRef, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -451,9 +453,9 @@ const generationArbiter = useWriterGenerationArbiter({
   checkApiReady: checkApiConfig,
   notifyBlocked: message => ElMessage.warning(message),
 })
-const prepareIndependentWriterAI = owner => generationArbiter.prepare(owner)
+const prepareIndependentWriterAI = (owner: string) => generationArbiter.prepare(owner)
 
-const editorRef = shallowRef()
+const editorRef = shallowRef<InstanceType<typeof WriterEditor>>()
 const activeTab = ref('editor')
 
 const promptCatalog = useWriterPromptCatalog({
@@ -638,7 +640,7 @@ const editEvent = materialCrud.editEvent
 const saveEvent = materialCrud.saveEvent
 const deleteEvent = materialCrud.deleteEvent
 
-const persistGeneratedMaterial = async (owner, save) => {
+const persistGeneratedMaterial = async (owner: string, save: () => Promise<boolean>) => {
   if (generatedMaterialImport.owner) return false
   generatedMaterialImport.owner = owner
   try {
@@ -869,7 +871,7 @@ const resetOptimizeWorkspace = () => {
   showNewOptimizeDialog.value = false
   return reset
 }
-const interruptGeneration = controller => controller.isGenerating.value
+const interruptGeneration = (controller: { isGenerating: Readonly<Ref<boolean>>; cancel: () => boolean | void }) => controller.isGenerating.value
   ? controller.cancel()
   : true
 
@@ -900,7 +902,7 @@ for (const [owner, controller] of [
   ['worldForm', worldFormGeneration],
   ['chapterOutline', chapterOutlineGeneration],
   ['chapterEditOutline', chapterEditOutlineGeneration],
-]) {
+] as const) {
   generationArbiter.registerScope(owner, {
     reset: controller.reset,
     interrupt: () => interruptGeneration(controller),
@@ -948,8 +950,8 @@ generationArbiter.registerBarrier('optimizeCommit', {
 
 const waitForWorkspaceCommits = generationArbiter.waitForCommits
 
-const getChapterStatusText = (status) => {
-  const statusMap = {
+const getChapterStatusText = (status: string = 'draft') => {
+  const statusMap: Record<string, string> = {
     draft: '草稿',
     completed: '完成',
     published: '发表'
@@ -973,14 +975,14 @@ const selectAllMaterials = chapterContentGeneration.selectAllMaterials
 const generateChapterContentWithDialog = chapterContentGeneration.generateChapterContentWithDialog
 
 // 语料分类：读取 + 兜底显示
-const getCorpusCategory = (corpus) => {
+const getCorpusCategory = (corpus: WriterCorpusItem) => {
   const category = (corpus.category || '').trim()
   return category || ''
 }
 
 const corpusCategories = computed(() => {
-  const categories = new Set()
-  corpusData.value.forEach((corpus) => {
+  const categories = new Set<string>()
+  corpusData.value.forEach((corpus: WriterCorpusItem) => {
     const category = getCorpusCategory(corpus)
     if (category) categories.add(category)
   })
@@ -992,7 +994,7 @@ const updateChapterStatus = async () => {
   if (!currentChapter.value) return
 
   // 同步更新章节列表中的状态
-  const chapterIndex = chapters.value.findIndex(ch => ch.id === currentChapter.value.id)
+  const chapterIndex = chapters.value.findIndex(ch => ch.id === currentChapter.value?.id)
   if (chapterIndex > -1) {
     chapters.value[chapterIndex].status = currentChapter.value.status
     chapters.value[chapterIndex].updatedAt = new Date()
@@ -1027,7 +1029,7 @@ watch(showWorldDialog, opened => {
   if (!opened) worldFormGeneration.reset()
 }, { flush: 'sync' })
 
-const selectChapter = async (chapter) => {
+const selectChapter = async (chapter: WriterChapter) => {
   if (!(await waitForWorkspaceCommits())) return false
   if (currentChapter.value && currentChapter.value.id !== chapter.id) stopWriterStreams()
   return selectProjectChapter(chapter)
