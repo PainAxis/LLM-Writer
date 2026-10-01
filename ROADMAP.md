@@ -15,8 +15,9 @@ Completed foundations:
 - Editable mind maps validate title/entity changes, preserve retained bodies and metadata, repair links, reject stale snapshots and await persistence; see [the editing protocol](docs/mindmap-editing.md).
 - Assistants can follow global or custom context policies across configuration, sending, compaction and retry. Legacy assistants follow global settings; full local histories and backup compatibility are preserved. See [policy semantics](docs/assistant-context-policy.md).
 
+- Assistant message lists use measured virtual rows and preserve scroll intent while streaming; full history remains in context processing and backups.
+
 Further candidates:
 
-- Virtualize long assistant message lists.
 - Consolidate the legacy store corpus and Writer's `corpusData`.
 - Adjust the mind-map canvas background for dark mode.

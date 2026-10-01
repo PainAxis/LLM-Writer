@@ -91,21 +91,26 @@
           </div>
         </div>
 
-        <div ref="messagesRef" class="chat-messages">
+        <div ref="messagesRef" class="chat-messages" tabindex="0" aria-label="助手会话" @scroll="onScroll" @wheel="onScrollIntent" @touchstart="onScrollIntent" @keydown="onScrollKey">
           <el-empty
             v-if="store.activeConversation.length === 0"
             description="开始与助手对话，会话将按助手隔离保存"
             :image-size="90"
           />
+          <div :style="{ height: `${messageWindow.before}px` }" aria-hidden="true" />
           <div
-            v-for="entry in store.activeConversation"
+            v-for="entry in visibleItems"
             :key="entry.id"
-            class="message-row"
-            :class="{ user: entry.isUser }"
+            :ref="node => measure(entry.id, node)"
+            class="virtual-message"
           >
-            <div class="bubble">{{ entry.content }}</div>
+            <div class="message-row" :class="{ user: entry.isUser }">
+              <div class="bubble">{{ entry.content }}</div>
+            </div>
           </div>
+          <div :style="{ height: `${messageWindow.after}px` }" aria-hidden="true" />
         </div>
+        <el-button v-if="!following" class="latest-button" size="small" @click="scrollToBottom()">返回最新</el-button>
 
         <div class="chat-input">
           <el-input
@@ -244,7 +249,8 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, reactive, ref, watch, computed } from 'vue'
+import { reactive, ref, computed } from 'vue'
+import { useVirtualMessages } from '@/composables/useVirtualMessages'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, DeleteFilled, Edit, Plus, Promotion, VideoPause } from '@element-plus/icons-vue'
 import { useAssistantStore } from '@/stores/assistant'
@@ -290,28 +296,11 @@ const modelOptions = computed(() =>
   ).filter(Boolean)
 )
 
-watch(
-  () => store.activeConversation.length,
-  () => scrollToBottom()
+const { visibleItems, window: messageWindow, following, measure, onScroll, onScrollIntent, onScrollKey, scrollToBottom } = useVirtualMessages(
+  computed(() => store.activeConversation),
+  computed(() => store.activeAssistantId),
+  messagesRef,
 )
-
-watch(
-  () => store.activeConversation[store.activeConversation.length - 1]?.content,
-  () => scrollToBottom()
-)
-
-watch(
-  () => store.activeAssistantId,
-  () => scrollToBottom()
-)
-
-function scrollToBottom(): void {
-  void nextTick(() => {
-    if (messagesRef.value) {
-      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
-    }
-  })
-}
 
 function openCreateDialog(): void {
   editingId.value = null
@@ -589,9 +578,16 @@ async function handleSend(): Promise<void> {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  overflow-anchor: none;
+}
+
+.virtual-message {
+  padding-bottom: 12px;
+}
+
+.latest-button {
+  align-self: center;
+  margin: 4px 0;
 }
 
 .chat-empty {
