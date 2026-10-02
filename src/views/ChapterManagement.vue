@@ -284,6 +284,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 import { subscribeNovelPersistenceStatus } from '@/services/novelPersistence'
+import { remapEventChapters } from '@/utils/eventLine'
 import { 
   Plus, EditPen, Calendar, Edit, View, MoreFilled, 
   CopyDocument, ArrowUp, ArrowDown, Delete 
@@ -408,6 +409,7 @@ const saveChaptersToNovel = async (nextChapters = chapters.value, novelId = sele
   const nextNovels = savedNovels.map(novel => novel.id === novelId ? {
     ...novel,
     chapterList: nextChapters,
+    ...(novel.events ? { events: remapEventChapters(novel.events, novel.chapterList ?? [], nextChapters) } : {}),
     wordCount: nextChapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0),
     chapters: nextChapters.length,
     updatedAt: new Date()

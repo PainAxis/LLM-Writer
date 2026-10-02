@@ -16,6 +16,7 @@
     
     <!-- 完整提示词预览弹窗 -->
     <BookPromptPreviewDialog />
+    <BookAnalysisLibraryDialog />
   </div>
 </template>
 
@@ -27,6 +28,7 @@ import BookAnalysisResults from '@/components/book-analysis/BookAnalysisResults.
 import BookChapterDetailsDialog from '@/components/book-analysis/BookChapterDetailsDialog.vue'
 import BookChapterContentDialog from '@/components/book-analysis/BookChapterContentDialog.vue'
 import BookPromptPreviewDialog from '@/components/book-analysis/BookPromptPreviewDialog.vue'
+import BookAnalysisLibraryDialog from '@/components/book-analysis/BookAnalysisLibraryDialog.vue'
 import '@/components/book-analysis/book-analysis.css'
 const workspace = useBookAnalysisWorkspace()
 provideBookAnalysisWorkspace(workspace)

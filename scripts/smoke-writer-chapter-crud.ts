@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { ref } from 'vue'
 import { useWriterChapterCrud } from '../src/composables/useWriterChapterCrud'
-import type { WriterChapter, WriterNovel } from '../src/types/writer'
+import type { WriterChapter, WriterEvent, WriterNovel } from '../src/types/writer'
 
 function fixture() {
   const novel = ref<WriterNovel | null>({ id: 1, title: '测试小说' })
@@ -11,17 +11,29 @@ function fixture() {
   ])
   const currentChapter = ref<WriterChapter | null>(chapters.value[0])
   const content = ref('原文')
+  const events = ref<WriterEvent[]>([
+    { id: 11, title: '删除目标章的事件', chapter: '1', extension: { retained: true } },
+    { id: 12, title: '后继章节事件', chapter: 2 },
+    { id: 13, title: '旧标题关联', chapter: '第二章' },
+    { id: 14, title: '无法识别的旧值', chapter: '未知章节' },
+  ])
   const messages: string[] = []
   const selected: number[] = []
-  let persistenceResult = true
+  const attempted: Array<{ chapters: WriterChapter[]; events: WriterEvent[] }> = []
+  let persistenceResult: boolean | 'throw' = true
   let confirmResult = true
 
   const crud = useWriterChapterCrud({
     currentNovel: novel,
     chapters,
+    events,
     currentChapter,
     content,
-    persist: async () => persistenceResult,
+    persist: async () => {
+      attempted.push(JSON.parse(JSON.stringify({ chapters: chapters.value, events: events.value })))
+      if (persistenceResult === 'throw') throw new Error('模拟持久化异常')
+      return persistenceResult
+    },
     selectChapter: async chapter => {
       selected.push(chapter.id)
       currentChapter.value = chapter
@@ -42,10 +54,12 @@ function fixture() {
     chapters,
     currentChapter,
     content,
+    events,
+    attempted,
     messages,
     selected,
     crud,
-    setPersistenceResult(value: boolean) { persistenceResult = value },
+    setPersistenceResult(value: boolean | 'throw') { persistenceResult = value },
     setConfirmResult(value: boolean) { confirmResult = value },
   }
 }
@@ -87,12 +101,31 @@ async function main() {
   assert.deepEqual(remove.chapters.value.map(chapter => chapter.id), [1, 2])
   assert.equal(remove.currentChapter.value?.id, 1)
   assert.equal(remove.content.value, '原文')
+  assert.deepEqual(remove.events.value.map(event => event.chapter), ['1', 2, '第二章', '未知章节'], '失败必须恢复事件和章节的原关联')
+  assert.deepEqual(remove.attempted[0].chapters.map(chapter => chapter.id), [2])
+  assert.deepEqual(remove.attempted[0].events.map(event => event.chapter), ['', 1, '1', '未知章节'], '持久化必须同时看到新章节和新事件关联')
   remove.setPersistenceResult(true)
   assert.equal(await remove.crud.remove(remove.chapters.value[0]), true)
   assert.deepEqual(remove.chapters.value.map(chapter => chapter.id), [2])
   assert.equal(remove.currentChapter.value?.id, 2)
   assert.deepEqual(remove.selected, [2])
+  assert.deepEqual(remove.events.value.map(event => event.chapter), ['', 1, '1', '未知章节'])
+  assert.deepEqual(remove.events.value[0].extension, { retained: true })
+  assert.deepEqual(remove.attempted[1], remove.attempted[0], '删除重试不能二次偏移章号或丢掉事件')
   console.log('✓ 删除失败完整回滚，成功删除当前章后选择剩余章节')
+
+  const thrown = fixture()
+  const originalEvents = JSON.stringify(thrown.events.value)
+  thrown.setPersistenceResult('throw')
+  assert.equal(await thrown.crud.remove(thrown.chapters.value[1]), false)
+  assert.deepEqual(thrown.chapters.value.map(chapter => chapter.id), [1, 2])
+  assert.equal(JSON.stringify(thrown.events.value), originalEvents, '抛错时也须完整回滚事件和扩展字段')
+  thrown.setPersistenceResult(true)
+  assert.equal(await thrown.crud.remove(thrown.chapters.value[1]), true)
+  assert.deepEqual(thrown.events.value.map(event => event.chapter), ['1', '', '', '未知章节'], '删除非当前章节也清理目标关联，保留未变章节')
+  assert.equal(thrown.currentChapter.value?.id, 1)
+  assert.deepEqual(thrown.attempted[1], thrown.attempted[0])
+  console.log('✓ 删除非当前章抛错可重试，目标关联清空、保留章节关联不变')
 
   const cancelled = fixture()
   cancelled.setConfirmResult(false)

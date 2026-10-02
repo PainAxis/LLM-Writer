@@ -24,3 +24,14 @@ export interface BookAnalysisData {
   fileName: string
   encoding: string
 }
+
+/** A saved analysis result that can be reopened without generating it again. */
+export interface BookAnalysisLibraryRecord {
+  id: string
+  title: string
+  content: string
+  sourceFileName: string
+  createdAt: string
+  updatedAt: string
+  [key: string]: unknown
+}

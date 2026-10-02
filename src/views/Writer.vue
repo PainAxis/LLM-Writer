@@ -779,6 +779,7 @@ const goBack = () => router.push('/novels')
 const chapterCrud = useWriterChapterCrud({
   currentNovel,
   chapters,
+  events,
   currentChapter,
   content,
   persist: saveNovelData,

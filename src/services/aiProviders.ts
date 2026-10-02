@@ -213,23 +213,33 @@ export async function resolveLanguageModel(config: ApiConfig): Promise<LanguageM
 /** 供连接测试用的最佳实现：各服务商模型列表端点探活 */
 export function buildModelsProbe(config: ApiConfig): { url: string; headers: Record<string, string> } {
   const preset = getPreset(config.provider)
-  const baseURL = preset.editableBaseURL ? config.baseURL || preset.baseURL : preset.baseURL
+  const baseURL = (preset.editableBaseURL ? config.baseURL || preset.baseURL : preset.baseURL).trim().replace(/\/+$/, '')
   const proxiedBaseURL = applyProxyPrefix(baseURL, config.proxyUrl)
   const headers: Record<string, string> = {
     ...(preset.defaultHeaders ?? {}),
     ...(config.customHeaders ?? {}),
+  }
+  const withAuthentication = (defaults: Record<string, string>) => {
+    const merged = { ...defaults }
+    for (const [name, value] of Object.entries(headers)) {
+      // Header names are case-insensitive, as they are in the SDK's header merge.
+      const previous = Object.keys(merged).find(key => key.toLowerCase() === name.toLowerCase())
+      if (previous) delete merged[previous]
+      merged[name] = value
+    }
+    return merged
   }
 
   switch (preset.kind) {
     case 'anthropic':
       return {
         url: `${proxiedBaseURL}/models`,
-        headers: { ...headers, 'x-api-key': config.apiKey, 'anthropic-version': '2023-06-01' },
+        headers: withAuthentication({ 'x-api-key': config.apiKey, 'anthropic-version': '2023-06-01' }),
       }
     case 'google':
-      return { url: `${proxiedBaseURL}/models`, headers: { ...headers, 'x-goog-api-key': config.apiKey } }
+      return { url: `${proxiedBaseURL}/models`, headers: withAuthentication({ 'x-goog-api-key': config.apiKey }) }
     default:
-      return { url: `${proxiedBaseURL}/models`, headers: { ...headers, Authorization: `Bearer ${config.apiKey}` } }
+      return { url: `${proxiedBaseURL}/models`, headers: withAuthentication({ Authorization: `Bearer ${config.apiKey}` }) }
   }
 }
 
@@ -238,25 +248,58 @@ interface ModelsProbeResponse {
   models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>
 }
 
+export interface ModelsProbeOptions {
+  signal?: AbortSignal
+  timeoutMs?: number
+}
+
+/** Keep cancellation and the timeout active until the response body is consumed. */
+async function withModelsProbe<T>(
+  config: ApiConfig,
+  consume: (response: Response) => Promise<T>,
+  { signal: externalSignal, timeoutMs = 30_000 }: ModelsProbeOptions = {},
+): Promise<T> {
+  const controller = new AbortController()
+  const abort = () => controller.abort(externalSignal?.reason)
+  if (externalSignal?.aborted) abort()
+  else externalSignal?.addEventListener('abort', abort, { once: true })
+  const timer = setTimeout(() => controller.abort(new DOMException('连接请求超时，请重试', 'TimeoutError')), timeoutMs)
+  try {
+    controller.signal.throwIfAborted()
+    const probe = buildModelsProbe(config)
+    const response = await fetch(probe.url, { method: 'GET', headers: probe.headers, signal: controller.signal })
+    const result = await consume(response)
+    controller.signal.throwIfAborted()
+    return result
+  } catch (error) {
+    if (controller.signal.aborted) throw controller.signal.reason
+    throw error
+  } finally {
+    clearTimeout(timer)
+    externalSignal?.removeEventListener('abort', abort)
+  }
+}
+
+export function probeProviderConnection(config: ApiConfig, options?: ModelsProbeOptions): Promise<boolean> {
+  return withModelsProbe(config, async response => {
+    await response.body?.cancel()
+    return response.ok
+  }, options)
+}
+
 /**
  * 从服务商拉取可用模型列表，三种响应格式归一化为模型 ID 数组：
  * - OpenAI 兼容 / Anthropic: `{ data: [{ id }] }`
  * - Google: `{ models: [{ name: "models/xxx" }] }`（过滤出支持 generateContent 的模型）
  */
-export async function fetchProviderModels(config: ApiConfig): Promise<string[]> {
-  const probe = buildModelsProbe(config)
-
-  const response = await fetch(probe.url, {
-    method: 'GET',
-    headers: probe.headers,
-  })
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    throw new Error(`获取模型列表失败: HTTP ${response.status}${text ? ` - ${text.slice(0, 150)}` : ''}`)
-  }
-
-  const data = (await response.json()) as ModelsProbeResponse
+export async function fetchProviderModels(config: ApiConfig, options?: ModelsProbeOptions): Promise<string[]> {
+  const data = await withModelsProbe(config, async response => {
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      throw new Error(`获取模型列表失败: HTTP ${response.status}${text ? ` - ${text.slice(0, 150)}` : ''}`)
+    }
+    return await response.json() as ModelsProbeResponse
+  }, options)
   const preset = getPreset(config.provider)
 
   let ids: string[]

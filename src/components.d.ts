@@ -16,6 +16,7 @@ declare module 'vue' {
     BatchChapterGenerateDialog: typeof import('./components/writer/dialogs/BatchChapterGenerateDialog.vue')['default']
     BatchCharacterGenerateDialog: typeof import('./components/writer/dialogs/BatchCharacterGenerateDialog.vue')['default']
     BookAnalysisControls: typeof import('./components/book-analysis/BookAnalysisControls.vue')['default']
+    BookAnalysisLibraryDialog: typeof import('./components/book-analysis/BookAnalysisLibraryDialog.vue')['default']
     BookAnalysisResults: typeof import('./components/book-analysis/BookAnalysisResults.vue')['default']
     BookChapterContentDialog: typeof import('./components/book-analysis/BookChapterContentDialog.vue')['default']
     BookChapterDetailsDialog: typeof import('./components/book-analysis/BookChapterDetailsDialog.vue')['default']
@@ -95,5 +96,8 @@ declare module 'vue' {
     WriterEditor: typeof import('./components/writer/WriterEditor.vue')['default']
     WritingGoals: typeof import('./components/WritingGoals.vue')['default']
     WritingStyleDialog: typeof import('./components/short-story/WritingStyleDialog.vue')['default']
+  }
+  export interface GlobalDirectives {
+    vLoading: typeof import('element-plus/es')['ElLoadingDirective']
   }
 }

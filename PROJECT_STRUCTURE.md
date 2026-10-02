@@ -78,8 +78,8 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Feature component ownership
 
-- ShortStory uses article/story workspaces and separate style, continuation, optimization and configuration dialogs in `src/components/short-story/`. `short-storyContext.ts` shares the page-owned typed workspace; editor refs and guarded writes live in `useShortStoryEditors.ts`.
-- BookAnalysis uses controls/results and chapter/prompt dialogs in `src/components/book-analysis/`. `book-analysisContext.ts` shares the page-owned typed workspace; `useBookChapterViewer.ts` owns chapter selection, reading and export.
+- ShortStory uses article/story workspaces and separate style, continuation, optimization and configuration dialogs in `src/components/short-story/`. `short-storyContext.ts` shares the page-owned typed workspace; editor refs and guarded writes live in `useShortStoryEditors.ts`. `useShortStorySelection.ts` captures and validates exact editor ranges for optimization.
+- BookAnalysis uses controls/results and chapter/prompt dialogs in `src/components/book-analysis/`. `book-analysisContext.ts` shares the page-owned typed workspace; `useBookChapterViewer.ts` owns chapter selection, reading and export. `useBookAnalysisLibraryWorkspace.ts` owns report dialogs and identity; `services/bookAnalysisLibrary.ts` validates and persists reports, also included in system backups.
 - Shared feature CSS is limited to the page root and its teleported dialog class. Generators and cancellation remain owned by the page lifecycle.
 - `stores/writingGoals.ts` owns both goal entry points and homepage state, serialized persistence, metadata-preserving edits and progress history. `utils/writingGoals.ts` normalizes legacy records and computes activity by local calendar day.
 
@@ -90,3 +90,5 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 - Novel saves stage content before a coordinated commit and compare the versions actually seen by the editor. Edits to different novels can merge; conflicting edits to the same novel retain the local draft and reject overwriting the newer saved version. Copy the draft, refresh/reopen the novel and merge it manually.
 - Goal increments read the latest committed goal under the same cross-tab gate, preserving both increments and their history. This coordination protects novels and writing goals; other storage keys do not acquire cross-tab protection through this mechanism. See [persistence coordination](docs/persistence-coordination.md).
 - Assistant summaries persist their text together with a coverage cursor. Sending uses that summary plus uncovered original messages; failed or pending compaction does not advance coverage. Full local histories and legacy summary backups remain available.
+- `utils/eventLine.ts` remaps event chapter references by stable chapter identity for chapter management, Writer deletion and mind-map editing.
+- API connection tests and model synchronization use cancellable form snapshots. Model caches are scoped to the provider endpoint and proxy, and only explicit configuration saves change active settings.

@@ -175,8 +175,8 @@
     </div>
     
     <!-- API配置对话框 -->
-    <el-dialog v-model="showApiConfig" title="API配置" width="1000px">
-      <ApiConfig @close="showApiConfig = false" />
+    <el-dialog v-model="showApiConfig" title="API配置" width="1000px" destroy-on-close @close="apiConfigPanel?.cancelRequests()">
+      <ApiConfig ref="apiConfigPanel" @close="showApiConfig = false" />
     </el-dialog>
 
     <!-- 公告对话框 -->
@@ -207,11 +207,12 @@ import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
-const { customModels: savedCustomModels, providerModels, activeConfig, isApiConfigured, updateConfig } = useApiConfig()
+const { customModels: savedCustomModels, getProviderModels, activeConfig, isApiConfigured, updateConfig } = useApiConfig()
 
 // 响应式数据
 const isCollapse = ref(false)
 const showApiConfig = ref(false)
+const apiConfigPanel = ref<InstanceType<typeof ApiConfig> | null>(null)
 const showAnnouncement = ref(false)
 const currentAnnouncement = ref(getLatestAnnouncement())
 const activeMenu = ref('/')
@@ -230,7 +231,7 @@ const onToggleTheme = () => {
 }
 
 // 本地兜底模型列表（共享清单，剔除与服务端列表重复的项）
-const currentServerModels = computed(() => providerModels.value[activeConfig.value.provider] ?? [])
+const currentServerModels = computed(() => getProviderModels(activeConfig.value))
 
 const localModels = computed(() => {
   const serverSet = new Set(currentServerModels.value)

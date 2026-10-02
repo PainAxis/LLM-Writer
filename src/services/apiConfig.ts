@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { StorageKeys, storageGet, storageSet } from '@/utils/storage'
 import type { ApiConfig, CustomModelOption } from '@/types/api'
+import { buildModelsProbe } from './aiProviders'
 
 export const DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 
@@ -18,8 +19,9 @@ const DEFAULT_CONFIG: ApiConfig = {
 // ---------- 响应式状态（模块级单例，全应用共享同一份） ----------
 const apiConfig = ref<ApiConfig>(structuredClone(DEFAULT_CONFIG))
 const customModels = ref<CustomModelOption[]>([])
-/** 从服务商拉取的模型列表缓存：{ [providerId]: string[] } */
+/** Cache scopes include provider, endpoint and proxy; legacy provider-only keys remain readable by backups. */
 const providerModels = ref<Record<string, string[]>>({})
+const transientProviderModels = ref<Record<string, string[]>>({})
 
 const activeConfig = computed<ApiConfig>(() => apiConfig.value)
 
@@ -75,8 +77,33 @@ function setCustomModels(models: CustomModelOption[]): void {
   customModels.value = next
 }
 
-function setProviderModels(providerId: string, models: string[]): void {
-  const next = { ...providerModels.value, [providerId]: [...models] }
+function modelsCacheScope(config: ApiConfig): { key: string; persistent: boolean } {
+  const url = buildModelsProbe(config).url
+  // User-supplied URLs may contain credentials in userinfo or query parameters.
+  // Keep those entire scopes in memory rather than duplicating secrets on disk.
+  const persistent = [config.baseURL, config.proxyUrl, url].filter(Boolean).every(value => {
+    try {
+      const parsed = new URL(value!)
+      return !parsed.username && !parsed.password && !parsed.search && !parsed.hash
+        && !(config.apiKey && value!.includes(config.apiKey))
+    } catch { return false }
+  })
+  return { key: JSON.stringify([config.provider, url]), persistent }
+}
+
+function getProviderModels(config: ApiConfig = apiConfig.value): string[] {
+  // Legacy provider-only caches have no known endpoint and must be re-fetched.
+  const { key, persistent } = modelsCacheScope(config)
+  return (persistent ? providerModels : transientProviderModels).value[key] ?? []
+}
+
+function setProviderModels(config: ApiConfig | string, models: string[]): void {
+  const { key, persistent } = typeof config === 'string' ? { key: config, persistent: true } : modelsCacheScope(config)
+  if (!persistent) {
+    transientProviderModels.value = { ...transientProviderModels.value, [key]: [...models] }
+    return
+  }
+  const next = { ...providerModels.value, [key]: [...models] }
   storageSet(StorageKeys.providerModels, next)
   providerModels.value = next
 }
@@ -99,6 +126,7 @@ export function useApiConfig() {
     updateConfig,
     setCustomModels,
     setProviderModels,
+    getProviderModels,
     resetConfig,
   }
 }

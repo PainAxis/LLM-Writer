@@ -33,8 +33,10 @@ const novel = {
   characters: [{ id: 12, name: '人物' }], worldSettings: [{ id: 13, title: '世界' }],
   corpusData: [{ id: 14, content: '语料' }], events: [{ id: 15, title: '事件', chapter: '1' }],
 }
+const analysis = { id: 'report-1', title: '结构分析', content: '# 保存的拆书结果\n人物与情节', sourceFileName: '示例.txt', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z', extension: { retained: true } }
 const fixture: Partial<Record<StorageKey, unknown>> = {
   [StorageKeys.novels]: [novel],
+  [StorageKeys.bookAnalysisLibrary]: [analysis],
   [StorageKeys.prompts]: [{ id: 1, title: '提示词', category: 'novel', content: '正文提示', tags: [] }],
   [StorageKeys.promptsVersion]: 7,
   [StorageKeys.novelGenres]: [{ code: 'fantasy', name: '玄幻', tags: [] }],
@@ -102,6 +104,16 @@ async function main() {
   assert.equal(storageGet(StorageKeys.promptsVersion, -1), 0)
   console.log('✓ 每类备份可单独恢复，选择性导入不覆盖未选数据，旧提示词触发版本刷新')
 
+  const oldV2 = { ...backup, data: { ...backup.data } }
+  delete oldV2.data[StorageKeys.bookAnalysisLibrary]
+  await restoreBackup(oldV2)
+  assert.deepEqual(storageGet(StorageKeys.bookAnalysisLibrary, []), [analysis], '旧 v2 备份缺少参考库时不应清空已保存报告')
+  const libraryOnly = await createBackup(['bookAnalysisLibrary'])
+  await storageSet(StorageKeys.bookAnalysisLibrary, [])
+  await restoreBackup(libraryOnly, ['bookAnalysisLibrary'])
+  assert.deepEqual(storageGet(StorageKeys.bookAnalysisLibrary, []), [analysis], '参考库单独导出和恢复保留正文与扩展元数据')
+  console.log('✓ 拆书参考库可独立备份恢复，旧 v2 备份不会清空新参考库')
+
   const legacySettings = { apiConfig: fixture.apiConfig, tokenUsage: fixture.token_usage_stats }
   for (const input of [
     { version: 'v0.7.0', novels: [novel], settings: legacySettings },
@@ -131,6 +143,12 @@ async function main() {
     { format: 'llm-writer-backup', version: 2, data: { contextPolicy: { strategy: 'unknown' } } },
     { format: 'llm-writer-backup', version: 2, data: { 'api-config': {} } },
   ]
+  for (const record of [
+    { ...analysis, id: '' }, { ...analysis, title: ' ' }, { ...analysis, content: 1 },
+    { ...analysis, sourceFileName: null }, { ...analysis, createdAt: '1' },
+    { ...analysis, updatedAt: '2026-02-30T00:00:00Z' },
+  ]) invalid.push({ format: 'llm-writer-backup', version: 2, data: { bookAnalysisLibrary: [record] } } as never)
+  invalid.push({ format: 'llm-writer-backup', version: 2, data: { bookAnalysisLibrary: [analysis, analysis] } } as never)
   const snapshot = new Map(store)
   const writeCount = writes
   for (const input of invalid) await assert.rejects(restoreBackup(input), /备份数据格式错误/)
@@ -149,6 +167,14 @@ async function main() {
     console.error = originalError
   }
   assert.deepEqual(store, beforeFailure)
+  console.error = () => {}
+  try {
+    failNextKey = StorageKeys.bookAnalysisLibrary
+    await assert.rejects(restoreBackup({ ...backup, data: { novels: [], bookAnalysisLibrary: [] } }), /已恢复导入前的数据/)
+  } finally {
+    console.error = originalError
+  }
+  assert.deepEqual(store, beforeFailure, '参考库写入失败必须一起回滚小说与已保存报告')
   console.log('✓ 后续键写入失败会回滚前面已写入的数据')
 
   // 最后注册异步正文后端，验证 restore 真正等待持久化，而非只看到同步缓存更新。
