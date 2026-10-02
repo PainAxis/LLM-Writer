@@ -1,0 +1,1399 @@
+/* Shared feature styles are limited to the page and its teleported dialogs. */
+:is(.book-analysis, .book-analysis-dialog) .book-analysis,
+:is(.book-analysis, .book-analysis-dialog).book-analysis {
+  height: calc(100vh - 140px);
+  display: flex;
+  flex-direction: column;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .page-header,
+:is(.book-analysis, .book-analysis-dialog).page-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .page-header h2,
+:is(.book-analysis, .book-analysis-dialog).page-header h2 {
+  font-size: 24px;
+  color: #2c3e50;
+  margin-bottom: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .page-header p,
+:is(.book-analysis, .book-analysis-dialog).page-header p {
+  color: #7f8c8d;
+  margin: 0;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .analysis-container,
+:is(.book-analysis, .book-analysis-dialog).analysis-container {
+  display: flex;
+  flex: 1;
+  gap: 20px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 左侧面板 */
+:is(.book-analysis, .book-analysis-dialog) .left-panel,
+:is(.book-analysis, .book-analysis-dialog).left-panel {
+  width: 320px;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .panel-section,
+:is(.book-analysis, .book-analysis-dialog).panel-section {
+  margin-bottom: 24px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .panel-section h3,
+:is(.book-analysis, .book-analysis-dialog).panel-section h3 {
+  font-size: 16px;
+  color: #2c3e50;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .upload-area,
+:is(.book-analysis, .book-analysis-dialog).upload-area {
+  width: 100%;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .upload-area .el-upload-dragger,
+:is(.book-analysis, .book-analysis-dialog).upload-area .el-upload-dragger {
+  width: 100%;
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 编码选择样式 */
+:is(.book-analysis, .book-analysis-dialog) .encoding-selection,
+:is(.book-analysis, .book-analysis-dialog).encoding-selection {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .encoding-selection label,
+:is(.book-analysis, .book-analysis-dialog).encoding-selection label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .encoding-switch,
+:is(.book-analysis, .book-analysis-dialog).encoding-switch {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f0f2f5;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .encoding-switch span,
+:is(.book-analysis, .book-analysis-dialog).encoding-switch span {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  white-space: nowrap;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .file-info,
+:is(.book-analysis, .book-analysis-dialog).file-info {
+  margin-top: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .file-card,
+:is(.book-analysis, .book-analysis-dialog).file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .file-details,
+:is(.book-analysis, .book-analysis-dialog).file-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .file-name,
+:is(.book-analysis, .book-analysis-dialog).file-name {
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .file-size,
+:is(.book-analysis, .book-analysis-dialog).file-size {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .file-encoding,
+:is(.book-analysis, .book-analysis-dialog).file-encoding {
+  font-size: 11px;
+  color: var(--el-color-success);
+  background: var(--brand-50);
+  padding: 2px 6px;
+  border-radius: 10px;
+  border: 1px solid #b3e5fc;
+  align-self: flex-start;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .file-actions,
+:is(.book-analysis, .book-analysis-dialog).file-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .remove-btn,
+:is(.book-analysis, .book-analysis-dialog).remove-btn {
+  color: var(--el-color-danger);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .setting-item,
+:is(.book-analysis, .book-analysis-dialog).setting-item {
+  margin-bottom: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .setting-item label,
+:is(.book-analysis, .book-analysis-dialog).setting-item label {
+  display: block;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  margin-bottom: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .template-option,
+:is(.book-analysis, .book-analysis-dialog).template-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .template-icon,
+:is(.book-analysis, .book-analysis-dialog).template-icon {
+  font-size: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .action-buttons,
+:is(.book-analysis, .book-analysis-dialog).action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .stats-section,
+:is(.book-analysis, .book-analysis-dialog).stats-section {
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .stats-grid,
+:is(.book-analysis, .book-analysis-dialog).stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .stat-item,
+:is(.book-analysis, .book-analysis-dialog).stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .stat-label,
+:is(.book-analysis, .book-analysis-dialog).stat-label {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .stat-value,
+:is(.book-analysis, .book-analysis-dialog).stat-value {
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+/* 右侧面板 */
+:is(.book-analysis, .book-analysis-dialog) .right-panel,
+:is(.book-analysis, .book-analysis-dialog).right-panel {
+  flex: 1;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .editor-container,
+:is(.book-analysis, .book-analysis-dialog).editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .editor-header,
+:is(.book-analysis, .book-analysis-dialog).editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .editor-header h3,
+:is(.book-analysis, .book-analysis-dialog).editor-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .header-actions,
+:is(.book-analysis, .book-analysis-dialog).header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .progress-section,
+:is(.book-analysis, .book-analysis-dialog).progress-section {
+  margin-bottom: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .progress-text,
+:is(.book-analysis, .book-analysis-dialog).progress-text {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  text-align: center;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .analysis-editor,
+:is(.book-analysis, .book-analysis-dialog).analysis-editor {
+  flex: 1;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .analysis-editor .el-textarea__inner,
+:is(.book-analysis, .book-analysis-dialog).analysis-editor .el-textarea__inner {
+  height: 100% !important;
+  resize: none;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-actions,
+:is(.book-analysis, .book-analysis-dialog).chapter-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-actions button,
+:is(.book-analysis, .book-analysis-dialog).chapter-actions button{
+    margin-left: 0 !important;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .range-input-group,
+:is(.book-analysis, .book-analysis-dialog).range-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .range-separator,
+:is(.book-analysis, .book-analysis-dialog).range-separator {
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-option,
+:is(.book-analysis, .book-analysis-dialog).chapter-option {
+  width: 100%;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-title,
+:is(.book-analysis, .book-analysis-dialog).chapter-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-words,
+:is(.book-analysis, .book-analysis-dialog).chapter-words {
+  color: #8492a6;
+  font-size: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-summary,
+:is(.book-analysis, .book-analysis-dialog).chapter-summary {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-all;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-details-content,
+:is(.book-analysis, .book-analysis-dialog).chapter-details-content {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-detail-item,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail-item {
+  padding: 16px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-detail-item:last-child,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail-item:last-child {
+  margin-bottom: 0;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-detail-header,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-detail-header h4,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail-header h4 {
+  margin: 0;
+  color: var(--el-text-color-primary);
+  font-size: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-detail-words,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail-words {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-detail-summary,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail-summary {
+  margin-bottom: 12px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-detail-preview,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail-preview {
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--el-fill-color-light);
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .local-chapter-section,
+:is(.book-analysis, .book-analysis-dialog).local-chapter-section {
+  margin-top: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .empty-state,
+:is(.book-analysis, .book-analysis-dialog).empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .empty-icon,
+:is(.book-analysis, .book-analysis-dialog).empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .content-preview,
+:is(.book-analysis, .book-analysis-dialog).content-preview {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .preview-header,
+:is(.book-analysis, .book-analysis-dialog).preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .preview-header h3,
+:is(.book-analysis, .book-analysis-dialog).preview-header h3 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .preview-tip,
+:is(.book-analysis, .book-analysis-dialog).preview-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .preview-content,
+:is(.book-analysis, .book-analysis-dialog).preview-content {
+  line-height: 1.8;
+  color: var(--el-text-color-regular);
+  white-space: pre-wrap;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .analysis-progress,
+:is(.book-analysis, .book-analysis-dialog).analysis-progress {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .progress-content,
+:is(.book-analysis, .book-analysis-dialog).progress-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .progress-icon,
+:is(.book-analysis, .book-analysis-dialog).progress-icon {
+  font-size: 48px;
+  color: var(--brand-500);
+  margin-bottom: 16px;
+  animation: book-analysis-spin 2s linear infinite;
+}
+
+@keyframes book-analysis-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+:is(.book-analysis, .book-analysis-dialog) .progress-steps,
+:is(.book-analysis, .book-analysis-dialog).progress-steps {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .progress-step,
+:is(.book-analysis, .book-analysis-dialog).progress-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .progress-step.active,
+:is(.book-analysis, .book-analysis-dialog).progress-step.active {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .progress-step.completed,
+:is(.book-analysis, .book-analysis-dialog).progress-step.completed {
+  color: #52c41a;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .step-text,
+:is(.book-analysis, .book-analysis-dialog).step-text {
+  font-size: 14px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .analysis-results,
+:is(.book-analysis, .book-analysis-dialog).analysis-results {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .results-header,
+:is(.book-analysis, .book-analysis-dialog).results-header {
+  padding: 20px 20px 0;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .results-header h3,
+:is(.book-analysis, .book-analysis-dialog).results-header h3 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .results-meta,
+:is(.book-analysis, .book-analysis-dialog).results-meta {
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .results-tabs,
+:is(.book-analysis, .book-analysis-dialog).results-tabs {
+  flex: 1;
+  overflow: hidden;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .results-tabs .el-tabs__content,
+:is(.book-analysis, .book-analysis-dialog).results-tabs .el-tabs__content {
+  height: calc(100% - 40px);
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* 基础分析样式 */
+:is(.book-analysis, .book-analysis-dialog) .analysis-grid,
+:is(.book-analysis, .book-analysis-dialog).analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .analysis-card,
+:is(.book-analysis, .book-analysis-dialog).analysis-card {
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e9ecef;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .analysis-card h4,
+:is(.book-analysis, .book-analysis-dialog).analysis-card h4 {
+  margin: 0 0 16px 0;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .info-list,
+:is(.book-analysis, .book-analysis-dialog).info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .info-item,
+:is(.book-analysis, .book-analysis-dialog).info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .label,
+:is(.book-analysis, .book-analysis-dialog).label {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .value,
+:is(.book-analysis, .book-analysis-dialog).value {
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .characters-list,
+:is(.book-analysis, .book-analysis-dialog).characters-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .character-item,
+:is(.book-analysis, .book-analysis-dialog).character-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: var(--el-bg-color);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .character-name,
+:is(.book-analysis, .book-analysis-dialog).character-name {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .character-role,
+:is(.book-analysis, .book-analysis-dialog).character-role {
+  color: var(--el-text-color-secondary);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .character-frequency,
+:is(.book-analysis, .book-analysis-dialog).character-frequency {
+  color: var(--brand-500);
+  font-size: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .plot-structure,
+:is(.book-analysis, .book-analysis-dialog).plot-structure {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .structure-item,
+:is(.book-analysis, .book-analysis-dialog).structure-item {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: var(--el-bg-color);
+  border-radius: 4px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .structure-label,
+:is(.book-analysis, .book-analysis-dialog).structure-label {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  min-width: 80px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .structure-value,
+:is(.book-analysis, .book-analysis-dialog).structure-value {
+  font-size: 14px;
+  color: #2c3e50;
+  flex: 1;
+}
+
+/* 技法分析样式 */
+:is(.book-analysis, .book-analysis-dialog) .techniques-analysis,
+:is(.book-analysis, .book-analysis-dialog).techniques-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .technique-section,
+:is(.book-analysis, .book-analysis-dialog).technique-section {
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e9ecef;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .technique-section h4,
+:is(.book-analysis, .book-analysis-dialog).technique-section h4 {
+  margin: 0 0 12px 0;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .technique-description,
+:is(.book-analysis, .book-analysis-dialog).technique-description {
+  color: var(--el-text-color-regular);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .examples-section h5,
+:is(.book-analysis, .book-analysis-dialog).examples-section h5 {
+  margin: 0 0 12px 0;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .example-item,
+:is(.book-analysis, .book-analysis-dialog).example-item {
+  background: var(--el-bg-color);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .example-text,
+:is(.book-analysis, .book-analysis-dialog).example-text {
+  font-style: italic;
+  color: var(--brand-500);
+  margin-bottom: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .example-analysis,
+:is(.book-analysis, .book-analysis-dialog).example-analysis {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+}
+
+/* 章节详情样式 */
+:is(.book-analysis, .book-analysis-dialog) .chapters-analysis,
+:is(.book-analysis, .book-analysis-dialog).chapters-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-detail,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail {
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e9ecef;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-header,
+:is(.book-analysis, .book-analysis-dialog).chapter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-header h4,
+:is(.book-analysis, .book-analysis-dialog).chapter-header h4 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-words,
+:is(.book-analysis, .book-analysis-dialog).chapter-words {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  background: #e9ecef;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-content,
+:is(.book-analysis, .book-analysis-dialog).chapter-content {
+  display: grid;
+  gap: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-summary h5,
+:is(.book-analysis, .book-analysis-dialog).chapter-summary h5,
+:is(.book-analysis, .book-analysis-dialog) .chapter-techniques h5,
+:is(.book-analysis, .book-analysis-dialog).chapter-techniques h5 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-summary p,
+:is(.book-analysis, .book-analysis-dialog).chapter-summary p {
+  margin: 0;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .technique-tags,
+:is(.book-analysis, .book-analysis-dialog).technique-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 创作启发样式 */
+:is(.book-analysis, .book-analysis-dialog) .inspiration-grid,
+:is(.book-analysis, .book-analysis-dialog).inspiration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .inspiration-card,
+:is(.book-analysis, .book-analysis-dialog).inspiration-card {
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e9ecef;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .inspiration-card h4,
+:is(.book-analysis, .book-analysis-dialog).inspiration-card h4 {
+  margin: 0 0 16px 0;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .highlight-list,
+:is(.book-analysis, .book-analysis-dialog).highlight-list,
+:is(.book-analysis, .book-analysis-dialog) .suggestion-list,
+:is(.book-analysis, .book-analysis-dialog).suggestion-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .highlight-list li,
+:is(.book-analysis, .book-analysis-dialog).highlight-list li,
+:is(.book-analysis, .book-analysis-dialog) .suggestion-list li,
+:is(.book-analysis, .book-analysis-dialog).suggestion-list li {
+  margin-bottom: 8px;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .related-techniques,
+:is(.book-analysis, .book-analysis-dialog).related-techniques {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 章节内容查看弹窗样式 */
+:is(.book-analysis, .book-analysis-dialog) .chapter-content-dialog,
+:is(.book-analysis, .book-analysis-dialog).chapter-content-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-selector,
+:is(.book-analysis, .book-analysis-dialog).chapter-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-select-option,
+:is(.book-analysis, .book-analysis-dialog).chapter-select-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-title,
+:is(.book-analysis, .book-analysis-dialog).chapter-title {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-words,
+:is(.book-analysis, .book-analysis-dialog).chapter-words {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-info,
+:is(.book-analysis, .book-analysis-dialog).chapter-info {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-content-viewer,
+:is(.book-analysis, .book-analysis-dialog).chapter-content-viewer {
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-light);
+  overflow: hidden;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-text,
+:is(.book-analysis, .book-analysis-dialog).chapter-text {
+  padding: 20px;
+  line-height: 1.8;
+  font-family: 'Microsoft YaHei', sans-serif;
+  color: #2c3e50;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .empty-state,
+:is(.book-analysis, .book-analysis-dialog).empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .empty-state .el-icon,
+:is(.book-analysis, .book-analysis-dialog).empty-state .el-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #c0c4cc;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .empty-state p,
+:is(.book-analysis, .book-analysis-dialog).empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .dialog-footer,
+:is(.book-analysis, .book-analysis-dialog).dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  :is(.book-analysis, .book-analysis-dialog) .analysis-container,
+:is(.book-analysis, .book-analysis-dialog).analysis-container {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .left-panel,
+:is(.book-analysis, .book-analysis-dialog).left-panel {
+    width: 100%;
+    order: 1;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .right-panel,
+:is(.book-analysis, .book-analysis-dialog).right-panel {
+    order: 2;
+    min-height: 600px;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .analysis-grid,
+:is(.book-analysis, .book-analysis-dialog).analysis-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .inspiration-grid,
+:is(.book-analysis, .book-analysis-dialog).inspiration-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .chapter-content-dialog,
+:is(.book-analysis, .book-analysis-dialog).chapter-content-dialog {
+    gap: 16px;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .chapter-text,
+:is(.book-analysis, .book-analysis-dialog).chapter-text {
+    padding: 16px;
+    line-height: 1.6;
+  }
+}
+
+@media (max-width: 768px) {
+  :is(.book-analysis, .book-analysis-dialog) .analysis-container,
+:is(.book-analysis, .book-analysis-dialog).analysis-container {
+    gap: 16px;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .left-panel,
+:is(.book-analysis, .book-analysis-dialog).left-panel,
+:is(.book-analysis, .book-analysis-dialog) .right-panel,
+:is(.book-analysis, .book-analysis-dialog).right-panel {
+    border-radius: 6px;
+    padding: 16px;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .chapter-header,
+:is(.book-analysis, .book-analysis-dialog).chapter-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .chapter-selector .el-select,
+:is(.book-analysis, .book-analysis-dialog).chapter-selector .el-select {
+    width: 100% !important;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .dialog-footer,
+:is(.book-analysis, .book-analysis-dialog).dialog-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .dialog-footer .el-button,
+:is(.book-analysis, .book-analysis-dialog).dialog-footer .el-button {
+    width: 100%;
+  }
+}
+
+/* 章节详情管理弹窗样式 */
+:is(.book-analysis, .book-analysis-dialog) .chapter-details-main,
+:is(.book-analysis, .book-analysis-dialog).chapter-details-main {
+  display: flex;
+  gap: 20px;
+  height: 600px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-list-panel,
+:is(.book-analysis, .book-analysis-dialog).chapter-list-panel {
+  width: 350px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .panel-header,
+:is(.book-analysis, .book-analysis-dialog).panel-header {
+  background: var(--el-fill-color-light);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .panel-header h4,
+:is(.book-analysis, .book-analysis-dialog).panel-header h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-list,
+:is(.book-analysis, .book-analysis-dialog).chapter-list {
+  height: calc(100% - 49px);
+  overflow-y: auto;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-list-item,
+:is(.book-analysis, .book-analysis-dialog).chapter-list-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ink-100);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-list-item:hover,
+:is(.book-analysis, .book-analysis-dialog).chapter-list-item:hover {
+  background: var(--el-fill-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-list-item.active,
+:is(.book-analysis, .book-analysis-dialog).chapter-list-item.active {
+  background: #e8f4fd;
+  border-left: 3px solid var(--brand-500);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-item-header,
+:is(.book-analysis, .book-analysis-dialog).chapter-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-item-title,
+:is(.book-analysis, .book-analysis-dialog).chapter-item-title {
+  font-weight: 500;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-item-words,
+:is(.book-analysis, .book-analysis-dialog).chapter-item-words {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-item-summary,
+:is(.book-analysis, .book-analysis-dialog).chapter-item-summary {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-item-summary:empty::before,
+:is(.book-analysis, .book-analysis-dialog).chapter-item-summary:empty::before {
+  content: '暂无简读，点击查看后可调用AI生成';
+  color: #c0c4cc;
+  font-style: italic;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-detail-panel,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail-panel {
+  flex: 1;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .detail-header,
+:is(.book-analysis, .book-analysis-dialog).detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .detail-header h4,
+:is(.book-analysis, .book-analysis-dialog).detail-header h4 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .detail-actions,
+:is(.book-analysis, .book-analysis-dialog).detail-actions {
+  display: flex;
+  gap: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .summary-content,
+:is(.book-analysis, .book-analysis-dialog).summary-content {
+  padding: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-meta,
+:is(.book-analysis, .book-analysis-dialog).chapter-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .summary-actions,
+:is(.book-analysis, .book-analysis-dialog).summary-actions {
+  margin-top: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .summary-display,
+:is(.book-analysis, .book-analysis-dialog).summary-display {
+  margin-top: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .summary-text,
+:is(.book-analysis, .book-analysis-dialog).summary-text {
+  color: #2c3e50;
+  line-height: 1.6;
+  font-size: 14px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  padding: 16px;
+  border: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .summary-actions-bottom,
+:is(.book-analysis, .book-analysis-dialog).summary-actions-bottom {
+  margin-top: 12px;
+  text-align: right;
+}
+
+/* 提示词编辑相关样式 */
+:is(.book-analysis, .book-analysis-dialog) .prompt-section,
+:is(.book-analysis, .book-analysis-dialog).prompt-section {
+  margin-bottom: 16px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-header,
+:is(.book-analysis, .book-analysis-dialog).prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-label,
+:is(.book-analysis, .book-analysis-dialog).prompt-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-preview,
+:is(.book-analysis, .book-analysis-dialog).prompt-preview {
+  padding: 12px;
+  background: #fafbfc;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-text,
+:is(.book-analysis, .book-analysis-dialog).prompt-text {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-editor,
+:is(.book-analysis, .book-analysis-dialog).prompt-editor {
+  padding: 12px;
+  background: var(--el-bg-color);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-textarea,
+:is(.book-analysis, .book-analysis-dialog).prompt-textarea {
+  margin-bottom: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-textarea .el-textarea__inner,
+:is(.book-analysis, .book-analysis-dialog).prompt-textarea .el-textarea__inner {
+  font-size: 12px;
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-actions,
+:is(.book-analysis, .book-analysis-dialog).prompt-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-tips,
+:is(.book-analysis, .book-analysis-dialog).prompt-tips {
+  flex: 1;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-buttons,
+:is(.book-analysis, .book-analysis-dialog).prompt-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* 提示词预览弹窗样式 */
+:is(.book-analysis, .book-analysis-dialog) .prompt-preview-dialog,
+:is(.book-analysis, .book-analysis-dialog).prompt-preview-dialog {
+  padding: 16px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .preview-content,
+:is(.book-analysis, .book-analysis-dialog).preview-content {
+  margin-bottom: 16px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .prompt-full-text,
+:is(.book-analysis, .book-analysis-dialog).prompt-full-text {
+  margin: 0;
+  padding: 16px;
+  background: var(--el-fill-color-light);
+  font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #2c3e50;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .preview-stats,
+:is(.book-analysis, .book-analysis-dialog).preview-stats {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .full-content,
+:is(.book-analysis, .book-analysis-dialog).full-content {
+  padding: 20px;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .chapter-full-text,
+:is(.book-analysis, .book-analysis-dialog).chapter-full-text {
+  color: #2c3e50;
+  line-height: 1.8;
+  font-family: 'Microsoft YaHei', sans-serif;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .empty-detail,
+:is(.book-analysis, .book-analysis-dialog).empty-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.book-analysis, .book-analysis-dialog) .empty-detail .el-icon,
+:is(.book-analysis, .book-analysis-dialog).empty-detail .el-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #c0c4cc;
+}
+
+:is(.book-analysis, .book-analysis-dialog) .empty-detail p,
+:is(.book-analysis, .book-analysis-dialog).empty-detail p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* 响应式适配 */
+@media (max-width: 1200px) {
+  :is(.book-analysis, .book-analysis-dialog) .chapter-details-main,
+:is(.book-analysis, .book-analysis-dialog).chapter-details-main {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .chapter-list-panel,
+:is(.book-analysis, .book-analysis-dialog).chapter-list-panel {
+    width: 100%;
+    height: 250px;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .chapter-detail-panel,
+:is(.book-analysis, .book-analysis-dialog).chapter-detail-panel {
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  :is(.book-analysis, .book-analysis-dialog) .chapter-details-main,
+:is(.book-analysis, .book-analysis-dialog).chapter-details-main {
+    gap: 16px;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .detail-header,
+:is(.book-analysis, .book-analysis-dialog).detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .chapter-meta,
+:is(.book-analysis, .book-analysis-dialog).chapter-meta {
+    flex-wrap: wrap;
+  }
+  
+  :is(.book-analysis, .book-analysis-dialog) .summary-content,
+:is(.book-analysis, .book-analysis-dialog).summary-content,
+:is(.book-analysis, .book-analysis-dialog) .full-content,
+:is(.book-analysis, .book-analysis-dialog).full-content {
+    padding: 16px;
+  }
+}

@@ -30,7 +30,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/services/api.ts`, `src/services/aiProviders.ts`, `src/services/apiConfig.ts` | AI SDK facade, provider adapters, model discovery and shared API configuration |
 | `src/services/novelPersistence.ts`, `src/services/blobStore.ts` | Queued novel saves, versioned IndexedDB content shards and startup hydration |
 | `src/services/backup.ts`, `src/services/billing.ts` | Backup validation/restoration and local usage/cost bookkeeping |
-| `src/stores/novel.ts`, `src/stores/assistant.ts` | Pinia state for writing and assistant conversations |
+| `src/stores/novel.ts`, `src/stores/assistant.ts`, `src/stores/writingGoals.ts` | Pinia state for writing and assistant conversations |
 | `src/utils/storage.ts`, `src/utils/aiRequestScope.ts` | Central storage access and isolated, cancellable AI requests |
 | `src/utils/writer/` | Writer prompt builders and response parsers |
 | `src/utils/` | Context budgets/compaction, corpus retrieval/portable transfer, virtual message windows, book imports, chapter parsing, event and mind-map data |
@@ -71,3 +71,10 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.
 - [Changelog](CHANGELOG.md): published changes and unreleased work.
+
+## Feature component ownership
+
+- ShortStory uses article/story workspaces and separate style, continuation, optimization and configuration dialogs in `src/components/short-story/`. `short-storyContext.ts` shares the page-owned typed workspace; editor refs and guarded writes live in `useShortStoryEditors.ts`.
+- BookAnalysis uses controls/results and chapter/prompt dialogs in `src/components/book-analysis/`. `book-analysisContext.ts` shares the page-owned typed workspace; `useBookChapterViewer.ts` owns chapter selection, reading and export.
+- Shared feature CSS is limited to the page root and its teleported dialog class. Generators and cancellation remain owned by the page lifecycle.
+- `stores/writingGoals.ts` owns both goal entry points and homepage state, serialized persistence, metadata-preserving edits and progress history. `utils/writingGoals.ts` normalizes legacy records and computes activity by local calendar day.

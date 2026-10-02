@@ -30,7 +30,7 @@
 | `src/services/api.ts`、`src/services/aiProviders.ts`、`src/services/apiConfig.ts` | AI SDK 接口封装、服务商适配、模型发现与共享 API 配置 |
 | `src/services/novelPersistence.ts`、`src/services/blobStore.ts` | 小说保存队列、带版本的 IndexedDB 正文分片与启动回填 |
 | `src/services/backup.ts`、`src/services/billing.ts` | 备份校验与恢复、本地用量和成本记账 |
-| `src/stores/novel.ts`、`src/stores/assistant.ts` | 写作与助手会话的 Pinia 状态 |
+| `src/stores/novel.ts`、`src/stores/assistant.ts`、`src/stores/writingGoals.ts` | 写作与助手会话的 Pinia 状态 |
 | `src/utils/storage.ts`、`src/utils/aiRequestScope.ts` | 统一存储入口，以及可独立取消的 AI 请求作用域 |
 | `src/utils/writer/` | Writer 提示词构建与响应解析 |
 | `src/utils/` | 上下文预算与压缩、语料检索、文档导入、章节解析、事件与导图数据处理 |
@@ -71,3 +71,10 @@
 - [浏览器测试](scripts/browser-testing.md)：CI 检查、本地 Chromium 回归与可选预览。
 - [发布说明](scripts/releasing.md)：通过校验的静态构建、校验和及源码/CI 信息。
 - [更新日志](CHANGELOG.md)：已发布变更和未发布工作。
+
+## 功能组件的归属
+
+- ShortStory 的短文/小说工作区，以及文风、续写、优化和配置对话框位于 `src/components/short-story/`。`short-storyContext.ts` 共享页面拥有的类型化工作区；编辑器引用与过期写入保护位于 `useShortStoryEditors.ts`。
+- BookAnalysis 的控制区、结果区及章节/提示词对话框位于 `src/components/book-analysis/`。`book-analysisContext.ts` 共享页面拥有的工作区；`useBookChapterViewer.ts` 负责章节选择、阅读与导出。
+- 共享样式仅作用于功能页面根节点和其浮层类。生成请求与取消仍由页面生命周期管理。
+- `stores/writingGoals.ts` 统一两个目标入口和首页状态，串行保存、保留编辑前的元数据并记录进度历史。`utils/writingGoals.ts` 归一化旧数据，按本地日历计算实际写作活动。
