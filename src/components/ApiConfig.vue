@@ -213,13 +213,13 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, watch, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useApiConfig } from '@/services/apiConfig'
 import { PROVIDER_PRESETS, getPreset, fetchProviderModels, FALLBACK_MODELS } from '@/services/aiProviders'
 import apiService from '@/services/api'
 
-const { customModels: storedCustomModels, providerModels, activeConfig, isApiConfigured, updateConfig, setCustomModels, setProviderModels, resetConfig } = useApiConfig()
+const { customModels: storedCustomModels, getProviderModels, activeConfig, isApiConfigured, updateConfig, setCustomModels, setProviderModels, resetConfig } = useApiConfig()
 
 const validating = ref(false)
 const fetchingModels = ref(false)
@@ -262,6 +262,53 @@ const collectHeaders = () => {
   return headers
 }
 
+const snapshotForm = () => ({ ...form, customHeaders: collectHeaders() })
+// This identity stays in memory; persisted model-cache keys never contain credentials.
+const connectionIdentity = config => JSON.stringify([
+  config.provider, config.baseURL, config.apiKey, config.proxyUrl,
+  Object.entries(config.customHeaders ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+])
+let modelRequest = null
+let validationRequest = null
+let disposed = false
+const cancelRequests = () => {
+  modelRequest?.controller.abort()
+  validationRequest?.controller.abort()
+  modelRequest = validationRequest = null
+  fetchingModels.value = validating.value = false
+}
+const beginRequest = (kind, draft) => {
+  const request = { controller: new AbortController(), identity: connectionIdentity(draft) }
+  if (kind === 'models') {
+    modelRequest?.controller.abort()
+    modelRequest = request
+    fetchingModels.value = true
+  } else {
+    validationRequest?.controller.abort()
+    validationRequest = request
+    validating.value = true
+  }
+  return request
+}
+const isCurrentRequest = (kind, request) => !disposed && !request.controller.signal.aborted
+  && (kind === 'models' ? modelRequest : validationRequest) === request
+  && request.identity === connectionIdentity(snapshotForm())
+const finishRequest = (kind, request) => {
+  if (kind === 'models' && modelRequest === request) {
+    modelRequest = null
+    fetchingModels.value = false
+  } else if (kind === 'validation' && validationRequest === request) {
+    validationRequest = null
+    validating.value = false
+  }
+}
+watch(() => connectionIdentity(snapshotForm()), cancelRequests, { flush: 'sync' })
+onBeforeUnmount(() => {
+  disposed = true
+  cancelRequests()
+})
+defineExpose({ cancelRequests })
+
 const syncHeaderRows = (headers) => {
   headerRows.value = Object.entries(headers ?? {}).map(([key, value]) => ({ key, value: String(value) }))
 }
@@ -276,7 +323,7 @@ const onProviderChange = (providerId) => {
 }
 
 // 当前服务商从服务端拉取到的模型列表
-const currentServerModels = computed(() => providerModels.value[form.provider] ?? [])
+const currentServerModels = computed(() => getProviderModels(snapshotForm()))
 
 // 本地模型（共享兜底清单 + 用户自定义），剔除与服务端列表重复的项
 const localModels = computed(() => {
@@ -312,33 +359,28 @@ const modelListHint = computed(() => {
 
 // 从服务商拉取可用模型列表
 const fetchModels = async () => {
-  if (!form.apiKey?.trim()) {
-    ElMessage.warning('请先填写API密钥')
-    return
-  }
+  if (disposed || fetchingModels.value || !validateForm()) return
 
-  fetchingModels.value = true
+  const draft = snapshotForm()
+  const request = beginRequest('models', draft)
   try {
-    form.customHeaders = collectHeaders()
-    updateConfig({ provider: form.provider, apiKey: form.apiKey, baseURL: form.baseURL, customHeaders: form.customHeaders })
-    const models = await fetchProviderModels(activeConfig.value)
-
-    setProviderModels(form.provider, models)
+    const models = await fetchProviderModels(draft, { signal: request.controller.signal })
+    if (!isCurrentRequest('models', request)) return
+    setProviderModels(draft, models)
 
     if (models.length === 0) {
       ElMessage.warning('服务商未返回任何模型')
     } else {
       // 当前选择为空或不在线上列表中时，自动切到第一个可用模型
-      if (!models.includes(form.selectedModel)) {
+      if (form.selectedModel === draft.selectedModel && !models.includes(form.selectedModel)) {
         form.selectedModel = models[0]
-        updateConfig({ selectedModel: form.selectedModel })
       }
       ElMessage.success(`已同步 ${models.length} 个模型`)
     }
   } catch (error) {
-    ElMessage.error(error.message)
+    if (isCurrentRequest('models', request)) ElMessage.error(error.message)
   } finally {
-    fetchingModels.value = false
+    finishRequest('models', request)
   }
 }
 
@@ -381,37 +423,37 @@ const validateForm = () => {
 }
 
 const saveConfig = async () => {
-  if (!validateForm()) return
+  if (disposed || validating.value || !validateForm()) return
 
-  validating.value = true
+  const draft = snapshotForm()
   try {
-    form.customHeaders = collectHeaders()
-    updateConfig({ ...form })
-    const isValid = await apiService.validateAPIKey()
-
-    if (isValid) {
-      ElMessage.success('配置保存成功')
-    } else {
+    updateConfig(draft)
+  } catch (error) {
+    ElMessage.error('配置保存失败：' + error.message)
+    return
+  }
+  ElMessage.success('配置保存成功')
+  const request = beginRequest('validation', draft)
+  try {
+    const isValid = await apiService.validateAPIKey(draft, { signal: request.controller.signal })
+    if (isCurrentRequest('validation', request) && !isValid) {
       ElMessage.warning('配置已保存，但连接测试未通过，请检查密钥与地址')
     }
   } catch (error) {
-    ElMessage.error('配置保存失败：' + error.message)
+    if (isCurrentRequest('validation', request)) ElMessage.warning('配置已保存，但连接测试未通过：' + error.message)
   } finally {
-    validating.value = false
+    finishRequest('validation', request)
   }
 }
 
 const testConnection = async () => {
-  if (!form.apiKey?.trim()) {
-    ElMessage.warning('请先填写API密钥')
-    return
-  }
+  if (disposed || validating.value || !validateForm()) return
 
-  validating.value = true
+  const draft = snapshotForm()
+  const request = beginRequest('validation', draft)
   try {
-    form.customHeaders = collectHeaders()
-    updateConfig({ ...form })
-    const isValid = await apiService.validateAPIKey()
+    const isValid = await apiService.validateAPIKey(draft, { signal: request.controller.signal })
+    if (!isCurrentRequest('validation', request)) return
 
     if (isValid) {
       ElMessage.success('连接测试成功')
@@ -419,13 +461,14 @@ const testConnection = async () => {
       ElMessage.error('连接测试失败')
     }
   } catch (error) {
-    ElMessage.error('连接测试失败：' + error.message)
+    if (isCurrentRequest('validation', request)) ElMessage.error('连接测试失败：' + error.message)
   } finally {
-    validating.value = false
+    finishRequest('validation', request)
   }
 }
 
 const resetForm = () => {
+  cancelRequests()
   try {
     resetConfig()
     loadSavedConfig()

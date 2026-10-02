@@ -1,5 +1,5 @@
 import { useApiConfig } from './apiConfig'
-import { buildModelsProbe, getPreset, loadAISDK, resolveLanguageModel } from './aiProviders'
+import { getPreset, loadAISDK, probeProviderConnection, resolveLanguageModel, type ModelsProbeOptions } from './aiProviders'
 import billingService from './billing'
 import { PREVIOUS_CONTENT_MAX_CHARS, trimTextFromEnd } from '@/utils/tokenBudget'
 import { buildCorpusInjection, recommendCorpus } from '@/utils/corpusRetrieval'
@@ -8,6 +8,7 @@ import { AIRequestCancelledError } from '@/utils/aiRequestScope'
 /** 个性化生成时注入语料的字符预算 */
 const CORPUS_INJECTION_MAX_CHARS = 4000
 import type {
+  ApiConfig,
   CharacterInfo,
   ChatMessage,
   GenerateOptions,
@@ -600,16 +601,11 @@ ${content}
     }
   }
 
-  async validateAPIKey(): Promise<boolean> {
+  async validateAPIKey(config: ApiConfig = this.getConfig(), options?: ModelsProbeOptions): Promise<boolean> {
     try {
-      const config = this.getConfig()
-      const probe = buildModelsProbe(config)
-      const response = await fetch(probe.url, {
-        method: 'GET',
-        headers: probe.headers,
-      })
-      return response.ok
+      return await probeProviderConnection(config, options)
     } catch (error) {
+      if (options?.signal?.aborted || (error instanceof Error && error.name === 'TimeoutError')) throw error
       console.error('API密钥验证失败:', error)
       return false
     }

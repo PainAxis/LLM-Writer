@@ -84,6 +84,9 @@ try {
   const apiHandlers = handlers('components/ApiConfig.vue', ['addCustomModel', 'removeCustomModel', 'resetForm', 'saveConfig'], {
     ...config,
     customModelInput, form: apiForm, validating: ref(false),
+    disposed: false, snapshotForm: () => ({ ...apiForm, customHeaders: {} }),
+    beginRequest: () => ({ controller: new AbortController() }), isCurrentRequest: () => true,
+    finishRequest() {}, cancelRequests() {},
     availableModels: computed(() => config.customModels.value),
     validateForm: () => true, collectHeaders: () => ({}),
     apiService: { validateAPIKey: async () => true },

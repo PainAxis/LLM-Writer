@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
+import { ref } from 'vue'
 import { useBookAnalysisFile } from '../src/composables/useBookAnalysisFile'
 import { detectBookChapters, readBookChapter, prepareBookAnalysis, buildBookAnalysisPrompt } from '../src/utils/bookAnalysisContext'
 import { splitBookLocally, type ImportedBook } from '../src/utils/bookImport'
+import { createBookAnalysisLibrary } from '../src/services/bookAnalysisLibrary'
+import { useBookAnalysisLibraryWorkspace } from '../src/composables/useBookAnalysisLibraryWorkspace'
+import type { BookAnalysisLibraryRecord } from '../src/types/bookAnalysis'
 
 const requests: Array<{ resolve(value: ImportedBook | null): void; reject(error: Error): void }> = []
 const messages: string[] = []
@@ -81,3 +85,127 @@ assert.throws(() => prepareBookAnalysis({ ...input, templateId: 'missing' }), /�
 const prompt = buildBookAnalysisPrompt(selected)
 for (const value of ['sample.txt', 'UTF-8', '第二章 黎明', '失物找到了。', '解释转折', '结构分析']) assert.ok(prompt.includes(value), value)
 console.log('✓ Detected and local chapters share consistent boundaries for preview, analysis and export; prompt context remains complete')
+
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
+function libraryFixture() {
+  let disk: BookAnalysisLibraryRecord[] = []
+  let failure: 'none' | 'sync' | 'async' = 'none'
+  let block: (() => Promise<void>) | undefined
+  let writeCount = 0
+  let id = 0
+  let busy = false
+  let cancelDelete = false
+  const content = ref<string | null>('《完整分析报告》\n\n人物与结构分析。\n保留所有换行和原始内容。')
+  const successes: string[] = []
+  const errors: string[] = []
+  const warnings: string[] = []
+  const library = createBookAnalysisLibrary({
+    read: () => clone(disk), id: () => `report-${++id}`, now: () => '2026-10-02T08:00:00.000Z',
+    write: next => {
+      writeCount++
+      if (failure === 'sync') throw new Error('Disk failure')
+      if (failure === 'async') return Promise.reject(new Error('Disk failure'))
+      if (block) return block().then(() => { disk = clone(next) })
+      disk = clone(next)
+    },
+  })
+  const ui = useBookAnalysisLibraryWorkspace({
+    library, content, sourceFileName: () => 'source-novel.txt', isBusy: () => busy,
+    onOpen: report => { content.value = report.content },
+    confirmDelete: async () => { if (cancelDelete) throw 'cancel' },
+    notify: { success: message => successes.push(message), error: message => errors.push(message), warning: message => warnings.push(message) },
+  })
+  return {
+    library, ui, content, successes, errors, warnings, disk: () => clone(disk), writes: () => writeCount,
+    fail: (value: typeof failure) => { failure = value }, block: (value?: typeof block) => { block = value },
+    busy: (value: boolean) => { busy = value }, cancelDelete: (value: boolean) => { cancelDelete = value },
+  }
+}
+
+for (const failure of ['sync', 'async'] as const) {
+  const state = libraryFixture()
+  await state.ui.loadAnalysisLibrary()
+  state.ui.saveToLibrary()
+  state.ui.analysisReportTitle.value = 'My saved report'
+  const body = state.content.value
+  state.fail(failure)
+  await state.ui.confirmSaveLibraryReport()
+  assert.equal(state.ui.showSaveAnalysisReport.value, true, 'A failed save keeps its title dialog available for retry')
+  assert.equal(state.ui.analysisReportTitle.value, 'My saved report')
+  assert.equal(state.content.value, body)
+  assert.deepEqual(state.library.records.value, [])
+  assert.deepEqual(state.disk(), [])
+  assert.equal(state.successes.length, 0)
+  assert.match(state.ui.saveLibraryError.value, /Disk failure/)
+  state.fail('none')
+  await state.ui.confirmSaveLibraryReport()
+  assert.equal(state.ui.showSaveAnalysisReport.value, false)
+  assert.equal(state.library.records.value.length, 1)
+  assert.equal(state.disk()[0].content, body)
+  const savedId = state.disk()[0].id
+  state.content.value = ''
+  state.ui.saveToLibrary()
+  assert.equal(state.ui.showSaveAnalysisReport.value, false)
+  assert.equal(state.warnings.length, 1, 'Empty edited reports are retained but cannot be saved')
+  state.content.value = 'Rewritten report after clearing'
+  state.ui.saveToLibrary()
+  await state.ui.confirmSaveLibraryReport()
+  assert.equal(state.disk().length, 1, 'Saving the active report again updates its committed identity')
+  assert.equal(state.disk()[0].id, savedId)
+  assert.equal(state.disk()[0].content, 'Rewritten report after clearing')
+
+  await state.ui.openAnalysisLibrary()
+  state.cancelDelete(true)
+  const writes = state.writes()
+  await state.ui.deleteLibraryReport(state.library.records.value[0])
+  assert.equal(state.writes(), writes)
+  assert.equal(state.ui.showAnalysisLibrary.value, true)
+  state.cancelDelete(false)
+  state.fail(failure)
+  const successesBeforeDelete = state.successes.length
+  await state.ui.deleteLibraryReport(state.library.records.value[0])
+  assert.equal(state.ui.showAnalysisLibrary.value, true)
+  assert.equal(state.library.records.value.length, 1)
+  assert.equal(state.successes.length, successesBeforeDelete)
+  assert.equal(state.content.value, 'Rewritten report after clearing')
+  assert.match(state.ui.libraryError.value, /Disk failure/)
+  state.fail('none')
+  await state.ui.deleteLibraryReport(state.library.records.value[0])
+  assert.deepEqual(state.disk(), [])
+  assert.equal(state.content.value, 'Rewritten report after clearing', 'Deleting the saved copy leaves the current editor draft intact')
+}
+
+const pendingSave = libraryFixture()
+await pendingSave.ui.loadAnalysisLibrary()
+pendingSave.ui.saveToLibrary()
+let began!: () => void
+let complete!: () => void
+const started = new Promise<void>(resolve => { began = resolve })
+pendingSave.block(() => { began(); return new Promise<void>(resolve => { complete = resolve }) })
+const saving = pendingSave.ui.confirmSaveLibraryReport()
+await started
+await pendingSave.ui.confirmSaveLibraryReport()
+assert.equal(pendingSave.writes(), 1, 'Repeated clicks during a save do not create another record')
+assert.equal(pendingSave.ui.savingLibraryReport.value, true)
+assert.equal(pendingSave.ui.showSaveAnalysisReport.value, true)
+assert.equal(pendingSave.successes.length, 0)
+complete()
+await saving
+assert.equal(pendingSave.ui.savingLibraryReport.value, false)
+assert.equal(pendingSave.disk().length, 1)
+
+// A new workspace can read and open the report without an uploaded book.
+const reopenedContent = ref<string | null>(null)
+const reopenedLibrary = createBookAnalysisLibrary({ read: pendingSave.disk, write() {} })
+const reopened = useBookAnalysisLibraryWorkspace({
+  library: reopenedLibrary, content: reopenedContent, sourceFileName: () => '', isBusy: () => false,
+  onOpen: report => { reopenedContent.value = report.content }, confirmDelete: async () => undefined,
+  notify: { success() {}, warning() {}, error(message) { throw new Error(message) } },
+})
+await reopened.openAnalysisLibrary()
+assert.equal(reopened.showAnalysisLibrary.value, true)
+reopened.openLibraryReport(reopened.libraryRecords.value[0])
+assert.equal(reopenedContent.value, pendingSave.disk()[0].content)
+assert.equal(reopened.showAnalysisLibrary.value, false)
+assert.equal(reopened.currentLibraryReportTitle.value, pendingSave.disk()[0].title)
+console.log('✓ Reference-library workflow: durable report opening, identity-preserving saves, retained failure drafts, confirmation, awaited delete and repeated-click guards')

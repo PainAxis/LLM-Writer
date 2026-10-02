@@ -32,14 +32,14 @@
 - **Context budget management**: dual-dimension budget (tokens / entries), sliding-window truncation vs incremental summary as explicit alternatives, failure handling via dialogs (no silent degradation)
 - **Model list sync**: one-click pull of server-side model lists with caching; built-in common models as fallback
 - **Prompt library**: category management, variable system, import & export, usage statistics
-- **Book analysis**: UTF-8/GBK TXT decoding and browser-side DOCX text extraction; local chapter-heading detection and optional length-based splitting; 5-dimension AI analysis and result management
+- **Book analysis**: UTF-8/GBK TXT decoding and browser-side DOCX text extraction; local chapter-heading detection and optional length-based splitting; 5-dimension AI analysis, a persistent reference library, and report backup/restore
 - **Short fiction**: multi-template short-form writing
 - **Writing goals**: daily / weekly / monthly targets, progress tracking, achievement incentives
 - **Token billing**: local usage statistics and cost ledger (simulated)
 
 ### Engineering
 - **Tiered local storage**: localStorage + IndexedDB auto-tiering with versioned content shards; old shards are cleaned up only after metadata commits. Save status follows actual completion and supports retry. Failed content loading blocks project access while preserving stored data
-- **System backups**: v2 JSON covers 20 current storage keys, with selectable novels, prompts, genres, goals, assistants and settings. Imports support legacy backups, validate data before restoring and attempt rollback on write failure. Selected settings include API keys
+- **System backups**: v2 JSON covers 21 current storage keys, with selectable novels, prompts, genres, goals, assistants, the book-analysis reference library and settings. Imports support legacy backups, validate data before restoring and attempt rollback on write failure. Selected settings include API keys
 - **Workbench modules**: `useWriterProject` handles project loading, chapter switching and autosave; `WriterEditor` encapsulates the rich-text editor. Navigation waits for saving and preserves the editing context on failure
 - **Dark mode**: light / dark / system themes, follows system preference automatically
 - **On-demand loading**: route-level lazy loading; the home page has no static dependency on the AI SDK, editor or mind-map libraries. The writing editor loads when a chapter is opened, and the DOCX parser loads during import

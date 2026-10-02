@@ -33,3 +33,30 @@ export function migrateEventChapters(events: EventLike[], chapters: ChapterLike[
   }
   return changed
 }
+
+/** Keep event links attached to chapter identities when the chapter order changes.
+ * Numeric legacy links retain their value type; recognized title links become
+ * chapter numbers. Deleted targets are unlinked, while unknown legacy values
+ * and all extension fields are preserved. Neither input collection is mutated.
+ */
+export function remapEventChapters<T extends EventLike>(
+  events: readonly T[],
+  previousChapters: readonly (ChapterLike & { id: number })[],
+  nextChapters: readonly (ChapterLike & { id: number })[],
+): T[] {
+  const nextNumbers = new Map(nextChapters.map((chapter, index) => [chapter.id, index + 1]))
+  return events.map(event => {
+    if (event.chapter === undefined || event.chapter === '') return event
+    const number = Number(event.chapter)
+    const previous = Number.isInteger(number)
+      ? number > 0 && number <= previousChapters.length ? previousChapters[number - 1] : undefined
+      : typeof event.chapter === 'string'
+        ? previousChapters.find(chapter => chapter.title === String(event.chapter).trim())
+        : undefined
+    if (!previous) return event
+    const nextNumber = nextNumbers.get(previous.id)
+    const chapter = nextNumber === undefined ? ''
+      : typeof event.chapter === 'number' ? nextNumber : String(nextNumber)
+    return chapter === event.chapter ? event : { ...event, chapter }
+  })
+}

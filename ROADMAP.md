@@ -6,7 +6,7 @@ See [Project Structure](PROJECT_STRUCTURE.md) for the current implementation lay
 
 Completed foundations:
 
-- PR/main CI enforces zero lint warnings, type checking, production builds, 50 smoke suites and 24 real Chromium scenarios with a synthetic API.
+- PR/main CI enforces zero lint warnings, type checking, production builds, 53 smoke suites and 28 real Chromium scenarios with a synthetic API.
 - The main ruleset requires GitHub Actions `ci-quality` and `ci-browser` checks and an up-to-date branch before merging.
 - ShortStory uses isolated generation scopes for articles, stories, continuation and optimization, with cancellation/restart/clear/dialog-close/unmount coverage.
 - BookAnalysis, NovelManagement and ToolsLibrary generation use isolated scopes covering stop, source changes, dialog closure and unmount; tool progress no longer uses simulated timers.
@@ -26,4 +26,4 @@ The final four reliability workstreams are complete:
 - Novel and writing-goal commits coordinate across tabs. Different novels merge independently; conflicting changes to one novel keep the local draft and require copying it, refreshing/reopening the novel and merging manually. Concurrent goal increments retain both histories. This coordination is scoped to novels/goals; see [the persistence protocol](docs/persistence-coordination.md).
 - Assistant summaries record their covered message boundary, so sending combines a committed summary with uncovered originals. Failed or pending compaction retains the previous usable boundary and full local history.
 
-The architecture and reliability phase is complete. The next phase prioritizes user-facing writing features and usability, selected from repository issues and user feedback. Implementation details and validation remain documented in [Project Structure](PROJECT_STRUCTURE.md), CI and the unreleased changelog.
+The first batch of existing-feature repairs is complete: exact ShortStory selection replacement, stable chapter/event links, a persistent book-analysis reference library, and isolated API draft testing/model synchronization. Further feature work starts with the remaining user workflow findings before adding new capabilities. Implementation details and validation remain documented in [Project Structure](PROJECT_STRUCTURE.md), CI and the unreleased changelog.

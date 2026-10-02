@@ -2,13 +2,14 @@ import { useBookChapterViewer } from './useBookChapterViewer'
 import type { InputInstance } from 'element-plus'
 import type { BookChapter, BookAnalysisData, BookAnalysisTemplate } from '@/types/bookAnalysis'
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAIStream } from '@/composables/useAIStream'
 import { useGenerationTask } from '@/composables/useGenerationTask'
 import { storageGetRaw, storageSetRaw, StorageKeys } from '@/utils/storage'
 import { promptCatalog } from '@/services/promptCatalog'
 import { splitBookLocally } from '@/utils/bookImport'
 import { useBookAnalysisFile } from '@/composables/useBookAnalysisFile'
+import { useBookAnalysisLibraryWorkspace } from '@/composables/useBookAnalysisLibraryWorkspace'
 import {
   detectBookChapters,
   prepareBookAnalysis,
@@ -19,7 +20,7 @@ import {
 export function useBookAnalysisWorkspace() {
   // 响应式数据
   const fileWorkspace = useBookAnalysisFile({
-    isBusy: () => analyzing.value || generatingSummary.value,
+    isBusy: () => analyzing.value || generatingSummary.value || savingLibraryReport.value,
     onImported: (content) => {
       resetBookAnalysis()
       analysisStartWords.value = 1
@@ -56,6 +57,22 @@ export function useBookAnalysisWorkspace() {
   const analysisStatus = ref('')
 
   const analysisResult = ref<string | null>(null)
+
+  const libraryWorkspace = useBookAnalysisLibraryWorkspace({
+    content: analysisResult,
+    sourceFileName: () => uploadedFile.value?.name ?? '',
+    isBusy: () => analyzing.value || generatingSummary.value || importingFile.value,
+    onOpen: report => {
+      analysisTask.stop()
+      summaryTask.stop()
+      analysisResult.value = report.content
+      analysisProgress.value = 100
+      analysisStatus.value = '已打开参考库报告'
+    },
+    confirmDelete: report => ElMessageBox.confirm(`确定要删除「${report.title}」吗？当前编辑区的内容会保留。`, '删除参考报告', { type: 'warning' }),
+    notify: { success: ElMessage.success, warning: ElMessage.warning, error: ElMessage.error },
+  })
+  const { savingLibraryReport, resetLibraryReport } = libraryWorkspace
 
   const analysisTime = ref('')
 
@@ -122,7 +139,7 @@ Requirements:
   const displayContent = computed({
     get() {
       // 如果有分析结果，优先显示分析结果（包括流式输出过程中）
-      if (analysisResult.value) return analysisResult.value
+      if (analysisResult.value !== null) return analysisResult.value
       // 如果正在分析但还没有结果，显示空内容
       if (analyzing.value) return ''
       // 如果有书籍内容，显示书籍内容
@@ -137,8 +154,9 @@ Requirements:
   })
 
   const getPlaceholder = () => {
+    if (analysisResult.value !== null) return '编辑分析结果...'
     if (!bookContent.value) return '请先上传小说文件...'
-    if (!analysisResult.value && !analyzing.value) return '小说完整内容预览'
+    if (analysisResult.value === null && !analyzing.value) return '小说完整内容预览'
     if (analyzing.value) return '正在进行AI流式分析，内容将实时显示...'
     return '编辑分析结果...'
   }
@@ -148,6 +166,7 @@ Requirements:
     analysisTask.stop()
     summaryTask.stop()
     analysisResult.value = null
+    resetLibraryReport()
     detectedChapters.value = []
     selectedChapters.value = []
     autoDetectedChapters.value = []
@@ -218,7 +237,7 @@ Requirements:
   }
 
   const startAnalysis = async () => {
-    if (importingFile.value || analyzing.value) return
+    if (importingFile.value || analyzing.value || savingLibraryReport.value) return
     if (!selectedTemplate.value) {
       ElMessage.error('请选择分析模板')
       return
@@ -226,6 +245,7 @@ Requirements:
     try {
       const data = prepareAnalysisData()
       const header = buildReportHeader(data)
+      resetLibraryReport()
       analysisResult.value = header
       analysisProgress.value = 40
       analysisStatus.value = 'AI深度分析中...'
@@ -359,11 +379,6 @@ ${chapterInfos
     ElMessage.success('分析结果已导出！')
   }
 
-  const saveToLibrary = () => {
-    // 保存到参考库
-    ElMessage.success('已保存到拆书参考库！')
-  }
-
   // 章节内容查看相关方法
   // 获取预览提示词（截取前200字）
   const getPreviewPrompt = () => {
@@ -492,11 +507,13 @@ ${chapterInfos
 
   // 组件挂载时加载模板
   onMounted(() => {
+    void libraryWorkspace.loadAnalysisLibrary()
     loadAnalysisTemplates()
     loadSummaryPromptTemplate()
   })
 
   return {
+    ...libraryWorkspace,
     uploadedFile,
     bookContent,
     selectedEncoding,
@@ -543,7 +560,6 @@ ${chapterInfos
     stopAnalysis,
     startAnalysis,
     exportResults,
-    saveToLibrary,
     openChapterViewer,
     closeChapterContent,
     loadChapterContent,

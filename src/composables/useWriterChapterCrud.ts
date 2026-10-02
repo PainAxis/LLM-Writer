@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue'
-import type { WriterChapter, WriterChapterForm, WriterNovel } from '@/types/writer'
+import type { WriterChapter, WriterChapterForm, WriterEvent, WriterNovel } from '@/types/writer'
+import { remapEventChapters } from '@/utils/eventLine'
 
 interface WriterChapterCrudNotifications {
   success(message: string): void
@@ -9,6 +10,7 @@ interface WriterChapterCrudNotifications {
 interface UseWriterChapterCrudOptions {
   currentNovel: Readonly<Ref<WriterNovel | null>>
   chapters: Ref<WriterChapter[]>
+  events: Ref<WriterEvent[]>
   currentChapter: Ref<WriterChapter | null>
   content: Ref<string>
   persist(): Promise<boolean>
@@ -146,7 +148,11 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
 
     const selectedBefore = options.currentChapter.value
     const contentBefore = options.content.value
+    const previousChapters = [...list]
+    const events = options.events.value
+    const previousEvents = [...events]
     const [removed] = list.splice(index, 1)
+    events.splice(0, events.length, ...remapEventChapters(previousEvents, previousChapters, list))
     if (selectedBefore?.id === chapter.id) {
       options.currentChapter.value = null
       options.content.value = ''
@@ -161,6 +167,7 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
 
     if (!persisted) {
       list.splice(index, 0, removed)
+      events.splice(0, events.length, ...previousEvents)
       options.currentChapter.value = selectedBefore
       options.content.value = contentBefore
       return false

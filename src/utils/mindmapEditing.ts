@@ -8,6 +8,7 @@ import type {
 } from '@/types/writer'
 import type { MindMapNode } from './mindmapData'
 import { generateUniqueId } from './id'
+import { remapEventChapters } from './eventLine'
 
 export const MIND_MAP_SECTIONS = {
   chapterList: '章节',
@@ -115,7 +116,6 @@ export function applyMindMapEdits(
   const createId = options.createId ?? generateUniqueId
   const next = {} as Record<MindMapSection, Entity[]>
   const retained = {} as Record<MindMapSection, Set<number>>
-  const oldToNewChapter = new Map<number, number>()
   const characterNames = new Map<string, string>()
   const renamedTitle = topic(root)
   if (renamedTitle !== (source.title || '未命名小说')) changes.renamed++
@@ -151,7 +151,6 @@ export function applyMindMapEdits(
           changes.renamed++
           entity.updatedAt = now
         }
-        if (section === 'chapterList') oldToNewChapter.set(sourceIndex + 1, index + 1)
         if (section === 'characters' && typeof original.name === 'string')
           characterNames.set(original.name, name)
       } else {
@@ -198,7 +197,7 @@ export function applyMindMapEdits(
   result.chapterList = next.chapterList as WriterChapter[]
   result.characters = next.characters as WriterCharacter[]
   result.worldSettings = next.worldSettings as WriterWorldSetting[]
-  result.events = next.events as WriterEvent[]
+  result.events = remapEventChapters(next.events as WriterEvent[], source.chapterList ?? [], result.chapterList)
   result.corpusData = next.corpusData as WriterCorpusItem[]
   const deletedCharacters = (source.characters ?? []).filter(
     (_entity, index) => !retained.characters.has(index)
@@ -209,22 +208,6 @@ export function applyMindMapEdits(
     )
   )
   for (const event of result.events) {
-    const number = Number(event.chapter)
-    if (
-      event.chapter !== '' &&
-      event.chapter !== undefined &&
-      Number.isInteger(number) &&
-      number > 0 &&
-      number <= (source.chapterList?.length ?? 0)
-    ) {
-      const remapped = oldToNewChapter.get(number)
-      event.chapter =
-        remapped === undefined
-          ? ''
-          : typeof event.chapter === 'string'
-            ? String(remapped)
-            : remapped
-    }
     if (event.characterIds) {
       event.characterIds = event.characterIds
         .filter((id) => !deletedCharacterIds.has(id))

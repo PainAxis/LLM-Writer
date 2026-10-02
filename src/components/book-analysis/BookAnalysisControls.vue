@@ -1,11 +1,15 @@
 <template>
 <div class="left-panel">
+        <div class="panel-section">
+          <el-button @click="openAnalysisLibrary">拆书参考库</el-button>
+          <el-tag v-if="libraryRecords.length" size="small">{{ libraryRecords.length }} 份报告</el-tag>
+        </div>
         <!-- 文件上传区域 -->
         <BookFileImportPanel
           v-model:encoding="selectedEncoding"
           :uploaded-file="uploadedFile"
           :importing-file="importingFile"
-          :busy="analyzing || generatingSummary"
+          :busy="analyzing || generatingSummary || savingLibraryReport"
           :is-docx="isDocx"
           :file-format-label="fileFormatLabel"
           @change="handleFileChange"
@@ -132,7 +136,7 @@
               type="primary" 
               @click="startAnalysis" 
               :loading="analyzing"
-              :disabled="!selectedTemplate || importingFile"
+              :disabled="!selectedTemplate || importingFile || savingLibraryReport"
               block
             >
               <el-icon><DataAnalysis /></el-icon>
@@ -141,7 +145,7 @@
             
             <el-button v-if="analyzing" @click="stopAnalysis">停止分析</el-button>
             <el-button 
-              v-if="analysisResult" 
+              v-if="analysisResult !== null"
               @click="exportResults" 
               block
             >
@@ -150,8 +154,9 @@
             </el-button>
             
             <el-button 
-              v-if="analysisResult" 
+              v-if="analysisResult !== null"
               @click="saveToLibrary" 
+              :disabled="libraryReportBusy || !analysisResult.trim()"
               block
             >
               <el-icon><FolderAdd /></el-icon>
@@ -185,5 +190,5 @@
 import { useBookAnalysisWorkspaceContext } from '@/composables/book-analysisContext'
 import { DataAnalysis, Download, FolderAdd, MagicStick, View } from '@element-plus/icons-vue'
 import BookFileImportPanel from './BookFileImportPanel.vue'
-const { uploadedFile, bookContent, selectedEncoding, importingFile, isDocx, fileFormatLabel, handleFileChange, handleFileExceed, rereadWithEncoding, removeFile, selectedTemplate, selectedChapters, analysisStartWords, analysisEndWords, analysisResult, detectedChapters, autoDetectedChapters, analysisTemplates, estimatedChapters, selectAllChapters, clearChapterSelection, startLocalChapterDetection, analyzing, generatingSummary, stopAnalysis, startAnalysis, exportResults, saveToLibrary, openChapterViewer, openChapterDetailsViewer } = useBookAnalysisWorkspaceContext()
+const { openAnalysisLibrary, libraryRecords, savingLibraryReport, libraryReportBusy, uploadedFile, bookContent, selectedEncoding, importingFile, isDocx, fileFormatLabel, handleFileChange, handleFileExceed, rereadWithEncoding, removeFile, selectedTemplate, selectedChapters, analysisStartWords, analysisEndWords, analysisResult, detectedChapters, autoDetectedChapters, analysisTemplates, estimatedChapters, selectAllChapters, clearChapterSelection, startLocalChapterDetection, analyzing, generatingSummary, stopAnalysis, startAnalysis, exportResults, saveToLibrary, openChapterViewer, openChapterDetailsViewer } = useBookAnalysisWorkspaceContext()
 </script>

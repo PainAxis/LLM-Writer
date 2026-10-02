@@ -88,6 +88,10 @@
                     <div class="stat-value">{{ dataStats.goals }}个</div>
                   </div>
                   <div class="stat-item">
+                    <div class="stat-label">拆书参考库</div>
+                    <div class="stat-value">{{ dataStats.bookAnalysisLibrary }}篇</div>
+                  </div>
+                  <div class="stat-item">
                     <div class="stat-label">数据大小</div>
                     <div class="stat-value">{{ dataStats.size }}</div>
                   </div>
@@ -115,6 +119,10 @@
                   <el-button @click="exportGenres">
                     <el-icon><Collection /></el-icon>
                     小说类型
+                  </el-button>
+                  <el-button @click="exportBookAnalysisLibrary">
+                    <el-icon><Collection /></el-icon>
+                    拆书参考库
                   </el-button>
                   <el-button @click="exportSettings">
                     <el-icon><Setting /></el-icon>
@@ -365,6 +373,7 @@
           <el-checkbox label="novelGenres">小说类型</el-checkbox>
           <el-checkbox label="writingGoals">写作目标</el-checkbox>
           <el-checkbox label="assistants">助手与会话</el-checkbox>
+          <el-checkbox label="bookAnalysisLibrary">拆书参考库</el-checkbox>
           <el-checkbox label="settings">系统设置与用量</el-checkbox>
         </el-checkbox-group>
       </div>
@@ -423,6 +432,7 @@ const isImporting = ref(false)
 const backupLabels = {
   novels: '小说数据', prompts: '提示词库', novelGenres: '小说类型',
   writingGoals: '写作目标', assistants: '助手与会话', settings: '系统设置与用量',
+  bookAnalysisLibrary: '拆书参考库',
 }
 
 // 数据统计
@@ -431,6 +441,7 @@ const dataStats = ref({
   prompts: 0,
   genres: 0,
   goals: 0,
+  bookAnalysisLibrary: 0,
   size: '0KB'
 })
 
@@ -447,13 +458,15 @@ const calculateDataStats = () => {
     const prompts = storageGet(StorageKeys.prompts, [])
     const genres = storageGet(StorageKeys.novelGenres, [])
     const goals = storageGet(StorageKeys.writingGoals, [])
+    const bookAnalysisLibrary = storageGet(StorageKeys.bookAnalysisLibrary, [])
     
     // 计算数据大小
     const allData = JSON.stringify({
       novels,
       prompts,
       genres,
-      goals
+      goals,
+      bookAnalysisLibrary
     })
     
     const sizeInBytes = new Blob([allData]).size
@@ -465,6 +478,7 @@ const calculateDataStats = () => {
       prompts: prompts.length,
       genres: genres.length,
       goals: goals.length,
+      bookAnalysisLibrary: bookAnalysisLibrary.length,
       size: sizeInBytes > 1024 * 1024 ? `${sizeInMB}MB` : `${sizeInKB}KB`
     }
   } catch (error) {
@@ -492,6 +506,7 @@ const exportAllData = () => downloadBackup(ALL_BACKUP_GROUPS, '完整备份')
 const exportNovels = () => downloadBackup(['novels'], '小说数据')
 const exportPrompts = () => downloadBackup(['prompts'], '提示词库')
 const exportGenres = () => downloadBackup(['novelGenres'], '小说类型')
+const exportBookAnalysisLibrary = () => downloadBackup(['bookAnalysisLibrary'], '拆书参考库')
 const exportSettings = () => downloadBackup(['settings'], '系统设置')
 
 const confirmImportOptions = () => {

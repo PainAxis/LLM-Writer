@@ -4,7 +4,7 @@
  * 运行：npx tsx scripts/smoke-event-line.ts
  */
 import assert from 'node:assert'
-import { migrateEventChapters } from '../src/utils/eventLine'
+import { migrateEventChapters, remapEventChapters } from '../src/utils/eventLine'
 
 const chapters = [{ title: '初入宗门' }, { title: '剑冢奇遇' }, { title: '第三幕' }]
 
@@ -45,5 +45,30 @@ assert.strictEqual(single[0].chapter, '2')
 assert.strictEqual(single[0].extra, 1)
 assert.strictEqual(Object.keys(single[0]).length, 3, '不应新增字段')
 console.log('✓ 测试3 通过：原地修改不引入副作用')
+
+const originalChapters = [
+  { id: 11, title: '甲章' }, { id: 12, title: '乙章' }, { id: 13, title: '丙章' },
+]
+const linked = [
+  { id: 1, chapter: '1', extension: { keep: true } },
+  { id: 2, chapter: 2 },
+  { id: 3, chapter: '丙章' },
+  { id: 4, chapter: '' },
+  { id: 5 },
+  { id: 6, chapter: '未知章节' },
+  { id: 7, chapter: '99' },
+]
+const snapshot = JSON.stringify(linked)
+const reordered = remapEventChapters(linked, originalChapters, [originalChapters[2], originalChapters[0], originalChapters[1]])
+assert.deepStrictEqual(reordered.map(event => event.chapter), ['2', 3, '1', '', undefined, '未知章节', '99'])
+assert.deepStrictEqual(reordered[0].extension, { keep: true })
+const deleted = remapEventChapters(linked, originalChapters, [originalChapters[1], originalChapters[2]])
+assert.deepStrictEqual(deleted.map(event => event.chapter), ['', 1, '2', '', undefined, '未知章节', '99'])
+const added = remapEventChapters(linked, originalChapters, [{ id: 14, title: '插入章节' }, ...originalChapters])
+assert.deepStrictEqual(added.map(event => event.chapter), ['2', 3, '4', '', undefined, '未知章节', '99'])
+assert.equal(JSON.stringify(linked), snapshot, '映射不能污染原事件，失败时可完整保留原快照')
+assert.deepStrictEqual(remapEventChapters(deleted, [originalChapters[1], originalChapters[2]], [originalChapters[1], originalChapters[2]]), deleted, '同一候选重复保存不能二次移动章号')
+assert.deepStrictEqual(remapEventChapters([{ chapter: '99' }], [{ id: 1, title: '99' }], []), [{ chapter: '99' }], '越界旧章号不能猜成同名标题后删除')
+console.log('✓ 测试4 通过：增删重排按章节身份维护事件，保留旧格式及扩展字段')
 
 console.log('\n=== ALL EVENT-LINE TESTS PASSED ===')

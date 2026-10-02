@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { ref } from 'vue'
 import ts from 'typescript'
 import { toDate } from '../src/utils/dates'
+import { remapEventChapters } from '../src/utils/eventLine'
 import { registerChunkedKey, StorageKeys, storageGet, storageSet } from '../src/utils/storage'
 import { initNovelPersistence, retryNovelPersistence, subscribeNovelPersistenceStatus } from '../src/services/novelPersistence'
 
@@ -13,6 +14,13 @@ const fixture = () => [{
   chapterList: [
     { id: 11, title: '第一章', content: '甲', wordCount: 1, tags: [] },
     { id: 12, title: '第二章', content: '乙', wordCount: 1, tags: [] },
+  ],
+  events: [
+    { id: 101, title: '第一章事件', chapter: '1', extension: { retained: true } },
+    { id: 102, title: '第二章事件', chapter: 2 },
+    { id: 103, title: '旧标题关联', chapter: '第二章' },
+    { id: 104, title: '未关联', chapter: '' },
+    { id: 105, title: '未知旧值', chapter: '未知章节' },
   ],
 }, { id: 2, title: '小说乙', chapterList: [{ id: 21, title: '独立章节', content: '不变' }] }]
 let cached: any[] = []
@@ -61,7 +69,7 @@ function setup(kind: 'novels' | 'chapters') {
   const errors: string[] = []
   let cancel = false
   const shared: Record<string, any> = {
-    ref, StorageKeys, storageGet, storageSet,
+    ref, StorageKeys, storageGet, storageSet, remapEventChapters,
     novels: ref(clone(cached)),
     ElMessage: { success: (s: string) => success.push(s), error: (s: string) => errors.push(s) },
     ElMessageBox: { confirm: async () => { if (cancel) throw 'cancel' } },
@@ -106,23 +114,27 @@ async function verifyFailureThenRetry(kind: 'novels' | 'chapters', label: string
   assert.ok(settle, `${label} 应提交异步写入`)
   assert.deepEqual(state.success, [], `${label} 落盘前不能报成功`)
   assert.deepEqual(disk, initial)
+  const attempted = clone(cached)
   assert.deepEqual(clone(list.value), visible, `${label} 落盘前不提交可见列表`)
   settle(new Error('simulated IndexedDB rejection'))
   await pending
   assert.equal(state.errors.length, 1, `${label} 应提示失败`)
   assert.deepEqual(state.success, [])
   assert.deepEqual(clone(list.value), visible, `${label} 失败应保留可重试列表`)
+  if (kind === 'chapters') assert.deepEqual(clone(state.novels.value[0].events), initial[0].events, '失败时页面上的事件与原章节保持配对')
   assert.deepEqual(clone(form.value), input, `${label} 失败保留创建输入`)
   assert.deepEqual(clone(kind === 'novels' ? state.editForm.value : state.chapterForm.value), editInput)
   assert.equal(state.showCreateDialog.value, true)
   const retry = invoke(state)
   await new Promise(resolve => setTimeout(resolve, 0))
+  if (kind === 'chapters') assert.deepEqual(cached[0].events, attempted[0].events, '重试读取候选缓存后不能二次映射事件章号')
   assert.deepEqual(state.success, [], `${label} 重试同样等待落盘`)
   settle!()
   await retry
   assert.equal(state.success.length, 1, `${label} 重试成功只提示一次`)
   assert.equal(writes, 2)
   assert.deepEqual(disk.find(novel => novel.id === 2), initial[1], '不能污染另一本小说')
+  if (kind === 'chapters') assert.deepEqual(clone(state.novels.value[0].events), disk[0].events, '成功后页面事件和已保存章节保持配对')
   console.log(`✓ ${label}：失败保留输入，重试成功，无提前成功提示`)
   return { state, initial }
 }
@@ -216,6 +228,9 @@ async function verifyGlobalRetry() {
           assert.deepEqual(clone(form.value), input, '全局刷新列表不能清掉尚未关闭的编辑输入')
           if (operation === 'create') assert.ok(list.value.some((item: any) => item.title === '全局重试 X'))
           else assert.ok(!list.value.some((item: any) => item.id === (kind === 'novels' ? 1 : 11)))
+          if (kind === 'chapters' && operation === 'delete') {
+            assert.deepEqual(JSON.parse(local.get(StorageKeys.novels)!)[0].events.map((event: any) => event.chapter), ['', 1, '1', '', '未知章节'], '全局重试应一起提交章节删除和事件映射')
+          }
           // 关闭原表单后再开启独立创建，必须保留全局重试提交的 X。
           if (kind === 'novels') state.resetCreateForm()
           else state.resetForm()
@@ -228,6 +243,7 @@ async function verifyGlobalRetry() {
           assert.ok(items.some((item: any) => item.title === '后续创建 Y'))
           if (operation === 'create') assert.ok(items.some((item: any) => item.title === '全局重试 X'))
           else assert.ok(!items.some((item: any) => item.id === (kind === 'novels' ? 1 : 11)))
+          if (kind === 'chapters' && operation === 'delete') assert.deepEqual(persisted[0].events.map((event: any) => event.chapter), ['', 1, '1', '', '未知章节'], '后续新增章节不能复活已删除的事件关联')
           console.log(`✓ ${kind}/${operation}：实际持久化服务重试同步页面，后续保存不丢失或复活数据`)
         } finally {
           unsubscribe()
@@ -321,10 +337,14 @@ async function main() {
   assert.equal(disk[0].chapterList.length, 3)
   await verifyFailureThenRetry('chapters', '章节上移', state => state.moveChapter(state.chapters.value[1], 'up'))
   assert.deepEqual(disk[0].chapterList.map((c: any) => c.id), [12, 11])
+  assert.deepEqual(disk[0].events.map((event: any) => event.chapter), ['2', 1, '1', '', '未知章节'])
   await verifyFailureThenRetry('chapters', '章节下移', state => state.moveChapter(state.chapters.value[0], 'down'))
   assert.deepEqual(disk[0].chapterList.map((c: any) => c.id), [12, 11])
+  assert.deepEqual(disk[0].events.map((event: any) => event.chapter), ['2', 1, '1', '', '未知章节'])
   await verifyFailureThenRetry('chapters', '章节删除', state => state.deleteChapter(state.chapters.value[0]))
   assert.equal(disk[0].chapterList.length, 1)
+  assert.deepEqual(disk[0].events.map((event: any) => event.chapter), ['', 1, '1', '', '未知章节'])
+  assert.deepEqual(disk[0].events[0].extension, { retained: true })
   for (const kind of ['novels', 'chapters'] as const) {
     const state = setup(kind)
     state.cancelConfirm()

@@ -78,8 +78,8 @@
 
 ## 功能组件的归属
 
-- ShortStory 的短文/小说工作区，以及文风、续写、优化和配置对话框位于 `src/components/short-story/`。`short-storyContext.ts` 共享页面拥有的类型化工作区；编辑器引用与过期写入保护位于 `useShortStoryEditors.ts`。
-- BookAnalysis 的控制区、结果区及章节/提示词对话框位于 `src/components/book-analysis/`。`book-analysisContext.ts` 共享页面拥有的工作区；`useBookChapterViewer.ts` 负责章节选择、阅读与导出。
+- ShortStory 的短文/小说工作区，以及文风、续写、优化和配置对话框位于 `src/components/short-story/`。`short-storyContext.ts` 共享页面拥有的类型化工作区；编辑器引用与过期写入保护位于 `useShortStoryEditors.ts`；`useShortStorySelection.ts` 为优化捕获并校验精确编辑器选区。
+- BookAnalysis 的控制区、结果区及章节/提示词对话框位于 `src/components/book-analysis/`。`book-analysisContext.ts` 共享页面拥有的工作区；`useBookChapterViewer.ts` 负责章节选择、阅读与导出。`useBookAnalysisLibraryWorkspace.ts` 管理报告对话框和身份；`services/bookAnalysisLibrary.ts` 校验并持久化报告，也接入系统备份。
 - 共享样式仅作用于功能页面根节点和其浮层类。生成请求与取消仍由页面生命周期管理。
 - `stores/writingGoals.ts` 统一两个目标入口和首页状态，串行保存、保留编辑前的元数据并记录进度历史。`utils/writingGoals.ts` 归一化旧数据，按本地日历计算实际写作活动。
 
@@ -90,3 +90,5 @@
 - 小说保存先准备正文分片，再协调提交，并比较编辑器实际读取的版本。不同作品的修改可以合并；同一作品发生冲突时保留本地草稿，拒绝覆盖较新的已保存版本。需先复制草稿，再刷新页面、重新打开作品并手动合并。
 - 目标增量在同一跨标签页提交边界中读取最新记录，保留并发的增量和各自历史。这一机制保护小说与写作目标，其他存储键不会因此获得跨标签页保护。详见[持久化协调说明](docs/persistence-coordination.md)。
 - 助手摘要将正文和覆盖游标一起保存，发送时使用摘要与尚未覆盖的原始消息；压缩失败或仍在进行时不会推进覆盖范围。完整本地历史与旧版摘要备份保持可用。
+- `utils/eventLine.ts` 按稳定的章节身份重映射事件关联，供章节管理、Writer 删除及思维导图编辑共同使用。
+- API 连接测试和模型同步使用可取消的表单快照；模型缓存按服务商端点和代理隔离，仅显式保存配置才修改当前生效设置。

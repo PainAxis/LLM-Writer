@@ -1,3 +1,4 @@
+import { normalizeBookAnalysisLibrary } from './bookAnalysisLibrary'
 import {
   StorageKeys, storageGet, storageGetRaw, storageReadCommitted, storageReplace, storageSetRaw, storageRemove,
   type StorageKey,
@@ -9,6 +10,7 @@ export const BACKUP_GROUPS = {
   novelGenres: [StorageKeys.novelGenres],
   writingGoals: [StorageKeys.writingGoals],
   assistants: [StorageKeys.assistants, StorageKeys.assistantConversations, StorageKeys.assistantSummaries],
+  bookAnalysisLibrary: [StorageKeys.bookAnalysisLibrary],
   settings: [
     StorageKeys.apiConfig, StorageKeys.customModels, StorageKeys.providerModels,
     StorageKeys.shortStoryConfig, StorageKeys.chapterSummaryPromptTemplate,
@@ -101,6 +103,13 @@ function validateValue(key: StorageKey, value: unknown): void {
         check(string(item.code) && string(item.name), p)
         fields(item, ['tags'], strings, p)
       })
+      break
+    case StorageKeys.bookAnalysisLibrary:
+      try {
+        normalizeBookAnalysisLibrary(value)
+      } catch {
+        check(false, path)
+      }
       break
     case StorageKeys.writingGoals:
       records(value, path, (item, p) => {

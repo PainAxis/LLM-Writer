@@ -26,6 +26,8 @@ export const StorageKeys = {
   shortStoryConfig: 'shortStoryConfig',
   /** 拆书分析章节摘要提示词模板 */
   chapterSummaryPromptTemplate: 'chapterSummaryPromptTemplate',
+  /** 已保存的拆书分析报告 */
+  bookAnalysisLibrary: 'bookAnalysisLibrary',
   /** 账户余额（本地模拟记账） */
   accountBalance: 'account_balance',
   /** 计费记录 */

@@ -23,6 +23,7 @@ import {
   buildShortStoryOptimization,
 } from '@/utils/shortStoryPrompts'
 import { useShortStoryGeneration } from '@/composables/useShortStoryGeneration'
+import { useShortStorySelection } from '@/composables/useShortStorySelection'
 import { promptCatalog } from '@/services/promptCatalog'
 import { useRouter } from 'vue-router'
 
@@ -109,6 +110,12 @@ export function useShortStoryWorkspace() {
     notify: { success: ElMessage.success, warning: ElMessage.warning, error: ElMessage.error },
   })
 
+  const optimizeSelectionSource = useShortStorySelection({
+    content: generatedStory,
+    editor: editorRef,
+    onInvalidate: () => generation.stop('optimize'),
+  })
+
   const generatingArticle = toRef(generation.states.article, 'running')
 
   const articleStreamingContent = toRef(generation.states.article, 'text')
@@ -136,7 +143,10 @@ export function useShortStoryWorkspace() {
   watch(
     showOptimizeModal,
     (visible) => {
-      if (!visible) generation.stop('optimize')
+      if (!visible) {
+        generation.stop('optimize')
+        optimizeSelectionSource.clear()
+      }
     },
     { flush: 'sync' }
   )
@@ -444,35 +454,22 @@ export function useShortStoryWorkspace() {
       return
     }
 
-    // 改进文本选择逻辑
-    let selectedText = ''
+    let selection: ReturnType<typeof optimizeSelectionSource.capture>
     try {
-      // 尝试从编辑器获取选中文本
-      selectedText = editorRef.value.getSelectionText()
-
-      // 如果编辑器方法失败，尝试使用浏览器原生方法
-      if (!selectedText) {
-        const selection = window.getSelection()
-        if (selection && selection.toString()) {
-          selectedText = selection.toString()
-        }
-      }
+      selection = optimizeSelectionSource.capture()
     } catch (error) {
-      console.warn('获取选中文本失败，尝试备用方法:', error)
-      const selection = window.getSelection()
-      if (selection && selection.toString()) {
-        selectedText = selection.toString()
-      }
+      console.warn('获取编辑器选区失败:', error)
+      ElMessage.warning('无法获取编辑器选区，请重新选择要优化的文本')
+      return
     }
-
-    if (!selectedText || selectedText.trim().length === 0) {
+    if (!selection) {
       ElMessage.warning('请先选择要优化的文本')
       return
     }
 
     generation.stop('optimize', true)
-    optimizeSourceContent.value = generatedStory.value
-    selectedTextForOptimize.value = selectedText.trim()
+    optimizeSourceContent.value = selection.sourceContent
+    selectedTextForOptimize.value = selection.text
     optimizeDirection.value = ''
     optimizedResult.value = ''
     showOptimizeModal.value = true
@@ -481,6 +478,10 @@ export function useShortStoryWorkspace() {
   // 执行优化
   const performOptimize = async () => {
     if (optimizing.value) return
+    if (!showOptimizeModal.value || !optimizeSelectionSource.isCurrent()) {
+      ElMessage.warning('原文或编辑器已改变，请重新选择要优化的文本')
+      return
+    }
     if (!selectedTextForOptimize.value) {
       ElMessage.warning('没有选中的文本')
       return
@@ -531,7 +532,7 @@ export function useShortStoryWorkspace() {
 
   // 替换原文
   const replaceOriginalText = () => {
-    if (!generation.canUseResult('optimize')) {
+    if (!showOptimizeModal.value || !generation.canUseResult('optimize') || !optimizeSelectionSource.isCurrent()) {
       ElMessage.warning('原文已改变或结果尚未完成，请重新选择并生成')
       return
     }
@@ -546,47 +547,9 @@ export function useShortStoryWorkspace() {
     }
 
     try {
-      // 获取当前编辑器的HTML内容
-      let currentContent = ''
-      if (editorRef.value) {
-        currentContent = editorRef.value.getHtml() || generatedStory.value || ''
-      } else {
-        currentContent = generatedStory.value || ''
-      }
-
-      console.log('当前内容:', currentContent)
-      console.log('要替换的文本:', selectedTextForOptimize.value)
-      console.log('替换为:', optimizedResult.value)
-
-      // 处理HTML内容中的文本替换
-      // 先尝试直接替换
-      let newContent = currentContent.replace(selectedTextForOptimize.value, optimizedResult.value)
-
-      // 如果直接替换失败，尝试处理HTML标签
-      if (newContent === currentContent) {
-        // 移除HTML标签进行匹配
-        const plainContent = currentContent.replace(/<[^>]*>/g, '')
-        if (plainContent.includes(selectedTextForOptimize.value)) {
-          // 在纯文本中找到了，需要在HTML中定位并替换
-          const regex = new RegExp(
-            selectedTextForOptimize.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-            'g'
-          )
-          newContent = currentContent.replace(regex, optimizedResult.value)
-        }
-      }
-
-      if (newContent === currentContent) {
-        ElMessage.warning('未找到要替换的文本，请重新选择')
+      if (!optimizeSelectionSource.replace(optimizedResult.value)) {
+        ElMessage.warning('原选区已失效，请重新选择要优化的文本')
         return
-      }
-
-      // 更新内容
-      generatedStory.value = newContent
-
-      // 更新编辑器
-      if (editorRef.value) {
-        editorRef.value.setHtml(newContent)
       }
 
       // 关闭弹窗
@@ -817,6 +780,7 @@ export function useShortStoryWorkspace() {
 
   // 组件卸载时销毁编辑器
   onBeforeUnmount(() => {
+    optimizeSelectionSource.dispose()
     generation.dispose()
     destroyEditor(editorRef.value)
     destroyEditor(articleEditorRef.value)

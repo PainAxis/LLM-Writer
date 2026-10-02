@@ -181,10 +181,10 @@ async function metrics() {
   return response.json()
 }
 
-async function settingsData() {
-  await go('settings')
-  await page.getByRole('tab', { name: '数据管理', exact: true }).click()
-  await expect(page.getByRole('button', { name: '导出所有数据', exact: true })).toBeVisible()
+async function settingsData(target = page) {
+  await go('settings', target)
+  await target.getByRole('tab', { name: '数据管理', exact: true }).click()
+  await expect(target.getByRole('button', { name: '导出所有数据', exact: true })).toBeVisible()
 }
 
 async function exportBackup(name) {
@@ -197,17 +197,46 @@ async function exportBackup(name) {
   return { target, data: JSON.parse(await readFile(target, 'utf8')) }
 }
 
-async function importBackup(file) {
-  await page.locator('.data-management input[type="file"]').setInputFiles(file)
-  const confirm = page.getByRole('dialog', { name: '确认导入', exact: true })
+async function importBackup(file, target = page) {
+  await target.locator('.data-management input[type="file"]').setInputFiles(file)
+  const confirm = target.getByRole('dialog', { name: '确认导入', exact: true })
   await confirm.getByRole('button', { name: '确定', exact: true }).click()
-  const completed = page.getByRole('dialog', { name: '导入完成', exact: true })
+  const completed = target.getByRole('dialog', { name: '导入完成', exact: true })
   await expect(completed).toContainText('成功导入')
   await Promise.all([
-    page.waitForEvent('load'),
+    target.waitForEvent('load'),
     completed.getByRole('button', { name: '确定', exact: true }).click(),
   ])
-  await dismissAnnouncement()
+  await dismissAnnouncement(target)
+}
+
+async function withIsolatedPage(name, run) {
+  const isolated = await newTestContext()
+  const target = await isolated.newPage()
+  try {
+    await run(target)
+  } finally {
+    await screenshot(name, target).catch(() => {})
+    await isolated.tracing.stop({ path: path.join(artifacts, `${name}-trace.zip`) })
+    await isolated.close()
+  }
+}
+
+async function selectMockModel(target, model) {
+  await target.getByPlaceholder('输入模型名称，如 qwen-max').fill(model)
+  await target.getByRole('button', { name: '添加', exact: true }).click()
+  await target.locator('.el-form-item').filter({ hasText: '模型选择' }).locator('.el-select__wrapper').click()
+  await target.getByRole('option', { name: new RegExp(`^${model}\\s+自定义模型$`) }).click()
+}
+
+async function configureDisposableApi(target) {
+  await go('config', target)
+  await target.getByPlaceholder('请输入API密钥').fill('preview-test-key')
+  await target.getByPlaceholder('例如：https://api.openai.com/v1').fill(mockURL)
+  await selectMockModel(target, 'writer-mock')
+  await target.getByRole('button', { name: '保存配置', exact: true }).click()
+  await expect(target.getByText('配置保存成功', { exact: true })).toBeVisible()
+  await expect(target.getByRole('button', { name: '测试连接', exact: true })).toBeEnabled()
 }
 
 try {
@@ -1124,6 +1153,205 @@ try {
       await peer.close()
     }
   })
+
+  await step('25 Replace only the second occurrence of a selected short-story passage', () => withIsolatedPage('25-short-story-exact-selection', async target => {
+    await configureDisposableApi(target)
+    await go('short-story', target)
+    await target.getByRole('tab', { name: '📖 短篇小说', exact: true }).click()
+    const workspace = target.locator('.short-story-page .workspace:visible')
+    const storyEditor = workspace.locator('[contenteditable="true"]')
+    const repeated = '雨落无声。'
+    const before = `第一处：${repeated}第二处：`
+    const after = '末尾保留。'
+    await storyEditor.fill(before + repeated + after)
+    await storyEditor.press('ControlOrMeta+End')
+    for (let index = 0; index < after.length; index++) await target.keyboard.press('ArrowLeft')
+    for (let index = 0; index < repeated.length; index++) await target.keyboard.press('Shift+ArrowLeft')
+    assert.equal(await target.evaluate(() => window.getSelection()?.toString()), repeated)
+    await workspace.getByRole('button', { name: '优化', exact: true }).click()
+    const dialog = target.getByRole('dialog', { name: '✨ 选段优化', exact: true })
+    await expect(dialog.locator('.selected-text-preview')).toHaveText(repeated)
+    await dialog.getByPlaceholder('请描述优化方向，例如：', { exact: false }).fill('只优化当前选中的第二处雨声，保留其他文字。')
+    await dialog.getByRole('button', { name: '开始优化', exact: true }).click()
+    await expect(dialog.getByRole('button', { name: '替换原文', exact: true })).toBeVisible()
+    const replacement = await dialog.locator('.optimized-content').innerText()
+    assert.ok(replacement.includes('联调生成片段'))
+    await dialog.getByRole('button', { name: '替换原文', exact: true }).click()
+    await expect(dialog).toBeHidden()
+    await expect(storyEditor).toHaveText(before + replacement + after)
+    assert.equal((await storyEditor.innerText()).split(repeated).length - 1, 1, 'The first identical passage must remain intact')
+  }))
+
+  await step('26 Keep event targets stable through chapter moves and both deletion entry points', () => withIsolatedPage('26-chapter-event-links', async target => {
+    const timestamp = new Date().toISOString()
+    const fixture = {
+      format: 'llm-writer-backup', version: 2, exportTime: timestamp,
+      data: { novels: [{
+        id: 26000, title: '事件关联回归', genre: 'fantasy', tags: [], createdAt: timestamp, updatedAt: timestamp,
+        chapterList: ['甲章', '乙章', '丙章'].map((title, index) => ({ id: 26001 + index, title, content: '<p>合成正文。</p>', wordCount: 5, description: '', status: 'draft', createdAt: timestamp, updatedAt: timestamp })),
+        events: [
+          { id: 26101, title: '甲事件', chapter: '1', extension: { retained: true } },
+          { id: 26102, title: '乙事件', chapter: 2 },
+          { id: 26103, title: '丙事件', chapter: '丙章' },
+          { id: 26104, title: '旧规划事件', chapter: '尚未写到的章节' },
+        ],
+      }] },
+    }
+    await settingsData(target)
+    await importBackup({ name: 'chapter-event-links.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) }, target)
+    const novel = () => target.evaluate(() => JSON.parse(localStorage.getItem('novels') || '[]').find(item => item.id === 26000))
+    const links = async () => (await novel()).events.map(event => event.chapter)
+    await go('chapters', target)
+    const managementChapter = title => target.locator('.chapter-item').filter({ has: target.locator('h4', { hasText: title }) })
+    await managementChapter('甲章').locator('.el-dropdown button').click()
+    await target.getByRole('menuitem', { name: '下移', exact: true }).click()
+    await expect.poll(links).toEqual(['2', 1, '3', '尚未写到的章节'])
+    await expect(target.locator('.chapter-title h4')).toHaveText(['乙章', '甲章', '丙章'])
+    await target.reload()
+    await dismissAnnouncement(target)
+    await managementChapter('甲章').locator('.el-dropdown button').click()
+    await target.getByRole('menuitem', { name: '删除', exact: true }).click()
+    await target.getByRole('dialog', { name: '确认删除', exact: true }).getByRole('button', { name: '确定', exact: true }).click()
+    await expect.poll(links).toEqual(['', 1, '2', '尚未写到的章节'])
+    await go('writer?novelId=26000', target)
+    await target.getByRole('tab', { name: '📊 事件线', exact: true }).click()
+    const event = title => target.locator('.event-item').filter({ hasText: title })
+    await expect(event('甲事件')).toContainText('未指定章节')
+    await expect(event('乙事件')).toContainText('第1章 乙章')
+    await expect(event('丙事件')).toContainText('第2章 丙章')
+    await target.getByRole('tab', { name: '📝 编辑', exact: true }).click()
+    await target.locator('.chapter-item').filter({ has: target.locator('.chapter-info > p', { hasText: '乙章' }) }).locator('.el-dropdown button').hover()
+    await target.getByRole('menuitem', { name: '删除', exact: true }).click()
+    await target.getByRole('dialog', { name: '确认删除', exact: true }).getByRole('button', { name: /^(OK|确定)$/ }).click()
+    await expect.poll(links).toEqual(['', '', '1', '尚未写到的章节'])
+    await expect(target.locator('.saving-indicator')).toHaveCount(0)
+    await target.reload()
+    await dismissAnnouncement(target)
+    await target.getByRole('tab', { name: '📊 事件线', exact: true }).click()
+    await expect(event('乙事件')).toContainText('未指定章节')
+    await expect(event('丙事件')).toContainText('第1章 丙章')
+    assert.deepEqual((await novel()).events[0].extension, { retained: true })
+  }))
+
+  await step('27 Save, reopen, update and delete a book-analysis reference report after reload', () => withIsolatedPage('27-book-analysis-library', async target => {
+    await go('book-analysis', target)
+    await target.locator('.upload-area input[type="file"]').setInputFiles({ name: 'reference-source.txt', mimeType: 'text/plain', buffer: Buffer.from('第一章 清晨\n旅人沿河走向城门。') })
+    await expect(target.locator('.file-name')).toHaveText('reference-source.txt')
+    const reportTitle = '拆书参考库浏览器回归'
+    const reportText = '主题：旅人与归途。\n叙事结构：从清晨出发，在河岸完成转折。'
+    const analysis = target.locator('.analysis-editor textarea')
+    await analysis.fill(reportText)
+    const saveReport = async () => {
+      await target.locator('.right-panel').getByRole('button', { name: '保存', exact: true }).click()
+      const saveDialog = target.getByRole('dialog', { name: '保存拆书报告', exact: true })
+      await saveDialog.getByPlaceholder('请输入报告标题').fill(reportTitle)
+      await saveDialog.getByRole('button', { name: '保存报告', exact: true }).click()
+      await expect(saveDialog).toBeHidden()
+    }
+    const records = () => target.evaluate(() => JSON.parse(localStorage.getItem('bookAnalysisLibrary') || '[]'))
+    await saveReport()
+    await expect.poll(async () => (await records()).length).toBe(1)
+    const original = (await records())[0]
+    assert.equal(original.sourceFileName, 'reference-source.txt')
+    await target.reload()
+    await dismissAnnouncement(target)
+    await expect(target.locator('.file-name')).toHaveCount(0)
+    await target.getByRole('button', { name: '拆书参考库', exact: true }).click()
+    const library = target.getByRole('dialog', { name: '拆书参考库', exact: true })
+    const row = library.locator('.library-report').filter({ hasText: reportTitle })
+    await row.getByRole('button', { name: '打开报告', exact: true }).click()
+    await expect(library).toBeHidden()
+    await expect(analysis).toHaveValue(reportText)
+    await analysis.fill('')
+    await expect(analysis).toHaveValue('')
+    const updated = reportText + '\n补充：第二次阅读补充人物动机。'
+    await analysis.fill(updated)
+    await saveReport()
+    await expect.poll(async () => (await records())[0]?.content).toBe(updated)
+    assert.equal((await records()).length, 1)
+    assert.equal((await records())[0].id, original.id)
+    await target.getByRole('button', { name: '拆书参考库', exact: true }).click()
+    await row.getByRole('button', { name: '删除', exact: true }).click()
+    await target.getByRole('dialog', { name: '删除参考报告', exact: true }).getByRole('button', { name: /^(OK|确定)$/ }).click()
+    await expect(library.locator('.library-report')).toHaveCount(0)
+    await expect.poll(async () => (await records()).length).toBe(0)
+    await target.reload()
+    await dismissAnnouncement(target)
+    await target.getByRole('button', { name: '拆书参考库', exact: true }).click()
+    await expect(library.getByText('暂无保存的拆书报告', { exact: true })).toBeVisible()
+  }))
+
+  await step('28 Test API drafts without persisting them and cancel closed-dialog requests', () => withIsolatedPage('28-api-draft-isolation', async target => {
+    await configureDisposableApi(target)
+    const storedConfig = () => target.evaluate(() => localStorage.getItem('apiConfig'))
+    const saved = await storedConfig()
+    assert.equal(JSON.parse(saved).selectedModel, 'writer-mock')
+    await selectMockModel(target, 'writer-mock-slow')
+    await target.getByRole('button', { name: '添加请求头', exact: true }).click()
+    await target.getByPlaceholder('Header 名称').fill('x-regression-draft')
+    await target.getByPlaceholder('值', { exact: true }).fill('unsaved-draft')
+    const waitForModels = () => target.waitForRequest(request => request.method() === 'GET' && request.url() === `${mockURL}/models`)
+    let probe = waitForModels()
+    await target.getByRole('button', { name: '测试连接', exact: true }).click()
+    assert.equal((await (await probe).allHeaders())['x-regression-draft'], 'unsaved-draft')
+    await expect(target.getByText('连接测试成功', { exact: true })).toBeVisible()
+    assert.equal(await storedConfig(), saved)
+    await target.getByPlaceholder('请输入API密钥').fill('preview-invalid-draft-key')
+    probe = waitForModels()
+    await target.getByRole('button', { name: '测试连接', exact: true }).click()
+    assert.equal((await (await probe).allHeaders()).authorization, 'Bearer preview-invalid-draft-key')
+    await expect(target.locator('.el-message--error').filter({ hasText: '连接测试失败' })).toBeVisible()
+    assert.equal(await storedConfig(), saved)
+    await target.reload()
+    await dismissAnnouncement(target)
+    await expect(target.getByPlaceholder('请输入API密钥')).toHaveValue('preview-test-key')
+    await expect(target.locator('.el-form-item').filter({ hasText: '模型选择' }).locator('.el-select__wrapper')).toHaveText('writer-mock')
+    await expect(target.getByPlaceholder('Header 名称')).toHaveCount(0)
+    assert.equal(await storedConfig(), saved)
+
+    await go('', target)
+    for (const action of ['probe', 'models']) {
+      const cachedModels = await target.evaluate(() => localStorage.getItem('providerModels'))
+      await target.getByRole('button', { name: 'API已配置', exact: true }).click()
+      const dialog = target.getByRole('dialog', { name: 'API配置', exact: true })
+      await expect(dialog).toBeVisible()
+      let release
+      let reached
+      let finished
+      const gate = new Promise(resolve => { release = resolve })
+      const intercepted = new Promise(resolve => { reached = resolve })
+      const handled = new Promise(resolve => { finished = resolve })
+      const holdModels = async route => {
+        reached()
+        try {
+          await gate
+          await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'closed-dialog-late-model' }] }) })
+        } catch {
+          // AbortController may cancel the intercepted request before fulfillment.
+        } finally {
+          finished()
+        }
+      }
+      await target.route(`${mockURL}/models`, holdModels)
+      try {
+        const cancelled = target.waitForEvent('requestfailed', { predicate: request => request.url() === `${mockURL}/models` })
+        await dialog.getByRole('button', { name: action === 'probe' ? '测试连接' : /^(获取|同步)模型列表$/, exact: true }).click()
+        await intercepted
+        await dialog.locator('.el-dialog__headerbtn').click()
+        await expect(dialog).toBeHidden()
+        await cancelled
+        release()
+        await handled
+        assert.equal(await storedConfig(), saved)
+        assert.equal(await target.evaluate(() => localStorage.getItem('providerModels')), cachedModels, 'Closing the API dialog must discard a delayed model response')
+        await expect(target.getByText('连接测试成功', { exact: true })).toHaveCount(0)
+        await expect(target.getByText(/已同步.*模型/)).toHaveCount(0)
+      } finally {
+        release()
+        await target.unroute(`${mockURL}/models`, holdModels)
+      }
+    }
+  }))
 
   assert.deepEqual(errors, [], 'The browser must not raise uncaught errors or unsaved-data navigation dialogs')
   console.log(`PASS ${report.tests.length} real-browser regression scenarios`)
