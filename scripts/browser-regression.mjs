@@ -1831,12 +1831,17 @@ try {
     await go('tools', target)
     await target.locator('.tool-card').filter({ hasText: '爆款书名生成器' }).click()
     const dialog = target.getByRole('dialog', { name: '爆款书名生成器', exact: true })
+    await dialog.locator('.el-form-item').filter({ has: target.locator('.el-form-item__label', { hasText: /^生成数量$/ }) }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '5个书名', exact: true }).click()
     await dialog.locator('.el-form-item').filter({ hasText: '小说类型' }).locator('.el-select__wrapper').click()
     await target.getByRole('option', { name: '都市', exact: true }).click()
     await dialog.getByPlaceholder('输入相关关键词，用逗号分隔').fill('雾港,失物局')
-    const captured = target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/messages`)
-    await dialog.getByRole('button', { name: '生成内容', exact: true }).click()
-    const request = await captured
+    const generateButton = dialog.getByRole('button', { name: '生成内容', exact: true })
+    await expect(generateButton).toBeEnabled()
+    const [request] = await Promise.all([
+      target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/messages`),
+      generateButton.click(),
+    ])
     const body = request.postDataJSON()
     const headers = await request.allHeaders()
     assert.equal(headers['x-api-key'], 'preview-test-key')
