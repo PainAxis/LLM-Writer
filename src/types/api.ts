@@ -1,3 +1,6 @@
+import type { ExtensionRequest, ToolActivityEvent } from './extensions'
+import type { ExtensionSession } from '../services/extensionsRuntime'
+
 export type ApiConfigType = 'official' | 'custom'
 
 export type ThinkingProtocol = 'auto' | 'openai' | 'anthropic' | 'google' | 'deepseek' | 'mimo' | 'glm' | 'qwen'
@@ -46,6 +49,12 @@ export interface GenerateOptions {
   system?: string
   /** 多轮消息；提供时优先于 prompt 作为对话载荷 */
   messages?: ChatMessage[]
+  /** Explicit, request-local tools and selected writing Skills. */
+  extensions?: ExtensionRequest
+  /** Internal: instructions already included by the assistant's context fitting. */
+  extensionInstructionsIncluded?: boolean
+  /** Internal: request-owned discovery completed before context fitting. */
+  preparedExtensions?: ExtensionSession
 }
 
 /** 上下文容量策略：truncation 硬截断 / summary 滚动摘要，显式二选一 */
@@ -82,6 +91,9 @@ export interface AssistantChatEntry {
   content: string
   isUser: boolean
   timestamp: string
+  /** Status only: tool arguments/results and credentials are never persisted here. */
+  toolActivity?: ToolActivityEvent[]
+  requestStatus?: 'failed' | 'cancelled'
 }
 
 export type StreamCallback = (chunk: string, fullContent: string) => void

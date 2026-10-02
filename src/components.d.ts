@@ -13,6 +13,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AnnouncementDialog: typeof import('./components/AnnouncementDialog.vue')['default']
     ApiConfig: typeof import('./components/ApiConfig.vue')['default']
+    AssistantExtensions: typeof import('./components/extensions/AssistantExtensions.vue')['default']
     BatchChapterGenerateDialog: typeof import('./components/writer/dialogs/BatchChapterGenerateDialog.vue')['default']
     BatchCharacterGenerateDialog: typeof import('./components/writer/dialogs/BatchCharacterGenerateDialog.vue')['default']
     BookAnalysisControls: typeof import('./components/book-analysis/BookAnalysisControls.vue')['default']
@@ -65,6 +66,7 @@ declare module 'vue' {
     ElScrollbar: typeof import('element-plus/es')['ElScrollbar']
     ElSelect: typeof import('element-plus/es')['ElSelect']
     ElSlider: typeof import('element-plus/es')['ElSlider']
+    ElSwitch: typeof import('element-plus/es')['ElSwitch']
     ElTable: typeof import('element-plus/es')['ElTable']
     ElTableColumn: typeof import('element-plus/es')['ElTableColumn']
     ElTabPane: typeof import('element-plus/es')['ElTabPane']
@@ -77,6 +79,7 @@ declare module 'vue' {
     ElUpload: typeof import('element-plus/es')['ElUpload']
     EventEditDialog: typeof import('./components/writer/dialogs/EventEditDialog.vue')['default']
     EventPanel: typeof import('./components/writer/panels/EventPanel.vue')['default']
+    ExtensionSettings: typeof import('./components/extensions/ExtensionSettings.vue')['default']
     NovelMetadataForm: typeof import('./components/novel-management/NovelMetadataForm.vue')['default']
     OptimizeDialog: typeof import('./components/writer/dialogs/OptimizeDialog.vue')['default']
     PromptPickerDialog: typeof import('./components/writer/dialogs/PromptPickerDialog.vue')['default']

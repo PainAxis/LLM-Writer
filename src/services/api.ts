@@ -6,6 +6,7 @@ import { buildCorpusInjection, recommendCorpus } from '@/utils/corpusRetrieval'
 import { AIRequestCancelledError } from '@/utils/aiRequestScope'
 import type { FinishReason } from 'ai'
 import { buildGenerationBudget } from '@/utils/generationBudget'
+import type { createExtensionSession } from './extensionsRuntime'
 
 /** 个性化生成时注入语料的字符预算 */
 const CORPUS_INJECTION_MAX_CHARS = 4000
@@ -22,9 +23,20 @@ import type {
 
 const STREAM_TIMEOUT_MS = 300_000 // 5分钟，给长内容生成留足时间
 
+function failedToolOutput(value: { type: string; output?: unknown }): boolean {
+  return value.type === 'tool-error' || (value.output !== null && typeof value.output === 'object'
+    && 'isError' in value.output && value.output.isError === true)
+}
+
 interface UsageInfo {
   inputTokens?: number
   outputTokens?: number
+}
+
+function appendReportedUsage(total: UsageInfo | undefined, next: UsageInfo): UsageInfo | undefined {
+  const inputTokens = typeof next.inputTokens === 'number' ? (total?.inputTokens ?? 0) + next.inputTokens : total?.inputTokens
+  const outputTokens = typeof next.outputTokens === 'number' ? (total?.outputTokens ?? 0) + next.outputTokens : total?.outputTokens
+  return inputTokens === undefined && outputTokens === undefined ? undefined : { inputTokens, outputTokens }
 }
 
 /**
@@ -95,6 +107,9 @@ class APIService {
     if (finishReason === 'content-filter') {
       throw new Error('AI生成被服务商内容过滤中止，内容未完成')
     }
+    if (finishReason === 'tool-calls') {
+      throw new Error('已达到工具调用轮数上限，任务尚未完成。请缩小任务范围或提高调用轮数后重试')
+    }
   }
   private recordUsage(
     model: string,
@@ -121,18 +136,27 @@ class APIService {
   async generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
     this.assertConfigReady()
     const config = this.getConfig()
-    const promptForEstimate = [options.system ?? '', ...(options.messages?.length
+    let promptForEstimate = [options.system ?? '', ...(options.messages?.length
       ? options.messages.map(message => message.content) : [prompt])].filter(Boolean).join('\n')
-    const estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
+    let estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
     const { maxOutputTokens, temperature, providerOptions } = buildGenerationBudget(config, options)
     const { signal, clearTimeout } = this.createTimeoutSignal(options.signal)
     const effectiveModel = options.model?.trim() || config.selectedModel
     let content = ''
     let usage: UsageInfo | undefined
+    let extensions: Awaited<ReturnType<typeof createExtensionSession>> | undefined
 
     try {
       this.throwIfAborted(signal)
-      const { generateText } = await loadAISDK()
+      const { generateText, stepCountIs } = await loadAISDK()
+      let system = options.system
+      if (options.extensions) {
+        const runtime = await import('./extensionsRuntime')
+        if (!options.extensionInstructionsIncluded) system = [system, runtime.buildExtensionInstructions(options.extensions)].filter(Boolean).join('\n\n')
+        extensions = options.preparedExtensions ?? await runtime.createExtensionSession(options.extensions, signal)
+        promptForEstimate = [system ?? '', ...(options.messages?.length ? options.messages.map(message => message.content) : [prompt])].join('\n')
+        estimatedInputTokens = billingService.estimateTokens(promptForEstimate) + extensions.schemaTokens
+      }
       const model = await resolveLanguageModel(
         effectiveModel === config.selectedModel ? config : { ...config, selectedModel: effectiveModel },
       )
@@ -141,11 +165,23 @@ class APIService {
         model,
         telemetry: { isEnabled: false },
         ...(options.messages?.length ? { messages: options.messages } : { prompt: this.sanitizePrompt(prompt) }),
-        system: options.system ? this.sanitizePrompt(options.system) : undefined,
+        system: system ? this.sanitizePrompt(system) : undefined,
         temperature,
         maxOutputTokens,
         providerOptions,
         abortSignal: signal,
+        ...(extensions ? {
+          tools: extensions.tools,
+          stopWhen: stepCountIs(extensions.maxSteps),
+          prepareStep: extensions.prepareStep,
+          maxRetries: 0,
+          onLanguageModelCallEnd: step => {
+            usage = appendReportedUsage(usage, step.usage)
+            for (const part of step.content) if (part.type === 'tool-error' || (part.type === 'tool-call' && 'invalid' in part && part.invalid)) options.extensions?.onToolActivity?.({ toolCallId: part.toolCallId, toolName: part.toolName, status: 'error' })
+          },
+          onToolExecutionStart: ({ toolCall }) => options.extensions?.onToolActivity?.({ toolCallId: toolCall.toolCallId, toolName: toolCall.toolName, status: 'running' }),
+          onToolExecutionEnd: ({ toolCall, toolOutput }) => options.extensions?.onToolActivity?.({ toolCallId: toolCall.toolCallId, toolName: toolCall.toolName, status: failedToolOutput(toolOutput) ? 'error' : 'success' }),
+        } : {}),
       })
 
       content = result.text ?? ''
@@ -159,6 +195,7 @@ class APIService {
       this.throwIfAborted(signal)
       throw error
     } finally {
+      await extensions?.close()
       clearTimeout()
     }
   }
@@ -177,11 +214,11 @@ class APIService {
     }
 
     const cleanPrompt = this.sanitizePrompt(prompt)
-    const systemPrompt = options.system ? this.sanitizePrompt(options.system) : undefined
-    const promptForEstimate = hasMessages
+    let systemPrompt = options.system ? this.sanitizePrompt(options.system) : undefined
+    let promptForEstimate = hasMessages
       ? `${systemPrompt ?? ''}\n${messages!.map((msg) => msg.content).join('\n')}`
       : [systemPrompt, cleanPrompt].filter(Boolean).join('\n')
-    const estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
+    let estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
     const { maxOutputTokens, temperature, providerOptions } = buildGenerationBudget(config, options)
     const { clearTimeout, signal: abortSignal } = this.createTimeoutSignal(options.signal)
     const effectiveModel = options.model?.trim() ? options.model.trim() : config.selectedModel
@@ -190,10 +227,18 @@ class APIService {
     let usage: UsageInfo | undefined
     let streamError: unknown
     let finishReason: FinishReason | undefined
+    let extensions: Awaited<ReturnType<typeof createExtensionSession>> | undefined
 
     try {
       this.throwIfAborted(abortSignal)
-      const { streamText } = await loadAISDK()
+      const { streamText, stepCountIs } = await loadAISDK()
+      if (options.extensions) {
+        const runtime = await import('./extensionsRuntime')
+        if (!options.extensionInstructionsIncluded) systemPrompt = [systemPrompt, runtime.buildExtensionInstructions(options.extensions)].filter(Boolean).join('\n\n')
+        extensions = options.preparedExtensions ?? await runtime.createExtensionSession(options.extensions, abortSignal)
+        promptForEstimate = [systemPrompt ?? '', ...(hasMessages ? messages!.map(message => message.content) : [cleanPrompt])].join('\n')
+        estimatedInputTokens = billingService.estimateTokens(promptForEstimate) + extensions.schemaTokens
+      }
       const model = await resolveLanguageModel(
         effectiveModel === config.selectedModel ? config : { ...config, selectedModel: effectiveModel },
       )
@@ -210,7 +255,15 @@ class APIService {
         maxOutputTokens,
         providerOptions,
         abortSignal,
-        maxRetries: 2,
+        maxRetries: extensions ? 0 : 2,
+        ...(extensions ? {
+          tools: extensions.tools,
+          stopWhen: stepCountIs(extensions.maxSteps),
+          prepareStep: extensions.prepareStep,
+          onLanguageModelCallEnd: step => { usage = appendReportedUsage(usage, step.usage) },
+          onToolExecutionStart: ({ toolCall }) => options.extensions?.onToolActivity?.({ toolCallId: toolCall.toolCallId, toolName: toolCall.toolName, status: 'running' }),
+          onToolExecutionEnd: ({ toolCall, toolOutput }) => options.extensions?.onToolActivity?.({ toolCallId: toolCall.toolCallId, toolName: toolCall.toolName, status: failedToolOutput(toolOutput) ? 'error' : 'success' }),
+        } : {}),
         onError: ({ error }) => { streamError = error },
       })
 
@@ -218,12 +271,13 @@ class APIService {
       // discard usage the provider has already reported.
       for await (const part of result.fullStream) {
         if (part.type === 'finish-step') {
-          usage = part.usage
+          if (!extensions) usage = part.usage
           finishReason = part.finishReason ?? finishReason
         } else if (part.type === 'finish') {
           usage = part.totalUsage
           finishReason = part.finishReason ?? finishReason
         } else if (part.type === 'error') streamError = part.error
+        else if (part.type === 'tool-error') options.extensions?.onToolActivity?.({ toolCallId: part.toolCallId, toolName: part.toolName, status: 'error' })
         this.throwIfAborted(abortSignal, fullContent)
         if (part.type === 'text-delta') {
           fullContent += part.text
@@ -247,6 +301,7 @@ class APIService {
       this.throwIfAborted(abortSignal, fullContent)
       throw error
     } finally {
+      await extensions?.close()
       clearTimeout()
     }
   }

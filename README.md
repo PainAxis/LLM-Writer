@@ -29,6 +29,7 @@
 
 ### AI & Utilities
 - **AI assistant system**: multi-persona assistants, per-assistant isolated chat history, measured virtual scrolling, streaming chat and global/custom context policies
+- **Writing extensions**: opt-in project read/search tools, remote MCP tool authorization and imported writing Skills with on-demand references, cancellation and execution records. See [extensions](docs/extensions.md).
 - **Context budget management**: dual-dimension budget (tokens / entries), sliding-window truncation vs incremental summary as explicit alternatives, failure handling via dialogs (no silent degradation)
 - **Model list sync**: one-click pull of server-side model lists with caching; built-in common models as fallback
 - **Prompt library**: category management, variable system, import & export, usage statistics
@@ -40,7 +41,7 @@
 
 ### Engineering
 - **Tiered local storage**: localStorage + IndexedDB auto-tiering with versioned content shards; old shards are cleaned up only after metadata commits. Save status follows actual completion and supports retry. Failed content loading blocks project access while preserving stored data
-- **System backups**: v2 JSON covers 21 current storage keys, with selectable novels, prompts, genres, goals, assistants, the book-analysis reference library and settings. Imports support legacy backups, validate data before restoring and attempt rollback on write failure. Selected settings include API keys
+- **System backups**: v2 JSON covers all current storage keys, with selectable novels, prompts, genres, goals, assistants, the book-analysis reference library and settings, including imported Skills and MCP tool authorization. Imports validate data before restoring and attempt rollback on write failure. Selected API settings include API keys; MCP session tokens are excluded
 - **Workbench modules**: `useWriterProject` handles project loading, chapter switching and autosave; `WriterEditor` encapsulates the rich-text editor. Navigation waits for saving and preserves the editing context on failure
 - **Dark mode**: light / dark / system themes, follows system preference automatically
 - **On-demand loading**: route-level lazy loading; the home page has no static dependency on the AI SDK, editor or mind-map libraries. The writing editor loads when a chapter is opened, and the DOCX parser loads during import
@@ -108,7 +109,7 @@ npm run smoke:eventline               # Chapter-number migration and compatibili
 npm run smoke:prompts                 # Default prompts and merge rules
 ```
 
-CI is configured to run strict lint, the production build, 58 smoke suites and 34 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 63 smoke suites and 44 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

@@ -1,5 +1,6 @@
 /** 备份服务回归：真实 StorageKeys、旧格式兼容、预先校验、写入失败及异步落盘。 */
 import assert from 'node:assert/strict'
+import { parseSkillPackage } from '../src/services/skills'
 import {
   ALL_BACKUP_GROUPS, BACKUP_GROUPS, createBackup, parseBackup, restoreBackup,
 } from '../src/services/backup'
@@ -28,6 +29,8 @@ Object.defineProperty(globalThis, 'localStorage', {
   },
 })
 const policy = { maxTokens: 1000, maxTurns: 8, retainTurns: 2, strategy: 'summary', summaryThreshold: 80 }
+const skill = parseSkillPackage([{ path: 'SKILL.md', content: '---\nname: backup-review\ndescription: Review retained writing evidence\n---\nPreserve source references.' }])
+const extensions = { enabled: false, servers: [{ id: 'archive', name: 'Archive', url: 'https://example.test/mcp', enabled: true, allowedTools: ['read'] }], importedSkills: [skill], selectedSkillIds: [skill.id], writingToolIds: [], maxSteps: 5 }
 const novel = {
   id: 1, title: '备份小说', chapterList: [{ id: 11, title: '首章', content: '<p>正文</p>' }],
   characters: [{ id: 12, name: '人物' }], worldSettings: [{ id: 13, title: '世界' }],
@@ -56,6 +59,7 @@ const fixture: Partial<Record<StorageKey, unknown>> = {
   [StorageKeys.assistantConversations]: { 1: [{ id: 'message', content: '对话', isUser: true, timestamp: '2026-09-01' }] },
   [StorageKeys.assistantSummaries]: { 1: '摘要' },
   [StorageKeys.contextPolicy]: policy,
+  [StorageKeys.extensions]: extensions,
 }
 
 async function main() {
@@ -75,6 +79,15 @@ async function main() {
   store.clear()
   assert.equal(await restoreBackup(backup), ALL_BACKUP_GROUPS.length)
   assert.deepEqual((await createBackup()).data, fixture)
+  const restoredExtensions = parseBackup({ ...backup, data: { [StorageKeys.extensions]: { ...extensions, credentials: { archive: 'session-only-secret' }, servers: [{ ...extensions.servers[0], bearerToken: 'session-only-secret' }] } } })
+  assert.deepEqual(restoredExtensions[StorageKeys.extensions], extensions, '导入扩展设置只保留已定义字段，不能恢复会话凭证')
+  await storageSet(StorageKeys.extensions, { ...extensions, credentials: { archive: 'session-only-secret' } })
+  assert.ok(!JSON.stringify(await createBackup(['settings'])).includes('session-only-secret'), '扩展备份排除额外凭证字段')
+  await storageSet(StorageKeys.extensions, extensions)
+  for (const toolActivity of [[{ toolCallId: 'call', toolName: 'read', status: 'unknown' }], 'invalid', Array.from({ length: 49 }, () => ({ toolCallId: 'call', toolName: 'read', status: 'success' }))]) {
+    assert.throws(() => parseBackup({ ...backup, data: { [StorageKeys.assistantConversations]: { 1: [{ id: 'trace', content: '', isUser: false, timestamp: '2026-10-02', toolActivity }] } } }), /toolActivity/)
+  }
+  console.log('✓ 扩展设置和导入 Skills 可恢复，会话凭证与非法调用记录被排除')
   const cursorSummary = { text: '带覆盖边界的摘要', coveredThroughEntryId: 'message', policyFingerprint: JSON.stringify(policy) }
   const summaryBackup = { ...backup, data: { ...backup.data, [StorageKeys.assistantSummaries]: { 1: cursorSummary, 2: '兼容旧字符串摘要' } } }
   assert.deepEqual(parseBackup(summaryBackup)[StorageKeys.assistantSummaries], summaryBackup.data[StorageKeys.assistantSummaries])
