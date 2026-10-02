@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add persisted output and model-aware thinking controls to API settings, with provider-default modes, compatible/native request mapping, budget validation and backward-compatible backup support. New configurations use a 16,384-token output ceiling; existing saved limits remain unchanged. Add SDK wire regressions and browser scenario 34.
+
 - Reject provider output-limit and content-filter terminations instead of treating partial generations as successful. Explain reasoning-only budget exhaustion and preserve received text and reported usage on failure.
 - Share visible-text conversion across writing, AI context, copying, exports, previews and counts. Preserve paragraphs and decoded entities, count Unicode characters without whitespace, and escape generated prose before inserting editor HTML.
 - Keep chapter-management edits, copies, moves and deletions consistent with both novel total fields; derive legacy display/export totals from chapter bodies. Round-trip named empty corpus drafts without losing metadata.
@@ -10,7 +12,7 @@
 - Align tool defaults and compatible templates with the selected novel/chapter IDs, requested quantities and form parameters. Reject unsupported templates before generation without replacing saved user templates.
 - Record usage evidence separately from estimates; failures without reported usage or output no longer invent token consumption. Fix type/model/local-date filters and render recorded 7/30/90-day trends and input/output distributions with honest empty states.
 - Disable placeholder chapter sorting/batch-editing controls with explanations and remove the Settings placeholder for testing all connections.
-- Add `writer-content`, `management-correctness`, `billing-correctness` and `tools-workspace` smoke suites and browser scenarios 29–33. Configured coverage is now 57 smoke suites and 33 Chromium scenarios; CI records validation for each reviewed revision.
+- Add `writer-content`, `management-correctness`, `billing-correctness` and `tools-workspace` smoke suites and browser scenarios 29–33. Configured coverage is now 58 smoke suites and 34 Chromium scenarios; CI records validation for each reviewed revision.
 
 - Replace optimized ShortStory text at its captured editor range, including repeated and formatted selections; source edits invalidate stale results.
 - Keep event chapter links attached to chapter identities after chapter reorder or deletion, with chapter/event changes persisted and retried together.

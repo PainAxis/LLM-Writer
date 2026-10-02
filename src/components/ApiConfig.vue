@@ -25,7 +25,8 @@
                   <li><strong>API地址</strong> - 您的 API 服务地址</li>
                   <li><strong>API密钥</strong> - 身份验证密钥</li>
                   <li><strong>模型选择</strong> - 如果没有想要的模型，支持自定义模型</li>
-                  <li><strong>Token限制</strong> - 控制生成长度</li>
+                  <li><strong>输出预算</strong> - 限制生成 Token，部分模型包含思考消耗</li>
+                  <li><strong>思考设置</strong> - 按模型能力设置开关、强度或预算</li>
                   <li><strong>创造性</strong> - 0保守，1创新</li>
                 </ul>
               </div>
@@ -39,7 +40,7 @@
               </div>
 
               <div class="tips-note">
-                <p>💡 建议先测试连接再保存配置</p>
+                <p>💡 连接测试只检查地址与身份验证；是否支持预算参数，以实际生成请求为准。</p>
               </div>
             </div>
           </div>
@@ -117,10 +118,10 @@
               </div>
             </el-form-item>
 
-            <el-form-item label="最大Token">
+            <el-form-item label="输出预算">
               <div class="max-tokens-control">
                 <el-checkbox v-model="form.unlimitedTokens" @change="handleUnlimitedTokensChange">
-                  无限制Token
+                  服务商默认
                 </el-checkbox>
                 <el-input-number
                   v-if="!form.unlimitedTokens"
@@ -130,7 +131,56 @@
                   :step="1000"
                   style="width: 100%"
                 />
+                <div class="form-tip">单位为 Token；部分推理模型的输出预算包含思考 Token。服务商默认表示由服务商或 SDK 采用默认上限，仍受模型限制。</div>
               </div>
+            </el-form-item>
+
+            <el-form-item v-if="showThinkingProtocol" label="思考协议">
+              <el-select v-model="form.thinkingProtocol" style="width: 100%">
+                <el-option
+                  v-for="protocol in THINKING_PROTOCOL_OPTIONS"
+                  :key="protocol.value"
+                  :label="protocol.label"
+                  :value="protocol.value"
+                />
+              </el-select>
+              <div class="form-tip">自动识别模型与服务商；使用自定义模型别名时，可手动选择网关实际支持的协议。</div>
+            </el-form-item>
+
+            <el-form-item label="思考设置">
+              <div class="thinking-control">
+                <el-select v-model="form.thinkingMode" style="width: 100%" @change="onThinkingModeChange">
+                  <el-option
+                    v-for="mode in thinkingCapability.modes"
+                    :key="mode.value"
+                    :label="mode.label"
+                    :value="mode.value"
+                  />
+                </el-select>
+                <div class="form-tip">{{ thinkingCapability.label }}：{{ thinkingCapability.hint }}</div>
+              </div>
+            </el-form-item>
+
+            <el-form-item v-if="form.thinkingMode === 'effort'" label="思考强度">
+              <el-select v-model="form.thinkingEffort" style="width: 100%">
+                <el-option
+                  v-for="effort in thinkingCapability.efforts"
+                  :key="effort.value"
+                  :label="effort.label"
+                  :value="effort.value"
+                />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item v-if="form.thinkingMode === 'budget'" label="思考预算">
+              <el-input-number
+                v-model="form.thinkingBudget"
+                :min="thinkingCapability.budgetMin"
+                :max="thinkingCapability.budgetMax"
+                :step="1024"
+                style="width: 100%"
+              />
+              <div class="form-tip">按 Token 设置思考预算，仅适用于支持此参数的模型。实际消耗与模型有关，部分模型将其作为目标值。</div>
             </el-form-item>
 
             <el-form-item label="创造性">
@@ -217,6 +267,7 @@ import { reactive, ref, computed, watch, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useApiConfig } from '@/services/apiConfig'
 import { PROVIDER_PRESETS, getPreset, fetchProviderModels, FALLBACK_MODELS } from '@/services/aiProviders'
+import { DEFAULT_OUTPUT_TOKENS, THINKING_PROTOCOL_OPTIONS, getThinkingCapability, validateGenerationBudget } from '@/utils/generationBudget'
 import apiService from '@/services/api'
 
 const { customModels: storedCustomModels, getProviderModels, activeConfig, isApiConfigured, updateConfig, setCustomModels, setProviderModels, resetConfig } = useApiConfig()
@@ -232,8 +283,12 @@ const form = reactive({
   apiKey: '',
   baseURL: 'https://api.openai.com/v1',
   selectedModel: 'gpt-5.4-mini',
-  maxTokens: 2000000,
+  maxTokens: DEFAULT_OUTPUT_TOKENS,
   unlimitedTokens: false,
+  thinkingProtocol: 'auto',
+  thinkingMode: 'default',
+  thinkingBudget: 4096,
+  thinkingEffort: 'medium',
   temperature: 0.7,
   customHeaders: {},
   proxyUrl: '',
@@ -243,6 +298,29 @@ const form = reactive({
 const headerRows = ref([])
 
 const currentPreset = computed(() => getPreset(form.provider))
+const showThinkingProtocol = computed(() => !['anthropic', 'google'].includes(form.provider))
+const thinkingCapability = computed(() => getThinkingCapability(form))
+
+// A mode supported by one model need not be accepted by the next one.
+watch(() => [form.provider, form.selectedModel, form.thinkingProtocol], ([provider], [previousProvider]) => {
+  form.thinkingMode = 'default'
+  if (provider !== previousProvider) form.thinkingProtocol = 'auto'
+}, { flush: 'sync' })
+
+const onThinkingModeChange = () => {
+  const capability = thinkingCapability.value
+  if (form.thinkingMode === 'effort') {
+    const efforts = capability.efforts
+    form.thinkingEffort = efforts.find(effort => effort.value === 'medium')?.value
+      ?? efforts[Math.floor(efforts.length / 2)]?.value
+      ?? 'medium'
+  } else if (form.thinkingMode === 'budget') {
+    const maximum = capability.budgetMax ?? Number.MAX_SAFE_INTEGER
+    if (!Number.isSafeInteger(form.thinkingBudget) || form.thinkingBudget < capability.budgetMin || form.thinkingBudget > maximum) {
+      form.thinkingBudget = Math.max(capability.budgetMin, Math.min(4096, maximum))
+    }
+  }
+}
 
 const addHeaderRow = () => {
   headerRows.value.push({ key: '', value: '' })
@@ -316,6 +394,8 @@ const syncHeaderRows = (headers) => {
 // 切换服务商：带入预设地址与默认模型
 const onProviderChange = (providerId) => {
   const preset = getPreset(providerId)
+  form.thinkingProtocol = 'auto'
+  form.thinkingMode = 'default'
   form.baseURL = preset.baseURL
   if (preset.defaultModel) {
     form.selectedModel = preset.defaultModel
@@ -391,7 +471,8 @@ const formatTemperature = (value) => {
 }
 
 const handleUnlimitedTokensChange = () => {
-  form.maxTokens = form.unlimitedTokens ? null : 2000000
+  // Keep the previous numeric draft while the provider decides the output limit.
+  if (!form.unlimitedTokens && form.maxTokens == null) form.maxTokens = DEFAULT_OUTPUT_TOKENS
 }
 
 // 从模块状态同步到表单
@@ -401,8 +482,12 @@ const loadSavedConfig = () => {
   form.apiKey = saved.apiKey ?? ''
   form.baseURL = saved.baseURL ?? 'https://api.openai.com/v1'
   form.selectedModel = saved.selectedModel ?? 'gpt-5.4-mini'
-  form.maxTokens = saved.maxTokens ?? null
-  form.unlimitedTokens = Boolean(saved.unlimitedTokens)
+  form.maxTokens = saved.maxTokens ?? DEFAULT_OUTPUT_TOKENS
+  form.unlimitedTokens = Boolean(saved.unlimitedTokens) || saved.maxTokens === null
+  form.thinkingProtocol = saved.thinkingProtocol ?? 'auto'
+  form.thinkingMode = saved.thinkingMode ?? 'default'
+  form.thinkingBudget = saved.thinkingBudget ?? 4096
+  form.thinkingEffort = saved.thinkingEffort ?? 'medium'
   form.temperature = saved.temperature ?? 0.7
   form.customHeaders = saved.customHeaders ?? {}
   form.proxyUrl = saved.proxyUrl ?? ''
@@ -426,6 +511,11 @@ const saveConfig = async () => {
   if (disposed || validating.value || !validateForm()) return
 
   const draft = snapshotForm()
+  const budgetError = validateGenerationBudget(draft)
+  if (budgetError) {
+    ElMessage.warning(budgetError)
+    return
+  }
   try {
     updateConfig(draft)
   } catch (error) {
@@ -599,6 +689,10 @@ loadSavedConfig()
 }
 
 .max-tokens-control {
+  width: 100%;
+}
+
+.thinking-control {
   width: 100%;
 }
 

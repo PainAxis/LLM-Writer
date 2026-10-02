@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { StorageKeys, storageGet, storageSet } from '@/utils/storage'
 import type { ApiConfig, CustomModelOption } from '@/types/api'
 import { buildModelsProbe } from './aiProviders'
+import { DEFAULT_OUTPUT_TOKENS, validateGenerationBudget } from '@/utils/generationBudget'
 
 export const DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 
@@ -10,7 +11,11 @@ const DEFAULT_CONFIG: ApiConfig = {
   baseURL: DEFAULT_BASE_URL,
   provider: 'custom',
   selectedModel: 'gpt-5.4-mini',
-  maxTokens: 2000000,
+  maxTokens: DEFAULT_OUTPUT_TOKENS,
+  thinkingProtocol: 'auto',
+  thinkingMode: 'default',
+  thinkingBudget: 4096,
+  thinkingEffort: 'medium',
   unlimitedTokens: false,
   temperature: 0.7,
   customHeaders: {},
@@ -67,6 +72,8 @@ function loadFromStorage(): void {
 function updateConfig(partial: Partial<ApiConfig>): void {
   const next = { ...apiConfig.value, ...partial }
   next.customHeaders = { ...next.customHeaders }
+  const budgetError = validateGenerationBudget(next)
+  if (budgetError) throw new Error(budgetError)
   storageSet(StorageKeys.apiConfig, next)
   apiConfig.value = next
 }

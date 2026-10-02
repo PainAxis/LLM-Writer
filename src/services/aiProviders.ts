@@ -1,5 +1,6 @@
 import type { LanguageModel } from 'ai'
 import type { ApiConfig } from '@/types/api'
+import { usesCompletionTokenLimit } from '@/utils/generationBudget'
 
 export type ProviderKind = 'compatible' | 'anthropic' | 'google'
 
@@ -204,6 +205,9 @@ export async function resolveLanguageModel(config: ApiConfig): Promise<LanguageM
         apiKey: config.apiKey,
         headers,
         includeUsage: true,
+        transformRequestBody: usesCompletionTokenLimit(config) ? ({ max_tokens, ...body }) => ({
+          ...body, ...(max_tokens !== undefined ? { max_completion_tokens: max_tokens } : {}),
+        }) : undefined,
       })
       return provider.chatModel(config.selectedModel)
     }

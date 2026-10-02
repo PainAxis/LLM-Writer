@@ -35,6 +35,7 @@
 - **Book analysis**: UTF-8/GBK TXT decoding and browser-side DOCX text extraction; whole-line chapter-heading detection, explicit chapter selection for analysis and optional length-based splitting; 5-dimension AI analysis, a persistent reference library, and report backup/restore
 - **Short fiction**: multi-template short-form writing
 - **Writing goals**: daily / weekly / monthly, chapter-count and custom targets; shared progress/history across both entry points, with word statistics restricted to word units
+- **Generation budgets**: persisted output ceilings and model-aware thinking controls (effort, on/off or token budget), with provider defaults and local validation. See [generation budgets](docs/generation-budgets.md).
 - **Token billing**: local usage statistics and cost ledger (no real charges), usage-source labels, exact model/type/date filters and 7/30/90-day charts from recorded usage
 
 ### Engineering
@@ -107,7 +108,7 @@ npm run smoke:eventline               # Chapter-number migration and compatibili
 npm run smoke:prompts                 # Default prompts and merge rules
 ```
 
-CI is configured to run strict lint, the production build, 57 smoke suites and 33 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 58 smoke suites and 34 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

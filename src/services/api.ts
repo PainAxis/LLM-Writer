@@ -5,6 +5,7 @@ import { PREVIOUS_CONTENT_MAX_CHARS, trimTextFromEnd } from '@/utils/tokenBudget
 import { buildCorpusInjection, recommendCorpus } from '@/utils/corpusRetrieval'
 import { AIRequestCancelledError } from '@/utils/aiRequestScope'
 import type { FinishReason } from 'ai'
+import { buildGenerationBudget } from '@/utils/generationBudget'
 
 /** 个性化生成时注入语料的字符预算 */
 const CORPUS_INJECTION_MAX_CHARS = 4000
@@ -95,13 +96,6 @@ class APIService {
       throw new Error('AI生成被服务商内容过滤中止，内容未完成')
     }
   }
-
-  private buildRequestBody(config: { maxTokens: number | null; temperature: number }, options: GenerateOptions, stream: boolean) {
-    const maxOutputTokens = options.maxTokens ?? config.maxTokens ?? undefined
-    const temperature = options.temperature ?? config.temperature
-    return { maxOutputTokens, temperature, stream }
-  }
-
   private recordUsage(
     model: string,
     prompt: string,
@@ -130,7 +124,7 @@ class APIService {
     const promptForEstimate = [options.system ?? '', ...(options.messages?.length
       ? options.messages.map(message => message.content) : [prompt])].filter(Boolean).join('\n')
     const estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
-    const { maxOutputTokens, temperature } = this.buildRequestBody(config, options, false)
+    const { maxOutputTokens, temperature, providerOptions } = buildGenerationBudget(config, options)
     const { signal, clearTimeout } = this.createTimeoutSignal(options.signal)
     const effectiveModel = options.model?.trim() || config.selectedModel
     let content = ''
@@ -150,6 +144,7 @@ class APIService {
         system: options.system ? this.sanitizePrompt(options.system) : undefined,
         temperature,
         maxOutputTokens,
+        providerOptions,
         abortSignal: signal,
       })
 
@@ -187,7 +182,7 @@ class APIService {
       ? `${systemPrompt ?? ''}\n${messages!.map((msg) => msg.content).join('\n')}`
       : [systemPrompt, cleanPrompt].filter(Boolean).join('\n')
     const estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
-    const { maxOutputTokens, temperature } = this.buildRequestBody(config, options, true)
+    const { maxOutputTokens, temperature, providerOptions } = buildGenerationBudget(config, options)
     const { clearTimeout, signal: abortSignal } = this.createTimeoutSignal(options.signal)
     const effectiveModel = options.model?.trim() ? options.model.trim() : config.selectedModel
 
@@ -213,6 +208,7 @@ class APIService {
         ...(hasMessages ? { messages } : { prompt: cleanPrompt }),
         temperature,
         maxOutputTokens,
+        providerOptions,
         abortSignal,
         maxRetries: 2,
         onError: ({ error }) => { streamError = error },

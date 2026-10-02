@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 import { computed, ref } from 'vue'
 import { StorageKeys, storageSet } from '../src/utils/storage'
+import { validateGenerationBudget } from '../src/utils/generationBudget'
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
 const disk = new Map<string, string>()
@@ -79,7 +80,7 @@ try {
 
   config.setCustomModels([])
   const customModelInput = ref('draft-model')
-  const apiForm = { selectedModel: 'draft-model', apiKey: 'draft-key', customHeaders: {} }
+  const apiForm = { ...clone(config.activeConfig.value), selectedModel: 'draft-model', apiKey: 'draft-key', customHeaders: {} }
   let configLoads = 0
   const apiHandlers = handlers('components/ApiConfig.vue', ['addCustomModel', 'removeCustomModel', 'resetForm', 'saveConfig'], {
     ...config,
@@ -88,7 +89,7 @@ try {
     beginRequest: () => ({ controller: new AbortController() }), isCurrentRequest: () => true,
     finishRequest() {}, cancelRequests() {},
     availableModels: computed(() => config.customModels.value),
-    validateForm: () => true, collectHeaders: () => ({}),
+    validateForm: () => true, validateGenerationBudget, collectHeaders: () => ({}),
     apiService: { validateAPIKey: async () => true },
     loadSavedConfig: () => { configLoads++ }, ElMessage: messages,
   })

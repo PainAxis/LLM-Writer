@@ -19,6 +19,7 @@
     "smoke:book-analysis-library": "node --import tsx scripts/smoke-book-analysis-library.ts",
     "smoke:short-story": "node --import tsx scripts/smoke-short-story-generation.ts",
     "smoke:ai": "node --import tsx scripts/smoke-ai-sdk.ts",
+    "smoke:generation-budget": "node --import tsx scripts/smoke-generation-budget.ts",
     "smoke:compactor": "node --import tsx scripts/smoke-context-compactor.ts",
     "smoke:persistence": "node --import tsx scripts/smoke-novel-persistence.ts",
     "smoke:storage-coordination": "node --import tsx scripts/smoke-storage-coordination.ts",

@@ -5,20 +5,27 @@ import ts from 'typescript'
 import { computed, effectScope, reactive, ref, watch } from 'vue'
 import type { ApiConfig } from '../src/types/api'
 import { FALLBACK_MODELS, getPreset, PROVIDER_PRESETS, fetchProviderModels } from '../src/services/aiProviders'
+import { DEFAULT_OUTPUT_TOKENS, THINKING_PROTOCOL_OPTIONS, getThinkingCapability, validateGenerationBudget } from '../src/utils/generationBudget'
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
 const disk = new Map<string, string>()
+let rejectedKey = ''
 Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
   value: {
     getItem: (key: string) => disk.get(key) ?? null,
-    setItem: (key: string, value: string) => disk.set(key, value),
+    setItem: (key: string, value: string) => {
+      if (key === rejectedKey) throw new DOMException('Simulated storage quota', 'QuotaExceededError')
+      disk.set(key, value)
+    },
     removeItem: (key: string) => disk.delete(key),
   },
 })
 const { useApiConfig } = await import('../src/services/apiConfig')
 const apiService = (await import('../src/services/api')).default
 const state = useApiConfig()
+assert.equal(state.activeConfig.value.maxTokens, DEFAULT_OUTPUT_TOKENS)
+assert.equal(state.activeConfig.value.thinkingMode, 'default')
 state.updateConfig({ provider: 'custom', apiKey: 'committed-key', baseURL: 'https://committed.test/v1', selectedModel: 'committed-model' })
 const committed = clone(state.activeConfig.value)
 const committedDisk = disk.get('apiConfig')
@@ -27,7 +34,7 @@ const source = readFileSync(new URL('../src/components/ApiConfig.vue', import.me
 const script = source.match(/<script\b[^>]*>([\s\S]*?)<\/script>/)![1]
 const parsed = ts.createSourceFile('ApiConfig.vue', script, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
 const statements = parsed.statements.filter(statement => !ts.isImportDeclaration(statement)).map(statement => statement.getText(parsed)).join('\n')
-const exposed = 'form, headerRows, currentServerModels, fetchingModels, validating, testConnection, fetchModels, saveConfig, onProviderChange, snapshotForm'
+const exposed = 'form, headerRows, currentServerModels, fetchingModels, validating, testConnection, fetchModels, saveConfig, resetForm, onProviderChange, snapshotForm, thinkingCapability, showThinkingProtocol, onThinkingModeChange, handleUnlimitedTokensChange'
 const executable = ts.transpileModule(`${statements}\nreturn { ${exposed} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
 }).outputText
@@ -53,6 +60,7 @@ function setup() {
     computed, reactive, ref, watch, onBeforeUnmount: (callback: () => void) => unmount.push(callback),
     defineExpose: (value: { cancelRequests(): void }) => { exposed = value },
     useApiConfig, PROVIDER_PRESETS, FALLBACK_MODELS, getPreset,
+    DEFAULT_OUTPUT_TOKENS, THINKING_PROTOCOL_OPTIONS, getThinkingCapability, validateGenerationBudget,
     apiService: { validateAPIKey: (config: ApiConfig, options: { signal: AbortSignal }) => request('connection', config, options) },
     fetchProviderModels: (config: ApiConfig, options: { signal: AbortSignal }) => request('models', config, options),
     ElMessage: Object.fromEntries(['success', 'warning', 'error'].map(type => [type, (text: string) => notifications.push({ type, text })])),
@@ -245,4 +253,135 @@ try {
   await assert.rejects(fetchProviderModels(draft, { timeoutMs: 5 }), { name: 'TimeoutError' })
 } finally { globalThis.fetch = savedFetch }
 
-console.log('API config workflow smoke passed: draft probes, scoped caches, stale-result isolation, cancellation and timeouts')
+const budgets = setup()
+try {
+  const beforeDraft = clone(state.activeConfig.value)
+  const beforeDisk = disk.get('apiConfig')
+  Object.assign(budgets.form, {
+    provider: 'anthropic', selectedModel: 'claude-sonnet-4-5', apiKey: 'budget-key',
+    maxTokens: 16384, unlimitedTokens: false, thinkingBudget: 4096,
+  })
+  budgets.form.thinkingMode = 'budget'
+  assert.ok(budgets.thinkingCapability.value.modes.some((mode: { value: string }) => mode.value === 'budget'))
+  assert.equal(budgets.showThinkingProtocol.value, false)
+  assert.deepEqual(clone(state.activeConfig.value), beforeDraft)
+
+  budgets.form.thinkingBudget = -1
+  await budgets.saveConfig()
+  assert.equal(budgets.requests.length, 0, 'invalid budget must prevent a save before any connection probe')
+  assert.equal(budgets.notifications.at(-1).type, 'warning')
+  assert.deepEqual(clone(state.activeConfig.value), beforeDraft)
+  assert.equal(disk.get('apiConfig'), beforeDisk)
+  const probe = budgets.testConnection()
+  assert.equal(budgets.requests.length, 1, 'invalid generation budget must not block an endpoint/authentication test')
+  budgets.requests[0].resolve(true)
+  await probe
+  const models = budgets.fetchModels()
+  assert.equal(budgets.requests.length, 2, 'invalid generation budget must not block model discovery')
+  budgets.requests[1].resolve(['claude-sonnet-4-5'])
+  await models
+  assert.deepEqual(clone(state.activeConfig.value), beforeDraft, 'read operations must not publish the budget draft')
+  assert.equal(disk.get('apiConfig'), beforeDisk)
+
+  budgets.form.thinkingBudget = 6144
+  const saveBudget = budgets.saveConfig()
+  assert.equal(state.activeConfig.value.thinkingBudget, 6144)
+  assert.equal(state.activeConfig.value.thinkingMode, 'budget')
+  budgets.requests.at(-1).resolve(true)
+  await saveBudget
+  const reloaded = setup()
+  try {
+    assert.equal(reloaded.form.thinkingMode, 'budget', 'loading a saved model must retain its saved thinking mode')
+    assert.equal(reloaded.form.thinkingBudget, 6144)
+    assert.equal(reloaded.form.maxTokens, 16384)
+    reloaded.form.thinkingBudget = 8192
+    assert.equal(state.activeConfig.value.thinkingBudget, 6144, 'editing budget remains local to the reopened dialog')
+  } finally { reloaded.dispose() }
+
+  budgets.form.maxTokens = 24576
+  budgets.form.unlimitedTokens = true
+  budgets.handleUnlimitedTokensChange()
+  budgets.form.unlimitedTokens = false
+  budgets.handleUnlimitedTokensChange()
+  assert.equal(budgets.form.maxTokens, 24576, 'provider-default toggle must retain the previous numeric output budget')
+  budgets.form.unlimitedTokens = true
+  budgets.handleUnlimitedTokensChange()
+  budgets.form.thinkingMode = 'default'
+  const saveDefault = budgets.saveConfig()
+  budgets.requests.at(-1).resolve(true)
+  await saveDefault
+  const defaults = setup()
+  try {
+    assert.equal(defaults.form.unlimitedTokens, true)
+    assert.equal(defaults.form.thinkingMode, 'default')
+    defaults.form.unlimitedTokens = false
+    defaults.handleUnlimitedTokensChange()
+    assert.equal(defaults.form.maxTokens, 24576, 'remembered output budget must survive save and reload')
+  } finally { defaults.dispose() }
+
+  budgets.form.provider = 'custom'
+  budgets.onProviderChange('custom')
+  budgets.form.selectedModel = 'gpt-5.4-mini'
+  budgets.form.thinkingProtocol = 'openai'
+  budgets.form.thinkingMode = 'effort'
+  budgets.onThinkingModeChange()
+  assert.ok(budgets.thinkingCapability.value.efforts.some((effort: { value: string }) => effort.value === budgets.form.thinkingEffort))
+  const saveEffort = budgets.saveConfig()
+  budgets.requests.at(-1).resolve(true)
+  await saveEffort
+  const savedEffort = setup()
+  try {
+    assert.equal(savedEffort.form.thinkingProtocol, 'openai')
+    assert.equal(savedEffort.form.thinkingMode, 'effort')
+    assert.equal(savedEffort.form.thinkingEffort, budgets.form.thinkingEffort)
+    assert.equal(savedEffort.showThinkingProtocol.value, true)
+  } finally { savedEffort.dispose() }
+  budgets.form.selectedModel = 'unrecognized-model-alias'
+  assert.equal(budgets.form.thinkingMode, 'default', 'changing models clears a potentially unsupported thinking mode')
+  budgets.form.thinkingMode = 'effort'
+  budgets.form.provider = 'google'
+  budgets.onProviderChange('google')
+  assert.equal(budgets.form.thinkingProtocol, 'auto')
+  assert.equal(budgets.form.thinkingMode, 'default')
+  assert.equal(budgets.showThinkingProtocol.value, false)
+
+  const savedState = clone(state.activeConfig.value)
+  const savedDisk = disk.get('apiConfig')
+  const draft = clone(budgets.snapshotForm())
+  const requestCount = budgets.requests.length
+  const originalConsoleError = console.error
+  console.error = () => {}
+  rejectedKey = 'apiConfig'
+  try {
+    await budgets.saveConfig()
+    assert.match(budgets.notifications.at(-1).text, /配置保存失败/)
+    assert.equal(budgets.requests.length, requestCount, 'failed persistence must not start a connection probe')
+    assert.deepEqual(clone(state.activeConfig.value), savedState)
+    assert.equal(disk.get('apiConfig'), savedDisk)
+    assert.deepEqual(clone(budgets.snapshotForm()), draft, 'failed save retains the complete budget draft')
+    budgets.resetForm()
+    assert.match(budgets.notifications.at(-1).text, /重置失败/)
+    assert.deepEqual(clone(budgets.snapshotForm()), draft, 'failed reset retains the complete budget draft')
+  } finally {
+    rejectedKey = ''
+    console.error = originalConsoleError
+  }
+  state.updateConfig({ maxTokens: null, unlimitedTokens: false, thinkingMode: 'default' })
+  const legacy = setup()
+  try {
+    assert.equal(legacy.form.unlimitedTokens, true, 'legacy null output limit must continue using provider defaults')
+    const saveLegacy = legacy.saveConfig()
+    legacy.requests.at(-1).resolve(true)
+    await saveLegacy
+    assert.equal(state.activeConfig.value.unlimitedTokens, true, 'saving a legacy default must not introduce an output limit')
+  } finally { legacy.dispose() }
+  budgets.resetForm()
+  assert.equal(budgets.form.maxTokens, DEFAULT_OUTPUT_TOKENS)
+  assert.equal(budgets.form.unlimitedTokens, false)
+  assert.equal(budgets.form.thinkingProtocol, 'auto')
+  assert.equal(budgets.form.thinkingMode, 'default')
+  assert.equal(budgets.form.thinkingBudget, 4096)
+  assert.equal(budgets.form.thinkingEffort, 'medium')
+} finally { budgets.dispose() }
+
+console.log('API config workflow smoke passed: draft probes, budgets, saved defaults, scoped caches, stale-result isolation, cancellation and timeouts')

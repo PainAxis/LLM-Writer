@@ -1,3 +1,4 @@
+import { THINKING_MODES, THINKING_PROTOCOLS } from '@/utils/generationBudget'
 import { normalizeBookAnalysisLibrary } from './bookAnalysisLibrary'
 import {
   StorageKeys, storageGet, storageGetRaw, storageReadCommitted, storageReplace, storageSetRaw, storageRemove,
@@ -154,6 +155,10 @@ function validateValue(key: StorageKey, value: unknown): void {
       fields(value, ['temperature'], number, path)
       fields(value, ['unlimitedTokens'], v => typeof v === 'boolean', path)
       fields(value, ['customHeaders'], v => object(v) && Object.values(v).every(string), path)
+      fields(value, ['thinkingMode'], v => THINKING_MODES.includes(v as typeof THINKING_MODES[number]), path)
+      fields(value, ['thinkingProtocol'], v => THINKING_PROTOCOLS.includes(v as typeof THINKING_PROTOCOLS[number]), path)
+      fields(value, ['thinkingBudget'], v => number(v) && Number.isInteger(v) && (v as number) > 0, path)
+      fields(value, ['thinkingEffort'], v => ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(v as string), path)
       break
     case StorageKeys.customModels:
       records(value, path, (item, p) => check(string(item.id) && string(item.name), p))

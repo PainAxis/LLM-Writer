@@ -1689,6 +1689,69 @@ try {
     await expect(target.locator('.distribution-bar')).toHaveCount(0)
   }))
 
+  await step('34 Persist thinking settings and send the configured generation budget after reload', () => withIsolatedPage('34-generation-budget-request', async target => {
+    await configureDisposableApi(target)
+    const field = label => target.locator('.api-config .el-form-item').filter({
+      has: target.locator('.el-form-item__label', { hasText: new RegExp(`^${label}$`) }),
+    })
+    const output = field('输出预算')
+    const providerDefault = output.getByRole('checkbox', { name: '服务商默认', exact: true })
+    await expect(providerDefault).not.toBeChecked()
+    await output.getByRole('spinbutton').fill('24576')
+    await output.getByRole('spinbutton').press('Tab')
+    await providerDefault.check()
+    await expect(output.getByRole('spinbutton')).toHaveCount(0)
+    await providerDefault.uncheck()
+    await expect(output.getByRole('spinbutton')).toHaveValue('24576')
+
+    // The mock model is a custom alias: choose its accepted protocol explicitly.
+    await field('思考协议').locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: 'OpenAI 思考强度', exact: true }).click()
+    await field('思考设置').locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '按思考强度', exact: true }).click()
+    await field('思考强度').locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '低', exact: true }).click()
+    await target.getByRole('button', { name: '保存配置', exact: true }).click()
+    const savedBudget = () => target.evaluate(() => {
+      const { provider, selectedModel, maxTokens, unlimitedTokens, thinkingProtocol, thinkingMode, thinkingEffort } = JSON.parse(localStorage.getItem('apiConfig') || '{}')
+      return { provider, selectedModel, maxTokens, unlimitedTokens, thinkingProtocol, thinkingMode, thinkingEffort }
+    })
+    const expected = {
+      provider: 'custom', selectedModel: 'writer-mock', maxTokens: 24576, unlimitedTokens: false,
+      thinkingProtocol: 'openai', thinkingMode: 'effort', thinkingEffort: 'low',
+    }
+    await expect.poll(savedBudget).toEqual(expected)
+    await expect(target.getByRole('button', { name: '测试连接', exact: true })).toBeEnabled()
+    await target.reload()
+    await dismissAnnouncement(target)
+    await expect(providerDefault).not.toBeChecked()
+    await expect(output.getByRole('spinbutton')).toHaveValue('24576')
+    await expect(field('模型选择').locator('.el-select__wrapper')).toHaveText('writer-mock')
+    await expect(field('思考协议').locator('.el-select__wrapper')).toHaveText('OpenAI 思考强度')
+    await expect(field('思考设置').locator('.el-select__wrapper')).toHaveText('按思考强度')
+    await expect(field('思考强度').locator('.el-select__wrapper')).toHaveText('低')
+    assert.deepEqual(await savedBudget(), expected)
+    await screenshot('34-generation-budget-settings', target)
+
+    await go('tools', target)
+    await target.locator('.tool-card').filter({ hasText: '爆款书名生成器' }).click()
+    const dialog = target.getByRole('dialog', { name: '爆款书名生成器', exact: true })
+    await dialog.locator('.el-form-item').filter({ has: target.locator('.el-form-item__label', { hasText: /^生成数量$/ }) }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '5个书名', exact: true }).click()
+    await dialog.locator('.el-form-item').filter({ hasText: '小说类型' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '都市', exact: true }).click()
+    await dialog.getByPlaceholder('输入相关关键词，用逗号分隔').fill('雨后城市,预算回归')
+    const captured = target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/chat/completions`)
+    await dialog.getByRole('button', { name: '生成内容', exact: true }).click()
+    const body = (await captured).postDataJSON()
+    assert.equal(body.model, 'writer-mock')
+    assert.equal(body.stream, true)
+    assert.equal(body.reasoning_effort, 'low', 'The reloaded thinking setting must reach the actual SDK request')
+    assert.equal(body.max_completion_tokens, 24576, 'OpenAI-compatible reasoning requests must retain the configured total output cap')
+    assert.equal(Object.hasOwn(body, 'max_tokens'), false, 'The legacy output field must not accompany max_completion_tokens')
+    await expect(dialog.getByPlaceholder('生成的内容将在这里显示...')).toHaveValue(/联调生成片段 3/)
+  }))
+
   assert.deepEqual(errors, [], 'The browser must not raise uncaught errors or unsaved-data navigation dialogs')
   console.log(`PASS ${report.tests.length} real-browser regression scenarios`)
 } catch (error) {

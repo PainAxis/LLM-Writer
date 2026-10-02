@@ -39,6 +39,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/utils/writerContent.ts`, `src/utils/novelStats.ts` | Shared visible-text conversion, safe generated HTML, Unicode character counts and chapter-derived novel totals |
 | `src/utils/chapterParser.ts` | Explicit, complete AI chapter-outline parsing; invalid structures produce no fallback chapter |
 | `src/utils/` | Context budgets/compaction, corpus retrieval/portable transfer, virtual message windows, book imports, chapter parsing, event and mind-map data |
+| `src/utils/generationBudget.ts` | Model-aware output/thinking capabilities, validation and SDK request options; see [budget semantics](docs/generation-budgets.md) |
 | `src/types/` | Shared API, Writer, ShortStory, book-analysis, novel-management and tool types, plus library declarations |
 | `src/config/` | Default prompts, ShortStory defaults, typed tool definitions and announcements |
 
@@ -73,8 +74,8 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The configured CI validation set contains 57 sequential smoke suites and 33 Chromium scenarios with synthetic data and API responses. Use the reviewed revision’s CI results to confirm validation.
-- New suites: `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
+- The configured CI validation set contains 58 sequential smoke suites and 34 Chromium scenarios with synthetic data and API responses. Use the reviewed revision’s CI results to confirm validation.
+- New suites: `smoke:generation-budget`, `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.
 - [Changelog](CHANGELOG.md): published changes and unreleased work.

@@ -1,5 +1,8 @@
 export type ApiConfigType = 'official' | 'custom'
 
+export type ThinkingProtocol = 'auto' | 'openai' | 'anthropic' | 'google' | 'deepseek' | 'mimo' | 'glm' | 'qwen'
+export type ThinkingMode = 'default' | 'disabled' | 'enabled' | 'effort' | 'budget'
+
 export interface ApiConfig {
   apiKey: string
   baseURL: string
@@ -10,6 +13,11 @@ export interface ApiConfig {
   maxTokens: number | null
   unlimitedTokens: boolean
   temperature: number
+  /** Default leaves model reasoning parameters untouched; aliases can select an explicit format. */
+  thinkingProtocol?: ThinkingProtocol
+  thinkingMode?: ThinkingMode
+  thinkingBudget?: number
+  thinkingEffort?: string
   /** 附加请求头（如直连 Anthropic 需要的浏览器访问声明） */
   customHeaders?: Record<string, string>
   /** 可选代理前缀：请求 URL = proxyUrl + 实际 API 地址（用于绕过浏览器 CORS 限制） */
