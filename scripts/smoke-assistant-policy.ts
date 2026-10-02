@@ -5,6 +5,7 @@ import ts from 'typescript'
 import { computed, effectScope, onScopeDispose, reactive, ref, watch } from 'vue'
 import * as compactor from '../src/utils/contextCompactor'
 import { normalizeContextPolicy, resolveAssistantContextPolicy } from '../src/utils/contextPolicy'
+import { buildGenerationBudget } from '../src/utils/generationBudget'
 import { StorageKeys } from '../src/utils/storage'
 import type { ContextPolicy } from '../src/types/api'
 
@@ -208,6 +209,17 @@ console.log('✓ per-assistant summary/model/retry, policy aborts, stale complet
 
 const r = harness()
 const compacted = r.store.addAssistant({ name: '成功摘要', persona: '助手人设', contextPolicyMode: 'custom', contextPolicy: policy({ maxTokens: 0, maxTurns: 2, strategy: 'summary', retainTurns: 1 }) })
+r.summary(async () => {
+  const request = r.summaryRequests.at(-1)
+  const budget = buildGenerationBudget({
+    provider: 'anthropic', apiKey: 'local-test-key', baseURL: 'https://api.anthropic.com/v1',
+    selectedModel: 'claude-sonnet-4-5', maxTokens: 16384, unlimitedTokens: false, temperature: 0.7,
+    thinkingMode: 'budget', thinkingBudget: 4096,
+  }, request.options)
+  assert.equal(budget.maxOutputTokens, 12288, 'summary inherits the configured total cap and reserves the Claude thinking allocation')
+  assert.ok(request.prompt.includes('At most 500 Chinese characters.'), 'summary length remains constrained by its prompt')
+  return '滚动摘要'
+})
 await r.store.sendMessage('首轮问题')
 await flush()
 assert.equal(r.store.summaries.value[compacted.id].text, '滚动摘要')

@@ -2,6 +2,8 @@
 
 Open **Settings → API配置** to configure output and thinking. These saved settings apply to the shared AI service, including streamed and non-streamed writing, tools, analysis and assistant requests.
 
+Assistant summaries also inherit these generation budgets. Their prompt still requests at most 500 Chinese characters; the former fixed 800-token override would conflict with models that need a larger thinking allocation.
+
 ## Output
 
 - **输出预算** sets the output-token ceiling. New configurations start at 16,384 tokens; existing saved limits are preserved.

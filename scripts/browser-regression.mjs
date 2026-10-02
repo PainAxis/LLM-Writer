@@ -1699,9 +1699,12 @@ try {
     await expect(providerDefault).not.toBeChecked()
     await output.getByRole('spinbutton').fill('24576')
     await output.getByRole('spinbutton').press('Tab')
-    await providerDefault.check()
+    // Element Plus visually hides its native checkbox; users click the label.
+    await output.locator('.el-checkbox__label').click()
+    await expect(providerDefault).toBeChecked()
     await expect(output.getByRole('spinbutton')).toHaveCount(0)
-    await providerDefault.uncheck()
+    await output.locator('.el-checkbox__label').click()
+    await expect(providerDefault).not.toBeChecked()
     await expect(output.getByRole('spinbutton')).toHaveValue('24576')
 
     // The mock model is a custom alias: choose its accepted protocol explicitly.
