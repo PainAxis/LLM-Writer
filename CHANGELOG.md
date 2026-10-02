@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Preserve form drafts and previously saved state when prompt, genre, assistant or configuration writes fail. Completed assistant replies expose a save-only retry without repeating the AI request.
+- Coordinate novel commits across tabs, merge independent project edits, reject stale edits to the same project, and atomically apply goal progress increments. Protect failed clear/restore operations and export the latest committed, hydrated novel collection.
+- Track assistant summary coverage by message ID and policy, retain every uncovered message during delayed or failed compaction, and include persona and summary text in the final estimated context budget.
+- Centralize prompt catalog initialization and migration for all entry points, including fresh direct visits to BookAnalysis and ToolsLibrary; preserve intentional deletions and reject damaged stored catalogs without overwriting them.
+- Add storage coordination/conflict, configuration and prompt catalog smoke suites, plus fresh-entry and real multi-tab browser regressions. CI now runs 50 smoke suites and 24 Chromium scenarios.
 - Updated the development-only brace-expansion dependency to 5.0.12; the full dependency audit is clean.
 - Unified both writing-goal entry points and the homepage on a shared typed store. Progress updates preserve notes and history, serialized saves retain the last committed state on failure, and edits retain legacy metadata. Continuous writing days use actual activity on local calendar dates, including DST boundaries and progress corrections.
 - Extracted ShortStory and BookAnalysis panels/dialogs into typed components with page-owned workspace contexts and feature-scoped shared styles. Moved short-story editor handling and book chapter viewing/export out of their workspace controllers.

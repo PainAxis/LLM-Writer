@@ -4,6 +4,8 @@
  */
 import { StorageKeys, registerChunkedKey, writeSerializedWithRetry, type ChunkedKeyBackend } from '@/utils/storage'
 import { idbDeleteMany, idbGet, idbSetMany, isBlobStoreAvailable } from './blobStore'
+import { withStorageCommit } from './storageCoordination'
+import { createNovelChangeTracker, type NovelChange } from '@/utils/novelConcurrency'
 
 const SPLIT_THRESHOLD_CHARS = 1_500_000
 const INLINE_CONTENT_MAX_CHARS = 2_000
@@ -27,11 +29,11 @@ export interface NovelPersistenceStatus {
   error: string | null
   pending: number
 }
-type SaveRequest = { kind: 'save'; novels: NovelLike[] } | { kind: 'remove' }
+type SaveRequest = { kind: 'save' | 'remove'; change: NovelChange<NovelLike>; publishOnSuccess?: boolean }
 let cache: NovelLike[] = []
+let changes = createNovelChangeTracker<NovelLike>([])
 let ready = false
 let loadError: Error | null = null
-let committedKeys = new Set<string>()
 const garbageKeys = new Set<string>()
 let queue: Promise<void> = Promise.resolve()
 let latestResult: Promise<void> = queue
@@ -121,8 +123,14 @@ export async function hydrateContents(novels: NovelLike[]): Promise<void> {
 }
 
 async function collectGarbage(): Promise<void> {
-  const keys = [...garbageKeys].filter((key) => !committedKeys.has(key))
   try {
+    // Every save stages unique immutable keys. A retired key is never reused;
+    // readers retry hydration if another tab changed the metadata meanwhile.
+    const raw = localStorage.getItem(StorageKeys.novels)
+    const current: unknown = raw === null ? [] : JSON.parse(raw)
+    if (!Array.isArray(current)) return
+    const referenced = referencedKeys(current)
+    const keys = [...garbageKeys].filter(key => !referenced.has(key))
     await idbDeleteMany(keys)
     for (const key of keys) garbageKeys.delete(key)
   } catch (error) {
@@ -130,51 +138,93 @@ async function collectGarbage(): Promise<void> {
     console.warn('[novelPersistence] 陈旧分片清理失败，将在下次保存重试:', error)
   }
 }
-async function persist(request: SaveRequest): Promise<void> {
-  let nextKeys = new Set<string>()
-  if (request.kind === 'remove') {
-    localStorage.removeItem(StorageKeys.novels)
-  } else {
-    const fullJson = JSON.stringify(request.novels)
-    if (!isBlobStoreAvailable() || fullJson.length <= SPLIT_THRESHOLD_CHARS) {
-      writeSerializedWithRetry(StorageKeys.novels, fullJson)
-    } else {
-      const { metadata, blobs } = splitContents(request.novels)
-      nextKeys = new Set(blobs.map(({ key }) => key))
-      let staged = false
-      try {
-        await idbSetMany(blobs)
-        staged = true
-        writeSerializedWithRetry(StorageKeys.novels, JSON.stringify(metadata))
-      } catch (error) {
-        if (staged) {
-          for (const key of nextKeys) garbageKeys.add(key)
-          await collectGarbage()
-        }
-        throw error
-      }
+
+async function readCommitted() {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const raw = localStorage.getItem(StorageKeys.novels)
+    try {
+      const value: unknown = raw === null ? [] : JSON.parse(raw)
+      if (!Array.isArray(value)) throw new Error('已保存的小说数据格式无效')
+      const novels = value as NovelLike[]
+      const keys = referencedKeys(novels)
+      await hydrateContents(novels)
+      if (localStorage.getItem(StorageKeys.novels) === raw) return { raw, novels, keys }
+    } catch (error) {
+      if (localStorage.getItem(StorageKeys.novels) === raw) throw error
     }
   }
-  for (const key of committedKeys) garbageKeys.add(key)
-  committedKeys = nextKeys
-  await collectGarbage()
+  throw new Error('其他标签页正在频繁保存，请稍后重试；当前草稿仍保留')
+}
+
+async function persist(request: SaveRequest): Promise<void> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const previous = await readCommitted()
+    const novels = changes.merge(request.change, previous.novels)
+    let serialized = JSON.stringify(novels)
+    let blobs: Array<{ key: string; content: string }> = []
+    if (request.kind !== 'remove' && isBlobStoreAvailable() && serialized.length > SPLIT_THRESHOLD_CHARS) {
+      const split = splitContents(novels)
+      blobs = split.blobs
+      serialized = JSON.stringify(split.metadata)
+    }
+    let staged = false
+    try {
+      await idbSetMany(blobs)
+      staged = true
+      const committed = await withStorageCommit(() => {
+        if (localStorage.getItem(StorageKeys.novels) !== previous.raw) return false
+        if (request.kind === 'remove') localStorage.removeItem(StorageKeys.novels)
+        else writeSerializedWithRetry(StorageKeys.novels, serialized)
+        return true
+      })
+      if (committed) {
+        changes.commit(request.change)
+        for (const key of previous.keys) garbageKeys.add(key)
+        await collectGarbage()
+        return
+      }
+    } catch (error) {
+      if (staged) {
+        for (const { key } of blobs) garbageKeys.add(key)
+        await collectGarbage()
+      }
+      throw error
+    }
+    for (const { key } of blobs) garbageKeys.add(key)
+    await collectGarbage()
+  }
+  throw new Error('其他标签页正在频繁保存，请稍后重试；当前草稿仍保留')
 }
 function enqueue(request: SaveRequest): Promise<void> {
+  changes.begin(request.change)
   latestRequest = request
   const currentRevision = ++revision
   updateStatus({ phase: 'saving', error: null, pending: status.pending + 1 })
   const result = queue.then(() => persist(request)).then(() => {
+    if (request.publishOnSuccess && currentRevision === revision) cache = snapshot(request.change.value)
     updateStatus({ pending: status.pending - 1, ...(currentRevision === revision ? { phase: 'saved', error: null } : {}) })
   }, (error: unknown) => {
     updateStatus({ pending: status.pending - 1, phase: 'error', error: asError(error).message })
     throw error
-  })
+  }).finally(() => { changes.finish(request.change) })
   latestResult = observed(result)
   queue = result.catch(() => undefined)
   return result
 }
 
 const backend: ChunkedKeyBackend = {
+  async readCommitted(): Promise<unknown> {
+    if (!ready || loadError) throw loadError ?? new Error('小说数据仍在加载')
+    const sourceRevision = revision
+    try { await latestResult } catch {
+      throw new Error('仍有未保存的小说修改，请先保存或复制保留草稿后再备份或导入')
+    }
+    const committed = await readCommitted()
+    if (sourceRevision !== revision || status.pending > 0 || status.phase === 'error') {
+      throw new Error('小说内容在读取期间发生变化，请等待保存完成后重试')
+    }
+    return committed.novels
+  },
   get(): unknown {
     if (!ready) throw new Error('小说数据仍在加载')
     if (loadError) throw loadError
@@ -186,8 +236,9 @@ const backend: ChunkedKeyBackend = {
       if (!ready) throw new Error('小说数据仍在加载')
       if (loadError) throw loadError
       const next = snapshot(value)
+      const change = changes.capture(next, cache)
       cache = next
-      return enqueue({ kind: 'save', novels: next })
+      return enqueue({ kind: 'save', change })
     } catch (error) {
       latestRequest = null
       revision++
@@ -196,12 +247,26 @@ const backend: ChunkedKeyBackend = {
       return latestResult
     }
   },
+  replace: value => replaceNovelPersistence(value),
   remove(): Promise<void> {
     if (!ready || loadError) return observed(Promise.reject(loadError ?? new Error('小说数据仍在加载')))
-    cache = []
-    return enqueue({ kind: 'remove' })
+    const change = changes.capture([], cache, true)
+    return enqueue({ kind: 'remove', change, publishOnSuccess: true })
   },
   isReady: () => ready,
+}
+
+/** Explicit backup replacement checks the whole collection, including projects
+ * created by another tab since this page was opened. */
+export function replaceNovelPersistence(value: unknown): Promise<void> {
+  if (!ready || loadError) return observed(Promise.reject(loadError ?? new Error('小说数据仍在加载')))
+  try {
+    const next = snapshot(value)
+    const change = changes.capture(next, cache, true)
+    return enqueue({ kind: 'save', change, publishOnSuccess: true })
+  } catch (error) {
+    return observed(Promise.reject(error))
+  }
 }
 
 /** 等待调用前的最新操作完成；最新保存失败时拒绝，供关闭/导出等操作使用。 */
@@ -226,14 +291,9 @@ export async function initNovelPersistence(): Promise<void> {
   updateStatus({ phase: 'loading', blocked: true, error: null, pending: 0 })
   registerChunkedKey(StorageKeys.novels, backend)
   try {
-    const raw = localStorage.getItem(StorageKeys.novels)
-    const novels: unknown = raw === null ? [] : JSON.parse(raw)
-    if (!Array.isArray(novels)) throw new Error('已保存的小说数据格式无效')
-    const restored = novels as NovelLike[]
-    const keys = referencedKeys(restored)
-    await hydrateContents(restored)
+    const { novels: restored } = await readCommitted()
     cache = restored
-    committedKeys = keys
+    changes = createNovelChangeTracker(restored)
     latestRequest = null
     latestResult = Promise.resolve()
     ready = true

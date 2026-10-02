@@ -1,7 +1,8 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { WritingGoal } from '@/types/management'
-import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
+import { storageGet, storageSet, StorageKeys, writeSerializedWithRetry } from '@/utils/storage'
+import { withStorageCommit } from '@/services/storageCoordination'
 import { generateUniqueId } from '@/utils/id'
 import { applyGoalProgress, normalizeWritingGoals, sortActiveGoals, toGoalDate, wordsWrittenToday, writingStreak } from '@/utils/writingGoals'
 
@@ -10,6 +11,8 @@ type GoalDetails = Pick<WritingGoal, 'title' | 'type' | 'targetValue' | 'startDa
 interface GoalStorage {
   read(): unknown
   write(goals: WritingGoal[]): void | Promise<void>
+  /** Re-read and transform the committed value while holding the cross-tab gate. */
+  update?(change: (current: WritingGoal[]) => WritingGoal[]): Promise<WritingGoal[]>
   now?(): Date
   id?(): number
 }
@@ -29,8 +32,12 @@ export function createWritingGoalsState(storage: GoalStorage) {
   function mutate(change: (current: WritingGoal[]) => WritingGoal[]): Promise<void> {
     pending.value++
     const result = queue.then(async () => {
-      const next = change(goals.value)
-      await storage.write(next)
+      let next: WritingGoal[]
+      if (storage.update) next = await storage.update(change)
+      else {
+        next = change(goals.value)
+        await storage.write(next)
+      }
       goals.value = next
       clock.value = now()
     }).finally(() => { pending.value-- })
@@ -98,6 +105,12 @@ export const useWritingGoalsStore = defineStore('writingGoals', () => {
   const state = createWritingGoalsState({
     read: () => storageGet(StorageKeys.writingGoals, []),
     write: goals => storageSet(StorageKeys.writingGoals, goals),
+    update: change => withStorageCommit(() => {
+      const current = normalizeWritingGoals(storageGet(StorageKeys.writingGoals, []))
+      const next = change(current)
+      writeSerializedWithRetry(StorageKeys.writingGoals, JSON.stringify(next))
+      return next
+    }),
   })
   if (typeof window !== 'undefined') {
     const onStorage = (event: StorageEvent) => {

@@ -154,7 +154,7 @@ export interface WriterNovel {
 
 /** Prompt records from the shared prompt library, including older user entries. */
 export interface PromptTemplate {
-  id: number
+  id: number | string
   title: string
   category: string
   content: string

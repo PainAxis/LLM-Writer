@@ -1,7 +1,5 @@
-import { ref } from 'vue'
-import { DEFAULT_PROMPTS, PROMPTS_VERSION, mergeDefaultPrompts } from '@/config/defaultPrompts'
 import type { PromptTemplate } from '@/types/writer'
-import { StorageKeys, storageGet, storageSet } from '@/utils/storage'
+import { promptCatalog } from '@/services/promptCatalog'
 
 export interface WriterPromptCatalogNotifications {
   success(message: string): unknown
@@ -14,54 +12,22 @@ export interface WriterPromptCatalogOptions {
   navigateToPromptLibrary(): unknown
 }
 
-type PromptRecord = Pick<PromptTemplate, 'id' | 'title' | 'category' | 'content'>
-  & Partial<Pick<PromptTemplate, 'description' | 'tags' | 'isDefault'>>
-
-const clonePrompt = (prompt: PromptRecord): PromptTemplate => ({
-  ...prompt,
-  tags: prompt.tags ? [...prompt.tags] : undefined,
-})
-
-const cloneDefaultPrompts = (): PromptTemplate[] => DEFAULT_PROMPTS.map(clonePrompt)
-
-/** Owns the Writer view of the shared prompt catalog and its storage migration. */
+/** Writer-specific selection and navigation over the application's shared catalog. */
 export function useWriterPromptCatalog(options: WriterPromptCatalogOptions) {
-  const availablePrompts = ref<PromptTemplate[]>([])
+  const availablePrompts = promptCatalog.prompts
 
   const savePrompts = () => {
-    try {
-      void storageSet(StorageKeys.prompts, availablePrompts.value)
-    } catch (error) {
-      console.error('保存提示词失败:', error)
-    }
+    const next = availablePrompts.value.map(prompt => ({ ...prompt, tags: [...prompt.tags] }))
+    return promptCatalog.update(() => next)
   }
 
-  const loadPrompts = () => {
-    const parsed = storageGet<PromptTemplate[] | null>(StorageKeys.prompts, null)
-    if (parsed && Array.isArray(parsed)) {
-      try {
-        const version = storageGet<number>(StorageKeys.promptsVersion, 0)
-        if (version !== PROMPTS_VERSION) {
-          availablePrompts.value = mergeDefaultPrompts(
-            parsed as Parameters<typeof mergeDefaultPrompts>[0],
-          ).map(clonePrompt)
-          savePrompts()
-          void storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
-        } else {
-          availablePrompts.value = parsed
-        }
-      } catch (error) {
-        console.error('加载提示词失败:', error)
-        availablePrompts.value = cloneDefaultPrompts()
-        savePrompts()
-      }
-      return availablePrompts.value
+  const loadPrompts = async () => {
+    try {
+      return await promptCatalog.load()
+    } catch (error) {
+      options.notify.warning(`加载提示词失败：${error instanceof Error ? error.message : String(error)}，请重试`)
+      return null
     }
-
-    availablePrompts.value = cloneDefaultPrompts()
-    savePrompts()
-    void storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
-    return availablePrompts.value
   }
 
   const findDefaultPrompt = (category: string): PromptTemplate | null => {
@@ -83,9 +49,8 @@ export function useWriterPromptCatalog(options: WriterPromptCatalogOptions) {
     return true
   }
 
-  const refreshPrompts = () => {
-    loadPrompts()
-    options.notify.success('提示词列表已刷新')
+  const refreshPrompts = async () => {
+    if (await loadPrompts()) options.notify.success('提示词列表已刷新')
   }
 
   const goToPromptLibrary = () => options.navigateToPromptLibrary()

@@ -1,12 +1,12 @@
 import { useBookChapterViewer } from './useBookChapterViewer'
 import type { InputInstance } from 'element-plus'
 import type { BookChapter, BookAnalysisData, BookAnalysisTemplate } from '@/types/bookAnalysis'
-import type { PromptTemplate } from '@/config/defaultPrompts'
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useAIStream } from '@/composables/useAIStream'
 import { useGenerationTask } from '@/composables/useGenerationTask'
-import { storageGet, storageGetRaw, storageSetRaw, StorageKeys } from '@/utils/storage'
+import { storageGetRaw, storageSetRaw, StorageKeys } from '@/utils/storage'
+import { promptCatalog } from '@/services/promptCatalog'
 import { splitBookLocally } from '@/utils/bookImport'
 import { useBookAnalysisFile } from '@/composables/useBookAnalysisFile'
 import {
@@ -100,35 +100,16 @@ Requirements:
   const _analysisSteps = ['文本预处理', '结构分析', '人物识别', '技法提取', '生成报告']
 
   // 拆书模板（从提示词库获取）
-  const analysisTemplates = ref<Array<BookAnalysisTemplate & { icon: string }>>([])
+  const analysisTemplates = computed<Array<BookAnalysisTemplate & { icon: string }>>(() =>
+    promptCatalog.prompts.value.filter(prompt => prompt.category === 'book-analysis').map(prompt => ({
+      id: prompt.id, name: prompt.title, icon: '📚', description: prompt.description, content: prompt.content,
+    })))
 
-  // 从提示词库加载拆书模板
-  const loadAnalysisTemplates = () => {
-    const allPrompts = storageGet<PromptTemplate[] | null>(StorageKeys.prompts, null)
-    if (allPrompts) {
-      try {
-        analysisTemplates.value = allPrompts
-          .filter((prompt) => prompt.category === 'book-analysis')
-          .map((prompt) => ({
-            id: prompt.id,
-            name: prompt.title,
-            icon: '📚',
-            description: prompt.description,
-            content: prompt.content,
-          }))
-      } catch (error) {
-        console.error('加载拆书模板失败:', error)
-        // 使用默认模板
-        analysisTemplates.value = [
-          {
-            id: 'comprehensive',
-            name: '综合拆书分析',
-            icon: '📚',
-            description: '全方位分析小说的写作技法、结构特点和创作亮点',
-            content: '请对以下小说文本进行深度拆书分析...',
-          },
-        ]
-      }
+  const loadAnalysisTemplates = async () => {
+    try {
+      await promptCatalog.load()
+    } catch (error) {
+      ElMessage.error(`加载拆书模板失败：${error instanceof Error ? error.message : String(error)}，请重试`)
     }
   }
 

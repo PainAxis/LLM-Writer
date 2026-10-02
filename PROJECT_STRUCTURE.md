@@ -12,6 +12,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `public/` | Static assets, including the favicon |
 | `scripts/` | Module smoke tests, browser regression, preview tools, release validation and deployment scripts |
 | `scripts/fixtures/` | Synthetic document-import fixtures |
+| `docs/` | Data formats, editing protocols, context policies and persistence coordination |
 | `.github/workflows/` | Continuous validation, CI-gated releases and the optional temporary browser preview |
 | `package.json`, `package-lock.json` | Dependencies, locked versions and npm commands |
 | `vite.config.ts`, `tsconfig.json`, `eslint.config.js` | Build, TypeScript and lint configuration |
@@ -28,9 +29,11 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/components/` | Shared UI and feature components, including Writer panels, dialogs and editor |
 | `src/composables/` | Reactive workflows for writing, AI streaming, prompt selection and themes |
 | `src/services/api.ts`, `src/services/aiProviders.ts`, `src/services/apiConfig.ts` | AI SDK facade, provider adapters, model discovery and shared API configuration |
-| `src/services/novelPersistence.ts`, `src/services/blobStore.ts` | Queued novel saves, versioned IndexedDB content shards and startup hydration |
+| `src/services/novelPersistence.ts`, `src/services/blobStore.ts` | Queued novel saves, staged/versioned IndexedDB content shards and startup hydration |
+| `src/services/storageCoordination.ts`, `src/utils/novelConcurrency.ts` | Cross-tab commit coordination for novels/goals and per-novel version checks |
+| `src/services/promptCatalog.ts` | Shared prompt initialization, migration and committed updates across all five prompt entry points |
 | `src/services/backup.ts`, `src/services/billing.ts` | Backup validation/restoration and local usage/cost bookkeeping |
-| `src/stores/novel.ts`, `src/stores/assistant.ts`, `src/stores/writingGoals.ts` | Pinia state for writing and assistant conversations |
+| `src/stores/novel.ts`, `src/stores/assistant.ts`, `src/stores/writingGoals.ts` | Pinia state for writing, assistant conversations/summary coverage and writing goals |
 | `src/utils/storage.ts`, `src/utils/aiRequestScope.ts` | Central storage access and isolated, cancellable AI requests |
 | `src/utils/writer/` | Writer prompt builders and response parsers |
 | `src/utils/` | Context budgets/compaction, corpus retrieval/portable transfer, virtual message windows, book imports, chapter parsing, event and mind-map data |
@@ -55,7 +58,7 @@ This overview describes the current source layout. Planned work is tracked in th
 
 | Feature | Modules and responsibilities |
 |---------|-----------------------------|
-| AssistantManagement | `stores/assistant.ts` selects global/custom policies, guards summary ownership and isolates conversations; `useVirtualMessages.ts` measures visible rows and preserves scroll anchors; `utils/contextPolicy.ts` normalizes and resolves policies; [policy semantics](docs/assistant-context-policy.md) |
+| AssistantManagement | `stores/assistant.ts` selects global/custom policies, isolates conversations and tracks summary coverage with `coveredThroughEntryId`; only committed, policy-compatible summaries replace covered originals; `useVirtualMessages.ts` measures visible rows and preserves scroll anchors; `utils/contextPolicy.ts` normalizes and resolves policies; [policy semantics](docs/assistant-context-policy.md) |
 | ShortStory | `useShortStoryWorkspace.ts`; `components/short-story/ShortStoryPromptSelector.vue`; `useShortStoryConfig.ts` for fresh defaults and async persistence; `useShortStoryGeneration.ts` for independent cancellable requests; `utils/shortStoryPrompts.ts` for prompt construction |
 | BookAnalysis | `useBookAnalysisWorkspace.ts`; `components/book-analysis/BookFileImportPanel.vue`; `useBookAnalysisFile.ts` for latest-import ownership and encoding; `utils/bookAnalysisContext.ts` for chapter detection, selected ranges and prompts |
 | NovelManagement | `useNovelManagementWorkspace.ts`; `components/novel-management/NovelMetadataForm.vue` for create/edit fields; `utils/novelList.ts` for filters and non-mutating sorting |
@@ -68,6 +71,7 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
+- The CI validation set contains 50 sequential smoke suites and 24 Chromium scenarios with synthetic data and API responses.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.
 - [Changelog](CHANGELOG.md): published changes and unreleased work.
@@ -78,3 +82,11 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 - BookAnalysis uses controls/results and chapter/prompt dialogs in `src/components/book-analysis/`. `book-analysisContext.ts` shares the page-owned typed workspace; `useBookChapterViewer.ts` owns chapter selection, reading and export.
 - Shared feature CSS is limited to the page root and its teleported dialog class. Generators and cancellation remain owned by the page lifecycle.
 - `stores/writingGoals.ts` owns both goal entry points and homepage state, serialized persistence, metadata-preserving edits and progress history. `utils/writingGoals.ts` normalizes legacy records and computes activity by local calendar day.
+
+## Persistence and Context Boundaries
+
+- `promptCatalog.ts` initializes or migrates the prompt library on demand for Writer, PromptsLibrary, ShortStory, BookAnalysis and ToolsLibrary. Current-version deletions and user metadata are retained; malformed stored data is reported and preserved for recovery.
+- Prompt, API/configuration, genre and assistant management publish saved state and success feedback after their storage writes complete. Failed saves retain retryable drafts or the last committed state.
+- Novel saves stage content before a coordinated commit and compare the versions actually seen by the editor. Edits to different novels can merge; conflicting edits to the same novel retain the local draft and reject overwriting the newer saved version. Copy the draft, refresh/reopen the novel and merge it manually.
+- Goal increments read the latest committed goal under the same cross-tab gate, preserving both increments and their history. This coordination protects novels and writing goals; other storage keys do not acquire cross-tab protection through this mechanism. See [persistence coordination](docs/persistence-coordination.md).
+- Assistant summaries persist their text together with a coverage cursor. Sending uses that summary plus uncovered original messages; failed or pending compaction does not advance coverage. Full local histories and legacy summary backups remain available.

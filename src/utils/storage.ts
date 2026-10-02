@@ -3,6 +3,7 @@
  * 全应用对 localStorage 的访问都必须经由本模块，
  * 键名在此统一登记，避免散落在各视图中的魔法字符串。
  */
+import { withStorageCommit } from '@/services/storageCoordination'
 
 export const StorageKeys = {
   /** 小说项目集合 */
@@ -41,7 +42,7 @@ export const StorageKeys = {
   assistants: 'assistants',
   /** AI 助手会话：{ [assistantId]: AssistantChatEntry[] } */
   assistantConversations: 'assistantConversations',
-  /** AI 助手滚动摘要：{ [assistantId]: string } */
+  /** AI 助手滚动摘要与覆盖游标；兼容旧字符串摘要 */
   assistantSummaries: 'assistantSummaries',
   /** 全局上下文容量策略 */
   contextPolicy: 'contextPolicy',
@@ -72,8 +73,12 @@ function resolveKey(key: StorageKey | string): string {
 export interface ChunkedKeyBackend {
   /** 同步读取（启动时已 hydrate 到内存） */
   get(): unknown
+  /** Read committed data for backups without replacing an open editor's draft. */
+  readCommitted?(): Promise<unknown>
   /** 内存立即生效；返回值可 await，只有持久化成功后才完成。 */
   set(value: unknown): void | Promise<void>
+  /** Explicit full replacement, e.g. an approved backup restore. */
+  replace?(value: unknown): void | Promise<void>
   /** 清除：内存缓存 + LS 键 + IDB 分片 */
   remove(): void | Promise<void>
   /** 启动 hydrate 是否已完成 */
@@ -102,6 +107,12 @@ export function storageGet<T>(key: StorageKey | string, fallback: T): T {
     console.warn(`[storage] 读取 ${String(key)} 失败，返回默认值:`, error)
     return fallback
   }
+}
+
+/** Backup reads must include other tabs' committed changes, not an editor cache. */
+export async function storageReadCommitted(key: StorageKey | string): Promise<unknown> {
+  const backend = chunkedBackends.get(resolveKey(key))
+  return backend?.readCommitted ? backend.readCommitted() : storageGet(key, null)
 }
 
 /** 序列化写入（含配额清理重试）；供分片后端快路径复用，非公开 API */
@@ -142,6 +153,7 @@ export function storageRemove(key: StorageKey | string): void | Promise<void> {
   const resolved = resolveKey(key)
   const backend = chunkedBackends.get(resolved)
   if (backend) return backend.remove()
+  if (resolved === StorageKeys.writingGoals) return withStorageCommit(() => { localStorage.removeItem(resolved) })
   try {
     localStorage.removeItem(resolved)
   } catch (error) {
@@ -152,22 +164,22 @@ export function storageRemove(key: StorageKey | string): void | Promise<void> {
 
 /** 清空全部本地存储（含各分片后端的 IDB 数据） */
 export function storageClear(): Promise<void> {
-  const removals: Promise<void>[] = []
-  try {
+  const result = (async () => {
     // 后端删除进入各自的保存队列，保证早先的异步写入不能在清除完成后复活。
     for (const backend of chunkedBackends.values()) {
       if (!backend.isReady()) throw new Error('数据仍在加载，请稍后重试')
-      removals.push(Promise.resolve(backend.remove()))
     }
-    // 清除普通键；分片键仍由以上有序删除负责最终提交。
-    for (let index = localStorage.length - 1; index >= 0; index--) {
-      const key = localStorage.key(index)
-      if (key !== null && !chunkedBackends.has(key)) localStorage.removeItem(key)
-    }
-  } catch (error) {
-    removals.push(Promise.reject(error))
-  }
-  const result = Promise.all(removals).then(() => undefined)
+    // A rejected novel conflict must not partially clear settings, prompts or goals.
+    for (const backend of chunkedBackends.values()) await backend.remove()
+    // Share the goal commit gate so a concurrent increment cannot resurrect a
+    // snapshot it read before this clear completed.
+    await withStorageCommit(() => {
+      for (let index = localStorage.length - 1; index >= 0; index--) {
+        const key = localStorage.key(index)
+        if (key !== null && !chunkedBackends.has(key)) localStorage.removeItem(key)
+      }
+    })
+  })()
   void result.catch(() => undefined)
   return result
 }
@@ -198,7 +210,14 @@ export function storageSet(key: StorageKey | string, value: unknown): void | Pro
     console.error(`[storage] 序列化 ${String(key)} 失败:`, error)
     throw error
   }
+  if (resolved === StorageKeys.writingGoals) return withStorageCommit(() => writeSerializedWithRetry(resolved, serialized))
   writeSerializedWithRetry(resolved, serialized)
+}
+
+export function storageReplace(key: StorageKey | string, value: unknown): void | Promise<void> {
+  const backend = chunkedBackends.get(resolveKey(key))
+  if (backend?.replace) return backend.replace(value)
+  return storageSet(key, value)
 }
 
 /**

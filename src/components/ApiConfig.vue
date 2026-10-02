@@ -426,9 +426,13 @@ const testConnection = async () => {
 }
 
 const resetForm = () => {
-  resetConfig()
-  loadSavedConfig()
-  ElMessage.success('配置已重置')
+  try {
+    resetConfig()
+    loadSavedConfig()
+    ElMessage.success('配置已重置')
+  } catch (error) {
+    ElMessage.error('重置失败，配置已保留：' + error.message)
+  }
 }
 
 // 自定义模型管理
@@ -441,28 +445,30 @@ const addCustomModel = () => {
     return
   }
 
-  customModels.value.push({
-    id: modelName,
-    name: modelName,
-    description: '自定义模型'
-  })
-
-  customModelInput.value = ''
-  ElMessage.success('自定义模型添加成功')
-  setCustomModels([...customModels.value])
+  try {
+    setCustomModels([...customModels.value, {
+      id: modelName,
+      name: modelName,
+      description: '自定义模型'
+    }])
+    customModelInput.value = ''
+    ElMessage.success('自定义模型添加成功')
+  } catch (error) {
+    ElMessage.error('添加失败，输入已保留：' + error.message)
+  }
 }
 
 const removeCustomModel = (modelId) => {
-  const index = customModels.value.findIndex((model) => model.id === modelId)
-  if (index > -1) {
-    customModels.value.splice(index, 1)
-
+  if (!customModels.value.some((model) => model.id === modelId)) return
+  try {
+    setCustomModels(customModels.value.filter((model) => model.id !== modelId))
     if (form.selectedModel === modelId) {
       form.selectedModel = 'gpt-5.4-mini'
     }
 
     ElMessage.success('自定义模型删除成功')
-    setCustomModels([...customModels.value])
+  } catch (error) {
+    ElMessage.error('删除失败，模型已保留：' + error.message)
   }
 }
 

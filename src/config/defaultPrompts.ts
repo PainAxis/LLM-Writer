@@ -1,11 +1,12 @@
 export interface PromptTemplate {
-  id: number
+  id: number | string
   title: string
   category: string
   description: string
   content: string
   tags: string[]
   isDefault: boolean
+  [key: string]: unknown
 }
 
 /**
@@ -1343,18 +1344,20 @@ export const PROMPTS_VERSION = 2
 
 /**
  * 把最新默认模板合并进已存储的提示词数组。
- * - 同 id 的默认模板用新内容覆盖（升级）
+ * - 同 id 的默认模板用新内容覆盖（升级），明确标记为自建的条目保留
  * - 默认库中新增的模板补齐插入
  * - 其余条目（用户自建/导入）原样保留
  */
 export function mergeDefaultPrompts(stored: PromptTemplate[]): PromptTemplate[] {
-  const merged = stored.filter((p) => p && typeof p.id === 'number')
+  const merged = stored.filter((p) => p && ((typeof p.id === 'number' && Number.isFinite(p.id))
+    || (typeof p.id === 'string' && p.id.trim())))
   for (const tpl of DEFAULT_PROMPTS) {
     const idx = merged.findIndex((p) => p.id === tpl.id)
     if (idx >= 0) {
-      merged[idx] = { ...tpl }
+      // An imported custom entry can legitimately use a built-in ID.
+      if (merged[idx].isDefault !== false) merged[idx] = { ...tpl, tags: [...tpl.tags] }
     } else {
-      merged.push({ ...tpl })
+      merged.push({ ...tpl, tags: [...tpl.tags] })
     }
   }
   return merged

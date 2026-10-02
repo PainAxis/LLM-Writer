@@ -33,6 +33,7 @@ import { TOOL_DEFINITIONS as toolsConfig } from '@/config/tools'
 import { buildToolPrompt } from '@/utils/toolPrompts'
 import { isToolFormComplete } from '@/utils/toolForms'
 import { storageGet, StorageKeys } from '@/utils/storage'
+import { promptCatalog } from '@/services/promptCatalog'
 
 /** Typed orchestration for the ToolsLibrary view. */
 export function useToolsLibraryWorkspace() {
@@ -56,7 +57,7 @@ export function useToolsLibraryWorkspace() {
   const selectedNovelChapters = ref<ChapterOption[]>([])
 
   // 提示词数据
-  const availablePrompts = ref<PromptTemplate[]>([])
+  const availablePrompts = promptCatalog.prompts
 
   const selectedPromptData = ref<PromptTemplate | null>(null)
 
@@ -301,19 +302,12 @@ ${generatedContent.value}
     }
   }
 
-  // 加载提示词数据
-  const loadPrompts = () => {
+  // Initialize the shared catalog even when this is the first feature opened.
+  const loadPrompts = async () => {
     try {
-      const savedPrompts = storageGet<PromptTemplate[] | null>(StorageKeys.prompts, null)
-      if (savedPrompts) {
-        availablePrompts.value = savedPrompts
-      } else {
-        availablePrompts.value = []
-      }
-      console.log('加载提示词数据:', availablePrompts.value.length)
+      await promptCatalog.load()
     } catch (error) {
-      console.error('加载提示词失败:', error)
-      availablePrompts.value = []
+      ElMessage.error(`加载提示词失败：${error instanceof Error ? error.message : String(error)}，请重试`)
     }
   }
 
@@ -324,9 +318,9 @@ ${generatedContent.value}
   }
 
   // 当选择提示词时
-  const onPromptChange = (promptId?: number) => {
+  const onPromptChange = (promptId?: number | string) => {
     console.log('选择的提示词ID:', promptId)
-    if (promptId) {
+    if (promptId !== undefined && promptId !== '') {
       selectedPromptData.value =
         availablePrompts.value.find((prompt) => prompt.id === promptId) ?? null
       console.log('选择的提示词数据:', selectedPromptData.value)

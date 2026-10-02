@@ -63,7 +63,7 @@ const catalog = useWriterPromptCatalog({
   notify,
   navigateToPromptLibrary: () => { navigationCount += 1 },
 })
-catalog.loadPrompts()
+await catalog.loadPrompts()
 assert.equal(
   catalog.availablePrompts.value.find(prompt => prompt.id === DEFAULT_PROMPTS[0].id)?.title,
   DEFAULT_PROMPTS[0].title,
@@ -77,7 +77,7 @@ assert.equal(contentPrompt?.isDefault, true)
 assert.equal(notifications.info.at(-1), '已切换到默认提示词')
 assert.equal(catalog.useDefaultPrompt('missing-category', () => undefined), false)
 assert.equal(notifications.warning.at(-1), '当前正文类型暂无可用的默认提示词')
-catalog.refreshPrompts()
+await catalog.refreshPrompts()
 assert.equal(notifications.success.at(-1), '提示词列表已刷新')
 catalog.goToPromptLibrary()
 catalog.createPromptForCategory()
@@ -88,7 +88,7 @@ const freshCatalog = useWriterPromptCatalog({
   notify,
   navigateToPromptLibrary: () => undefined,
 })
-freshCatalog.loadPrompts()
+await freshCatalog.loadPrompts()
 assert.equal(freshCatalog.availablePrompts.value.length, DEFAULT_PROMPTS.length)
 freshCatalog.availablePrompts.value[0].title = '本地变更'
 assert.notEqual(DEFAULT_PROMPTS[0].title, '本地变更')

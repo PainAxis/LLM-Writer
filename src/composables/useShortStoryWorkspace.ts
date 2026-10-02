@@ -23,8 +23,7 @@ import {
   buildShortStoryOptimization,
 } from '@/utils/shortStoryPrompts'
 import { useShortStoryGeneration } from '@/composables/useShortStoryGeneration'
-import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
-import { DEFAULT_PROMPTS, PROMPTS_VERSION, mergeDefaultPrompts } from '../config/defaultPrompts'
+import { promptCatalog } from '@/services/promptCatalog'
 import { useRouter } from 'vue-router'
 
 /** Typed orchestration for the ShortStory view. */
@@ -78,7 +77,7 @@ export function useShortStoryWorkspace() {
   // 提示词选择相关
   const showPromptSelector = ref(false)
 
-  const selectedPromptId = ref<number | null>(null)
+  const selectedPromptId = ref<number | string | null>(null)
 
   const selectedPromptTemplate = ref<PromptTemplate | null>(null)
 
@@ -86,7 +85,7 @@ export function useShortStoryWorkspace() {
 
   const editablePromptContent = ref('')
 
-  const availablePrompts = ref<PromptTemplate[]>([])
+  const availablePrompts = promptCatalog.prompts
 
   // 选段优化相关
   const showOptimizeModal = ref(false)
@@ -696,48 +695,13 @@ export function useShortStoryWorkspace() {
       })
   }
 
-  // 提示词管理方法
-  const loadPrompts = () => {
+  // Each feature uses the same initializer and migration policy.
+  const loadPrompts = async () => {
     try {
-      const prompts = storageGet<PromptTemplate[] | null>(StorageKeys.prompts, null)
-      if (Array.isArray(prompts) && prompts.length > 0) {
-        const version = storageGet<number>(StorageKeys.promptsVersion, 0)
-        let list = prompts
-        if (version !== PROMPTS_VERSION) {
-          // 旧版短篇默认模板的 id 是 Date.now() 随机值，无法按 id 升级：
-          // 先按标题移除旧默认短篇，再合并统一默认库（用户自建模板保留）
-          const legacyTitles = new Set([
-            '都市短篇小说生成器',
-            '通用短篇小说模板',
-            '玄幻短篇小说生成器',
-          ])
-          list = list.filter(
-            (p) => !(p.category === 'short-story' && p.isDefault && legacyTitles.has(p.title))
-          )
-          list = mergeDefaultPrompts(list)
-          storageSet(StorageKeys.prompts, list)
-          storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
-          console.log('短篇小说模块已刷新内置提示词')
-        }
-        availablePrompts.value = list
-      } else {
-        // 没有任何提示词时，写入统一默认库
-        const defaultPrompts = DEFAULT_PROMPTS.map((p) => ({ ...p }))
-        availablePrompts.value = defaultPrompts
-        storageSet(StorageKeys.prompts, defaultPrompts)
-        storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
-      }
-      console.log('短篇小说模块加载提示词数据:', availablePrompts.value.length)
+      await promptCatalog.load()
     } catch (error) {
-      console.error('加载提示词失败:', error)
-      // 出错时也提供默认的短篇小说提示词
-      availablePrompts.value = getDefaultShortStoryPrompts()
+      ElMessage.error(`加载提示词失败：${error instanceof Error ? error.message : String(error)}，请重试`)
     }
-  }
-
-  // 出错兜底：从统一默认库取短篇模板
-  const getDefaultShortStoryPrompts = () => {
-    return DEFAULT_PROMPTS.filter((p) => p.category === 'short-story').map((p) => ({ ...p }))
   }
 
   const _selectPrompt = (prompt: PromptTemplate) => {

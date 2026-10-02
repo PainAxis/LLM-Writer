@@ -4,7 +4,7 @@
  * - truncation：硬截断滑窗，确定性丢弃超预算的最早条目
  * - summary：滚动摘要，压缩只作用于"发给 AI 的上下文"，
  *   本地持久化与界面展示仍保存全量原文（摘要 ≠ 删除）
- * - 有效预算 = min(maxTokens, maxTurns)，0 = 不限
+ * - token 与消息条数预算分别生效；token 包含最终 system，0 = 不限
  * - 触发条件 = 当前用量 > 有效预算 × summaryThreshold
  */
 
@@ -58,8 +58,8 @@ export function effectiveBudgetTurns(policy: ContextPolicy): number {
 }
 
 /** 评估当前上下文用量（含即将发送的新消息） */
-export function evaluateContext(entries: CompactorEntry[], policy: ContextPolicy): ContextEvaluation {
-  const currentTokens = estimateTokens(entries.map((entry) => entry.content).join('\n'))
+export function evaluateContext(entries: CompactorEntry[], policy: ContextPolicy, system = ''): ContextEvaluation {
+  const currentTokens = estimateContextTokens(entries, system)
   const currentTurns = entries.length
   const budgetTokens = effectiveBudgetTokens(policy)
   const budgetTurns = effectiveBudgetTurns(policy)
@@ -142,4 +142,25 @@ export function composeSystemWithSummary(persona: string, summary: string): stri
   if (!trimmedSummary) return personaPart
   const summaryPart = `【此前对话摘要】\n${trimmedSummary}`
   return personaPart ? `${personaPart}\n\n${summaryPart}` : summaryPart
+}
+
+/** Estimate the exact assembled text payload, including persona and rolling summary. */
+export function estimateContextTokens(entries: CompactorEntry[], system = ''): number {
+  return estimateTokens([system, ...entries.map(entry => entry.content)].filter(Boolean).join('\n'))
+}
+
+/** Fit a truncation window without silently shortening the current user message. */
+export function fitContextWithinBudget(entries: CompactorEntry[], policy: ContextPolicy, system = '', preserveAll = false): CompactorEntry[] {
+  const kept = [...entries]
+  const within = () => !evaluateContext(kept, policy, system).overBudget
+  if (!preserveAll) {
+    while (kept.length > 1 && !within()) kept.shift()
+  }
+  if (!within()) {
+    const currentCannotFit = evaluateContext(kept.slice(-1), policy, system).overBudget
+    throw new Error(preserveAll && !currentCannotFit
+      ? '尚未摘要的对话超出上下文预算，请重试摘要或提高预算后再发送'
+      : '人设和当前消息超出上下文预算，请缩短输入或提高预算后再发送')
+  }
+  return kept
 }

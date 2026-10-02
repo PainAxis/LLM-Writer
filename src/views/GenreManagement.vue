@@ -317,8 +317,7 @@ const loadGenres = () => {
       genres.value = [...parsed, ...missingDefaults]
     } else {
       // 首次加载，使用默认类型
-      genres.value = loadDefaultGenres()
-      saveGenres()
+      saveGenres(loadDefaultGenres())
     }
   } catch (error) {
     console.error('加载类型数据失败:', error)
@@ -327,14 +326,9 @@ const loadGenres = () => {
 }
 
 // 保存类型数据
-const saveGenres = () => {
-  try {
-    storageSet(StorageKeys.novelGenres, genres.value)
-    console.log('类型数据已保存:', genres.value)
-  } catch (error) {
-    console.error('保存类型数据失败:', error)
-    ElMessage.error('保存数据失败')
-  }
+const saveGenres = (next: GenreDefinition[]) => {
+  storageSet(StorageKeys.novelGenres, next)
+  genres.value = next
 }
 
 // 编辑类型
@@ -388,15 +382,18 @@ const deleteGenre = async (genre: GenreDefinition) => {
       '确认删除',
       { type: 'warning' }
     )
-    
-    const index = genres.value.findIndex(g => g.code === genre.code)
-    if (index > -1) {
-      genres.value.splice(index, 1)
-      saveGenres()
+  } catch {
+    return
+  }
+
+  try {
+    if (genres.value.some(g => g.code === genre.code)) {
+      saveGenres(genres.value.filter(g => g.code !== genre.code))
       ElMessage.success('类型删除成功')
     }
-  } catch {
-    // 用户取消删除
+  } catch (error) {
+    console.error('删除类型失败:', error)
+    ElMessage.error('删除失败，类型已保留，请重试')
   }
 }
 
@@ -416,12 +413,18 @@ const removeTag = (index: number) => {
 
 // 保存类型
 const saveGenre = async () => {
+  if (!formRef.value || isSaving.value) return
+  isSaving.value = true
   try {
-    if (!formRef.value) return
     await formRef.value.validate()
-    isSaving.value = true
-    
+  } catch {
+    isSaving.value = false
+    return
+  }
+
+  try {
     const genreData = {
+      ...editingGenre.value,
       ...genreForm.value,
       tags: genreForm.value.tags.filter(tag => tag.trim()),
       createdAt: editingGenre.value?.createdAt || new Date(),
@@ -430,24 +433,24 @@ const saveGenre = async () => {
       isDefault: editingGenre.value?.isDefault || false
     }
     
+    const next = [...genres.value]
     if (editingGenre.value) {
       // 编辑现有类型
-      const index = genres.value.findIndex(g => g.code === editingGenre.value?.code)
-      if (index > -1) {
-        genres.value[index] = genreData
-      }
-      ElMessage.success('类型更新成功')
+      const index = next.findIndex(g => g.code === editingGenre.value?.code)
+      if (index < 0) throw new Error('类型已不存在，请重新加载后重试')
+      next[index] = genreData
     } else {
       // 创建新类型
-      genres.value.push(genreData)
-      ElMessage.success('类型创建成功')
+      next.push(genreData)
     }
-    
-    saveGenres()
+
+    saveGenres(next)
+    ElMessage.success(editingGenre.value ? '类型更新成功' : '类型创建成功')
     showCreateDialog.value = false
     resetForm()
   } catch (error) {
     console.error('保存类型失败:', error)
+    ElMessage.error('保存失败，输入已保留，请重试')
   } finally {
     isSaving.value = false
   }

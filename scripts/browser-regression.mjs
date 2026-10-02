@@ -33,35 +33,46 @@ const errors = []
 const consoleMessages = []
 const blockedRequests = []
 const browser = await chromium.launch({ headless: true })
-const context = await browser.newContext({ viewport: { width: 1600, height: 1100 }, locale: 'zh-CN', acceptDownloads: true })
-await context.tracing.start({ screenshots: true, snapshots: true, sources: true })
-// A bad API configuration must fail locally instead of reaching a real service.
-await context.route('**/*', async route => {
-  const url = new URL(route.request().url())
-  if (['data:', 'blob:'].includes(url.protocol) || url.origin === previewOrigin) return route.continue()
-  blockedRequests.push(route.request().url())
-  return route.abort('blockedbyclient')
-})
+
+function observePage(target) {
+  target.setDefaultTimeout(15_000)
+  target.on('pageerror', error => {
+    const entry = {
+      at: new Date().toISOString(),
+      scenario: report.tests.at(-1)?.name || 'bootstrap',
+      url: target.url(),
+      message: String(error),
+      stack: error.stack || null,
+    }
+    errors.push(entry)
+    console.error('BROWSER PAGE ERROR ' + JSON.stringify(entry))
+  })
+  target.on('console', message => {
+    if (['warning', 'error'].includes(message.type())) consoleMessages.push({ url: target.url(), type: message.type(), text: message.text() })
+  })
+  // Native beforeunload dialogs should not silently discard an unfinished save.
+  target.on('dialog', async dialog => {
+    errors.push(`Unexpected native dialog at ${target.url()}: ${dialog.type()}: ${dialog.message()}`)
+    await dialog.dismiss()
+  })
+}
+
+async function newTestContext() {
+  const isolated = await browser.newContext({ viewport: { width: 1600, height: 1100 }, locale: 'zh-CN', acceptDownloads: true })
+  isolated.on('page', observePage)
+  await isolated.tracing.start({ screenshots: true, snapshots: true, sources: true })
+  // Apply the same network guard to every page, including clean-install contexts.
+  await isolated.route('**/*', async route => {
+    const url = new URL(route.request().url())
+    if (['data:', 'blob:'].includes(url.protocol) || url.origin === previewOrigin) return route.continue()
+    blockedRequests.push(route.request().url())
+    return route.abort('blockedbyclient')
+  })
+  return isolated
+}
+
+const context = await newTestContext()
 const page = await context.newPage()
-page.setDefaultTimeout(15_000)
-page.on('pageerror', error => {
-  const entry = {
-    at: new Date().toISOString(),
-    scenario: report.tests.at(-1)?.name || 'bootstrap',
-    message: String(error),
-    stack: error.stack || null,
-  }
-  errors.push(entry)
-  console.error('BROWSER PAGE ERROR ' + JSON.stringify(entry))
-})
-page.on('console', message => {
-  if (['warning', 'error'].includes(message.type())) consoleMessages.push({ type: message.type(), text: message.text() })
-})
-// Native beforeunload dialogs should not silently discard an unfinished save.
-page.on('dialog', async dialog => {
-  errors.push(`Unexpected native dialog: ${dialog.type()}: ${dialog.message()}`)
-  await dialog.dismiss()
-})
 
 const novelTitle = '浏览器回归测试小说'
 const chapterA = '甲章：保存与取消'
@@ -91,8 +102,8 @@ async function step(name, run) {
   }
 }
 
-async function screenshot(name) {
-  await page.screenshot({ path: path.join(artifacts, `${name}.png`), fullPage: true })
+async function screenshot(name, target = page) {
+  await target.screenshot({ path: path.join(artifacts, `${name}.png`), fullPage: true })
 }
 
 async function failureDiagnostics() {
@@ -116,17 +127,17 @@ async function failureDiagnostics() {
   return snapshot
 }
 
-async function dismissAnnouncement() {
-  const acknowledgement = page.getByRole('button', { name: '我知道了', exact: true })
+async function dismissAnnouncement(target = page) {
+  const acknowledgement = target.getByRole('button', { name: '我知道了', exact: true })
   try { await acknowledgement.waitFor({ state: 'visible', timeout: 2200 }) } catch { return }
   await acknowledgement.click()
   await expect(acknowledgement).toBeHidden()
 }
 
-async function go(route) {
-  await page.goto(`${previewURL}/#/${route}`)
-  await expect(page.locator('#app[data-v-app]')).not.toBeEmpty()
-  await dismissAnnouncement()
+async function go(route, target = page) {
+  await target.goto(`${previewURL}/#/${route}`)
+  await expect(target.locator('#app[data-v-app]')).not.toBeEmpty()
+  await dismissAnnouncement(target)
 }
 
 const editor = () => page.locator('.editor-panel [contenteditable="true"]')
@@ -963,6 +974,155 @@ try {
     manager = page.getByRole('dialog', { name: '写作目标管理', exact: true })
     await expect(manager.locator('.goal-item').filter({ hasText: '目标入口一致性回归' }).locator('.progress-info')).toContainText('150/1000')
     await screenshot('21-shared-writing-goals.png')
+  })
+
+  await step('22 Initialize default templates when Book Analysis or Tools is the first page', async () => {
+    for (const route of ['book-analysis', 'tools']) {
+      const cleanContext = await newTestContext()
+      const cleanPage = await cleanContext.newPage()
+      try {
+        await go(route, cleanPage)
+        // These independent contexts have never visited Writer or imported a backup.
+        assert.equal(await cleanPage.evaluate(() => localStorage.getItem('apiConfig')), null)
+        if (route === 'book-analysis') {
+          await cleanPage.locator('.upload-area input[type="file"]').setInputFiles({
+            name: 'first-visit.txt', mimeType: 'text/plain',
+            buffer: Buffer.from('第一章 初访\n' + '旅人在清晨来到城门，记录沿途看到的故事。'.repeat(30)),
+          })
+          await expect(cleanPage.locator('.file-name')).toHaveText('first-visit.txt')
+          await cleanPage.locator('.setting-item').filter({ hasText: '拆书模板' }).getByRole('combobox').click()
+          const templates = cleanPage.locator('.el-select-dropdown:visible').getByRole('option')
+          await expect(templates.first()).toBeVisible()
+          assert.ok(await templates.count() > 0, 'Direct Book Analysis visits must have default templates')
+          await templates.first().click()
+          await expect(cleanPage.getByRole('button', { name: '开始拆书分析', exact: true })).toBeEnabled()
+        } else {
+          await cleanPage.locator('.tool-card').filter({ hasText: '细纲生成器' }).click()
+          const tool = cleanPage.getByRole('dialog', { name: '细纲生成器', exact: true })
+          await tool.locator('.el-form-item').filter({ hasText: '提示词模板' }).getByRole('combobox').click()
+          const templates = cleanPage.locator('.el-select-dropdown:visible').getByRole('option')
+          await expect(templates.first()).toBeVisible()
+          assert.ok(await templates.count() > 0, 'Direct Tools visits must have default templates')
+          await templates.first().click()
+        }
+        const categories = await cleanPage.evaluate(() => JSON.parse(localStorage.getItem('prompts') || '[]').map(prompt => prompt.category))
+        assert.ok(categories.includes('book-analysis') && categories.includes('outline'))
+      } finally {
+        await screenshot(`22-first-visit-${route}`, cleanPage).catch(() => {})
+        await cleanContext.tracing.stop({ path: path.join(artifacts, `22-first-visit-${route}-trace.zip`) })
+        await cleanContext.close()
+      }
+    }
+  })
+
+  await step('23 Merge edits to different novels across tabs and retain conflicting drafts', async () => {
+    await settingsData()
+    const fixture = (await exportBackup('23-before-multitab.json')).data
+    const timestamp = new Date().toISOString()
+    const makeNovel = (id, title) => ({
+      id, title, genre: 'fantasy', description: '合成的跨标签页保存回归作品', tags: [],
+      createdAt: timestamp, updatedAt: timestamp, chapters: 1, wordCount: 4, totalWords: 4,
+      characters: [], worldSettings: [], events: [], corpusData: [],
+      chapterList: [{ id: id + 1, title: '第一章', content: '初始正文', status: 'draft', tags: [], wordCount: 4, createdAt: timestamp, updatedAt: timestamp }],
+    })
+    fixture.data.novels = [makeNovel(23001, '跨页作品甲'), makeNovel(23011, '跨页作品乙')]
+    await importBackup({ name: 'multitab-novels.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) })
+    const first = await context.newPage()
+    const second = await context.newPage()
+    let stale
+    const editing = target => target.locator('.editor-panel [contenteditable="true"]')
+    const storedContent = id => page.evaluate(novelId => JSON.parse(localStorage.getItem('novels') || '[]').find(novel => novel.id === novelId)?.chapterList?.[0]?.content || '', id)
+    try {
+      // Both tabs load the same initial collection before either one edits it.
+      await Promise.all([go('writer?novelId=23001', first), go('writer?novelId=23011', second)])
+      await expect(editing(first)).toHaveText('初始正文')
+      await expect(editing(second)).toHaveText('初始正文')
+      await Promise.all([
+        editing(first).fill('作品甲独立修改，必须与另一标签页的作品乙同时保存。'),
+        editing(second).fill('作品乙独立修改，不能覆盖另一标签页的作品甲。'),
+      ])
+      await expect.poll(() => storedContent(23001), { timeout: 20_000 }).toContain('作品甲独立修改')
+      await expect.poll(() => storedContent(23011), { timeout: 20_000 }).toContain('作品乙独立修改')
+      for (const target of [first, second]) {
+        await expect(target.locator('.saving-indicator')).toHaveCount(0)
+        await expect(target.getByRole('button', { name: '保存失败，点击重试', exact: true })).toHaveCount(0)
+      }
+      await screenshot('23-independent-novels-first-tab', first)
+      await screenshot('23-independent-novels-second-tab', second)
+
+      stale = await context.newPage()
+      await go('writer?novelId=23001', stale)
+      await expect(editing(stale)).toContainText('作品甲独立修改')
+      await editing(first).fill('作品甲已提交的新版本，迟到保存不得覆盖。')
+      await expect.poll(() => storedContent(23001), { timeout: 20_000 }).toContain('作品甲已提交的新版本')
+      const committed = await storedContent(23001)
+      const draft = '作品甲迟到标签页的草稿，冲突后必须留在编辑器中。'
+      await editing(stale).fill(draft)
+      const retry = stale.getByRole('button', { name: '保存失败，点击重试', exact: true })
+      await expect(retry).toBeVisible({ timeout: 20_000 })
+      await expect(stale.locator('.persistence-error')).toContainText('已在其他标签页修改')
+      await expect(editing(stale)).toHaveText(draft)
+      assert.equal(await storedContent(23001), committed)
+      // Retrying without resolving the conflict must still preserve the newer saved text.
+      await retry.click()
+      await expect(retry).toBeVisible()
+      await expect(stale.locator('.persistence-error')).toContainText('当前草稿仍保留')
+      await expect(editing(stale)).toHaveText(draft)
+      assert.equal(await storedContent(23001), committed)
+      assert.ok((await storedContent(23011)).includes('作品乙独立修改'))
+      await screenshot('23-conflict-retains-draft', stale)
+    } finally {
+      // These disposable test tabs intentionally close after checking the retained draft.
+      if (stale) await stale.close()
+      await first.close()
+      await second.close()
+    }
+  })
+
+  await step('24 Preserve both concurrent goal increments and histories across tabs', async () => {
+    const title = '跨标签目标增量回归'
+    await go('')
+    await page.getByRole('button', { name: '管理目标', exact: true }).click()
+    const manager = page.getByRole('dialog', { name: '写作目标管理', exact: true })
+    await manager.getByRole('button', { name: '新增目标', exact: true }).click()
+    const create = page.getByRole('dialog', { name: '新增写作目标', exact: true })
+    await create.locator('.el-form-item').filter({ hasText: '目标标题' }).locator('input').fill(title)
+    await create.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(create).toBeHidden()
+    await manager.locator('.el-dialog__headerbtn').first().click()
+    await go('goals')
+    const peer = await context.newPage()
+    const readGoal = () => page.evaluate(goalTitle => JSON.parse(localStorage.getItem('writingGoals') || '[]').find(goal => goal.title === goalTitle), title)
+    const card = target => target.locator('.goal-card').filter({ hasText: title })
+    try {
+      await go('goals', peer)
+      const dialogs = []
+      for (const [target, increment, note] of [[page, '100', '标签甲增量'], [peer, '50', '标签乙增量']]) {
+        await expect(card(target).locator('.progress-text')).toContainText('0 / 1000')
+        await card(target).getByRole('button', { name: '更新进度', exact: true }).click()
+        const progress = target.getByRole('dialog', { name: '更新进度', exact: true })
+        await progress.locator('.el-input-number input').fill(increment)
+        await progress.locator('textarea').fill(note)
+        dialogs.push(progress)
+      }
+      await Promise.all(dialogs.map(dialog => dialog.getByRole('button', { name: '保存', exact: true }).click()))
+      for (const dialog of dialogs) await expect(dialog).toBeHidden()
+      await expect.poll(async () => (await readGoal())?.currentValue).toBe(150)
+      const goal = await readGoal()
+      assert.deepEqual(goal.progressHistory.map(record => record.increment).sort((a, b) => a - b), [50, 100])
+      assert.deepEqual(goal.progressHistory.map(record => record.note).sort(), ['标签乙增量', '标签甲增量'].sort())
+      assert.equal(new Set(goal.progressHistory.map(record => record.id)).size, 2)
+      for (const target of [page, peer]) {
+        await expect(card(target).locator('.progress-text')).toContainText('150 / 1000')
+        await target.reload()
+        await dismissAnnouncement(target)
+        await expect(card(target).locator('.progress-text')).toContainText('150 / 1000')
+      }
+      assert.deepEqual((await readGoal()).progressHistory, goal.progressHistory)
+      await screenshot('24-concurrent-goal-increments', peer)
+    } finally {
+      await peer.close()
+    }
   })
 
   assert.deepEqual(errors, [], 'The browser must not raise uncaught errors or unsaved-data navigation dialogs')
