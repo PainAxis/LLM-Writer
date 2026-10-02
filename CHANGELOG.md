@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Reject provider output-limit and content-filter terminations instead of treating partial generations as successful. Explain reasoning-only budget exhaustion and preserve received text and reported usage on failure.
 - Share visible-text conversion across writing, AI context, copying, exports, previews and counts. Preserve paragraphs and decoded entities, count Unicode characters without whitespace, and escape generated prose before inserting editor HTML.
 - Keep chapter-management edits, copies, moves and deletions consistent with both novel total fields; derive legacy display/export totals from chapter bodies. Round-trip named empty corpus drafts without losing metadata.
 - Add explicit chapter-count goals in both entry points and keep non-word units out of word statistics. Unit changes reset current progress while preserving historical units, notes and legacy custom goals.

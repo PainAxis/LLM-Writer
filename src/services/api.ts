@@ -4,6 +4,7 @@ import billingService, { resolveRecordedUsage } from './billing'
 import { PREVIOUS_CONTENT_MAX_CHARS, trimTextFromEnd } from '@/utils/tokenBudget'
 import { buildCorpusInjection, recommendCorpus } from '@/utils/corpusRetrieval'
 import { AIRequestCancelledError } from '@/utils/aiRequestScope'
+import type { FinishReason } from 'ai'
 
 /** 个性化生成时注入语料的字符预算 */
 const CORPUS_INJECTION_MAX_CHARS = 4000
@@ -86,6 +87,15 @@ class APIService {
     throw new AIRequestCancelledError(partialContent)
   }
 
+  private assertCompletionFinished(finishReason: FinishReason | undefined): void {
+    if (finishReason === 'length') {
+      throw new Error('AI生成达到输出Token上限，内容未完成。请提高最大Token数或缩短生成要求后重试')
+    }
+    if (finishReason === 'content-filter') {
+      throw new Error('AI生成被服务商内容过滤中止，内容未完成')
+    }
+  }
+
   private buildRequestBody(config: { maxTokens: number | null; temperature: number }, options: GenerateOptions, stream: boolean) {
     const maxOutputTokens = options.maxTokens ?? config.maxTokens ?? undefined
     const temperature = options.temperature ?? config.temperature
@@ -146,6 +156,7 @@ class APIService {
       content = result.text ?? ''
       usage = result.usage
       this.throwIfAborted(signal)
+      this.assertCompletionFinished(result.finishReason)
       this.recordUsage(effectiveModel, promptForEstimate, content, estimatedInputTokens, usage, 'success', options.type ?? 'generation')
       return content
     } catch (error) {
@@ -183,6 +194,7 @@ class APIService {
     let fullContent = ''
     let usage: UsageInfo | undefined
     let streamError: unknown
+    let finishReason: FinishReason | undefined
 
     try {
       this.throwIfAborted(abortSignal)
@@ -209,9 +221,13 @@ class APIService {
       // Consume usage events as they arrive, so a later cancellation/error cannot
       // discard usage the provider has already reported.
       for await (const part of result.fullStream) {
-        if (part.type === 'finish-step') usage = part.usage
-        else if (part.type === 'finish') usage = part.totalUsage
-        else if (part.type === 'error') streamError = part.error
+        if (part.type === 'finish-step') {
+          usage = part.usage
+          finishReason = part.finishReason ?? finishReason
+        } else if (part.type === 'finish') {
+          usage = part.totalUsage
+          finishReason = part.finishReason ?? finishReason
+        } else if (part.type === 'error') streamError = part.error
         this.throwIfAborted(abortSignal, fullContent)
         if (part.type === 'text-delta') {
           fullContent += part.text
@@ -221,6 +237,8 @@ class APIService {
       this.throwIfAborted(abortSignal, fullContent)
       // A stream error may be followed by final usage events; report it after consuming them.
       if (streamError) throw streamError
+      // Reasoning can exhaust the output budget before any visible text arrives.
+      this.assertCompletionFinished(finishReason)
 
       if (!fullContent.trim()) {
         throw new Error('AI返回内容为空')
