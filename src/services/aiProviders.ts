@@ -9,7 +9,7 @@ export interface ProviderPreset {
   label: string
   baseURL: string
   kind: ProviderKind
-  /** baseURL 是否允许用户编辑（仅 custom 允许） */
+  /** 是否允许为此 API 格式设置自定义地址 */
   editableBaseURL: boolean
   /** 预设强制附加的请求头 */
   defaultHeaders?: Record<string, string>
@@ -19,7 +19,8 @@ export interface ProviderPreset {
 
 /**
  * 服务商预设表。
- * - anthropic / google：API 格式不兼容 OpenAI，使用官方原生 provider 包
+ * - anthropic / google：API 格式不兼容 OpenAI，使用原生 provider 包
+ * - anthropic：默认官方地址，也支持 Anthropic Messages 兼容网关
  * - 其余（含各类国产模型）：均为 OpenAI 兼容格式，统一走 openai-compatible
  * - custom：用户自填任意 OpenAI 兼容地址（ollama、lmstudio、中转站等）
  */
@@ -40,10 +41,10 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   },
   {
     id: 'anthropic',
-    label: 'Anthropic Claude',
+    label: 'Anthropic / 兼容接口',
     baseURL: 'https://api.anthropic.com/v1',
     kind: 'anthropic',
-    editableBaseURL: false,
+    editableBaseURL: true,
     defaultHeaders: {
       // 允许从浏览器直接访问 Anthropic API
       'anthropic-dangerous-direct-browser-access': 'true',
@@ -174,13 +175,18 @@ export function applyProxyPrefix(url: string, proxyUrl?: string): string {
   return proxy.endsWith('/') ? `${proxy}${url}` : `${proxy}/${url}`
 }
 
+/** Generation and model discovery must resolve exactly the same endpoint. */
+function resolveBaseURL(config: ApiConfig, preset: ProviderPreset): string {
+  return (preset.editableBaseURL ? config.baseURL?.trim() || preset.baseURL : preset.baseURL).replace(/\/+$/, '')
+}
+
 /**
  * 根据配置解析出 AI SDK 的 LanguageModel 实例。
- * 预设服务商的 baseURL 不可改；custom 使用用户自填地址。
+ * custom / anthropic 使用用户自填地址，其余预设使用固定地址。
  */
 export async function resolveLanguageModel(config: ApiConfig): Promise<LanguageModel> {
   const preset = getPreset(config.provider)
-  const baseURL = preset.editableBaseURL ? config.baseURL || preset.baseURL : preset.baseURL
+  const baseURL = resolveBaseURL(config, preset)
   const proxiedBaseURL = applyProxyPrefix(baseURL, config.proxyUrl)
   const headers = {
     ...(preset.defaultHeaders ?? {}),
@@ -217,7 +223,7 @@ export async function resolveLanguageModel(config: ApiConfig): Promise<LanguageM
 /** 供连接测试用的最佳实现：各服务商模型列表端点探活 */
 export function buildModelsProbe(config: ApiConfig): { url: string; headers: Record<string, string> } {
   const preset = getPreset(config.provider)
-  const baseURL = (preset.editableBaseURL ? config.baseURL || preset.baseURL : preset.baseURL).trim().replace(/\/+$/, '')
+  const baseURL = resolveBaseURL(config, preset)
   const proxiedBaseURL = applyProxyPrefix(baseURL, config.proxyUrl)
   const headers: Record<string, string> = {
     ...(preset.defaultHeaders ?? {}),

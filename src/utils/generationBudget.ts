@@ -86,6 +86,12 @@ export function getThinkingCapability(config: BudgetConfig): ThinkingCapability 
     }
     case 'anthropic': {
       const version = claudeVersion(model)
+      if (!version && config.thinkingProtocol === 'anthropic') {
+        // API format and model identity are independent on native-compatible gateways.
+        // Opt in explicitly: an unknown model must not inherit Claude adaptive/effort rules.
+        return { ...base, label: 'Anthropic 兼容', modes: modes('default', 'disabled', 'budget'), budgetMin: 1024,
+          hint: '适用于已确认支持 thinking.type / budget_tokens 的 Anthropic 兼容网关。预算至少为 1024 且小于输出总额度；实际执行方式由网关和模型决定。' }
+      }
       if (!version || version < 3.7) return base
       const adaptive = version >= 4.6
       const manual = version < 4.7

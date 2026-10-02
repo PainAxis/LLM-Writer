@@ -34,7 +34,7 @@ const source = readFileSync(new URL('../src/components/ApiConfig.vue', import.me
 const script = source.match(/<script\b[^>]*>([\s\S]*?)<\/script>/)![1]
 const parsed = ts.createSourceFile('ApiConfig.vue', script, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
 const statements = parsed.statements.filter(statement => !ts.isImportDeclaration(statement)).map(statement => statement.getText(parsed)).join('\n')
-const exposed = 'form, headerRows, currentServerModels, fetchingModels, validating, testConnection, fetchModels, saveConfig, resetForm, onProviderChange, snapshotForm, thinkingCapability, showThinkingProtocol, onThinkingModeChange, handleUnlimitedTokensChange'
+const exposed = 'form, headerRows, currentPreset, currentServerModels, fetchingModels, validating, testConnection, fetchModels, saveConfig, resetForm, onProviderChange, snapshotForm, thinkingCapability, showThinkingProtocol, thinkingProtocolOptions, onThinkingModeChange, handleUnlimitedTokensChange'
 const executable = ts.transpileModule(`${statements}\nreturn { ${exposed} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
 }).outputText
@@ -263,7 +263,9 @@ try {
   })
   budgets.form.thinkingMode = 'budget'
   assert.ok(budgets.thinkingCapability.value.modes.some((mode: { value: string }) => mode.value === 'budget'))
-  assert.equal(budgets.showThinkingProtocol.value, false)
+  assert.equal(budgets.showThinkingProtocol.value, true)
+  assert.equal(budgets.currentPreset.value.editableBaseURL, true)
+  assert.deepEqual(budgets.thinkingProtocolOptions.value.map((option: { value: string }) => option.value), ['auto', 'anthropic'])
   assert.deepEqual(clone(state.activeConfig.value), beforeDraft)
 
   budgets.form.thinkingBudget = -1
@@ -297,6 +299,40 @@ try {
     reloaded.form.thinkingBudget = 8192
     assert.equal(state.activeConfig.value.thinkingBudget, 6144, 'editing budget remains local to the reopened dialog')
   } finally { reloaded.dispose() }
+
+  budgets.form.baseURL = 'https://native-gateway.test/v1/'
+  budgets.form.selectedModel = 'qwen3.8-flash'
+  assert.equal(budgets.form.thinkingMode, 'default')
+  assert.deepEqual(budgets.thinkingCapability.value.modes.map((mode: { value: string }) => mode.value), ['default'])
+  budgets.form.thinkingProtocol = 'anthropic'
+  assert.deepEqual(budgets.thinkingCapability.value.modes.map((mode: { value: string }) => mode.value), ['default', 'disabled', 'budget'])
+  budgets.form.thinkingMode = 'budget'
+  budgets.form.thinkingBudget = 1024
+  budgets.form.maxTokens = 4096
+  const saveNative = budgets.saveConfig()
+  const nativeRequest = budgets.requests.at(-1)
+  assert.equal(nativeRequest.config.baseURL, 'https://native-gateway.test/v1/')
+  assert.equal(nativeRequest.config.provider, 'anthropic')
+  nativeRequest.resolve(true)
+  await saveNative
+  const nativeReload = setup()
+  try {
+    assert.equal(nativeReload.form.baseURL, 'https://native-gateway.test/v1/')
+    assert.equal(nativeReload.form.selectedModel, 'qwen3.8-flash')
+    assert.equal(nativeReload.form.thinkingProtocol, 'anthropic')
+    assert.equal(nativeReload.form.thinkingMode, 'budget')
+    assert.equal(nativeReload.form.thinkingBudget, 1024)
+    assert.equal(nativeReload.form.maxTokens, 4096)
+    assert.equal(nativeReload.currentPreset.value.editableBaseURL, true)
+    // Choosing a known Claude still restores that model's specific capabilities.
+    nativeReload.form.selectedModel = 'claude-sonnet-4-7'
+    assert.equal(nativeReload.form.thinkingMode, 'default')
+    assert.equal(nativeReload.thinkingCapability.value.modes.some((mode: { value: string }) => mode.value === 'budget'), false)
+    nativeReload.form.provider = 'custom'
+    nativeReload.onProviderChange('custom')
+    assert.equal(nativeReload.form.thinkingProtocol, 'auto')
+    assert.equal(nativeReload.thinkingProtocolOptions.value.some((option: { value: string }) => option.value === 'anthropic'), false)
+  } finally { nativeReload.dispose() }
 
   budgets.form.maxTokens = 24576
   budgets.form.unlimitedTokens = true

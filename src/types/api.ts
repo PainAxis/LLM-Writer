@@ -6,7 +6,7 @@ export type ThinkingMode = 'default' | 'disabled' | 'enabled' | 'effort' | 'budg
 export interface ApiConfig {
   apiKey: string
   baseURL: string
-  /** 服务商预设 ID（见 services/aiProviders.ts），custom 表示用户自填地址 */
+  /** 服务商预设 ID（见 services/aiProviders.ts）；custom / anthropic 支持自填地址 */
   provider: string
   /** 当前使用的模型 ID */
   selectedModel: string

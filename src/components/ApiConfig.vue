@@ -17,7 +17,7 @@
           <div class="config-tips">
             <h4>⚙️ 配置说明</h4>
             <div class="tips-content">
-              <p>支持所有 <strong>OpenAI 兼容格式</strong> 的 API 接口。</p>
+              <p>支持官方 API，以及自定义 <strong>OpenAI / Anthropic 兼容格式</strong> 的 API 接口。</p>
 
               <div class="params-info">
                 <h5>参数说明：</h5>
@@ -34,8 +34,8 @@
               <div class="supported-apis">
                 <h5>特殊说明：</h5>
                 <ul>
-                  <li>openai格式api是大模型通用格式，支持所有大模型</li>
-                  <li>支持本地部署大模型，如ollama、llmstudio等，自行学习怎么获取openai格式api</li>
+                  <li>请按接口格式选择服务商；Anthropic 兼容网关也可调用非 Claude 模型</li>
+                  <li>本地部署的 Ollama、LM Studio 等服务，可选择 OpenAI 兼容格式接入</li>
                 </ul>
               </div>
 
@@ -58,7 +58,7 @@
                   :value="preset.id"
                 />
               </el-select>
-              <div class="form-tip">非 OpenAI 兼容的服务商由 AI SDK 原生适配，其余走 OpenAI 兼容层</div>
+              <div class="form-tip">自定义网关请按接口格式选择 OpenAI 兼容或 Anthropic，再填写服务地址。</div>
             </el-form-item>
 
             <el-form-item label="API密钥" required>
@@ -74,11 +74,11 @@
             <el-form-item label="API地址" :required="currentPreset.editableBaseURL">
               <el-input
                 v-model="form.baseURL"
-                placeholder="例如：https://api.openai.com/v1"
+                :placeholder="currentPreset.kind === 'anthropic' ? '例如：https://api.anthropic.com/v1' : '例如：https://api.openai.com/v1'"
                 :disabled="!currentPreset.editableBaseURL"
                 clearable
               />
-              <div class="form-tip">{{ currentPreset.editableBaseURL ? 'OpenAI 兼容格式的服务地址' : '由所选服务商预设，无需修改' }}</div>
+              <div class="form-tip">{{ baseURLHint }}</div>
             </el-form-item>
 
             <el-form-item label="模型选择">
@@ -138,13 +138,13 @@
             <el-form-item v-if="showThinkingProtocol" label="思考协议">
               <el-select v-model="form.thinkingProtocol" style="width: 100%">
                 <el-option
-                  v-for="protocol in THINKING_PROTOCOL_OPTIONS"
+                  v-for="protocol in thinkingProtocolOptions"
                   :key="protocol.value"
                   :label="protocol.label"
                   :value="protocol.value"
                 />
               </el-select>
-              <div class="form-tip">自动识别模型与服务商；使用自定义模型别名时，可手动选择网关实际支持的协议。</div>
+              <div class="form-tip">{{ thinkingProtocolHint }}</div>
             </el-form-item>
 
             <el-form-item label="思考设置">
@@ -298,7 +298,16 @@ const form = reactive({
 const headerRows = ref([])
 
 const currentPreset = computed(() => getPreset(form.provider))
-const showThinkingProtocol = computed(() => !['anthropic', 'google'].includes(form.provider))
+const baseURLHint = computed(() => currentPreset.value.kind === 'anthropic'
+  ? '支持 Anthropic 官方或兼容网关；填写基础地址（如 https://opencode.ai/zen/go/v1），不要附加 /messages。'
+  : currentPreset.value.editableBaseURL ? 'OpenAI 兼容格式的服务地址' : '由所选服务商预设，无需修改')
+const showThinkingProtocol = computed(() => form.provider !== 'google')
+const thinkingProtocolOptions = computed(() => form.provider === 'anthropic'
+  ? [THINKING_PROTOCOL_OPTIONS[0], { value: 'anthropic', label: 'Anthropic 兼容思考预算' }]
+  : THINKING_PROTOCOL_OPTIONS)
+const thinkingProtocolHint = computed(() => form.provider === 'anthropic'
+  ? 'Claude 按模型能力识别；非 Claude 模型默认不附加思考参数，确认网关支持后可选择兼容思考预算。'
+  : '自动识别模型与服务商；使用自定义模型别名时，可手动选择网关实际支持的协议。')
 const thinkingCapability = computed(() => getThinkingCapability(form))
 
 // A mode supported by one model need not be accepted by the next one.

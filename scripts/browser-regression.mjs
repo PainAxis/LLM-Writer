@@ -1755,6 +1755,103 @@ try {
     await expect(dialog.getByPlaceholder('生成的内容将在这里显示...')).toHaveValue(/联调生成片段 3/)
   }))
 
+  await step('35 Configure a native Anthropic gateway and preserve its thinking budget through reload and generation', () => withIsolatedPage('35-anthropic-gateway-budget', async target => {
+    const model = 'qwen3.8-flash'
+    const reply = '雾港失物局：消失的雨夜来客。'
+    const probes = []
+    // Both mock routes stay on the guarded preview origin; no real API or key is used.
+    await target.route(`${mockURL}/models`, async route => {
+      probes.push(route.request())
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: model }] }) })
+    })
+    await target.route(`${mockURL}/messages`, async route => {
+      const events = [
+        { type: 'message_start', message: { id: 'native-browser-test', type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 12, output_tokens: 0 } } },
+        { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+        { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: reply } },
+        { type: 'content_block_stop', index: 0 },
+        { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 24 } },
+        { type: 'message_stop' },
+      ]
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body: events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('') })
+    })
+    const field = label => target.locator('.api-config .el-form-item').filter({
+      has: target.locator('.el-form-item__label', { hasText: new RegExp(`^${label}$`) }),
+    })
+    await go('config', target)
+    await field('服务商').locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: 'Anthropic / 兼容接口', exact: true }).click()
+    const address = field('API地址').getByRole('textbox')
+    await expect(address).toBeEnabled()
+    await expect(address).toHaveValue('https://api.anthropic.com/v1')
+    await address.fill(`${mockURL}/`)
+    await target.getByPlaceholder('请输入API密钥').fill('preview-test-key')
+    await target.getByRole('button', { name: '获取模型列表', exact: true }).click()
+    await expect(field('模型选择').locator('.el-select__wrapper')).toHaveText(model)
+    await expect.poll(() => probes.length).toBe(1)
+    const probeHeaders = await probes[0].allHeaders()
+    assert.equal(probes[0].method(), 'GET')
+    assert.equal(probeHeaders['x-api-key'], 'preview-test-key')
+    assert.equal(probeHeaders['anthropic-version'], '2023-06-01')
+    assert.equal(probeHeaders.authorization, undefined)
+
+    // An unknown native model stays conservative until the user confirms its budget format.
+    await field('思考设置').locator('.el-select__wrapper').click()
+    await expect(target.locator('.el-select-dropdown:visible').getByRole('option')).toHaveCount(1)
+    await target.getByRole('option', { name: '服务商默认', exact: true }).click()
+    await field('思考协议').locator('.el-select__wrapper').click()
+    await expect(target.locator('.el-select-dropdown:visible').getByRole('option')).toHaveCount(2)
+    await target.getByRole('option', { name: 'Anthropic 兼容思考预算', exact: true }).click()
+    await field('思考设置').locator('.el-select__wrapper').click()
+    await expect(target.locator('.el-select-dropdown:visible').getByRole('option')).toHaveCount(3)
+    await target.getByRole('option', { name: '按 Token 预算', exact: true }).click()
+    await field('输出预算').getByRole('spinbutton').fill('4096')
+    await field('输出预算').getByRole('spinbutton').press('Tab')
+    await field('思考预算').getByRole('spinbutton').fill('1024')
+    await field('思考预算').getByRole('spinbutton').press('Tab')
+    await target.getByRole('button', { name: '保存配置', exact: true }).click()
+    await expect(target.getByRole('button', { name: '测试连接', exact: true })).toBeEnabled()
+    await expect.poll(() => probes.length).toBe(2)
+    const savedConfig = () => target.evaluate(() => {
+      const { provider, baseURL, selectedModel, thinkingProtocol, thinkingMode, thinkingBudget, maxTokens, unlimitedTokens } = JSON.parse(localStorage.getItem('apiConfig') || '{}')
+      return { provider, baseURL, selectedModel, thinkingProtocol, thinkingMode, thinkingBudget, maxTokens, unlimitedTokens }
+    })
+    const expected = { provider: 'anthropic', baseURL: `${mockURL}/`, selectedModel: model, thinkingProtocol: 'anthropic', thinkingMode: 'budget', thinkingBudget: 1024, maxTokens: 4096, unlimitedTokens: false }
+    await expect.poll(savedConfig).toEqual(expected)
+    await target.reload()
+    await dismissAnnouncement(target)
+    await expect(address).toHaveValue(`${mockURL}/`)
+    await expect(field('思考协议').locator('.el-select__wrapper')).toHaveText('Anthropic 兼容思考预算')
+    await expect(field('思考设置').locator('.el-select__wrapper')).toHaveText('按 Token 预算')
+    await expect(field('思考预算').getByRole('spinbutton')).toHaveValue('1024')
+    await expect(field('输出预算').getByRole('spinbutton')).toHaveValue('4096')
+    assert.deepEqual(await savedConfig(), expected)
+    await screenshot('35-anthropic-gateway-settings', target)
+
+    await go('tools', target)
+    await target.locator('.tool-card').filter({ hasText: '爆款书名生成器' }).click()
+    const dialog = target.getByRole('dialog', { name: '爆款书名生成器', exact: true })
+    await dialog.locator('.el-form-item').filter({ hasText: '小说类型' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '都市', exact: true }).click()
+    await dialog.getByPlaceholder('输入相关关键词，用逗号分隔').fill('雾港,失物局')
+    const captured = target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/messages`)
+    await dialog.getByRole('button', { name: '生成内容', exact: true }).click()
+    const request = await captured
+    const body = request.postDataJSON()
+    const headers = await request.allHeaders()
+    assert.equal(headers['x-api-key'], 'preview-test-key')
+    assert.equal(headers['anthropic-version'], '2023-06-01')
+    assert.equal(headers.authorization, undefined)
+    assert.equal(body.model, model)
+    assert.equal(body.stream, true)
+    assert.equal(body.max_tokens, 4096, 'The native adapter must preserve the configured total output cap')
+    assert.deepEqual(body.thinking, { type: 'enabled', budget_tokens: 1024 })
+    assert.equal(Object.hasOwn(body, 'max_completion_tokens'), false)
+    assert.equal(Object.hasOwn(body, 'enable_thinking'), false, 'A Qwen model on a native gateway must not receive DashScope parameters')
+    assert.equal(Object.hasOwn(body, 'thinking_budget'), false)
+    await expect(dialog.getByPlaceholder('生成的内容将在这里显示...')).toHaveValue(reply)
+  }))
+
   assert.deepEqual(errors, [], 'The browser must not raise uncaught errors or unsaved-data navigation dialogs')
   console.log(`PASS ${report.tests.length} real-browser regression scenarios`)
 } catch (error) {
