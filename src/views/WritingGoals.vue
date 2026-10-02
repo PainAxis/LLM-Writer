@@ -7,7 +7,7 @@
         <p>设定目标，追踪进度，保持创作动力</p>
       </div>
       <div class="header-actions">
-        <el-button type="primary" @click="showCreateDialog = true">
+        <el-button type="primary" @click="resetForm(); showCreateDialog = true">
           <el-icon><Plus /></el-icon>
           设定新目标
         </el-button>
@@ -228,7 +228,7 @@
 
     <!-- 创建目标对话框 -->
     <el-dialog 
-      v-model="showCreateDialog" 
+      v-model="showCreateDialog" @closed="resetForm"
       :title="editingGoal ? '编辑目标' : '创建新目标'" 
       width="600px"
       @close="resetForm"
@@ -296,7 +296,7 @@
       
       <template #footer>
         <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveGoal">保存</el-button>
+        <el-button type="primary" :loading="goalsStore.pending > 0" @click="saveGoal">保存</el-button>
       </template>
     </el-dialog>
 
@@ -331,7 +331,7 @@
       
       <template #footer>
         <el-button @click="showProgressDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveProgress">保存</el-button>
+        <el-button type="primary" :loading="goalsStore.pending > 0" @click="saveProgress">保存</el-button>
       </template>
     </el-dialog>
 
@@ -419,20 +419,23 @@
 </template>
 
 <script setup lang="ts">
-import { toDate } from '@/utils/dates'
+import { toGoalDate as toDate } from '@/utils/writingGoals'
+import { useWritingGoalsStore } from '@/stores/writingGoals'
+import { storeToRefs } from 'pinia'
 import type { WriterTimestamp } from '@/types/writer'
 import type { FormInstance, TagProps } from 'element-plus'
 import type { WritingGoal, GoalForm } from '@/types/management'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import {
   Plus, Trophy, Medal, EditPen, Calendar,
   MoreFilled, Edit, VideoPause, Delete
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
+
 
 // 响应式数据
-const goals = ref<WritingGoal[]>([])
+const goalsStore = useWritingGoalsStore()
+const { goals, todayWords, streak: writingStreak } = storeToRefs(goalsStore)
 const showCreateDialog = ref(false)
 const showProgressDialog = ref(false)
 const showDetailsDialog = ref(false)
@@ -462,48 +465,8 @@ const formRules = {
   dateRange: [{ required: true, message: '请选择时间范围', trigger: 'change' }]
 }
 
-// 从localStorage加载数据
-const loadGoals = () => {
-  const savedGoals = storageGet<WritingGoal[] | null>(StorageKeys.writingGoals, null)
-  if (savedGoals) {
-    try {
-      goals.value = savedGoals.map(goal => ({
-        ...goal,
-        startDate: toDate(goal.startDate),
-        endDate: toDate(goal.endDate),
-        progressHistory: goal.progressHistory || []
-      }))
-    } catch (error) {
-      console.error('加载写作目标数据失败:', error)
-      initializeDefaultGoals()
-    }
-  } else {
-    initializeDefaultGoals()
-  }
-}
 
-// 初始化默认目标数据
-const initializeDefaultGoals = () => {
-  // 不设置任何默认目标，让用户自己创建
-  goals.value = []
-  saveGoalsToStorage()
-}
 
-// 保存数据到localStorage
-const saveGoalsToStorage = () => {
-  try {
-    storageSet(StorageKeys.writingGoals, goals.value)
-    // 通知其他页面数据已更新
-    if (window.refreshHomeData) {
-      window.refreshHomeData()
-    }
-  } catch (error) {
-    console.error('保存写作目标数据失败:', error)
-    ElMessage.error('保存数据失败')
-  }
-}
-
-// 计算属性
 const activeGoals = computed(() => {
   return goals.value.filter(goal => goal.status === 'active').length
 })
@@ -512,21 +475,7 @@ const completedGoals = computed(() => {
   return goals.value.filter(goal => goal.status === 'completed').length
 })
 
-const todayWords = computed(() => {
-  // 从当前活跃的每日目标获取今日字数
-  const dailyGoal = goals.value.find(goal => 
-    goal.type === 'daily' && goal.status === 'active'
-  )
-  return dailyGoal ? dailyGoal.currentValue : 0
-})
 
-const writingStreak = computed(() => {
-  // 从连续天数目标获取数据
-  const streakGoal = goals.value.find(goal => 
-    goal.type === 'streak_days' && goal.status === 'active'
-  )
-  return streakGoal ? streakGoal.currentValue : 0
-})
 
 const currentGoals = computed(() => {
   return goals.value.filter(goal => goal.status === 'active')
@@ -644,27 +593,12 @@ const editGoal = (goal: WritingGoal) => {
   showCreateDialog.value = true
 }
 
-const pauseGoal = (goal: WritingGoal) => {
-  goal.status = 'paused'
-  saveGoalsToStorage()
-  ElMessage.success('目标已暂停')
+const pauseGoal = async (goal: WritingGoal) => {
+  try { await goalsStore.pauseGoal(goal.id); ElMessage.success('目标已暂停') } catch (error) { ElMessage.error(`保存失败：${String(error)}`) }
 }
-
 const deleteGoal = async (goal: WritingGoal) => {
-  try {
-    await ElMessageBox.confirm('确定要删除这个目标吗？', '确认删除', {
-      type: 'warning'
-    })
-    
-    const index = goals.value.findIndex(g => g.id === goal.id)
-    if (index > -1) {
-      goals.value.splice(index, 1)
-      saveGoalsToStorage()
-      ElMessage.success('删除成功')
-    }
-  } catch {
-    // 用户取消删除
-  }
+  try { await ElMessageBox.confirm('确定要删除这个目标吗？', '确认删除', { type: 'warning' }) } catch { return }
+  try { await goalsStore.deleteGoal(goal.id); ElMessage.success('删除成功') } catch (error) { ElMessage.error(`保存失败：${String(error)}`) }
 }
 
 const updateProgress = (goal: WritingGoal) => {
@@ -680,69 +614,28 @@ const viewGoalDetails = (goal: WritingGoal) => {
 }
 
 const saveGoal = async () => {
+  if (!formRef.value) return
+  try { await formRef.value.validate() } catch { return }
+  const form = goalForm.value
+  if (form.dateRange?.length !== 2) return
   try {
-    if (!formRef.value) return
-    await formRef.value.validate()
-    if (goalForm.value.dateRange?.length !== 2) return
-    
-    const goalData = {
-      ...goalForm.value,
-      startDate: goalForm.value.dateRange[0],
-      endDate: goalForm.value.dateRange[1],
-      currentValue: editingGoal.value?.currentValue ?? 0,
-      status: editingGoal.value?.status ?? 'active',
-      progressHistory: editingGoal.value?.progressHistory ?? []
-    }
-    
-    if (editingGoal.value) {
-      // 编辑模式
-      const index = goals.value.findIndex(g => g.id === editingGoal.value?.id)
-      if (index > -1) {
-        goals.value[index] = { ...goals.value[index], ...goalData }
-      }
-      ElMessage.success('目标更新成功')
-    } else {
-      // 新增模式
-      const newGoal = {
-        ...goalData,
-        id: Date.now()
-      }
-      goals.value.push(newGoal)
-      ElMessage.success('目标创建成功')
-    }
-    
-    saveGoalsToStorage()
+    const editing = editingGoal.value !== null
+    await goalsStore.saveGoal({ title: form.title, type: form.type, targetValue: form.targetValue, description: form.description,
+      startDate: form.dateRange[0], endDate: form.dateRange[1], reminder: form.reminder, reminderTime: form.reminderTime }, editingGoal.value?.id)
     showCreateDialog.value = false
     resetForm()
-  } catch {
-    // 验证失败
-  }
+    ElMessage.success(editing ? '目标更新成功' : '目标创建成功')
+  } catch (error) { ElMessage.error(`保存目标失败：${String(error)}`) }
 }
-
-const saveProgress = () => {
-  if (selectedGoal.value && progressIncrement.value > 0) {
-    selectedGoal.value.currentValue += progressIncrement.value
-    
-    // 添加进度记录
-    selectedGoal.value.progressHistory.unshift({
-      id: Date.now(),
-      date: new Date(),
-      increment: progressIncrement.value,
-      note: progressNote.value
-    })
-    
-    // 检查是否完成目标
-    if (selectedGoal.value.currentValue >= selectedGoal.value.targetValue) {
-      selectedGoal.value.status = 'completed'
-      ElMessage.success('🎉 恭喜！目标已完成！')
-    } else {
-      ElMessage.success('进度更新成功')
-    }
-    
-    saveGoalsToStorage()
-  }
-  
-  showProgressDialog.value = false
+const saveProgress = async () => {
+  if (!selectedGoal.value || progressIncrement.value <= 0) return
+  try {
+    const id = selectedGoal.value.id
+    await goalsStore.recordProgress(id, progressIncrement.value, 'increment', progressNote.value)
+    selectedGoal.value = goals.value.find(goal => goal.id === id) ?? null
+    showProgressDialog.value = false
+    ElMessage.success('进度更新成功')
+  } catch (error) { ElMessage.error(`保存进度失败：${String(error)}`) }
 }
 
 const resetForm = () => {
@@ -758,17 +651,8 @@ const resetForm = () => {
   editingGoal.value = null
 }
 
-// 生命周期
-onMounted(() => {
-  loadGoals()
-  
-  // 监听localStorage变化
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'writingGoals') {
-      loadGoals()
-    }
-  })
-})
+
+
 </script>
 
 <style scoped>

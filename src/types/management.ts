@@ -19,13 +19,13 @@ export interface GenreDefinition {
   updatedAt?: WriterTimestamp
 }
 export interface GoalProgress {
-  id: number
+  id: number | string
   date: WriterTimestamp
   increment: number
   note: string
 }
 export interface WritingGoal {
-  id: number
+  id: number | string
   title: string
   type: string
   targetValue: number
@@ -39,6 +39,8 @@ export interface WritingGoal {
   reminderTime?: string | Date | null
   priority?: number
   createdAt?: WriterTimestamp
+  updatedAt?: WriterTimestamp
+  completedAt?: WriterTimestamp
   progressHistory: GoalProgress[]
 }
 export interface GoalForm {

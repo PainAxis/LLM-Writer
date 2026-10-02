@@ -2,7 +2,7 @@
   <div class="writing-goals">
     <div class="goals-header">
       <h3>🎯 写作目标</h3>
-      <el-button type="primary" size="small" @click="showAddGoalDialog = true">
+      <el-button type="primary" size="small" @click="openAddGoal">
         <el-icon><Plus /></el-icon>
         新增目标
       </el-button>
@@ -146,10 +146,10 @@
             <div class="goal-progress">
               <div class="progress-info">
                 <span>{{ goal.currentValue }}/{{ goal.targetValue }} {{ goal.unit }}</span>
-                <span class="progress-percentage">{{ Math.round((goal.currentValue / goal.targetValue) * 100) }}%</span>
+                <span class="progress-percentage">{{ progressPercentage(goal) }}%</span>
               </div>
               <el-progress 
-                :percentage="Math.round((goal.currentValue / goal.targetValue) * 100)"
+                :percentage="progressPercentage(goal)"
                 :status="goal.currentValue >= goal.targetValue ? 'success' : undefined"
               />
             </div>
@@ -190,7 +190,7 @@
               <div class="goal-description">{{ goal.description }}</div>
               <div class="goal-result">
                 最终完成：{{ goal.currentValue }}/{{ goal.targetValue }} {{ goal.unit }}
-                ({{ Math.round((goal.currentValue / goal.targetValue) * 100) }}%)
+                ({{ progressPercentage(goal) }}%)
               </div>
             </div>
           </div>
@@ -200,7 +200,8 @@
 
     <!-- 新增/编辑目标对话框 -->
     <el-dialog 
-      v-model="showAddGoalDialog" 
+      v-model="showAddGoalDialog"
+      @closed="resetGoalForm"
       :title="editingGoal ? '编辑目标' : '新增写作目标'"
       width="500px"
     >
@@ -261,7 +262,7 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showAddGoalDialog = false">取消</el-button>
-          <el-button type="primary" @click="saveGoal">保存</el-button>
+          <el-button type="primary" :loading="goalsStore.pending > 0" @click="saveGoal">保存</el-button>
         </span>
       </template>
     </el-dialog>
@@ -291,408 +292,120 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showProgressDialog = false">取消</el-button>
-          <el-button type="primary" @click="saveProgress">保存</el-button>
+          <el-button type="primary" :loading="goalsStore.pending > 0" @click="saveProgress">保存</el-button>
         </span>
       </template>
     </el-dialog>
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import type { FormInstance, TagProps } from 'element-plus'
+import type { WritingGoal } from '@/types/management'
+import type { WriterTimestamp } from '@/types/writer'
+import { toGoalDate } from '@/utils/writingGoals'
+import { useWritingGoalsStore } from '@/stores/writingGoals'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  Plus, Calendar, Clock, TrendCharts, Trophy, Edit, MoreFilled,
-  VideoPause, Delete, Rank
-} from '@element-plus/icons-vue'
+import { Plus, Calendar, Clock, TrendCharts, Trophy, Edit, MoreFilled, VideoPause, Delete, Rank } from '@element-plus/icons-vue'
 
-// 响应式数据
-const goals = ref([])
+const goalsStore = useWritingGoalsStore()
+const { goals, activeGoals, streak: currentStreak } = storeToRefs(goalsStore)
 const showAddGoalDialog = ref(false)
 const showProgressDialog = ref(false)
-const editingGoal = ref(null)
-const updatingGoal = ref(null)
-const goalFormRef = ref()
-
-// 排序相关
+const editingGoal = ref<WritingGoal | null>(null)
+const updatingGoal = ref<WritingGoal | null>(null)
+const goalFormRef = ref<FormInstance>()
 const sortMode = ref(false)
-const draggedIndex = ref(null)
-
-const goalForm = ref({
-  title: '',
-  type: 'daily',
-  description: '',
-  targetValue: 1000,
-  unit: '字',
-  dateRange: null
-})
-
-const progressForm = ref({
-  value: 0,
-  maxValue: 0,
-  unit: '',
-  note: ''
-})
-
+const draggedIndex = ref<number | null>(null)
+const emptyForm = () => ({ title: '', type: 'daily', description: '', targetValue: 1000, unit: '字', dateRange: null as string[] | null })
+const goalForm = ref(emptyForm())
+const progressForm = ref({ value: 0, maxValue: 0, unit: '', note: '' })
 const goalRules = {
-  title: [
-    { required: true, message: '请输入目标标题', trigger: 'blur' }
-  ],
-  type: [
-    { required: true, message: '请选择目标类型', trigger: 'change' }
-  ],
-  targetValue: [
-    { required: true, message: '请输入目标数值', trigger: 'blur' }
-  ],
-  unit: [
-    { required: true, message: '请选择计量单位', trigger: 'change' }
-  ]
+  title: [{ required: true, message: '请输入目标标题', trigger: 'blur' }],
+  type: [{ required: true, message: '请选择目标类型', trigger: 'change' }],
+  targetValue: [{ required: true, message: '请输入目标数值', trigger: 'blur' }],
+  unit: [{ required: true, message: '请选择计量单位', trigger: 'change' }],
+  dateRange: [{ required: true, message: '请选择时间范围', trigger: 'change' }],
 }
-
-// 计算属性
-const activeGoals = computed(() => {
-  const active = goals.value.filter(goal => goal.status === 'active')
-  // 按优先级排序（priority字段，数字越小优先级越高），如果没有priority则按创建时间排序
-  return active.sort((a, b) => {
-    if (a.priority !== undefined && b.priority !== undefined) {
-      return a.priority - b.priority
-    }
-    if (a.priority !== undefined) return -1
-    if (b.priority !== undefined) return 1
-    return new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
-  })
-})
-
-const completedGoals = computed(() => {
-  return goals.value.filter(goal => goal.status === 'completed')
-})
-
-const todayProgress = computed(() => {
-  const dailyGoals = activeGoals.value.filter(goal => goal.type === 'daily')
-  if (dailyGoals.length === 0) return { current: 0, target: 0, unit: '字' }
-  
-  const goal = dailyGoals[0]
-  return {
-    current: goal.currentValue,
-    target: goal.targetValue,
-    unit: goal.unit
-  }
-})
-
-const weeklyProgress = computed(() => {
-  const weeklyGoals = activeGoals.value.filter(goal => goal.type === 'weekly')
-  if (weeklyGoals.length === 0) return { current: 0, target: 0, unit: '字' }
-  
-  const goal = weeklyGoals[0]
-  return {
-    current: goal.currentValue,
-    target: goal.targetValue,
-    unit: goal.unit
-  }
-})
-
-const monthlyProgress = computed(() => {
-  const monthlyGoals = activeGoals.value.filter(goal => goal.type === 'monthly')
-  if (monthlyGoals.length === 0) return { current: 0, target: 0, unit: '字' }
-  
-  const goal = monthlyGoals[0]
-  return {
-    current: goal.currentValue,
-    target: goal.targetValue,
-    unit: goal.unit
-  }
-})
-
-const currentStreak = computed(() => {
-  // 计算连续完成目标的天数
-  return 7 // 示例数据
-})
-
-// 方法
-const editGoal = (goal) => {
+const completedGoals = computed(() => goals.value.filter(goal => goal.status === 'completed'))
+const periodProgress = (type: string) => {
+  const goal = activeGoals.value.find(item => item.type === type)
+  return { current: goal?.currentValue ?? 0, target: goal?.targetValue ?? 0, unit: goal?.unit ?? '字' }
+}
+const todayProgress = computed(() => periodProgress('daily'))
+const weeklyProgress = computed(() => periodProgress('weekly'))
+const monthlyProgress = computed(() => periodProgress('monthly'))
+const formatDate = (date: WriterTimestamp | undefined) => date ? toGoalDate(date).toLocaleDateString('zh-CN') : ''
+const dateInput = (date: WriterTimestamp) => {
+  const d = toGoalDate(date)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+const formatDateRange = (start: WriterTimestamp, end: WriterTimestamp) => `${formatDate(start)} - ${formatDate(end)}`
+const getRemainingDays = (date: WriterTimestamp) => Math.max(0, Math.ceil((toGoalDate(date).getTime() - Date.now()) / 86_400_000))
+const getGoalTypeText = (type: string) => ({ daily: '每日', weekly: '每周', monthly: '每月', custom: '自定义' }[type] ?? '目标')
+const getGoalTypeColor = (type: string): TagProps['type'] => ({ daily: 'primary', weekly: 'success', monthly: 'warning', custom: 'info' } as Record<string, TagProps['type']>)[type] ?? 'info'
+const progressPercentage = (goal: WritingGoal) => Math.min(100, Math.max(0, Math.round(goal.currentValue / goal.targetValue * 100)))
+const resetGoalForm = () => { goalForm.value = emptyForm(); editingGoal.value = null; goalFormRef.value?.clearValidate() }
+const openAddGoal = () => { resetGoalForm(); showAddGoalDialog.value = true }
+const editGoal = (goal: WritingGoal) => {
   editingGoal.value = goal
-  goalForm.value = {
-    title: goal.title,
-    type: goal.type,
-    description: goal.description,
-    targetValue: goal.targetValue,
-    unit: goal.unit,
-    dateRange: goal.type === 'custom' ? [goal.startDate, goal.endDate] : null
-  }
+  goalForm.value = { title: goal.title, type: goal.type, description: goal.description ?? '', targetValue: goal.targetValue, unit: goal.unit ?? '字', dateRange: goal.type === 'custom' ? [dateInput(goal.startDate), dateInput(goal.endDate)] : null }
   showAddGoalDialog.value = true
 }
-
-const updateProgress = (goal) => {
+const updateProgress = (goal: WritingGoal) => {
   updatingGoal.value = goal
-  progressForm.value = {
-    value: goal.currentValue,
-    maxValue: goal.targetValue,
-    unit: goal.unit,
-    note: ''
-  }
+  progressForm.value = { value: goal.currentValue, maxValue: Math.max(goal.targetValue, goal.currentValue), unit: goal.unit ?? '字', note: '' }
   showProgressDialog.value = true
 }
-
-const pauseGoal = async (goal) => {
-  try {
-    await ElMessageBox.confirm('确定要暂停这个目标吗？', '确认暂停', {
-      type: 'warning'
-    })
-    
-    const index = goals.value.findIndex(g => g.id === goal.id)
-    if (index !== -1) {
-      goals.value[index].status = 'paused'
-      saveGoals()
-      ElMessage.success('目标已暂停')
-    }
-  } catch {
-    // 用户取消
-  }
+const pauseGoal = async (goal: WritingGoal) => {
+  try { await ElMessageBox.confirm('确定要暂停这个目标吗？', '确认暂停', { type: 'warning' }) } catch { return }
+  try { await goalsStore.pauseGoal(goal.id); ElMessage.success('目标已暂停') } catch (error) { ElMessage.error(String(error)) }
 }
-
-const deleteGoal = async (goalId) => {
-  try {
-    await ElMessageBox.confirm('确定要删除这个目标吗？', '确认删除', {
-      type: 'warning'
-    })
-    
-    goals.value = goals.value.filter(goal => goal.id !== goalId)
-    saveGoals()
-    ElMessage.success('目标删除成功')
-  } catch {
-    // 用户取消
-  }
+const deleteGoal = async (id: WritingGoal['id']) => {
+  try { await ElMessageBox.confirm('确定要删除这个目标吗？', '确认删除', { type: 'warning' }) } catch { return }
+  try { await goalsStore.deleteGoal(id); ElMessage.success('目标删除成功') } catch (error) { ElMessage.error(String(error)) }
 }
-
 const saveGoal = async () => {
+  if (!goalFormRef.value) return
+  try { await goalFormRef.value.validate() } catch { return }
+  const form = goalForm.value
+  const start = new Date(); start.setHours(0,0,0,0)
+  const end = new Date(start)
+  if (form.type === 'weekly') { start.setDate(start.getDate() - start.getDay()); end.setTime(start.getTime()); end.setDate(end.getDate() + 6) }
+  if (form.type === 'monthly') { start.setDate(1); end.setMonth(start.getMonth()+1,0) }
+  const existing = editingGoal.value?.type === form.type ? editingGoal.value : null
+  const startDate = form.type === 'custom' ? form.dateRange?.[0] : existing?.startDate || dateInput(start)
+  const endDate = form.type === 'custom' ? form.dateRange?.[1] : existing?.endDate || dateInput(end)
+  if (!startDate || !endDate) return
   try {
-    await goalFormRef.value.validate()
-    
-    const goalData = { ...goalForm.value }
-    
-    // 设置日期范围
-    if (goalData.type === 'daily') {
-      goalData.startDate = new Date().toISOString().split('T')[0]
-      goalData.endDate = new Date().toISOString().split('T')[0]
-    } else if (goalData.type === 'weekly') {
-      const now = new Date()
-      const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()))
-      const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6))
-      goalData.startDate = startOfWeek.toISOString().split('T')[0]
-      goalData.endDate = endOfWeek.toISOString().split('T')[0]
-    } else if (goalData.type === 'monthly') {
-      const now = new Date()
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      goalData.startDate = startOfMonth.toISOString().split('T')[0]
-      goalData.endDate = endOfMonth.toISOString().split('T')[0]
-    } else if (goalData.type === 'custom' && goalData.dateRange) {
-      goalData.startDate = goalData.dateRange[0]
-      goalData.endDate = goalData.dateRange[1]
-    }
-    
-    delete goalData.dateRange
-    
-    if (editingGoal.value) {
-      // 编辑现有目标
-      const index = goals.value.findIndex(g => g.id === editingGoal.value.id)
-      if (index !== -1) {
-        goals.value[index] = {
-          ...goals.value[index],
-          ...goalData,
-          updatedAt: new Date()
-        }
-      }
-    } else {
-      // 新增目标
-      const newGoal = {
-        id: Date.now(),
-        ...goalData,
-        currentValue: 0,
-        status: 'active',
-        priority: goals.value.filter(g => g.status === 'active').length, // 设置为最低优先级
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-      goals.value.push(newGoal)
-    }
-    
-    saveGoals()
+    const editing = editingGoal.value !== null
+    await goalsStore.saveGoal({ title: form.title, type: form.type, description: form.description, targetValue: form.targetValue, unit: form.unit, startDate, endDate }, editingGoal.value?.id)
     showAddGoalDialog.value = false
-    editingGoal.value = null
-    resetGoalForm()
-    ElMessage.success(editingGoal.value ? '目标更新成功' : '目标创建成功')
-  } catch (error) {
-    console.error('保存目标失败:', error)
-  }
+    ElMessage.success(editing ? '目标更新成功' : '目标创建成功')
+  } catch (error) { ElMessage.error(`保存目标失败：${String(error)}`) }
 }
-
-const saveProgress = () => {
-  if (updatingGoal.value) {
-    const index = goals.value.findIndex(g => g.id === updatingGoal.value.id)
-    if (index !== -1) {
-      goals.value[index].currentValue = progressForm.value.value
-      goals.value[index].updatedAt = new Date()
-      
-      // 检查是否完成目标
-      if (progressForm.value.value >= goals.value[index].targetValue) {
-        goals.value[index].status = 'completed'
-        goals.value[index].completedAt = new Date()
-        ElMessage.success('🎉 恭喜！目标已完成！')
-      } else {
-        ElMessage.success('进度更新成功')
-      }
-      
-      saveGoals()
-    }
-  }
-  
-  showProgressDialog.value = false
-  updatingGoal.value = null
-}
-
-const resetGoalForm = () => {
-  goalForm.value = {
-    title: '',
-    type: 'daily',
-    description: '',
-    targetValue: 1000,
-    unit: '字',
-    dateRange: null
-  }
-}
-
-// 排序相关方法
-const toggleSortMode = () => {
-  sortMode.value = !sortMode.value
-  if (!sortMode.value) {
-    // 退出排序模式时保存排序结果
-    saveGoals()
-  }
-}
-
-const onDragStart = (event, index) => {
-  draggedIndex.value = index
-  event.dataTransfer.effectAllowed = 'move'
-}
-
-const onDragOver = (event) => {
-  event.preventDefault()
-  event.dataTransfer.dropEffect = 'move'
-}
-
-const onDrop = (event, targetIndex) => {
-  event.preventDefault()
-  
-  if (draggedIndex.value !== null && draggedIndex.value !== targetIndex) {
-    const activeGoalsList = activeGoals.value
-    
-    // 重新安排优先级
-    const draggedGoal = activeGoalsList[draggedIndex.value]
-    activeGoalsList.splice(draggedIndex.value, 1)
-    activeGoalsList.splice(targetIndex, 0, draggedGoal)
-    
-    // 更新所有活跃目标的优先级
-    activeGoalsList.forEach((goal, index) => {
-      const goalInStore = goals.value.find(g => g.id === goal.id)
-      if (goalInStore) {
-        goalInStore.priority = index
-      }
-    })
-    
-    ElMessage.success('排序已更新')
-  }
-  
-  draggedIndex.value = null
-}
-
-const saveGoals = () => {
-  storageSet(StorageKeys.writingGoals, goals.value)
-  console.log('目标数据已保存:', goals.value)
-  
-  // 触发storage事件，通知其他页面数据已更新
-  const event = new StorageEvent('storage', {
-    key: 'writingGoals',
-    newValue: JSON.stringify(goals.value),
-    oldValue: null,
-    storageArea: localStorage
-  })
-  window.dispatchEvent(event)
-  
-  // 如果首页的刷新函数存在，直接调用
-  if (window.refreshHomeData) {
-    window.refreshHomeData()
-  }
-}
-
-const loadGoals = () => {
+const saveProgress = async () => {
+  if (!updatingGoal.value) return
   try {
-    const saved = storageGet(StorageKeys.writingGoals, null)
-    if (saved) {
-      goals.value = saved
-      
-      // 兼容性处理：为没有priority字段的目标添加priority
-      let needsSave = false
-      goals.value.forEach((goal, index) => {
-        if (goal.priority === undefined) {
-          goal.priority = index
-          needsSave = true
-        }
-      })
-      
-      if (needsSave) {
-        saveGoals()
-      }
-    }
-  } catch (error) {
-    console.error('加载目标失败:', error)
-  }
+    await goalsStore.recordProgress(updatingGoal.value.id, progressForm.value.value, 'total', progressForm.value.note)
+    showProgressDialog.value = false
+    updatingGoal.value = null
+    ElMessage.success('进度更新成功')
+  } catch (error) { ElMessage.error(`保存进度失败：${String(error)}`) }
 }
-
-const getGoalTypeText = (type) => {
-  const typeMap = {
-    daily: '每日',
-    weekly: '每周',
-    monthly: '每月',
-    custom: '自定义'
-  }
-  return typeMap[type] || '未知'
+const toggleSortMode = () => { sortMode.value = !sortMode.value }
+const onDragStart = (event: DragEvent, index: number) => { draggedIndex.value = index; if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move' }
+const onDragOver = (event: DragEvent) => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'move' }
+const onDrop = async (event: DragEvent, target: number) => {
+  event.preventDefault()
+  const source = draggedIndex.value; draggedIndex.value = null
+  if (source === null || source === target) return
+  const ids = activeGoals.value.map(goal => goal.id)
+  const [id] = ids.splice(source,1); ids.splice(target,0,id)
+  try { await goalsStore.reorderGoals(ids); ElMessage.success('排序已更新') } catch (error) { ElMessage.error(`保存排序失败：${String(error)}`) }
 }
-
-const getGoalTypeColor = (type) => {
-  const colorMap = {
-    daily: 'primary',
-    weekly: 'success',
-    monthly: 'warning',
-    custom: 'info'
-  }
-  return colorMap[type] || 'info'
-}
-
-const formatDate = (date) => {
-  if (!date) return ''
-  return new Date(date).toLocaleDateString()
-}
-
-const formatDateRange = (startDate, endDate) => {
-  if (!startDate || !endDate) return ''
-  return `${formatDate(startDate)} - ${formatDate(endDate)}`
-}
-
-const getRemainingDays = (endDate) => {
-  if (!endDate) return 0
-  const end = new Date(endDate)
-  const now = new Date()
-  const diffTime = end - now
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  return Math.max(0, diffDays)
-}
-
-// 生命周期
-onMounted(() => {
-  loadGoals()
-})
 </script>
 
 <style scoped>
