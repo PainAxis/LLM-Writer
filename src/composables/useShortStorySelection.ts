@@ -35,10 +35,13 @@ export function useShortStorySelection(options: {
   // a result whose source version has already changed.
   const stopWatching = watch([options.content, options.editor], invalidate, { flush: 'sync' })
 
-  const capture = () => {
+  const capture = (currentRange?: SlateRange | null) => {
     clear()
     const editor = options.editor.value
-    if (disposed || !editor || editor.isDestroyed || !editor.selection) return null
+    if (disposed || !editor || editor.isDestroyed || currentRange === null) return null
+    // WangEditor's throttled selectionchange may still retain the previous range.
+    if (currentRange !== undefined) editor.select(cloneRange(currentRange))
+    if (!editor.selection) return null
     const text = editor.getSelectionText()
     if (!text.trim()) return null
     snapshot = {

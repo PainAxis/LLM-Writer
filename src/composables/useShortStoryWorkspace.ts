@@ -1,4 +1,5 @@
 import { useShortStoryEditors } from './useShortStoryEditors'
+import type { SlateRange } from '@wangeditor/editor'
 import type { TabsPaneContext } from 'element-plus'
 import type { ShortArticleDraft, ShortStoryDraft, ShortStoryConfig } from '@/types/shortStory'
 import type { PromptTemplate } from '@/config/defaultPrompts'
@@ -439,7 +440,7 @@ export function useShortStoryWorkspace() {
   }
 
   // 显示选段优化弹窗
-  const showOptimizeDialog = () => {
+  const showOptimizeDialog = (currentRange?: SlateRange | null) => {
     if (generating.value) {
       ElMessage.warning('请先停止正文生成')
       return
@@ -451,7 +452,7 @@ export function useShortStoryWorkspace() {
 
     let selection: ReturnType<typeof optimizeSelectionSource.capture>
     try {
-      selection = optimizeSelectionSource.capture()
+      selection = optimizeSelectionSource.capture(currentRange)
     } catch (error) {
       console.warn('获取编辑器选区失败:', error)
       ElMessage.warning('无法获取编辑器选区，请重新选择要优化的文本')
@@ -557,9 +558,9 @@ export function useShortStoryWorkspace() {
     }
   }
 
-  const optimizeSelection = async () => {
+  const optimizeSelection = async (currentRange?: SlateRange | null) => {
     // 保留原有方法以防兼容性问题
-    showOptimizeDialog()
+    showOptimizeDialog(currentRange)
   }
 
   const exportStory = () => {

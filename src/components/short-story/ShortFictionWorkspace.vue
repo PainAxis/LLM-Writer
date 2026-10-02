@@ -173,7 +173,7 @@
                 <el-button size="small" @click="continueStory" :disabled="!generatedStory || continuingStory">
                   <el-icon><EditPen /></el-icon>续写
                 </el-button>
-                <el-button size="small" @click="optimizeSelection" :disabled="!generatedStory">
+                <el-button size="small" @pointerdown.prevent @click="optimizeCurrentSelection" :disabled="!generatedStory">
                   <el-icon><MagicStick /></el-icon>优化
                 </el-button>
 
@@ -220,5 +220,26 @@
 import { useShortStoryWorkspaceContext } from '@/composables/short-storyContext'
 import { MagicStick, EditPen, Download, Loading, Setting, List, InfoFilled } from '@element-plus/icons-vue'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
+import { DomEditor } from '@wangeditor/editor'
 const { activeTab, generatedStory, showAdvancedConfig, unifiedPrompt, selectedPromptTemplate, generating, continuingStory, showStoryPromptSelector, promptPlaceholder, editorRef, toolbarConfig, editorConfig, storyData, isConfigValid, customGenres, customPlotTypes, customEmotions, customTimeFrames, generateStory, continueStory, resetConfig, handleEditorCreated, onEditorChange, handleTextSelection, optimizeSelection, exportStory, getTextWordCount, openConfigManager, clearSelectedTemplate, stopGeneration } = useShortStoryWorkspaceContext()
+// Keep pointer activation from moving focus before reading the live DOM range.
+// Keyboard activation follows the same click path and preserves range direction.
+const optimizeCurrentSelection = () => {
+  const editor = editorRef.value
+  try {
+    const selection = window.getSelection()
+    if (!editor || editor.isDestroyed || !selection || selection.rangeCount !== 1 || selection.isCollapsed
+      || !selection.anchorNode || !selection.focusNode
+      || !DomEditor.hasDOMNode(editor, selection.anchorNode, { editable: true })
+      || !DomEditor.hasDOMNode(editor, selection.focusNode, { editable: true })) {
+      void optimizeSelection(null)
+      return
+    }
+    const range = DomEditor.toSlateRange(editor, selection, { exactMatch: true, suppressThrow: true })
+    void optimizeSelection(range)
+  } catch {
+    // Detached editor DOM must reject the selection rather than revive a cached range.
+    void optimizeSelection(null)
+  }
+}
 </script>
