@@ -990,7 +990,7 @@ try {
             buffer: Buffer.from('第一章 初访\n' + '旅人在清晨来到城门，记录沿途看到的故事。'.repeat(30)),
           })
           await expect(cleanPage.locator('.file-name')).toHaveText('first-visit.txt')
-          await cleanPage.locator('.setting-item').filter({ hasText: '拆书模板' }).getByRole('combobox').click()
+          await cleanPage.locator('.setting-item').filter({ hasText: '拆书模板' }).locator('.el-select__wrapper').click()
           const templates = cleanPage.locator('.el-select-dropdown:visible').getByRole('option')
           await expect(templates.first()).toBeVisible()
           assert.ok(await templates.count() > 0, 'Direct Book Analysis visits must have default templates')
@@ -999,7 +999,7 @@ try {
         } else {
           await cleanPage.locator('.tool-card').filter({ hasText: '细纲生成器' }).click()
           const tool = cleanPage.getByRole('dialog', { name: '细纲生成器', exact: true })
-          await tool.locator('.el-form-item').filter({ hasText: '提示词模板' }).getByRole('combobox').click()
+          await tool.locator('.el-form-item').filter({ hasText: '提示词模板' }).locator('.el-select__wrapper').click()
           const templates = cleanPage.locator('.el-select-dropdown:visible').getByRole('option')
           await expect(templates.first()).toBeVisible()
           assert.ok(await templates.count() > 0, 'Direct Tools visits must have default templates')
