@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 import { ref } from 'vue'
+import { createWritingGoalsState } from '../src/stores/writingGoals'
 
 function method(file: string, name: string, dependencies: Record<string, unknown>) {
   const text = readFileSync(new URL(`../src/views/${file}.vue`, import.meta.url), 'utf8')
@@ -18,13 +19,14 @@ function method(file: string, name: string, dependencies: Record<string, unknown
 }
 const history = [{ id: 2, date: '2026-09-01', increment: 25, note: 'Keep me' }]
 const existing = { id: 1, title: 'Original', currentValue: 25, status: 'paused', progressHistory: history, extension: 'retained' }
-const goals = ref([existing])
 let saves = 0
+const goalsStore = createWritingGoalsState({ read: () => [existing], write: () => { saves++ } })
+const goals = goalsStore.goals
 const saveGoal = method('WritingGoals', 'saveGoal', {
   formRef: ref({ validate: async () => true }),
   goalForm: ref({ title: 'Edited', type: 'daily', targetValue: 100, dateRange: [new Date(), new Date()] }),
-  goals, editingGoal: ref(existing), saveGoalsToStorage: () => saves++,
-  showCreateDialog: ref(true), resetForm() {}, ElMessage: { success() {} },
+  goalsStore, editingGoal: ref(existing),
+  showCreateDialog: ref(true), resetForm() {}, ElMessage: { success() {}, error(message: string) { throw new Error(message) } },
 })
 await saveGoal()
 assert.equal(goals.value[0].title, 'Edited')

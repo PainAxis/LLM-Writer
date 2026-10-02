@@ -1,0 +1,2335 @@
+/* Shared feature styles are limited to the page and its teleported dialogs. */
+:is(.short-story-page, .short-story-dialog) .short-story-page,
+:is(.short-story-page, .short-story-dialog).short-story-page {
+  width: 100%;
+  height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  background: var(--el-fill-color-light);
+}
+
+/* 新的页面样式 */
+:is(.short-story-page, .short-story-dialog) .short-story-page,
+:is(.short-story-page, .short-story-dialog).short-story-page {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  box-sizing: border-box;
+  background: var(--el-fill-color-light);
+}
+
+:is(.short-story-page, .short-story-dialog) .page-tabs,
+:is(.short-story-page, .short-story-dialog).page-tabs {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .page-content,
+:is(.short-story-page, .short-story-dialog).page-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+:is(.short-story-page, .short-story-dialog) .workspace,
+:is(.short-story-page, .short-story-dialog).workspace {
+  height: 100%;
+}
+
+:is(.short-story-page, .short-story-dialog) .workspace-layout,
+:is(.short-story-page, .short-story-dialog).workspace-layout {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+}
+
+/* 配置侧边栏样式 */
+:is(.short-story-page, .short-story-dialog) .config-sidebar,
+:is(.short-story-page, .short-story-dialog).config-sidebar {
+  width: 340px;
+  flex-shrink: 0;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-header,
+:is(.short-story-page, .short-story-dialog).config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-header h3,
+:is(.short-story-page, .short-story-dialog).config-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+:is(.short-story-page, .short-story-dialog) .generate-btn,
+:is(.short-story-page, .short-story-dialog).generate-btn {
+  width: 100%;
+  margin-bottom: 20px;
+  height: 40px;
+  font-weight: 500;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-form,
+:is(.short-story-page, .short-story-dialog).config-form {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+  padding-top: 8px;
+}
+
+/* 配置区域样式 */
+:is(.short-story-page, .short-story-dialog) .config-section,
+:is(.short-story-page, .short-story-dialog).config-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fafbfc;
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-light);
+}
+
+:is(.short-story-page, .short-story-dialog) .section-title,
+:is(.short-story-page, .short-story-dialog).section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.short-story-page, .short-story-dialog) .section-header,
+:is(.short-story-page, .short-story-dialog).section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.short-story-page, .short-story-dialog) .section-actions,
+:is(.short-story-page, .short-story-dialog).section-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 网格布局 */
+:is(.short-story-page, .short-story-dialog) .form-grid,
+:is(.short-story-page, .short-story-dialog).form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+  align-items: start;
+}
+
+/* 表单项样式 */
+:is(.short-story-page, .short-story-dialog) .form-item,
+:is(.short-story-page, .short-story-dialog).form-item {
+  display: flex;
+  flex-direction: column;
+}
+
+:is(.short-story-page, .short-story-dialog) .form-item.full-width,
+:is(.short-story-page, .short-story-dialog).form-item.full-width {
+  grid-column: 1 / -1;
+}
+
+:is(.short-story-page, .short-story-dialog) .form-item label,
+:is(.short-story-page, .short-story-dialog).form-item label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+/* 输入框统一样式 */
+:is(.short-story-page, .short-story-dialog) .form-item .el-input,
+:is(.short-story-page, .short-story-dialog).form-item .el-input,
+:is(.short-story-page, .short-story-dialog) .form-item .el-select,
+:is(.short-story-page, .short-story-dialog).form-item .el-select,
+:is(.short-story-page, .short-story-dialog) .form-item .el-input-number,
+:is(.short-story-page, .short-story-dialog).form-item .el-input-number {
+  width: 100%;
+}
+
+/* 年龄输入器样式 */
+:is(.short-story-page, .short-story-dialog) .age-input,
+:is(.short-story-page, .short-story-dialog).age-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+}
+
+:is(.short-story-page, .short-story-dialog) .age-display,
+:is(.short-story-page, .short-story-dialog).age-display {
+  min-width: 30px;
+  text-align: center;
+  font-weight: 500;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+:is(.short-story-page, .short-story-dialog) .item-header,
+:is(.short-story-page, .short-story-dialog).item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+:is(.short-story-page, .short-story-dialog) .selected-template,
+:is(.short-story-page, .short-story-dialog).selected-template {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: var(--brand-50);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .validation-tip,
+:is(.short-story-page, .short-story-dialog).validation-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #fef0f0;
+  border: 1px solid #fbc4c4;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--el-color-danger);
+}
+
+/* 高级配置样式优化 */
+:is(.short-story-page, .short-story-dialog) .advanced-config,
+:is(.short-story-page, .short-story-dialog).advanced-config {
+  margin-top: 16px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  overflow: visible;
+}
+
+:is(.short-story-page, .short-story-dialog) .advanced-config .el-collapse-item__header,
+:is(.short-story-page, .short-story-dialog).advanced-config .el-collapse-item__header {
+  height: 40px;
+  line-height: 40px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 16px;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.short-story-page, .short-story-dialog) .advanced-config .el-collapse-item__content,
+:is(.short-story-page, .short-story-dialog).advanced-config .el-collapse-item__content {
+  padding: 16px;
+  background: #fafbfc;
+  min-height: 200px;
+  max-height: none;
+}
+
+:is(.short-story-page, .short-story-dialog) .advanced-config .el-collapse-item__wrap,
+:is(.short-story-page, .short-story-dialog).advanced-config .el-collapse-item__wrap {
+  border-bottom: none;
+  overflow: visible;
+}
+
+:is(.short-story-page, .short-story-dialog) .advanced-config .el-collapse-item,
+:is(.short-story-page, .short-story-dialog).advanced-config .el-collapse-item {
+  border-bottom: none;
+}
+
+:is(.short-story-page, .short-story-dialog) .advanced-config .form-grid,
+:is(.short-story-page, .short-story-dialog).advanced-config .form-grid {
+  margin-bottom: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .advanced-config .full-width,
+:is(.short-story-page, .short-story-dialog).advanced-config .full-width {
+  margin-top: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-scroll-container,
+:is(.short-story-page, .short-story-dialog).config-scroll-container {
+  flex: 1;
+  overflow: hidden;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-sidebar .config-header,
+:is(.short-story-page, .short-story-dialog).config-sidebar .config-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .header-title-row,
+:is(.short-story-page, .short-story-dialog).header-title-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .header-actions-row,
+:is(.short-story-page, .short-story-dialog).header-actions-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .secondary-actions,
+:is(.short-story-page, .short-story-dialog).secondary-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .primary-action,
+:is(.short-story-page, .short-story-dialog).primary-action {
+  display: flex;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-sidebar .config-header h3,
+:is(.short-story-page, .short-story-dialog).config-sidebar .config-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+/* 配置管理对话框样式 */
+:is(.short-story-page, .short-story-dialog) .config-manager-dialog,
+:is(.short-story-page, .short-story-dialog).config-manager-dialog {
+  :is(.short-story-page, .short-story-dialog) .el-dialog__body,
+:is(.short-story-page, .short-story-dialog).el-dialog__body {
+    padding: 20px;
+  }
+}
+
+:is(.short-story-page, .short-story-dialog) .config-manager-container,
+:is(.short-story-page, .short-story-dialog).config-manager-container {
+  height: 600px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-tabs,
+:is(.short-story-page, .short-story-dialog).config-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 确保tab标签栏在顶部 */
+:is(.short-story-page, .short-story-dialog) .config-tabs .el-tabs__header,
+:is(.short-story-page, .short-story-dialog).config-tabs .el-tabs__header {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+  order: -1;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+
+:is(.short-story-page, .short-story-dialog) .config-tabs .el-tabs__nav-wrap,
+:is(.short-story-page, .short-story-dialog).config-tabs .el-tabs__nav-wrap {
+  margin-bottom: 0;
+  background: var(--el-bg-color);
+}
+
+:is(.short-story-page, .short-story-dialog) .config-tabs .el-tabs__content,
+:is(.short-story-page, .short-story-dialog).config-tabs .el-tabs__content {
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* 覆盖可能导致tab下移的样式 */
+:is(.short-story-page, .short-story-dialog) .config-tabs .el-tabs__item,
+:is(.short-story-page, .short-story-dialog).config-tabs .el-tabs__item {
+  padding: 0 20px;
+  height: 40px;
+  line-height: 40px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-tab-content,
+:is(.short-story-page, .short-story-dialog).config-tab-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0 10px;
+}
+
+:is(.short-story-page, .short-story-dialog) .tab-header,
+:is(.short-story-page, .short-story-dialog).tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+:is(.short-story-page, .short-story-dialog) .tab-header h4,
+:is(.short-story-page, .short-story-dialog).tab-header h4 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-list,
+:is(.short-story-page, .short-story-dialog).config-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-item-row,
+:is(.short-story-page, .short-story-dialog).config-item-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-input,
+:is(.short-story-page, .short-story-dialog).config-input {
+  flex: 1;
+}
+
+:is(.short-story-page, .short-story-dialog) .description-input,
+:is(.short-story-page, .short-story-dialog).description-input {
+  flex: 2;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-item-row .el-button,
+:is(.short-story-page, .short-story-dialog).config-item-row .el-button {
+  margin-left: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .dialog-footer,
+:is(.short-story-page, .short-story-dialog).dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 新的配置面板样式 */
+:is(.short-story-page, .short-story-dialog) .config-header .header-row,
+:is(.short-story-page, .short-story-dialog).config-header .header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .required-tip,
+:is(.short-story-page, .short-story-dialog).required-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #fef0f0;
+  border: 1px solid #fbc4c4;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--el-color-danger);
+  margin-top: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-form,
+:is(.short-story-page, .short-story-dialog).config-form {
+  flex: 1;
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+:is(.short-story-page, .short-story-dialog) .form-row,
+:is(.short-story-page, .short-story-dialog).form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .form-row.two-cols,
+:is(.short-story-page, .short-story-dialog).form-row.two-cols {
+  flex-direction: row;
+  gap: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .form-row.two-cols > *,
+:is(.short-story-page, .short-story-dialog).form-row.two-cols > * {
+  flex: 1;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-header,
+:is(.short-story-page, .short-story-dialog).prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2c3e50;
+  margin-bottom: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .selected-template,
+:is(.short-story-page, .short-story-dialog).selected-template {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: var(--brand-50);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .reference-list,
+:is(.short-story-page, .short-story-dialog).reference-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .reference-item,
+:is(.short-story-page, .short-story-dialog).reference-item {
+  border: 1px solid #e1e5e9;
+  border-radius: 4px;
+  padding: 8px;
+  background: #fafbfc;
+}
+
+:is(.short-story-page, .short-story-dialog) .ref-header,
+:is(.short-story-page, .short-story-dialog).ref-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+/* 这些样式已经被新的 .required-tip 替代，保留用于兼容性 */
+
+:is(.short-story-page, .short-story-dialog) .config-content,
+:is(.short-story-page, .short-story-dialog).config-content {
+  padding-bottom: 16px; /* 减小底部内边距 */
+}
+
+:is(.short-story-page, .short-story-dialog) .quick-config,
+:is(.short-story-page, .short-story-dialog).quick-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .basic-selects,
+:is(.short-story-page, .short-story-dialog).basic-selects {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .select-row,
+:is(.short-story-page, .short-story-dialog).select-row {
+  display: flex;
+  gap: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .select-item,
+:is(.short-story-page, .short-story-dialog).select-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .select-item label,
+:is(.short-story-page, .short-story-dialog).select-item label {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  font-weight: 500;
+}
+
+:is(.short-story-page, .short-story-dialog) .quick-inputs .input-row,
+:is(.short-story-page, .short-story-dialog).quick-inputs .input-row {
+  display: flex;
+  gap: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-area,
+:is(.short-story-page, .short-story-dialog).prompt-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-header,
+:is(.short-story-page, .short-story-dialog).prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  font-weight: 500;
+}
+
+:is(.short-story-page, .short-story-dialog) .unified-prompt-input,
+:is(.short-story-page, .short-story-dialog).unified-prompt-input {
+  border-radius: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .unified-prompt-input .el-textarea__inner,
+:is(.short-story-page, .short-story-dialog).unified-prompt-input .el-textarea__inner {
+  line-height: 1.5;
+  font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+}
+
+:is(.short-story-page, .short-story-dialog) .advanced-config,
+:is(.short-story-page, .short-story-dialog).advanced-config {
+  padding: 10px;
+}
+
+
+
+:is(.short-story-page, .short-story-dialog) .generate-section,
+:is(.short-story-page, .short-story-dialog).generate-section {
+  text-align: center;
+  padding: 60px 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .content-panel,
+:is(.short-story-page, .short-story-dialog).content-panel {
+  flex: 1;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+:is(.short-story-page, .short-story-dialog) .panel-header,
+:is(.short-story-page, .short-story-dialog).panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .panel-header h3,
+:is(.short-story-page, .short-story-dialog).panel-header h3 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+:is(.short-story-page, .short-story-dialog) .content-body,
+:is(.short-story-page, .short-story-dialog).content-body {
+  flex: 1;
+  /* overflow: auto; */
+  position: relative;
+}
+
+
+
+
+
+/* 旧的编辑器样式已迁移到新版本 */
+
+
+
+:is(.short-story-page, .short-story-dialog) .story-result,
+:is(.short-story-page, .short-story-dialog).story-result {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:is(.short-story-page, .short-story-dialog) .story-editor,
+:is(.short-story-page, .short-story-dialog).story-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:is(.short-story-page, .short-story-dialog) .story-textarea,
+:is(.short-story-page, .short-story-dialog).story-textarea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+:is(.short-story-page, .short-story-dialog) .content-footer,
+:is(.short-story-page, .short-story-dialog).content-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-top: 1px solid var(--el-border-color-light);
+  margin-top: 16px;
+  flex-shrink: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .word-count,
+:is(.short-story-page, .short-story-dialog).word-count {
+  margin: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .footer-actions,
+:is(.short-story-page, .short-story-dialog).footer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .add-custom-item,
+:is(.short-story-page, .short-story-dialog).add-custom-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #c0c4cc;
+  border-radius: 6px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 8px;
+  background-color: var(--el-fill-color-light);
+}
+
+:is(.short-story-page, .short-story-dialog) .add-custom-item:hover,
+:is(.short-story-page, .short-story-dialog).add-custom-item:hover {
+  border-color: var(--brand-500);
+  background-color: #ecf5ff;
+}
+
+:is(.short-story-page, .short-story-dialog) .add-custom-item .el-icon,
+:is(.short-story-page, .short-story-dialog).add-custom-item .el-icon {
+  margin-right: 8px;
+  font-size: 16px;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.short-story-page, .short-story-dialog) .add-custom-item:hover .el-icon,
+:is(.short-story-page, .short-story-dialog).add-custom-item:hover .el-icon {
+  color: var(--brand-500);
+}
+
+@media (max-width: 768px) {
+  :is(.short-story-page, .short-story-dialog) .story-header,
+:is(.short-story-page, .short-story-dialog).story-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  :is(.short-story-page, .short-story-dialog) .story-actions,
+:is(.short-story-page, .short-story-dialog).story-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+/* 配置管理弹窗样式 */
+:is(.short-story-page, .short-story-dialog) .config-section,
+:is(.short-story-page, .short-story-dialog).config-section {
+  padding: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-header,
+:is(.short-story-page, .short-story-dialog).config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-header h4,
+:is(.short-story-page, .short-story-dialog).config-header h4 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-list,
+:is(.short-story-page, .short-story-dialog).config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-item,
+:is(.short-story-page, .short-story-dialog).config-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  background: #fafbfc;
+  transition: all 0.3s;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-item:hover,
+:is(.short-story-page, .short-story-dialog).config-item:hover {
+  border-color: #c6e2ff;
+  background: #ecf5ff;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-item .el-input,
+:is(.short-story-page, .short-story-dialog).config-item .el-input {
+  flex: 1;
+}
+
+/* 让第三个输入框（提示词）更宽 */
+:is(.short-story-page, .short-story-dialog) .config-item .el-input:nth-child(3),
+:is(.short-story-page, .short-story-dialog).config-item .el-input:nth-child(3) {
+  flex: 2;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-item .el-button,
+:is(.short-story-page, .short-story-dialog).config-item .el-button {
+  flex-shrink: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .dialog-footer,
+:is(.short-story-page, .short-story-dialog).dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-config,
+:is(.short-story-page, .short-story-dialog).empty-config {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--el-text-color-secondary);
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-config .el-icon,
+:is(.short-story-page, .short-story-dialog).empty-config .el-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+/* 提示词选择器样式 */
+:is(.short-story-page, .short-story-dialog) .prompt-header,
+:is(.short-story-page, .short-story-dialog).prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-actions,
+:is(.short-story-page, .short-story-dialog).prompt-actions {
+  display: flex;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .selected-template,
+:is(.short-story-page, .short-story-dialog).selected-template {
+  background: var(--brand-50);
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .template-info,
+:is(.short-story-page, .short-story-dialog).template-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .template-title,
+:is(.short-story-page, .short-story-dialog).template-title {
+  font-weight: 500;
+  color: #1e40af;
+}
+
+:is(.short-story-page, .short-story-dialog) .template-description,
+:is(.short-story-page, .short-story-dialog).template-description {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-grid,
+:is(.short-story-page, .short-story-dialog).prompt-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-card,
+:is(.short-story-page, .short-story-dialog).prompt-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--el-bg-color);
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-card:hover,
+:is(.short-story-page, .short-story-dialog).prompt-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-card.active,
+:is(.short-story-page, .short-story-dialog).prompt-card.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-card-header,
+:is(.short-story-page, .short-story-dialog).prompt-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-card-header h5,
+:is(.short-story-page, .short-story-dialog).prompt-card-header h5 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+:is(.short-story-page, .short-story-dialog) .selected-icon,
+:is(.short-story-page, .short-story-dialog).selected-icon {
+  color: #3b82f6;
+  font-size: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-card-description,
+:is(.short-story-page, .short-story-dialog).prompt-card-description {
+  margin-bottom: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-card-description p,
+:is(.short-story-page, .short-story-dialog).prompt-card-description p {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-card-tags,
+:is(.short-story-page, .short-story-dialog).prompt-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-preview,
+:is(.short-story-page, .short-story-dialog).prompt-preview {
+  flex: 1;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-preview h4,
+:is(.short-story-page, .short-story-dialog).prompt-preview h4 {
+  margin: 0 0 16px 0;
+  color: #1f2937;
+  font-size: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .preview-content,
+:is(.short-story-page, .short-story-dialog).preview-content {
+  height: calc(100% - 40px);
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-content-editor,
+:is(.short-story-page, .short-story-dialog).prompt-content-editor {
+  height: 100%;
+}
+
+:is(.short-story-page, .short-story-dialog) .prompt-content-editor .el-textarea__inner,
+:is(.short-story-page, .short-story-dialog).prompt-content-editor .el-textarea__inner {
+  height: 100% !important;
+  resize: none;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-prompts,
+:is(.short-story-page, .short-story-dialog).empty-prompts {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-prompts .el-empty,
+:is(.short-story-page, .short-story-dialog).empty-prompts .el-empty {
+  padding: 20px;
+}
+
+/* 续写对话框样式 */
+:is(.short-story-page, .short-story-dialog) .continue-direction,
+:is(.short-story-page, .short-story-dialog).continue-direction {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .direction-input,
+:is(.short-story-page, .short-story-dialog).direction-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .direction-input label,
+:is(.short-story-page, .short-story-dialog).direction-input label {
+  font-weight: 500;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+:is(.short-story-page, .short-story-dialog) .direction-tips,
+:is(.short-story-page, .short-story-dialog).direction-tips {
+  background: var(--el-fill-color-light);
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .direction-tips h4,
+:is(.short-story-page, .short-story-dialog).direction-tips h4 {
+  margin: 0 0 12px 0;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+:is(.short-story-page, .short-story-dialog) .direction-tips ul,
+:is(.short-story-page, .short-story-dialog).direction-tips ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .direction-tips li,
+:is(.short-story-page, .short-story-dialog).direction-tips li {
+  color: #6c757d;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .direction-tips li:last-child,
+:is(.short-story-page, .short-story-dialog).direction-tips li:last-child {
+  margin-bottom: 0;
+}
+
+/* 选段优化弹窗样式 */
+:is(.short-story-page, .short-story-dialog) .optimize-dialog,
+:is(.short-story-page, .short-story-dialog).optimize-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .selected-content h4,
+:is(.short-story-page, .short-story-dialog).selected-content h4,
+:is(.short-story-page, .short-story-dialog) .optimize-direction h4,
+:is(.short-story-page, .short-story-dialog).optimize-direction h4,
+:is(.short-story-page, .short-story-dialog) .optimize-result h4,
+:is(.short-story-page, .short-story-dialog).optimize-result h4 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:is(.short-story-page, .short-story-dialog) .selected-text,
+:is(.short-story-page, .short-story-dialog).selected-text {
+  background: var(--el-fill-color-light);
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #495057;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimize-actions,
+:is(.short-story-page, .short-story-dialog).optimize-actions {
+  text-align: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimized-text,
+:is(.short-story-page, .short-story-dialog).optimized-text {
+  background: var(--brand-50);
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1e40af;
+  max-height: 200px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimizing-placeholder,
+:is(.short-story-page, .short-story-dialog).optimizing-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimizing-placeholder .el-icon,
+:is(.short-story-page, .short-story-dialog).optimizing-placeholder .el-icon {
+  font-size: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimized-content,
+:is(.short-story-page, .short-story-dialog).optimized-content {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-actions,
+:is(.short-story-page, .short-story-dialog).result-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+/* 现代续写弹窗样式 */
+:is(.short-story-page, .short-story-dialog) .modern-continue-dialog,
+:is(.short-story-page, .short-story-dialog).modern-continue-dialog {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+:is(.short-story-page, .short-story-dialog) .modern-continue-dialog .el-dialog__header,
+:is(.short-story-page, .short-story-dialog).modern-continue-dialog .el-dialog__header {
+  padding: 0;
+  margin: 0;
+  border-bottom: 1px solid var(--ink-100);
+}
+
+:is(.short-story-page, .short-story-dialog) .modern-continue-dialog .el-dialog__body,
+:is(.short-story-page, .short-story-dialog).modern-continue-dialog .el-dialog__body {
+  padding: 24px;
+  background: #fafbfc;
+}
+
+:is(.short-story-page, .short-story-dialog) .modern-continue-dialog .el-dialog__footer,
+:is(.short-story-page, .short-story-dialog).modern-continue-dialog .el-dialog__footer {
+  padding: 20px 24px;
+  background: var(--el-bg-color);
+  border-top: 1px solid var(--ink-100);
+}
+
+:is(.short-story-page, .short-story-dialog) .dialog-header,
+:is(.short-story-page, .short-story-dialog).dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+:is(.short-story-page, .short-story-dialog) .header-left,
+:is(.short-story-page, .short-story-dialog).header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .header-icon,
+:is(.short-story-page, .short-story-dialog).header-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .header-text h3,
+:is(.short-story-page, .short-story-dialog).header-text h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+:is(.short-story-page, .short-story-dialog) .header-text p,
+:is(.short-story-page, .short-story-dialog).header-text p {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+:is(.short-story-page, .short-story-dialog) .close-btn,
+:is(.short-story-page, .short-story-dialog).close-btn {
+  color: white !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease;
+}
+
+:is(.short-story-page, .short-story-dialog) .close-btn:hover,
+:is(.short-story-page, .short-story-dialog).close-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+:is(.short-story-page, .short-story-dialog) .modern-continue-container,
+:is(.short-story-page, .short-story-dialog).modern-continue-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  min-height: 500px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-card,
+:is(.short-story-page, .short-story-dialog).config-card,
+:is(.short-story-page, .short-story-dialog) .result-card,
+:is(.short-story-page, .short-story-dialog).result-card {
+  border-radius: 12px;
+  border: 1px solid #e8eaed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+:is(.short-story-page, .short-story-dialog) .config-card .el-card__header,
+:is(.short-story-page, .short-story-dialog).config-card .el-card__header,
+:is(.short-story-page, .short-story-dialog) .result-card .el-card__header,
+:is(.short-story-page, .short-story-dialog).result-card .el-card__header {
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid #e8eaed;
+  padding: 16px 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .card-header,
+:is(.short-story-page, .short-story-dialog).card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+:is(.short-story-page, .short-story-dialog) .header-actions,
+:is(.short-story-page, .short-story-dialog).header-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-content,
+:is(.short-story-page, .short-story-dialog).config-content {
+  padding: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-row,
+:is(.short-story-page, .short-story-dialog).config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-item,
+:is(.short-story-page, .short-story-dialog).config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-label,
+:is(.short-story-page, .short-story-dialog).config-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+:is(.short-story-page, .short-story-dialog) .direction-input,
+:is(.short-story-page, .short-story-dialog).direction-input {
+  border-radius: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .direction-input .el-textarea__inner,
+:is(.short-story-page, .short-story-dialog).direction-input .el-textarea__inner {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+:is(.short-story-page, .short-story-dialog) .word-count-slider,
+:is(.short-story-page, .short-story-dialog).word-count-slider {
+  margin-top: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .tips-section,
+:is(.short-story-page, .short-story-dialog).tips-section {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--brand-50);
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+}
+
+:is(.short-story-page, .short-story-dialog) .tips-header,
+:is(.short-story-page, .short-story-dialog).tips-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 500;
+  color: #0369a1;
+}
+
+:is(.short-story-page, .short-story-dialog) .tips-grid,
+:is(.short-story-page, .short-story-dialog).tips-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .tip-item,
+:is(.short-story-page, .short-story-dialog).tip-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-content,
+:is(.short-story-page, .short-story-dialog).result-content {
+  padding: 20px;
+  min-height: 400px;
+}
+
+:is(.short-story-page, .short-story-dialog) .streaming-state,
+:is(.short-story-page, .short-story-dialog).streaming-state {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+:is(.short-story-page, .short-story-dialog) .streaming-header,
+:is(.short-story-page, .short-story-dialog).streaming-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--brand-50);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .streaming-icon,
+:is(.short-story-page, .short-story-dialog).streaming-icon {
+  width: 40px;
+  height: 40px;
+  background: #3b82f6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+:is(.short-story-page, .short-story-dialog) .rotating,
+:is(.short-story-page, .short-story-dialog).rotating {
+  animation: short-story-rotate 2s linear infinite;
+}
+
+:is(.short-story-page, .short-story-dialog) .streaming-text h4,
+:is(.short-story-page, .short-story-dialog).streaming-text h4 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .streaming-text p,
+:is(.short-story-page, .short-story-dialog).streaming-text p {
+  margin: 4px 0 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+:is(.short-story-page, .short-story-dialog) .streaming-content,
+:is(.short-story-page, .short-story-dialog).streaming-content {
+  flex: 1;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+:is(.short-story-page, .short-story-dialog) .streaming-text-content,
+:is(.short-story-page, .short-story-dialog).streaming-text-content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-display,
+:is(.short-story-page, .short-story-dialog).result-display {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-stats,
+:is(.short-story-page, .short-story-dialog).result-stats {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+:is(.short-story-page, .short-story-dialog) .stat-item,
+:is(.short-story-page, .short-story-dialog).stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .stat-label,
+:is(.short-story-page, .short-story-dialog).stat-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+:is(.short-story-page, .short-story-dialog) .stat-value,
+:is(.short-story-page, .short-story-dialog).stat-value {
+  font-size: 16px;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-text,
+:is(.short-story-page, .short-story-dialog).result-text {
+  flex: 1;
+  padding: 16px;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-state,
+:is(.short-story-page, .short-story-dialog).empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: #6b7280;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-icon,
+:is(.short-story-page, .short-story-dialog).empty-icon {
+  margin-bottom: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-state h4,
+:is(.short-story-page, .short-story-dialog).empty-state h4 {
+  margin: 0 0 8px 0;
+  color: #374151;
+  font-size: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-state p,
+:is(.short-story-page, .short-story-dialog).empty-state p {
+  margin: 0;
+  font-size: 14px;
+  max-width: 280px;
+}
+
+:is(.short-story-page, .short-story-dialog) .dialog-footer,
+:is(.short-story-page, .short-story-dialog).dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+:is(.short-story-page, .short-story-dialog) .footer-info,
+:is(.short-story-page, .short-story-dialog).footer-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+:is(.short-story-page, .short-story-dialog) .footer-actions,
+:is(.short-story-page, .short-story-dialog).footer-actions {
+  display: flex;
+  gap: 12px;
+}
+
+@keyframes short-story-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 旧的续写弹窗样式保留 */
+:is(.short-story-page, .short-story-dialog) .continue-dialog .el-dialog__body,
+:is(.short-story-page, .short-story-dialog).continue-dialog .el-dialog__body {
+  padding: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .continue-container,
+:is(.short-story-page, .short-story-dialog).continue-container {
+  display: flex;
+  gap: 20px;
+  height: 500px;
+}
+
+:is(.short-story-page, .short-story-dialog) .continue-config,
+:is(.short-story-page, .short-story-dialog).continue-config {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-section h4,
+:is(.short-story-page, .short-story-dialog).config-section h4 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:is(.short-story-page, .short-story-dialog) .tips-list,
+:is(.short-story-page, .short-story-dialog).tips-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #6c757d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+:is(.short-story-page, .short-story-dialog) .tips-list li,
+:is(.short-story-page, .short-story-dialog).tips-list li {
+  margin-bottom: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-actions,
+:is(.short-story-page, .short-story-dialog).config-actions {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+:is(.short-story-page, .short-story-dialog) .continue-result,
+:is(.short-story-page, .short-story-dialog).continue-result {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-header h4,
+:is(.short-story-page, .short-story-dialog).result-header h4 {
+  margin: 0 0 12px 0;
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-content,
+:is(.short-story-page, .short-story-dialog).result-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .continuing-placeholder,
+:is(.short-story-page, .short-story-dialog).continuing-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-style: italic;
+  padding: 20px;
+  justify-content: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .continuing-placeholder .loading-icon,
+:is(.short-story-page, .short-story-dialog).continuing-placeholder .loading-icon {
+  font-size: 16px;
+  animation: short-story-spin 1s linear infinite;
+}
+
+@keyframes short-story-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+:is(.short-story-page, .short-story-dialog) .continued-content,
+:is(.short-story-page, .short-story-dialog).continued-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .continued-text,
+:is(.short-story-page, .short-story-dialog).continued-text {
+  background: var(--brand-50);
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1e40af;
+  height: 300px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+:is(.short-story-page, .short-story-dialog) .continuing-indicator,
+:is(.short-story-page, .short-story-dialog).continuing-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  margin-top: 8px;
+  background: #e3f2fd;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #1976d2;
+}
+
+:is(.short-story-page, .short-story-dialog) .continuing-indicator .loading-icon,
+:is(.short-story-page, .short-story-dialog).continuing-indicator .loading-icon {
+  margin-right: 4px;
+  animation: short-story-spin 1s linear infinite;
+}
+
+:is(.short-story-page, .short-story-dialog) .word-count-tips,
+:is(.short-story-page, .short-story-dialog).word-count-tips {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-placeholder,
+:is(.short-story-page, .short-story-dialog).empty-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-placeholder .el-empty,
+:is(.short-story-page, .short-story-dialog).empty-placeholder .el-empty {
+  padding: 20px;
+}
+
+/* Tab样式优化 */
+:is(.short-story-page, .short-story-dialog) .page-tabs .el-tabs__header,
+:is(.short-story-page, .short-story-dialog).page-tabs .el-tabs__header {
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  padding: 10px 20px;
+  margin: 0 0 20px 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .page-tabs .el-tabs__nav-wrap,
+:is(.short-story-page, .short-story-dialog).page-tabs .el-tabs__nav-wrap {
+  padding: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .page-tabs .el-tabs__item,
+:is(.short-story-page, .short-story-dialog).page-tabs .el-tabs__item {
+  font-weight: 500;
+  font-size: 15px;
+  padding: 0 20px;
+  height: 40px;
+  line-height: 40px;
+}
+
+/* 编辑器主体样式 */
+/* 高级配置样式 */
+:is(.short-story-page, .short-story-dialog) .advanced-config,
+:is(.short-story-page, .short-story-dialog).advanced-config {
+  margin-top: 16px;
+}
+
+:is(.short-story-page, .short-story-dialog) .advanced-config .el-collapse-item__header,
+:is(.short-story-page, .short-story-dialog).advanced-config .el-collapse-item__header {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+:is(.short-story-page, .short-story-dialog) .age-input,
+:is(.short-story-page, .short-story-dialog).age-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .age-display,
+:is(.short-story-page, .short-story-dialog).age-display {
+  font-size: 16px;
+  font-weight: 500;
+  color: #2c3e50;
+  min-width: 40px;
+  text-align: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .header-actions,
+:is(.short-story-page, .short-story-dialog).header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-main,
+:is(.short-story-page, .short-story-dialog).editor-main {
+  flex: 1;
+  background: var(--el-bg-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-header,
+:is(.short-story-page, .short-story-dialog).editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--el-border-color-light);
+  background: #fafbfc;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-title,
+:is(.short-story-page, .short-story-dialog).editor-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+:is(.short-story-page, .short-story-dialog) .word-count,
+:is(.short-story-page, .short-story-dialog).word-count {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  background: #f0f2f5;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-actions,
+:is(.short-story-page, .short-story-dialog).editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-content,
+:is(.short-story-page, .short-story-dialog).editor-content {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper,
+:is(.short-story-page, .short-story-dialog).editor-wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-toolbar,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-toolbar {
+  border-bottom: 1px solid var(--el-border-color-light);
+  background: #fafbfc;
+  flex-shrink: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text-container,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text-container {
+  flex: 1;
+  background: var(--el-bg-color);
+  overflow-y: auto !important;
+  min-height: 400px;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text-container .w-e-text,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text-container .w-e-text {
+  min-height: 400px !important;
+  max-height: none !important;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text-container .w-e-scroll,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text-container .w-e-scroll {
+  overflow-y: auto !important;
+  max-height: none !important;
+}
+
+/* 确保 wangEditor 内容区域的滚动 */
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text-container,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text-container {
+  overflow-y: auto !important;
+  min-height: 400px;
+  max-height: calc(100vh - 300px);
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text {
+  min-height: 400px !important;
+  padding: 20px !important;
+  font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-scroll,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-scroll {
+  overflow-y: auto !important;
+  max-height: none !important;
+}
+
+/* 强制显示滚动条 */
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text-container,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text-container,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-scroll,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-scroll,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text {
+  scrollbar-width: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text-container::-webkit-scrollbar,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text-container::-webkit-scrollbar,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-scroll::-webkit-scrollbar,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-scroll::-webkit-scrollbar,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text::-webkit-scrollbar,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text-container::-webkit-scrollbar-track,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text-container::-webkit-scrollbar-track,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-scroll::-webkit-scrollbar-track,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-scroll::-webkit-scrollbar-track,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text::-webkit-scrollbar-track,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text::-webkit-scrollbar-track {
+  background: var(--el-bg-color-page);
+  border-radius: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text-container::-webkit-scrollbar-thumb,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text-container::-webkit-scrollbar-thumb,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-scroll::-webkit-scrollbar-thumb,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-scroll::-webkit-scrollbar-thumb,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text::-webkit-scrollbar-thumb,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text-container::-webkit-scrollbar-thumb:hover,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text-container::-webkit-scrollbar-thumb:hover,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-scroll::-webkit-scrollbar-thumb:hover,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-scroll::-webkit-scrollbar-thumb:hover,
+:is(.short-story-page, .short-story-dialog) .editor-wrapper .w-e-text::-webkit-scrollbar-thumb:hover,
+:is(.short-story-page, .short-story-dialog).editor-wrapper .w-e-text::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 生成中状态 */
+:is(.short-story-page, .short-story-dialog) .generating-overlay,
+:is(.short-story-page, .short-story-dialog).generating-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--el-bg-color);
+  padding: 20px;
+  z-index: 10;
+}
+
+/* 参考文章样式 */
+:is(.short-story-page, .short-story-dialog) .reference-list,
+:is(.short-story-page, .short-story-dialog).reference-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .reference-item,
+:is(.short-story-page, .short-story-dialog).reference-item {
+  border: 1px solid #e1e5e9;
+  border-radius: 6px;
+  padding: 12px;
+  background: var(--el-fill-color-light);
+}
+
+:is(.short-story-page, .short-story-dialog) .ref-header,
+:is(.short-story-page, .short-story-dialog).ref-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+:is(.short-story-page, .short-story-dialog) .generating-header,
+:is(.short-story-page, .short-story-dialog).generating-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--el-border-color-light);
+  font-weight: 500;
+  color: var(--brand-500);
+}
+
+:is(.short-story-page, .short-story-dialog) .streaming-content,
+:is(.short-story-page, .short-story-dialog).streaming-content {
+  line-height: 1.6;
+  color: #2c3e50;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+/* 续写对话框样式 */
+:is(.short-story-page, .short-story-dialog) .continue-dialog .el-dialog__body,
+:is(.short-story-page, .short-story-dialog).continue-dialog .el-dialog__body {
+  padding: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .continue-container,
+:is(.short-story-page, .short-story-dialog).continue-container {
+  height: 500px;
+}
+
+:is(.short-story-page, .short-story-dialog) .continue-config,
+:is(.short-story-page, .short-story-dialog).continue-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-section h4,
+:is(.short-story-page, .short-story-dialog).config-section h4 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:is(.short-story-page, .short-story-dialog) .tips-list,
+:is(.short-story-page, .short-story-dialog).tips-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #6c757d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+:is(.short-story-page, .short-story-dialog) .tips-list li,
+:is(.short-story-page, .short-story-dialog).tips-list li {
+  margin-bottom: 4px;
+}
+
+:is(.short-story-page, .short-story-dialog) .config-actions,
+:is(.short-story-page, .short-story-dialog).config-actions {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+:is(.short-story-page, .short-story-dialog) .continue-result,
+:is(.short-story-page, .short-story-dialog).continue-result {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 20px;
+  height: 100%;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-header h4,
+:is(.short-story-page, .short-story-dialog).result-header h4 {
+  margin: 0 0 12px 0;
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-content,
+:is(.short-story-page, .short-story-dialog).result-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+:is(.short-story-page, .short-story-dialog) .continuing-placeholder,
+:is(.short-story-page, .short-story-dialog).continuing-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-style: italic;
+  padding: 20px;
+  justify-content: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .continuing-placeholder .loading-icon,
+:is(.short-story-page, .short-story-dialog).continuing-placeholder .loading-icon {
+  font-size: 16px;
+  animation: short-story-spin 1s linear infinite;
+}
+
+@keyframes short-story-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+:is(.short-story-page, .short-story-dialog) .continued-content,
+:is(.short-story-page, .short-story-dialog).continued-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .continued-text,
+:is(.short-story-page, .short-story-dialog).continued-text {
+  background: var(--brand-50);
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1e40af;
+  height: 300px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+:is(.short-story-page, .short-story-dialog) .result-actions,
+:is(.short-story-page, .short-story-dialog).result-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .empty-result,
+:is(.short-story-page, .short-story-dialog).empty-result {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 优化对话框样式 */
+:is(.short-story-page, .short-story-dialog) .optimize-dialog .el-dialog__body,
+:is(.short-story-page, .short-story-dialog).optimize-dialog .el-dialog__body {
+  padding: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimize-container,
+:is(.short-story-page, .short-story-dialog).optimize-container {
+  height: 500px;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimize-config,
+:is(.short-story-page, .short-story-dialog).optimize-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+}
+
+:is(.short-story-page, .short-story-dialog) .selected-text-preview,
+:is(.short-story-page, .short-story-dialog).selected-text-preview {
+  background: var(--el-fill-color-light);
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #495057;
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimize-result,
+:is(.short-story-page, .short-story-dialog).optimize-result {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 20px;
+  height: 100%;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimizing-placeholder,
+:is(.short-story-page, .short-story-dialog).optimizing-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-style: italic;
+  padding: 20px;
+  justify-content: center;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimizing-placeholder .loading-icon,
+:is(.short-story-page, .short-story-dialog).optimizing-placeholder .loading-icon {
+  font-size: 16px;
+  animation: short-story-spin 1s linear infinite;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimized-content-container,
+:is(.short-story-page, .short-story-dialog).optimized-content-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimized-content,
+:is(.short-story-page, .short-story-dialog).optimized-content {
+  background: var(--brand-50);
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1e40af;
+  flex: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* 工具栏和按钮样式 */
+:is(.short-story-page, .short-story-dialog) .header-actions,
+:is(.short-story-page, .short-story-dialog).header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 生成状态提示样式 */
+:is(.short-story-page, .short-story-dialog) .generating-status,
+:is(.short-story-page, .short-story-dialog).generating-status {
+  margin-bottom: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .status-bar,
+:is(.short-story-page, .short-story-dialog).status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+:is(.short-story-page, .short-story-dialog) .status-info,
+:is(.short-story-page, .short-story-dialog).status-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+:is(.short-story-page, .short-story-dialog) .rotating,
+:is(.short-story-page, .short-story-dialog).rotating {
+  animation: short-story-rotate 1s linear infinite;
+}
+
+@keyframes short-story-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 选段优化状态提示样式 */
+:is(.short-story-page, .short-story-dialog) .optimizing-status,
+:is(.short-story-page, .short-story-dialog).optimizing-status {
+  margin-bottom: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimizing-status .status-bar,
+:is(.short-story-page, .short-story-dialog).optimizing-status .status-bar {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(240, 147, 251, 0.3);
+  font-size: 13px;
+}
+
+:is(.short-story-page, .short-story-dialog) .optimizing-status .status-info,
+:is(.short-story-page, .short-story-dialog).optimizing-status .status-info {
+  gap: 6px;
+  font-weight: 500;
+}
+
+/* 文风管理弹窗样式 */
+:is(.short-story-page, .short-story-dialog) .writing-style-dialog .el-dialog__body,
+:is(.short-story-page, .short-story-dialog).writing-style-dialog .el-dialog__body {
+  padding: 20px;
+}
+
+:is(.short-story-page, .short-story-dialog) .writing-style-container,
+:is(.short-story-page, .short-story-dialog).writing-style-container {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+:is(.short-story-page, .short-story-dialog) .style-header,
+:is(.short-story-page, .short-story-dialog).style-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+:is(.short-story-page, .short-story-dialog) .style-header h4,
+:is(.short-story-page, .short-story-dialog).style-header h4 {
+  margin: 0;
+  color: #374151;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+:is(.short-story-page, .short-story-dialog) .style-list,
+:is(.short-story-page, .short-story-dialog).style-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+:is(.short-story-page, .short-story-dialog) .style-item-row,
+:is(.short-story-page, .short-story-dialog).style-item-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+:is(.short-story-page, .short-story-dialog) .style-input,
+:is(.short-story-page, .short-story-dialog).style-input {
+  flex: 1;
+}
+
+:is(.short-story-page, .short-story-dialog) .style-prompt-input,
+:is(.short-story-page, .short-story-dialog).style-prompt-input {
+  flex: 2;
+}
+
+:is(.short-story-page, .short-story-dialog) .style-item-row .el-button,
+:is(.short-story-page, .short-story-dialog).style-item-row .el-button {
+  flex-shrink: 0;
+}

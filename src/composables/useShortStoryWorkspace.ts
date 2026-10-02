@@ -1,5 +1,4 @@
-import type { Ref } from 'vue'
-import type { IDomEditor } from '@wangeditor/editor'
+import { useShortStoryEditors } from './useShortStoryEditors'
 import type { TabsPaneContext } from 'element-plus'
 import type { ShortArticleDraft, ShortStoryDraft, ShortStoryConfig } from '@/types/shortStory'
 import type { PromptTemplate } from '@/config/defaultPrompts'
@@ -7,7 +6,6 @@ import {
   ref,
   reactive,
   computed,
-  shallowRef,
   toRef,
   watch,
   onMounted,
@@ -55,10 +53,7 @@ export function useShortStoryWorkspace() {
 
   // 响应式数据
   const generatedStory = ref('')
-
-  const hasSelection = ref(false)
-
-  const selectedText = ref('')
+  const { editorRef, articleEditorRef, toolbarConfig, articleToolbarConfig, editorConfig, articleEditorConfig, updateGeneratedEditor, handleEditorCreated, handleArticleEditorCreated, onEditorChange, onArticleEditorChange, handleTextSelection } = useShortStoryEditors()
 
   const showAdvancedConfig = ref<string[]>([])
 
@@ -147,21 +142,6 @@ export function useShortStoryWorkspace() {
     { flush: 'sync' }
   )
 
-  const updateGeneratedEditor = (
-    content: Ref<string>,
-    editor: Ref<IDomEditor | null>,
-    text: string,
-    isCurrent: () => boolean
-  ) => {
-    const html = text.replace(/\n/g, '<br/>')
-    content.value = html
-    const instance = editor.value
-    nextTick(() => {
-      if (isCurrent() && instance && editor.value === instance && content.value === html)
-        instance.setHtml(html)
-    })
-  }
-
   // 短文模块计算属性
   const isArticleConfigValid = computed(() => {
     return articleData.title.trim() && articleData.prompt.trim()
@@ -190,40 +170,6 @@ export function useShortStoryWorkspace() {
 
 例如：创作一篇都市爱情小说，主角是25岁的软件工程师李明，性格内向但善良。故事讲述他在咖啡馆遇到了画家女孩小雅，两人从陌生到相知相爱的过程。希望故事温馨感人，有一些生活的小细节，结局美满。`
   })
-
-  // WangEditor相关
-  const editorRef = shallowRef<IDomEditor | null>(null)
-
-  const toolbarConfig = {}
-
-  const editorConfig = {
-    placeholder: '生成的小说内容将显示在这里...',
-    MENU_CONF: {
-      uploadImage: {
-        server: '/api/upload-image',
-        fieldName: 'file',
-        maxFileSize: 5 * 1024 * 1024,
-        allowedFileTypes: ['image/*'],
-      },
-    },
-  }
-
-  // 短文编辑器相关
-  const articleEditorRef = shallowRef<IDomEditor | null>(null)
-
-  const articleToolbarConfig = {}
-
-  const articleEditorConfig = {
-    placeholder: '生成的短文内容将显示在这里，您也可以直接编辑...',
-    MENU_CONF: {
-      uploadImage: {
-        server: '/api/upload-image',
-        fieldName: 'file',
-        maxFileSize: 5 * 1024 * 1024,
-        allowedFileTypes: ['image/*'],
-      },
-    },
-  }
 
   // 故事数据
   const storyData = reactive<ShortStoryDraft>({
@@ -486,33 +432,6 @@ export function useShortStoryWorkspace() {
       .catch(() => {
         // 用户取消
       })
-  }
-
-  const handleEditorCreated = (editor: IDomEditor) => {
-    editorRef.value = editor
-  }
-
-  const onEditorChange = (_editor: IDomEditor) => {
-    // 编辑器内容变化时的处理，v-model会自动处理
-  }
-
-  // 短文编辑器事件处理
-  const handleArticleEditorCreated = (editor: IDomEditor) => {
-    articleEditorRef.value = editor
-  }
-
-  const onArticleEditorChange = (_editor: IDomEditor) => {
-    // 短文编辑器内容变化时的处理，v-model会自动处理
-  }
-
-  const handleTextSelection = (_event: Event) => {
-    const selection = window.getSelection()?.toString() ?? ''
-    if (selection.length > 0) {
-      selectedText.value = selection
-      hasSelection.value = true
-    } else {
-      hasSelection.value = false
-    }
   }
 
   // 显示选段优化弹窗

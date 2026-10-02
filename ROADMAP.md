@@ -20,3 +20,5 @@ Completed foundations:
 - Mind maps follow light, dark and system themes without replacing the editable graph; PNG exports use the active background.
 
 The four previously listed roadmap candidates are complete. Further priorities will be selected from repository issues and user feedback.
+
+Current maintenance work unifies writing-goal persistence/history and local-calendar streaks, patches development dependencies, and continues ShortStory/BookAnalysis component and controller extraction. Validation is recorded in CI and the unreleased changelog.

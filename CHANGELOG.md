@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Updated the development-only brace-expansion dependency to 5.0.12; the full dependency audit is clean.
+- Unified both writing-goal entry points and the homepage on a shared typed store. Progress updates preserve notes and history, serialized saves retain the last committed state on failure, and edits retain legacy metadata. Continuous writing days use actual activity on local calendar dates, including DST boundaries and progress corrections.
+- Extracted ShortStory and BookAnalysis panels/dialogs into typed components with page-owned workspace contexts and feature-scoped shared styles. Moved short-story editor handling and book chapter viewing/export out of their workspace controllers.
+- Added goal persistence, failure/retry, concurrency, legacy-data and calendar regressions, plus a real-browser scenario covering both goal entry points and reload.
+
 ## [1.0.2]
 
 Complete the remaining view, conversation, corpus and theme maintenance work.

@@ -131,7 +131,7 @@
             
             <div class="streak-info" v-if="displayedGoals.length > 0">
               <el-icon class="streak-icon"><Trophy /></el-icon>
-              <span>连续写作 {{ calculateStreak() }} 天</span>
+              <span>连续写作 {{ writingStreak }} 天</span>
             </div>
           </div>
         </el-card>
@@ -232,7 +232,9 @@
 import { toDate } from '@/utils/dates'
 import type { WriterNovel } from '@/types/writer'
 import type { WritingGoal } from '@/types/management'
-import { ref, computed, onMounted } from 'vue'
+import { useWritingGoalsStore } from '@/stores/writingGoals'
+import { storeToRefs } from 'pinia'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Plus, Document, EditPen, Notebook, CreditCard,
@@ -266,29 +268,9 @@ const stats = computed(() => {
   }
 })
 
-// 添加响应式的目标数据状态
-const goalsRefreshTrigger = ref(0)
-const maxDisplayGoals = ref(3) // 首页最多显示的目标数量
-
-// 获取所有活跃目标
-const activeGoals = computed(() => {
-  // 触发重新计算（通过依赖goalsRefreshTrigger）
-  void goalsRefreshTrigger.value
-  
-  // 从本地存储获取真实的写作目标数据
-  const goalsData = storageGet<WritingGoal[]>(StorageKeys.writingGoals, [])
-  const active = goalsData.filter(goal => goal.status === 'active')
-  
-  // 按优先级排序（priority字段，数字越小优先级越高），如果没有priority则按创建时间排序
-  return active.sort((a, b) => {
-    if (a.priority !== undefined && b.priority !== undefined) {
-      return a.priority - b.priority
-    }
-    if (a.priority !== undefined) return -1
-    if (b.priority !== undefined) return 1
-    return toDate(a.createdAt || 0).getTime() - toDate(b.createdAt || 0).getTime()
-  })
-})
+const goalsStore = useWritingGoalsStore()
+const { activeGoals, streak: writingStreak } = storeToRefs(goalsStore)
+const maxDisplayGoals = ref(3)
 
 // 首页显示的目标（限制数量）
 const displayedGoals = computed(() => {
@@ -310,7 +292,7 @@ const currentGoal = computed(() => {
     dailyWritten: daily?.currentValue || 0,
     weeklyTarget: weekly?.targetValue || 14000,
     weeklyWritten: weekly?.currentValue || 0,
-    streak: 0
+    streak: writingStreak.value
   }
 })
 
@@ -346,12 +328,6 @@ const _weeklyProgress = computed(() => {
 const getGoalProgress = (goal: WritingGoal) => {
   if (!goal.targetValue || goal.targetValue === 0) return 0
   return Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100))
-}
-
-const calculateStreak = () => {
-  // 简化的连续天数计算逻辑
-  // 可以根据实际需求实现更复杂的逻辑
-  return 0
 }
 
 const _getGoalTypeText = (type: string) => {
@@ -419,31 +395,6 @@ const openBilling = () => {
   router.push('/billing')
 }
 
-// 页面获得焦点时重新计算数据，确保数据同步
-const refreshData = () => {
-  goalsRefreshTrigger.value++
-  console.log('首页刷新目标数据')
-}
-
-// 暴露刷新函数给全局，以便其他页面调用
-window.refreshHomeData = refreshData
-
-// 生命周期
-onMounted(() => {
-  // 监听localStorage变化，以便实时更新目标数据
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'writingGoals') {
-      refreshData()
-    }
-  })
-  
-  // 监听页面可见性变化
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      refreshData()
-    }
-  })
-})
 </script>
 
 <style scoped>
