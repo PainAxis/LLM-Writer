@@ -390,16 +390,29 @@ import {
 } from '@/services/backup'
 import { useContextPolicy } from '@/stores/assistant'
 
-const { policy: contextPolicy, savePolicy: persistContextPolicy, resetPolicy } = useContextPolicy()
+const { policy: savedContextPolicy, savePolicy: persistContextPolicy, resetPolicy } = useContextPolicy()
+const contextPolicy = ref({ ...savedContextPolicy.value })
 
 const saveContextPolicy = () => {
-  persistContextPolicy(contextPolicy.value)
-  ElMessage.success('上下文设置已保存')
+  try {
+    persistContextPolicy({ ...contextPolicy.value })
+    contextPolicy.value = { ...savedContextPolicy.value }
+    ElMessage.success('上下文设置已保存')
+  } catch (error) {
+    console.error('保存上下文设置失败:', error)
+    ElMessage.error('保存失败，输入已保留，请重试')
+  }
 }
 
 const resetContextPolicy = () => {
-  resetPolicy()
-  ElMessage.success('已恢复默认上下文设置')
+  try {
+    resetPolicy()
+    contextPolicy.value = { ...savedContextPolicy.value }
+    ElMessage.success('已恢复默认上下文设置')
+  } catch (error) {
+    console.error('重置上下文设置失败:', error)
+    ElMessage.error('重置失败，设置已保留，请重试')
+  }
 }
 
 // 响应式数据
@@ -459,9 +472,9 @@ const calculateDataStats = () => {
   }
 }
 
-const downloadBackup = (groups: BackupGroup[], label: string) => {
+const downloadBackup = async (groups: BackupGroup[], label: string) => {
   try {
-    const data = createBackup(groups)
+    const data = await createBackup(groups)
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -470,8 +483,8 @@ const downloadBackup = (groups: BackupGroup[], label: string) => {
     a.click()
     URL.revokeObjectURL(url)
     ElMessage.success(`${label}导出成功`)
-  } catch {
-    ElMessage.error('备份导出失败，请检查本地数据后重试')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? `备份导出失败：${error.message}` : '备份导出失败，请检查本地数据后重试')
   }
 }
 
@@ -550,7 +563,7 @@ const beforeImport = (file: File) => {
 
 const reportClearFailure = (error: unknown) => {
   if (error !== 'cancel' && error !== 'close') {
-    ElMessage.error('清除失败，请检查可用存储空间后重试')
+    ElMessage.error(error instanceof Error ? error.message : '清除失败，请检查可用存储空间后重试')
   }
 }
 

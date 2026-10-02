@@ -239,6 +239,67 @@ async function verifyGlobalRetry() {
   }
 }
 
+async function verifyLegacyCrossTabIsolation() {
+  const local = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => local.get(key) ?? null,
+      setItem: (key: string, value: string) => { local.set(key, value) },
+      removeItem: (key: string) => local.delete(key),
+    },
+  })
+  for (const operation of ['create', 'edit', 'duplicate', 'delete'] as const) {
+    const state = setup('novels')
+    const initial = fixture().map(novel => ({ ...novel, extension: { retained: `novel-${novel.id}` } }))
+    local.set(StorageKeys.novels, JSON.stringify(initial))
+    await initNovelPersistence()
+    state.loadNovels()
+    assert.deepEqual(state.novels.value[1].writingRecords, [], '列表应继续提供旧记录的展示默认值')
+    assert.ok(state.novels.value[1].createdAt instanceof Date)
+
+    const external = clone(initial)
+    external[1].title = '另一标签修改小说乙'
+    external[1].extension.remote = '保留外部扩展字段'
+    local.set(StorageKeys.novels, JSON.stringify(external))
+    if (operation === 'create') await state.createNovel()
+    else if (operation === 'edit') {
+      state.novels.value[0].writingRecords = [{ date: '2026-10-02', words: 123 }]
+      state.novels.value[0].extension.explicitEdit = '真实修改应完整保存'
+      await state.updateNovelInfo()
+    } else if (operation === 'duplicate') await state.duplicateNovel(state.novels.value[0])
+    else await state.deleteNovel(state.novels.value[0])
+
+    assert.deepEqual(state.errors, [], `${operation} 不应把另一作品的展示默认值当作并发修改`)
+    assert.equal(state.success.length, 1)
+    const persisted = JSON.parse(local.get(StorageKeys.novels)!)
+    assert.deepEqual(persisted.find((novel: any) => novel.id === 2), external[1], '远端小说正文/字段保持原样，不补默认数组或日期')
+    if (operation === 'edit') {
+      const edited = persisted.find((novel: any) => novel.id === 1)
+      assert.equal(edited.title, '修改标题')
+      assert.equal(edited.extension.retained, 'novel-1')
+      assert.equal(edited.extension.explicitEdit, '真实修改应完整保存')
+      assert.deepEqual(edited.writingRecords, [{ date: '2026-10-02', words: 123 }], '显式编辑的对象仍完整提交，包括可选字段')
+    }
+    console.log(`✓ legacy/${operation}：真实管理函数与持久化后端合并不同作品，展示默认值不污染未编辑对象`)
+  }
+
+  const state = setup('novels')
+  local.set(StorageKeys.novels, JSON.stringify(fixture()))
+  await initNovelPersistence()
+  state.loadNovels()
+  const external = fixture()
+  external[0].title = '远端同作品新标题'
+  local.set(StorageKeys.novels, JSON.stringify(external))
+  const draft = clone(state.editForm.value)
+  await state.updateNovelInfo()
+  assert.equal(state.errors.length, 1, '不能通过读取最新磁盘基线来放行旧编辑')
+  assert.deepEqual(state.success, [])
+  assert.deepEqual(state.editForm.value, draft)
+  assert.deepEqual(JSON.parse(local.get(StorageKeys.novels)!), external)
+  console.log('✓ legacy/conflict：同作品冲突仍拒绝，原表单草稿与远端版本均保留')
+}
+
 async function main() {
   let result = await verifyFailureThenRetry('novels', '小说创建', state => state.createNovel())
   assert.equal(disk.length, 3, '创建重试不能重复插入')
@@ -275,6 +336,7 @@ async function main() {
   }
   console.log('✓ 取消两类删除确认不写入，也不误报存储失败')
   await verifyGlobalRetry()
+  await verifyLegacyCrossTabIsolation()
   console.log('\n=== ALL MANAGEMENT-PERSISTENCE TESTS PASSED ===')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 })

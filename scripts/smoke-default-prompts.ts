@@ -7,7 +7,7 @@ import assert from 'node:assert'
 import { DEFAULT_PROMPTS, PROMPTS_VERSION, mergeDefaultPrompts } from '../src/config/defaultPrompts'
 
 // ---- 测试 1：id 唯一且必填字段非空 ----
-const ids = new Set<number>()
+const ids = new Set<number | string>()
 for (const p of DEFAULT_PROMPTS) {
   assert.ok(!ids.has(p.id), `模板 id 重复: ${p.id}`)
   ids.add(p.id)

@@ -25,19 +25,6 @@ const activeConfig = computed<ApiConfig>(() => apiConfig.value)
 
 const isApiConfigured = computed(() => Boolean(apiConfig.value.apiKey?.trim()))
 
-// ---------- 持久化 ----------
-function saveConfig(): void {
-  storageSet(StorageKeys.apiConfig, apiConfig.value)
-}
-
-function saveCustomModels(): void {
-  storageSet(StorageKeys.customModels, customModels.value)
-}
-
-function saveProviderModels(): void {
-  storageSet(StorageKeys.providerModels, providerModels.value)
-}
-
 // ---------- 初始化与迁移 ----------
 function loadFromStorage(): void {
   // 新键缺失时，尝试从旧版项目遗留的键中迁移一次
@@ -76,23 +63,28 @@ function loadFromStorage(): void {
 
 // ---------- 对外操作 ----------
 function updateConfig(partial: Partial<ApiConfig>): void {
-  apiConfig.value = { ...apiConfig.value, ...partial }
-  saveConfig()
+  const next = { ...apiConfig.value, ...partial }
+  next.customHeaders = { ...next.customHeaders }
+  storageSet(StorageKeys.apiConfig, next)
+  apiConfig.value = next
 }
 
 function setCustomModels(models: CustomModelOption[]): void {
-  customModels.value = models
-  saveCustomModels()
+  const next = models.map(model => ({ ...model }))
+  storageSet(StorageKeys.customModels, next)
+  customModels.value = next
 }
 
 function setProviderModels(providerId: string, models: string[]): void {
-  providerModels.value = { ...providerModels.value, [providerId]: models }
-  saveProviderModels()
+  const next = { ...providerModels.value, [providerId]: [...models] }
+  storageSet(StorageKeys.providerModels, next)
+  providerModels.value = next
 }
 
 function resetConfig(): void {
-  apiConfig.value = structuredClone(DEFAULT_CONFIG)
-  saveConfig()
+  const next = structuredClone(DEFAULT_CONFIG)
+  storageSet(StorageKeys.apiConfig, next)
+  apiConfig.value = next
 }
 
 loadFromStorage()

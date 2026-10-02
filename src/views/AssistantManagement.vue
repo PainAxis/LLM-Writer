@@ -91,6 +91,10 @@
           </div>
         </div>
 
+        <el-alert v-if="store.pendingConversationSave" title="会话尚未保存，请勿刷新或关闭页面。重试保存后可继续，重试不会重新调用 AI。" type="warning" :closable="false" show-icon>
+          <el-button size="small" @click="store.retryConversationSave()">重试保存会话</el-button>
+        </el-alert>
+
         <div ref="messagesRef" class="chat-messages" tabindex="0" aria-label="助手会话" @scroll="onScroll" @wheel="onScrollIntent" @touchstart="onScrollIntent" @keydown="onScrollKey">
           <el-empty
             v-if="store.activeConversation.length === 0"
@@ -119,7 +123,7 @@
             :rows="3"
             resize="none"
             placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-            :disabled="store.isStreaming || store.isPreparing"
+            :disabled="store.isStreaming || store.isPreparing || store.pendingConversationSave"
             @keydown.enter.exact="onEnterKey"
           />
           <div class="input-actions">
@@ -127,7 +131,7 @@
               v-if="!store.isStreaming && !store.isPreparing"
               type="primary"
               :icon="Promotion"
-              :disabled="!inputText.trim()"
+              :disabled="!inputText.trim() || store.pendingConversationSave"
               @click="handleSend"
               >发送</el-button
             >
@@ -256,27 +260,26 @@ import { Delete, DeleteFilled, Edit, Plus, Promotion, VideoPause } from '@elemen
 import { useAssistantStore } from '@/stores/assistant'
 import { useApiConfig } from '@/services/apiConfig'
 import { FALLBACK_MODELS } from '@/services/aiProviders'
-import { estimateTokens } from '@/utils/tokenBudget'
 import { normalizeContextPolicy } from '@/utils/contextPolicy'
 import type { AssistantInfo } from '@/types/api'
 
 const store = useAssistantStore()
 const { activeConfig } = useApiConfig()
 
-const inputText = ref('')
+const inputDrafts = ref<Record<number, string>>({})
+const inputText = computed({
+  get: () => inputDrafts.value[store.activeAssistantId] ?? '',
+  set: (value: string) => { inputDrafts.value[store.activeAssistantId] = value },
+})
 const messagesRef = ref<HTMLElement | null>(null)
 
 const isPendingCompaction = computed(() =>
   Boolean(store.activeAssistant && store.pendingCompaction[store.activeAssistant.id])
 )
 
-const contextTokens = computed(() =>
-  estimateTokens(store.activeConversation.map((entry) => entry.content).join('\n'))
-)
-
 const contextText = computed(() => {
   const budget = store.activePolicy.maxTokens
-  const current = `${(contextTokens.value / 1000).toFixed(1)}K`
+  const current = `${(store.contextTokenCount / 1000).toFixed(1)}K`
   return budget > 0 ? `${current} / ${(budget / 1000).toFixed(1)}K` : current
 })
 
@@ -335,26 +338,30 @@ function saveDialog(): void {
     return
   }
 
-  if (editingId.value !== null) {
-    store.updateAssistant(editingId.value, {
-      name,
-      persona: form.persona,
-      defaultModel: form.defaultModel,
-      contextPolicyMode: form.contextPolicyMode,
-      contextPolicy: normalizeContextPolicy(form.contextPolicy),
-    })
-    ElMessage.success('助手已更新')
-  } else {
-    store.addAssistant({
-      name,
-      persona: form.persona,
-      defaultModel: form.defaultModel || undefined,
-      contextPolicyMode: form.contextPolicyMode,
-      contextPolicy: normalizeContextPolicy(form.contextPolicy),
-    })
-    ElMessage.success('助手已创建')
+  try {
+    if (editingId.value !== null) {
+      store.updateAssistant(editingId.value, {
+        name,
+        persona: form.persona,
+        defaultModel: form.defaultModel,
+        contextPolicyMode: form.contextPolicyMode,
+        contextPolicy: normalizeContextPolicy(form.contextPolicy),
+      })
+      ElMessage.success('助手已更新')
+    } else {
+      store.addAssistant({
+        name,
+        persona: form.persona,
+        defaultModel: form.defaultModel || undefined,
+        contextPolicyMode: form.contextPolicyMode,
+        contextPolicy: normalizeContextPolicy(form.contextPolicy),
+      })
+      ElMessage.success('助手已创建')
+    }
+    showDialog.value = false
+  } catch (error) {
+    ElMessage.error(`保存助手失败：${error instanceof Error ? error.message : String(error)}`)
   }
-  showDialog.value = false
 }
 
 async function confirmRemove(assistant: AssistantInfo): Promise<void> {
@@ -367,11 +374,12 @@ async function confirmRemove(assistant: AssistantInfo): Promise<void> {
   } catch {
     return
   }
-  if (store.isStreaming) {
-    store.stop('已停止对话')
+  try {
+    store.removeAssistant(assistant.id)
+    ElMessage.success('助手已删除')
+  } catch (error) {
+    ElMessage.error(`删除助手失败：${error instanceof Error ? error.message : String(error)}`)
   }
-  store.removeAssistant(assistant.id)
-  ElMessage.success('助手已删除')
 }
 
 async function confirmClearConversation(): Promise<void> {
@@ -386,8 +394,12 @@ async function confirmClearConversation(): Promise<void> {
   } catch {
     return
   }
-  store.clearConversation(assistant.id)
-  ElMessage.success('会话已清空')
+  try {
+    store.clearConversation(assistant.id)
+    ElMessage.success('会话已清空')
+  } catch (error) {
+    ElMessage.error(`清空会话失败：${error instanceof Error ? error.message : String(error)}`)
+  }
 }
 
 /** 中文输入法组合期间按 Enter 是确认候选词，不触发发送 */
@@ -405,16 +417,18 @@ async function handleSend(): Promise<void> {
 
   inputText.value = ''
   scrollToBottom()
-  const reply = await store.sendMessage(text)
+  let reply = null
+  try {
+    reply = await store.sendMessage(text)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : String(error))
+  }
   if (
     reply === null &&
-    !store.isStreaming &&
-    !store.isPreparing &&
-    store.activeAssistantId === assistantId &&
-    !inputText.value.trim()
+    !inputDrafts.value[assistantId]?.trim()
   ) {
     // 发送失败：把内容还原回输入框，避免用户丢失输入
-    inputText.value = text
+    inputDrafts.value[assistantId] = text
   }
 }
 </script>

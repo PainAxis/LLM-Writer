@@ -68,11 +68,20 @@ async function main() {
     else await storageSet(key, value)
   }
   await storageSet(StorageKeys.legacySettingsApiConfig, { apiKey: 'obsolete-test-key' })
-  const backup = JSON.parse(JSON.stringify(createBackup()))
+  const backup = JSON.parse(JSON.stringify(await createBackup()))
   assert.deepEqual(backup.data, fixture)
   store.clear()
   assert.equal(await restoreBackup(backup), ALL_BACKUP_GROUPS.length)
-  assert.deepEqual(createBackup().data, fixture)
+  assert.deepEqual((await createBackup()).data, fixture)
+  const cursorSummary = { text: '带覆盖边界的摘要', coveredThroughEntryId: 'message', policyFingerprint: JSON.stringify(policy) }
+  const summaryBackup = { ...backup, data: { ...backup.data, [StorageKeys.assistantSummaries]: { 1: cursorSummary, 2: '兼容旧字符串摘要' } } }
+  assert.deepEqual(parseBackup(summaryBackup)[StorageKeys.assistantSummaries], summaryBackup.data[StorageKeys.assistantSummaries])
+  await restoreBackup(summaryBackup, ['assistants'])
+  assert.deepEqual((await createBackup(['assistants'])).data[StorageKeys.assistantSummaries], summaryBackup.data[StorageKeys.assistantSummaries])
+  for (const malformed of [{ text: '缺少游标' }, { text: '空游标', coveredThroughEntryId: '' }, { text: '非法游标', coveredThroughEntryId: 1 }]) {
+    assert.throws(() => parseBackup({ ...summaryBackup, data: { ...summaryBackup.data, [StorageKeys.assistantSummaries]: { 1: malformed } } }), /assistantSummaries/)
+  }
+  await restoreBackup(backup, ['assistants'])
   assert.equal(store.get(StorageKeys.chapterSummaryPromptTemplate), fixture[StorageKeys.chapterSummaryPromptTemplate], '原始字符串不能多加 JSON 引号')
   assert.equal(store.get(StorageKeys.lastReadAnnouncementVersion), 'v1')
   assert.equal(store.get(StorageKeys.lastReadAnnouncementDate), '2026-09-01')
@@ -80,7 +89,7 @@ async function main() {
   console.log('✓ 完整备份覆盖全部有效键，小说素材、助手会话、设置、原始文本往返一致')
 
   for (const group of ALL_BACKUP_GROUPS) {
-    const category = createBackup([group])
+    const category = await createBackup([group])
     assert.deepEqual(Object.keys(category.data).sort(), [...BACKUP_GROUPS[group]].sort())
     assert.equal(await restoreBackup(category, [group]), 1)
   }
@@ -171,6 +180,53 @@ async function main() {
   await assert.rejects(restoreBackup({ novels: [] }), /已恢复导入前的数据/)
   assert.deepEqual(persistedNovels, [novel])
   console.log('✓ 正文导入等待异步持久化完成，拒绝会传回调用方并保留旧数据')
+
+  // The real backend keeps this tab's editor snapshot separate from committed
+  // cross-tab merges. Backups must read the latter without rebasing that draft.
+  const { initNovelPersistence, retryNovelPersistence } = await import('../src/services/novelPersistence')
+  store.set(StorageKeys.novels, JSON.stringify([novel]))
+  await initNovelPersistence()
+  const local = storageGet<Array<typeof novel>>(StorageKeys.novels, [])
+  const external = { ...novel, id: 2, title: '另一标签新建的作品' }
+  store.set(StorageKeys.novels, JSON.stringify([novel, external]))
+  local[0]!.title = '本页编辑后已保存'
+  await storageSet(StorageKeys.novels, local)
+  const committed = JSON.parse(store.get(StorageKeys.novels)!) as Array<typeof novel>
+  assert.deepEqual((await createBackup(['novels'])).data[StorageKeys.novels], committed)
+  assert.equal(storageGet<unknown[]>(StorageKeys.novels, []).length, 1, '权威备份读取不能悄悄重载编辑快照')
+
+  const unsaved = storageGet<Array<typeof novel>>(StorageKeys.novels, [])
+  unsaved[0]!.title = '需要保留的失败草稿'
+  failNextKey = StorageKeys.novels
+  console.error = () => {}
+  try {
+    await assert.rejects(Promise.resolve(storageSet(StorageKeys.novels, unsaved)), /simulated storage failure/)
+    await assert.rejects(createBackup(['novels']), /保存|草稿/)
+  } finally {
+    console.error = originalError
+  }
+  assert.equal(storageGet<Array<typeof novel>>(StorageKeys.novels, [])[0]!.title, '需要保留的失败草稿')
+  assert.deepEqual(JSON.parse(store.get(StorageKeys.novels)!), committed)
+  await retryNovelPersistence()
+  const afterRetry = (await createBackup(['novels'])).data[StorageKeys.novels] as Array<typeof novel>
+  assert.equal(afterRetry[0]!.title, '需要保留的失败草稿')
+  assert.equal(afterRetry[1]!.title, external.title)
+  const queued = storageGet<Array<typeof novel>>(StorageKeys.novels, [])
+  queued[0]!.title = '导出等待保存完成'
+  const saving = Promise.resolve(storageSet(StorageKeys.novels, queued))
+  const exporting = createBackup(['novels'])
+  await saving
+  assert.equal(((await exporting).data[StorageKeys.novels] as Array<typeof novel>)[0]!.title, queued[0]!.title)
+  const remoteChanged = JSON.parse(store.get(StorageKeys.novels)!) as Array<typeof novel>
+  remoteChanged[0]!.title = '另一标签已提交的新版本'
+  store.set(StorageKeys.novels, JSON.stringify(remoteChanged))
+  const conflicting = storageGet<Array<typeof novel>>(StorageKeys.novels, [])
+  conflicting[0]!.title = '本页冲突草稿'
+  await assert.rejects(Promise.resolve(storageSet(StorageKeys.novels, conflicting)), /其他标签页修改/)
+  await assert.rejects(createBackup(['novels']), /保存|草稿/)
+  assert.equal(storageGet<Array<typeof novel>>(StorageKeys.novels, [])[0]!.title, '本页冲突草稿')
+  assert.deepEqual(JSON.parse(store.get(StorageKeys.novels)!), remoteChanged)
+  console.log('✓ 备份包含其他标签已提交的作品；本页保存失败时拒绝导出，重试后完整导出且草稿不丢失')
   console.log('\n=== ALL BACKUP TESTS PASSED ===')
 }
 

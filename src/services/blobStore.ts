@@ -110,6 +110,50 @@ export async function idbDelete(key: string): Promise<void> {
   await idbDeleteMany([key])
 }
 
+/**
+ * Serialize a synchronous commit across contexts without a stored lease.
+ * A readwrite transaction excludes other transactions over this store until
+ * its sentinel request and callback finish. No IndexedDB data is changed here.
+ */
+export async function idbRunSync<T>(callback: () => T): Promise<T> {
+  const db = await openDB()
+  return new Promise<T>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    const request = tx.objectStore(STORE_NAME).get('__llm_writer_commit_gate__')
+    let completed = false
+    let result: T
+    let callbackError: unknown
+    let callbackFailed = false
+    const finish = (error?: unknown) => {
+      // The gate only reads IDB. A later abort cannot roll back the synchronous
+      // localStorage commit, so report its known result instead of a false failure.
+      if (completed) resolve(result)
+      else if (callbackFailed) reject(callbackError)
+      else reject(error ?? new Error('存储提交协调事务中止'))
+    }
+    tx.oncomplete = () => finish()
+    tx.onerror = () => finish(tx.error ?? new Error('存储提交协调事务失败'))
+    tx.onabort = () => finish(tx.error ?? new Error('存储提交协调事务中止'))
+    request.onerror = () => finish(request.error ?? new Error('存储提交协调读取失败'))
+    request.onsuccess = () => {
+      try {
+        result = callback()
+        if (result !== null && (typeof result === 'object' || typeof result === 'function')
+          && typeof (result as { then?: unknown }).then === 'function') {
+          void Promise.resolve(result).catch(() => undefined)
+          throw new TypeError('存储提交回调必须同步，不能返回 Promise')
+        }
+        completed = true
+      } catch (error) {
+        callbackError = error
+        callbackFailed = true
+        try { tx.abort() } catch { /* Preserve the callback's original failure. */ }
+        finish()
+      }
+    }
+  })
+}
+
 export async function idbClear(): Promise<void> {
   await writeTransaction((store) => { store.clear() })
 }

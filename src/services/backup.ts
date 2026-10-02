@@ -1,5 +1,5 @@
 import {
-  StorageKeys, storageGet, storageGetRaw, storageSet, storageSetRaw, storageRemove,
+  StorageKeys, storageGet, storageGetRaw, storageReadCommitted, storageReplace, storageSetRaw, storageRemove,
   type StorageKey,
 } from '../utils/storage'
 
@@ -130,7 +130,13 @@ function validateValue(key: StorageKey, value: unknown): void {
       })
       break
     case StorageKeys.assistantSummaries:
-      check(object(value) && Object.values(value).every(string), path)
+      check(object(value), path)
+      for (const [id, summary] of Object.entries(value)) {
+        if (string(summary)) continue // Historical backups have no coverage cursor.
+        const summaryPath = `${path}.${id}`
+        check(object(summary) && string(summary.text) && string(summary.coveredThroughEntryId) && summary.coveredThroughEntryId !== '', summaryPath)
+        fields(summary, ['policyFingerprint'], string, summaryPath)
+      }
       break
     case StorageKeys.apiConfig:
       check(object(value), path)
@@ -181,14 +187,14 @@ function validateValue(key: StorageKey, value: unknown): void {
   }
 }
 
-function readValue(key: StorageKey): unknown {
-  return RAW_KEYS.includes(key) ? storageGetRaw(key) : storageGet(key, null)
+async function readValue(key: StorageKey): Promise<unknown> {
+  return RAW_KEYS.includes(key) ? storageGetRaw(key) : storageReadCommitted(key)
 }
 
-export function createBackup(groups: readonly BackupGroup[] = ALL_BACKUP_GROUPS): BackupFile {
+export async function createBackup(groups: readonly BackupGroup[] = ALL_BACKUP_GROUPS): Promise<BackupFile> {
   const data: Data = {}
   for (const group of groups) for (const key of BACKUP_GROUPS[group]) {
-    let value = readValue(key)
+    let value = await readValue(key)
     if (key === StorageKeys.apiConfig && value === null) {
       value = storageGet(StorageKeys.customApiConfig, null) ?? storageGet(StorageKeys.officialApiConfig, null)
     }
@@ -242,7 +248,7 @@ export function matchingBackupGroups(data: Data, groups: readonly BackupGroup[])
 async function writeValue(key: StorageKey, value: unknown): Promise<void> {
   if (value === null) await storageRemove(key)
   else if (RAW_KEYS.includes(key)) storageSetRaw(key, value as string)
-  else await storageSet(key, value)
+  else await storageReplace(key, value)
 }
 
 /** 全量验证后才开始覆盖；等待正文分片落盘，并在失败时尝试恢复已经写入的键。 */
@@ -251,21 +257,23 @@ export async function restoreBackup(input: unknown, groups: readonly BackupGroup
   const selected = matchingBackupGroups(data, groups)
   const keys = ALL_KEYS.filter(key => selected.some(group => (BACKUP_GROUPS[group] as readonly StorageKey[]).includes(key)) && key in data)
   // 深复制，隔离小说后端/响应式状态在写入期间的引用变化。
-  const previous = new Map(keys.map(key => [key, JSON.parse(JSON.stringify(readValue(key))) as unknown]))
+  const previous = new Map<StorageKey, unknown>()
+  for (const key of keys) previous.set(key, JSON.parse(JSON.stringify(await readValue(key))) as unknown)
   const attempted: StorageKey[] = []
   try {
     for (const key of keys) {
       attempted.push(key)
       await writeValue(key, data[key])
     }
-  } catch {
+  } catch (error) {
     let rollbackFailed = false
     for (const key of attempted.reverse()) {
       try { await writeValue(key, previous.get(key)) } catch { rollbackFailed = true }
     }
+    const reason = error instanceof Error ? error.message : '请检查本地数据与可用存储空间后重试'
     throw new Error(rollbackFailed
-      ? '导入失败，部分数据未能恢复原状。请保留备份文件并检查可用存储空间。'
-      : '导入失败，已恢复导入前的数据。请检查可用存储空间后重试。')
+      ? `导入失败，部分数据未能恢复原状。请保留备份文件。${reason}`
+      : `导入失败，已恢复导入前的数据。${reason}`)
   }
   return selected.length
 }

@@ -98,11 +98,16 @@ export function useNovelManagementWorkspace() {
   }
 
   // 先提交独立快照，落盘完成后才更新列表，失败时表单与原列表仍可重试。
-  const saveNovels = async (nextNovels = novels.value) => {
+  const saveNovels = async (nextNovels: WriterNovel[], editedIds: WriterNovel['id'][] = []) => {
     if (isSavingNovels.value) throw new Error('正在保存小说，请稍后重试')
     isSavingNovels.value = true
     try {
-      await storageSet(StorageKeys.novels, nextNovels)
+      // Dates/default arrays added for list rendering are not edits. Preserve
+      // untouched works exactly as this page's backend last saw them; the
+      // persistence layer still owns conflict detection against other tabs.
+      const current = new Map(storageGet<WriterNovel[]>(StorageKeys.novels, []).map(novel => [novel.id, novel]))
+      const next = nextNovels.map(novel => editedIds.includes(novel.id) ? novel : current.get(novel.id) ?? novel)
+      await storageSet(StorageKeys.novels, next)
       loadNovels()
     } finally {
       isSavingNovels.value = false
@@ -591,7 +596,7 @@ export function useNovelManagementWorkspace() {
       updatedAt: new Date(),
     }
     try {
-      await saveNovels([...novels.value, newNovel])
+      await saveNovels([...novels.value, newNovel], [newNovel.id])
       ElMessage.success('小说复制成功')
     } catch {
       ElMessage.error('小说复制未保存，请重试')
@@ -736,7 +741,7 @@ export function useNovelManagementWorkspace() {
       const nextNovels = existing
         ? novels.value.map((novel) => (novel.id === draft.id ? newNovel : novel))
         : [newNovel, ...novels.value]
-      await saveNovels(nextNovels)
+      await saveNovels(nextNovels, [newNovel.id])
       updateGenreUsageCount(newNovel.genre)
 
       ElMessage.success('小说创建成功！即将跳转到编辑区...')
@@ -899,7 +904,7 @@ export function useNovelManagementWorkspace() {
       }
       const nextNovels = [...novels.value]
       nextNovels[index] = updated
-      await saveNovels(nextNovels)
+      await saveNovels(nextNovels, [updated.id])
       if (editedNovel.genre !== updated.genre) updateGenreUsageCount(updated.genre)
       if (selectedNovel.value?.id === editedNovel.id) selectedNovel.value = updated
       ElMessage.success('小说信息更新成功')

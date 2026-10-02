@@ -7,16 +7,19 @@
         <p>精选的AI写作提示词，助力您的创作</p>
       </div>
       <div class="header-actions">
-        <el-button type="success" @click="showImportDialog = true">
+        <el-button v-if="loadError" :loading="catalogSaving" @click="loadPrompts">重试加载</el-button>
+        <el-button type="success" :disabled="catalogSaving" @click="showImportDialog = true">
           <el-icon><Upload /></el-icon>
           导入提示词
         </el-button>
-        <el-button type="primary" @click="showAddDialog = true">
+        <el-button type="primary" :disabled="catalogSaving" @click="showAddDialog = true">
           <el-icon><Plus /></el-icon>
           添加提示词
         </el-button>
       </div>
     </div>
+
+    <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
 
     <!-- 分类筛选 -->
     <div class="filter-section">
@@ -71,7 +74,7 @@
                 <template #dropdown>
                   <el-dropdown-menu>
 
-                    <el-dropdown-item @click="editPrompt(prompt)">
+                    <el-dropdown-item :disabled="catalogSaving" @click="editPrompt(prompt)">
                       <el-icon><Edit /></el-icon>
                       编辑
                     </el-dropdown-item>
@@ -79,7 +82,7 @@
                       <el-icon><CopyDocument /></el-icon>
                       复制
                     </el-dropdown-item>
-                    <el-dropdown-item divided @click="deletePrompt(prompt)">
+                    <el-dropdown-item divided :disabled="catalogSaving" @click="deletePrompt(prompt)">
                       <el-icon><Delete /></el-icon>
                       删除
                     </el-dropdown-item>
@@ -119,7 +122,7 @@
     <!-- 空状态 -->
     <div v-if="filteredPrompts.length === 0" class="empty-state">
       <el-empty description="暂无匹配的提示词">
-        <el-button type="primary" @click="showAddDialog = true">添加提示词</el-button>
+        <el-button type="primary" :disabled="catalogSaving" @click="showAddDialog = true">添加提示词</el-button>
       </el-empty>
     </div>
 
@@ -128,12 +131,16 @@
       v-model="showAddDialog" 
       :title="editingPrompt ? '编辑提示词' : '添加提示词'" 
       width="800px"
+      :close-on-click-modal="!savingPrompt"
+      :close-on-press-escape="!savingPrompt"
+      :show-close="!savingPrompt"
       @close="resetForm"
     >
       <el-form 
         ref="formRef" 
         :model="promptForm" 
         :rules="formRules" 
+        :disabled="savingPrompt"
         label-width="100px"
       >
         <el-form-item label="标题" prop="title">
@@ -211,13 +218,13 @@
       </el-form>
       
       <template #footer>
-        <el-button @click="showAddDialog = false">取消</el-button>
-        <el-button type="primary" @click="savePrompt">保存</el-button>
+        <el-button :disabled="savingPrompt" @click="showAddDialog = false">取消</el-button>
+        <el-button type="primary" :loading="savingPrompt" :disabled="catalogSaving" @click="savePrompt">保存</el-button>
       </template>
     </el-dialog>
 
     <!-- 导入提示词对话框 -->
-    <el-dialog v-model="showImportDialog" title="导入提示词" width="600px">
+    <el-dialog v-model="showImportDialog" title="导入提示词" width="600px" :close-on-click-modal="!importingPrompts" :close-on-press-escape="!importingPrompts" :show-close="!importingPrompts">
       <div class="import-content">
         <el-alert 
           title="导入说明" 
@@ -241,6 +248,7 @@
             <div class="file-import">
               <el-upload
                 ref="uploadRef"
+                :disabled="importingPrompts"
                 :auto-upload="false"
                 :show-file-list="false"
                 accept=".json"
@@ -264,6 +272,7 @@
             <div class="text-import">
               <el-input
                 v-model="importJsonText"
+                :disabled="importingPrompts"
                 type="textarea"
                 :rows="12"
                 placeholder="请粘贴JSON格式的提示词数据..."
@@ -291,12 +300,13 @@
       </div>
       
       <template #footer>
-        <el-button @click="cancelImport">取消</el-button>
-        <el-button @click="parseImportData">解析数据</el-button>
+        <el-button :disabled="importingPrompts" @click="cancelImport">取消</el-button>
+        <el-button :disabled="importingPrompts" @click="parseImportData">解析数据</el-button>
         <el-button 
           type="primary" 
           @click="confirmImport"
-          :disabled="previewPrompts.length === 0"
+          :loading="importingPrompts"
+          :disabled="previewPrompts.length === 0 || catalogSaving"
         >
           确认导入 ({{ previewPrompts.length }}条)
         </el-button>
@@ -316,8 +326,7 @@ import {
   Plus, Search, MoreFilled, Edit, CopyDocument, 
   Delete, Upload, UploadFilled
 } from '@element-plus/icons-vue'
-import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
-import { DEFAULT_PROMPTS, PROMPTS_VERSION, mergeDefaultPrompts } from '../config/defaultPrompts'
+import { promptCatalog } from '@/services/promptCatalog'
 
 // 响应式数据
 const activeCategory = ref('all')
@@ -361,7 +370,11 @@ const categories = ref([
 ])
 
 // 提示词数据
-const prompts = ref<PromptTemplate[]>([])
+const prompts = promptCatalog.prompts
+const catalogSaving = promptCatalog.pending
+const savingPrompt = ref(false)
+const importingPrompts = ref(false)
+const loadError = ref('')
 
 // 表单数据
 const promptForm = ref({
@@ -433,19 +446,17 @@ const copyPrompt = async (prompt: PromptTemplate) => {
 }
 
 const deletePrompt = async (prompt: PromptTemplate) => {
+  if (catalogSaving.value) return
   try {
-    await ElMessageBox.confirm('确定要删除这个提示词吗？', '确认删除', {
-      type: 'warning'
-    })
-    
-    const index = prompts.value.findIndex(p => p.id === prompt.id)
-    if (index > -1) {
-      prompts.value.splice(index, 1)
-      savePrompts()
-      ElMessage.success('删除成功')
-    }
+    await ElMessageBox.confirm('确定要删除这个提示词吗？', '确认删除', { type: 'warning' })
   } catch {
-    // 用户取消删除
+    return
+  }
+  try {
+    await promptCatalog.update(current => current.filter(item => item.id !== prompt.id))
+    ElMessage.success('删除成功')
+  } catch (error) {
+    ElMessage.error(`删除失败：${error instanceof Error ? error.message : String(error)}，请重试`)
   }
 }
 
@@ -526,33 +537,36 @@ const removeTag = (index: number) => {
 }
 
 const savePrompt = async () => {
+  if (!formRef.value || savingPrompt.value || catalogSaving.value) return
+  savingPrompt.value = true
   try {
-    if (!formRef.value) return
-    await formRef.value.validate()
-    
-    if (editingPrompt.value) {
-      // 编辑模式
-      const index = prompts.value.findIndex(p => p.id === editingPrompt.value?.id)
-      if (index > -1) {
-        prompts.value[index] = { ...prompts.value[index], ...promptForm.value, id: editingPrompt.value.id }
-      }
-      ElMessage.success('提示词更新成功')
-    } else {
-      // 新增模式
-      const newPrompt = {
-        ...promptForm.value,
-        id: Date.now(),
-        isDefault: false
-      }
-      prompts.value.push(newPrompt)
-      ElMessage.success('提示词添加成功')
+    try {
+      if (!await formRef.value.validate()) return
+    } catch {
+      return // The form displays validation errors without discarding the draft.
     }
-    
+    const editingId = editingPrompt.value?.id
+    const draft = {
+      title: promptForm.value.title, category: promptForm.value.category,
+      description: promptForm.value.description, content: promptForm.value.content,
+      tags: [...promptForm.value.tags],
+    }
+    await promptCatalog.update(current => {
+      if (editingId !== undefined) {
+        const index = current.findIndex(prompt => prompt.id === editingId)
+        if (index === -1) throw new Error('原提示词已不存在，请刷新后重试')
+        current[index] = { ...current[index], ...draft, id: editingId }
+        return current
+      }
+      return [...current, { ...draft, id: Date.now() + Math.random(), isDefault: false }]
+    })
+    ElMessage.success(editingId !== undefined ? '提示词更新成功' : '提示词添加成功')
     showAddDialog.value = false
     resetForm()
-    savePrompts()
-  } catch {
-    // 验证失败
+  } catch (error) {
+    ElMessage.error(`保存提示词失败：${error instanceof Error ? error.message : String(error)}，请重试`)
+  } finally {
+    savingPrompt.value = false
   }
 }
 
@@ -667,34 +681,32 @@ const validatePromptItem = (input: unknown, index: number):
     return invalid('标签必须是文本数组')
   }
   return { valid: true, prompt: {
+    ...item,
     id: Date.now() + Math.random(), title: title.trim(), category,
     description: description.trim(), content: content.trim(),
     tags: Array.isArray(tags) ? tags : [], isDefault: false,
   } }
 }
 
-const confirmImport = () => {
+const confirmImport = async () => {
+  if (importingPrompts.value || catalogSaving.value) return
   if (previewPrompts.value.length === 0) {
     ElMessage.warning('没有可导入的提示词')
     return
   }
-  
-  // 重新生成ID避免冲突
-  const newPrompts = previewPrompts.value.map(prompt => ({
-    ...prompt,
-    id: Date.now() + Math.random()
-  }))
-  
-  // 添加到现有提示词列表
-  prompts.value.push(...newPrompts)
-  
-  // 保存到本地存储
-  savePrompts()
-  
-  ElMessage.success(`成功导入 ${newPrompts.length} 个提示词`)
-  
-  // 重置导入状态
-  cancelImport()
+  importingPrompts.value = true
+  try {
+    const imported = previewPrompts.value.map(prompt => ({
+      ...prompt, tags: [...prompt.tags], id: Date.now() + Math.random(),
+    }))
+    await promptCatalog.update(current => [...current, ...imported])
+    ElMessage.success(`成功导入 ${imported.length} 个提示词`)
+    cancelImport()
+  } catch (error) {
+    ElMessage.error(`导入失败：${error instanceof Error ? error.message : String(error)}，请重试`)
+  } finally {
+    importingPrompts.value = false
+  }
 }
 
 const cancelImport = () => {
@@ -704,50 +716,17 @@ const cancelImport = () => {
   importMethod.value = 'file'
 }
 
-// 生命周期
-onMounted(() => {
-  // 加载提示词数据
-  loadPrompts()
-})
-
-// 加载提示词数据（内置默认库升级时自动合并刷新，用户自建模板保留）
-const loadPrompts = () => {
-  const parsed = storageGet<PromptTemplate[] | null>(StorageKeys.prompts, null)
-  if (parsed && Array.isArray(parsed)) {
-    try {
-      const version = storageGet<number>(StorageKeys.promptsVersion, 0)
-      if (version !== PROMPTS_VERSION) {
-        prompts.value = mergeDefaultPrompts(parsed)
-        savePrompts()
-        storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
-      } else {
-        prompts.value = parsed
-      }
-    } catch (error) {
-      console.error('加载提示词失败:', error)
-      prompts.value = getDefaultPrompts()
-      savePrompts()
-    }
-  } else {
-    prompts.value = getDefaultPrompts()
-    savePrompts()
-    storageSet(StorageKeys.promptsVersion, PROMPTS_VERSION)
-  }
-}
-
-// 获取默认提示词数据（统一来源于 config/defaultPrompts.ts）
-const getDefaultPrompts = () => {
-  return DEFAULT_PROMPTS.map((p) => ({ ...p }))
-}
-
-// 保存提示词数据
-const savePrompts = () => {
+// Loading through any feature performs the same initialization and migration.
+const loadPrompts = async () => {
   try {
-    storageSet(StorageKeys.prompts, prompts.value)
+    await promptCatalog.load()
+    loadError.value = ''
   } catch (error) {
-    console.error('保存提示词失败:', error)
+    loadError.value = `加载提示词失败：${error instanceof Error ? error.message : String(error)}，请重试`
+    ElMessage.error(loadError.value)
   }
 }
+onMounted(() => { void loadPrompts() })
 </script>
 
 <style scoped>

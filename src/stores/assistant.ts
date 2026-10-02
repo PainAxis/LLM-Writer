@@ -10,8 +10,8 @@ import {
   composeSystemWithSummary,
   DEFAULT_CONTEXT_POLICY,
   evaluateContext,
-  foldEntries,
-  keptWithinBudget,
+  fitContextWithinBudget,
+  estimateContextTokens,
   type CompactorEntry,
 } from '@/utils/contextCompactor'
 import { normalizeContextPolicy, resolveAssistantContextPolicy } from '@/utils/contextPolicy'
@@ -21,6 +21,13 @@ type AssistantDraft = Pick<
   AssistantInfo,
   'name' | 'persona' | 'defaultModel' | 'contextPolicyMode'
 > & { contextPolicy?: ContextPolicy }
+
+interface ConversationSummary {
+  text: string
+  coveredThroughEntryId: string
+  policyFingerprint?: string
+}
+type StoredSummary = string | ConversationSummary
 
 export { DEFAULT_CONTEXT_POLICY }
 
@@ -33,12 +40,12 @@ const globalPolicy = ref<ContextPolicy>(normalizeContextPolicy(policyState.load(
 
 export function useContextPolicy() {
   function savePolicy(policy: ContextPolicy): void {
-    globalPolicy.value = normalizeContextPolicy(policy)
-    policyState.save(globalPolicy.value)
+    const next = normalizeContextPolicy(policy)
+    policyState.save(next)
+    globalPolicy.value = next
   }
   function resetPolicy(): void {
-    globalPolicy.value = { ...DEFAULT_CONTEXT_POLICY }
-    policyState.save(globalPolicy.value)
+    savePolicy({ ...DEFAULT_CONTEXT_POLICY })
   }
   return { policy: globalPolicy, savePolicy, resetPolicy }
 }
@@ -52,18 +59,19 @@ export const useAssistantStore = defineStore('assistant', () => {
     StorageKeys.assistantConversations,
     {}
   )
-  const summariesState = createPersistentState<Record<number, string>>(
+  const summariesState = createPersistentState<Record<number, StoredSummary>>(
     StorageKeys.assistantSummaries,
     {}
   )
 
   const assistants = ref<AssistantInfo[]>(assistantsState.load())
   const conversations = ref<Record<number, AssistantChatEntry[]>>(conversationsState.load())
-  const summaries = ref<Record<number, string>>(summariesState.load())
+  const summaries = ref<Record<number, StoredSummary>>(summariesState.load())
   const activeAssistantId = ref<number>(assistants.value[0]?.id ?? 0)
 
   /** 摘要待压缩标记（assistantId → 是否有待压缩内容），失败可见可重试 */
   const pendingCompaction = ref<Record<number, boolean>>({})
+  const pendingConversationSave = ref(false)
 
   const { isStreaming, streamingType, run, stop } = useAIStream()
 
@@ -75,7 +83,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     () => conversations.value[activeAssistantId.value] ?? []
   )
 
-  const activeSummary = computed<string>(() => summaries.value[activeAssistantId.value] ?? '')
+  const activeSummary = computed<string>(() => validSummary(activeAssistantId.value)?.text ?? '')
 
   const activePolicy = computed<ContextPolicy>(() =>
     resolveAssistantContextPolicy(activeAssistant.value, globalPolicy.value)
@@ -90,6 +98,69 @@ export const useAssistantStore = defineStore('assistant', () => {
   const revisionOf = (id: number) => contextRevisions.get(id) ?? 0
   const policyOf = (assistant: AssistantInfo) =>
     resolveAssistantContextPolicy(assistant, globalPolicy.value)
+
+  // Historical string summaries have no trustworthy coverage boundary. Keep them
+  // readable in backups, but rebuild from the retained original history before use.
+  function validSummary(id: number): ConversationSummary | undefined {
+    const value = summaries.value[id]
+    const assistant = assistants.value.find(item => item.id === id)
+    if (!value || typeof value === 'string' || !assistant || !value.text?.trim()) return
+    if (value.policyFingerprint && value.policyFingerprint !== JSON.stringify(policyOf(assistant))) return
+    if (!(conversations.value[id] ?? []).some(entry => entry.id === value.coveredThroughEntryId)) return
+    return value
+  }
+
+  function uncoveredEntries(id: number): AssistantChatEntry[] {
+    const entries = (conversations.value[id] ?? []).filter(entry => entry.content.trim())
+    const summary = validSummary(id)
+    const covered = summary ? entries.findIndex(entry => entry.id === summary.coveredThroughEntryId) : -1
+    return entries.slice(covered + 1)
+  }
+
+  function saveConversationSnapshot(next: Record<number, AssistantChatEntry[]>): void {
+    conversationsState.save(next)
+    conversations.value = next
+    pendingConversationSave.value = false
+  }
+
+  function retryConversationSave(): boolean {
+    try {
+      saveConversationSnapshot({ ...conversations.value })
+      return true
+    } catch (error) {
+      pendingConversationSave.value = true
+      ElMessage.error(`会话保存失败，内容仍保留在当前页面：${error instanceof Error ? error.message : String(error)}`)
+      return false
+    }
+  }
+
+  /** These three keys use synchronous localStorage; publish only after every
+   * write succeeds. If a later key fails, restore the earlier persisted keys. */
+  function commitCollections(nextAssistants: AssistantInfo[], nextConversations: Record<number, AssistantChatEntry[]>, nextSummaries: Record<number, StoredSummary>): void {
+    const before = [assistants.value, conversations.value, summaries.value] as const
+    const writes: Array<{ write: () => void; rollback: () => void }> = []
+    if (nextAssistants !== before[0]) writes.push({ write: () => { assistantsState.save(nextAssistants) }, rollback: () => { assistantsState.save(before[0]) } })
+    if (nextConversations !== before[1]) writes.push({ write: () => { conversationsState.save(nextConversations) }, rollback: () => { conversationsState.save(before[1]) } })
+    if (nextSummaries !== before[2]) writes.push({ write: () => { summariesState.save(nextSummaries) }, rollback: () => { summariesState.save(before[2]) } })
+    const committed: typeof writes = []
+    try {
+      for (const operation of writes) {
+        operation.write()
+        committed.push(operation)
+      }
+    } catch (error) {
+      for (const operation of committed.reverse()) {
+        try { operation.rollback() } catch (rollbackError) {
+          console.error('[assistant] 保存回滚失败:', rollbackError)
+        }
+      }
+      throw error
+    }
+    assistants.value = nextAssistants
+    conversations.value = nextConversations
+    summaries.value = nextSummaries
+    if (nextConversations !== before[1]) pendingConversationSave.value = false
+  }
 
   function invalidateContext(id: number): void {
     contextRevisions.set(id, revisionOf(id) + 1)
@@ -108,12 +179,15 @@ export const useAssistantStore = defineStore('assistant', () => {
     }
     sendingAssistantId = null
     stop(message)
-    if (activeReply && !activeReply.reply.content.trim()) {
-      removeEntry(activeReply.assistantId, activeReply.reply.id)
-      removeEntry(activeReply.assistantId, activeReply.userEntryId)
+    if (activeReply && conversations.value[activeReply.assistantId] && !activeReply.reply.content.trim()) {
+      const { assistantId, reply, userEntryId } = activeReply
+      conversations.value = {
+        ...conversations.value,
+        [assistantId]: (conversations.value[assistantId] ?? []).filter(entry => entry.id !== reply.id && entry.id !== userEntryId),
+      }
     }
     activeReply = null
-    persistConversations()
+    retryConversationSave()
   }
 
   let globalPolicyFingerprint = JSON.stringify(normalizeContextPolicy(globalPolicy.value))
@@ -126,7 +200,9 @@ export const useAssistantStore = defineStore('assistant', () => {
       for (const assistant of assistants.value) {
         if (assistant.contextPolicyMode !== 'custom') invalidateContext(assistant.id)
       }
-      persistSummaries()
+      try { persistSummaries() } catch (error) {
+        console.error('[assistant] 保存摘要失效状态失败:', error)
+      }
     },
     { deep: true, flush: 'sync' }
   )
@@ -135,14 +211,6 @@ export const useAssistantStore = defineStore('assistant', () => {
     for (const controller of summaryRequests.values()) controller.abort()
     summaryRequests.clear()
   })
-
-  function persistAssistants(): void {
-    assistantsState.save(assistants.value)
-  }
-
-  function persistConversations(): void {
-    conversationsState.save(conversations.value)
-  }
 
   function persistSummaries(): void {
     summariesState.save(summaries.value)
@@ -160,16 +228,18 @@ export const useAssistantStore = defineStore('assistant', () => {
       createdAt: now,
       updatedAt: now,
     }
-    assistants.value.push(assistant)
-    persistAssistants()
+    const next = [...assistants.value, assistant]
+    assistantsState.save(next)
+    assistants.value = next
     activeAssistantId.value = assistant.id
     return assistant
   }
 
   function updateAssistant(id: number, patch: Partial<AssistantDraft>): void {
-    const assistant = assistants.value.find((item) => item.id === id)
-    if (!assistant) return
-    const previousPolicy = JSON.stringify(policyOf(assistant))
+    const existing = assistants.value.find((item) => item.id === id)
+    if (!existing) throw new Error('助手已被删除，请重新打开编辑窗口')
+    const assistant = { ...existing }
+    const previousPolicy = JSON.stringify(policyOf(existing))
     if (patch.name !== undefined) assistant.name = patch.name.trim()
     if (patch.persona !== undefined) assistant.persona = patch.persona.trim()
     if (patch.defaultModel !== undefined)
@@ -177,26 +247,24 @@ export const useAssistantStore = defineStore('assistant', () => {
     if (patch.contextPolicyMode !== undefined) assistant.contextPolicyMode = patch.contextPolicyMode
     if (patch.contextPolicy !== undefined)
       assistant.contextPolicy = normalizeContextPolicy(patch.contextPolicy)
-    if (previousPolicy !== JSON.stringify(policyOf(assistant))) {
-      invalidateContext(id)
-      persistSummaries()
-    }
+    const changedPolicy = previousPolicy !== JSON.stringify(policyOf(assistant))
     assistant.updatedAt = new Date().toISOString()
-    persistAssistants()
+    const nextSummaries = { ...summaries.value }
+    if (changedPolicy) delete nextSummaries[id]
+    commitCollections(assistants.value.map(item => item.id === id ? assistant : item), conversations.value, changedPolicy ? nextSummaries : summaries.value)
+    if (changedPolicy) invalidateContext(id)
   }
 
   function removeAssistant(id: number): void {
     const index = assistants.value.findIndex((item) => item.id === id)
     if (index === -1) return
-    if (sendingAssistantId === id) stopChat()
+    const nextConversations = { ...conversations.value }
+    const nextSummaries = { ...summaries.value }
+    delete nextConversations[id]
+    delete nextSummaries[id]
+    commitCollections(assistants.value.filter(item => item.id !== id), nextConversations, nextSummaries)
     invalidateContext(id)
-    assistants.value.splice(index, 1)
-    delete conversations.value[id]
-    delete summaries.value[id]
-    delete pendingCompaction.value[id]
-    persistAssistants()
-    persistConversations()
-    persistSummaries()
+    if (sendingAssistantId === id) stopChat()
     if (activeAssistantId.value === id) {
       activeAssistantId.value = assistants.value[0]?.id ?? 0
     }
@@ -208,41 +276,27 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   function clearConversation(id: number): void {
-    if (sendingAssistantId === id) stopChat()
+    const nextConversations = { ...conversations.value }
+    const nextSummaries = { ...summaries.value }
+    delete nextConversations[id]
+    delete nextSummaries[id]
+    commitCollections(assistants.value, nextConversations, nextSummaries)
     invalidateContext(id)
-    delete conversations.value[id]
-    delete summaries.value[id]
-    delete pendingCompaction.value[id]
-    persistConversations()
-    persistSummaries()
+    if (sendingAssistantId === id) stopChat()
   }
 
   /** 会话体量预警阈值（字符数，约 800KB UTF-16） */
   const CONVERSATION_WARN_CHARS = 400_000
   const warnedConversations = new Set<number>()
 
-  function appendEntry(assistantId: number, entry: AssistantChatEntry): void {
-    const list = conversations.value[assistantId] ?? []
-    list.push(entry)
-    conversations.value[assistantId] = list
-    persistConversations()
-
+  function warnConversationSize(assistantId: number): void {
     if (!warnedConversations.has(assistantId)) {
+      const list = conversations.value[assistantId] ?? []
       const size = JSON.stringify(list).length
       if (size > CONVERSATION_WARN_CHARS) {
         warnedConversations.add(assistantId)
         ElMessage.warning('当前会话体量较大，建议清空会话或另开新助手，以免占用过多本地存储')
       }
-    }
-  }
-
-  function removeEntry(assistantId: number, entryId: string): void {
-    const list = conversations.value[assistantId]
-    if (!list) return
-    const index = list.findIndex((entry) => entry.id === entryId)
-    if (index > -1) {
-      list.splice(index, 1)
-      persistConversations()
     }
   }
 
@@ -257,7 +311,7 @@ export const useAssistantStore = defineStore('assistant', () => {
   /** 调用 AI 生成增量摘要；成功则更新并清除待压缩标记 */
   async function generateSummaryNow(
     assistantId: number,
-    folded: CompactorEntry[]
+    folded: AssistantChatEntry[]
   ): Promise<boolean | null> {
     const assistant = assistants.value.find((item) => item.id === assistantId)
     if (!assistant) return null
@@ -280,7 +334,9 @@ export const useAssistantStore = defineStore('assistant', () => {
         JSON.stringify(policyOf(current)) === policy
       )
     }
-    const prompt = buildSummaryPrompt(summaries.value[assistantId] ?? '', folded)
+    const previous = validSummary(assistantId)
+    const coveredThroughEntryId = folded[folded.length - 1]!.id
+    const prompt = buildSummaryPrompt(previous?.text ?? '', toCompactorEntries(folded))
     try {
       const summary = await apiService.generateText(prompt, {
         type: 'chat-summary',
@@ -292,8 +348,12 @@ export const useAssistantStore = defineStore('assistant', () => {
       })
       if (!ownsSummary()) return null
       if (!summary.trim()) return false
-      summaries.value[assistantId] = summary.trim()
-      persistSummaries()
+      const next = { ...summaries.value, [assistantId]: {
+        text: summary.trim(), coveredThroughEntryId, policyFingerprint: policy,
+      } }
+      summariesState.save(next)
+      if (!ownsSummary()) return null
+      summaries.value = next
       pendingCompaction.value[assistantId] = false
       return true
     } catch (error) {
@@ -305,24 +365,29 @@ export const useAssistantStore = defineStore('assistant', () => {
     }
   }
 
-  /** 摘要失败后的交互：重试摘要 / 放弃摘要直接发送 / 关闭=取消发送 */
-  async function askSummaryDecision(firstAttempt: boolean): Promise<'retry' | 'send' | 'cancel'> {
+  /** Original messages may be sent only while the assembled request still fits. */
+  async function askSummaryDecision(firstAttempt: boolean, canSendOriginals: boolean): Promise<'retry' | 'send' | 'cancel'> {
+    const message = canSendOriginals
+      ? firstAttempt
+        ? '上下文接近预算，建议生成摘要。当前原文仍在预算内，也可使用原文发送。'
+        : '自动摘要失败。当前原文仍在预算内，可以重试摘要或使用原文发送。'
+      : firstAttempt
+        ? '当前上下文已超出预算，需要成功生成摘要后才能发送。也可取消发送，缩短输入或提高预算。'
+        : '自动摘要失败，当前上下文仍超出预算。请重试摘要，或取消发送后调整输入与预算。'
     try {
       await ElMessageBox.confirm(
-        firstAttempt
-          ? '上下文即将超出预算，需要先生成对话摘要才能继续（保证对话质量）。是否立即生成摘要？'
-          : '自动摘要失败，上下文仍超出预算。是否重试生成摘要？放弃摘要将按超限上下文直接发送。',
+        message,
         '上下文管理',
         {
           confirmButtonText: '重试摘要',
-          cancelButtonText: '放弃摘要，直接发送',
+          cancelButtonText: canSendOriginals ? '使用原文发送' : '取消发送',
           distinguishCancelAndClose: true,
           type: 'warning',
         }
       )
       return 'retry'
     } catch (action) {
-      return action === 'cancel' ? 'send' : 'cancel'
+      return action === 'cancel' && canSendOriginals ? 'send' : 'cancel'
     }
   }
 
@@ -332,8 +397,8 @@ export const useAssistantStore = defineStore('assistant', () => {
     if (!assistant || !pendingCompaction.value[assistant.id]) return
 
     const policy = policyOf(assistant)
-    const entries = toCompactorEntries(conversations.value[assistant.id] ?? [])
-    const { folded } = foldEntries(entries, policy.retainTurns)
+    const entries = uncoveredEntries(assistant.id)
+    const folded = entries.slice(0, Math.max(0, entries.length - policy.retainTurns))
     const success = await generateSummaryNow(assistant.id, folded)
     if (success === null) return
     if (success) {
@@ -361,67 +426,61 @@ export const useAssistantStore = defineStore('assistant', () => {
     const ownsContext = () =>
       revisionOf(assistant.id) === revision &&
       assistants.value.some((item) => item.id === assistant.id)
-    const entries = toCompactorEntries(conversations.value[assistant.id] ?? [])
-    const withCurrent: CompactorEntry[] = [...entries, { isUser: true, content: currentMessage }]
-
-    let contextEntries: CompactorEntry[] = withCurrent
-    let summary = ''
+    const history = (conversations.value[assistant.id] ?? []).filter(entry => entry.content.trim())
+    const current = { isUser: true, content: currentMessage }
+    let summary = validSummary(assistant.id)
+    let contextEntries = [...toCompactorEntries(history), current]
 
     if (policy.strategy === 'summary') {
-      const evaluation = evaluateContext(withCurrent, policy)
-      if (!evaluation.overThreshold) {
-        contextEntries = withCurrent
-      } else {
-        summary = summaries.value[assistant.id] ?? ''
-        if (!summary) {
-          // 无可用摘要：询问用户（重试摘要 / 直接发送 / 取消）
-          let decided = false
-          let firstAttempt = true
-          while (!decided) {
-            const decision = await askSummaryDecision(firstAttempt)
-            if (!ownsContext()) return null
-            firstAttempt = false
-            if (decision === 'cancel') return null
-            if (decision === 'send') {
-              contextEntries = withCurrent
-              decided = true
-              break
-            }
-            const { folded } = foldEntries(entries, policy.retainTurns)
-            const success = await generateSummaryNow(assistant.id, folded)
-            if (success === null || !ownsContext()) return null
-            if (success) {
-              summary = summaries.value[assistant.id] ?? ''
-              decided = true
-            } else {
-              pendingCompaction.value[assistant.id] = true
-              ElMessage.error('自动摘要失败')
-            }
+      const refreshEntries = () => [...toCompactorEntries(uncoveredEntries(assistant.id)), current]
+      contextEntries = refreshEntries()
+      const evaluation = evaluateContext(contextEntries, policy, composeSystemWithSummary(assistant.persona, summary?.text ?? ''))
+      if (!summary && evaluation.overThreshold && uncoveredEntries(assistant.id).length > policy.retainTurns) {
+        let firstAttempt = true
+        while (!summary) {
+          const canSendOriginals = !evaluateContext(refreshEntries(), policy, assistant.persona).overBudget
+          const decision = await askSummaryDecision(firstAttempt, canSendOriginals)
+          if (!ownsContext()) return null
+          firstAttempt = false
+          if (decision === 'cancel') return null
+          // A previous reply's background summary may commit while the user is
+          // deciding. Its text and cursor must be consumed as one fresh pair.
+          summary = validSummary(assistant.id)
+          if (summary) break
+          if (decision === 'send') break
+          const entries = uncoveredEntries(assistant.id)
+          const folded = entries.slice(0, Math.max(0, entries.length - policy.retainTurns))
+          if (!folded.length) break
+          const success = await generateSummaryNow(assistant.id, folded)
+          if (success === null || !ownsContext()) return null
+          if (success) summary = validSummary(assistant.id)
+          else {
+            pendingCompaction.value[assistant.id] = true
+            ElMessage.error('自动摘要失败')
           }
         }
-        if (summary) {
-          // 从历史折叠保留原文（摘要覆盖 folded 段），再追加当前消息——与摘要边界严格衔接、无缺口
-          const { kept } = foldEntries(entries, policy.retainTurns)
-          contextEntries = [...kept, { isUser: true, content: currentMessage }]
-        }
+      } else if (summary && evaluation.overBudget) {
+        // The old cursor remains authoritative while a background job is pending
+        // or failed. Compress the uncovered interval before a hard-budget send.
+        const entries = uncoveredEntries(assistant.id)
+        const folded = entries.slice(0, Math.max(0, entries.length - policy.retainTurns))
+        const success = await generateSummaryNow(assistant.id, folded)
+        if (success === null || !ownsContext()) return null
+        if (!success) pendingCompaction.value[assistant.id] = true
+        summary = validSummary(assistant.id)
       }
-    } else {
-      contextEntries = keptWithinBudget(withCurrent, policy)
+      summary = validSummary(assistant.id)
+      contextEntries = refreshEntries()
     }
 
-    const droppedCount = withCurrent.length - contextEntries.length
-    const keptMessages = contextEntries.slice(0, -1).map((entry) => ({
-      role: (entry.isUser ? 'user' : 'assistant') as 'user' | 'assistant',
-      content: entry.content,
-    }))
-    const currentEntry = contextEntries[contextEntries.length - 1]
-
+    const system = composeSystemWithSummary(assistant.persona, policy.strategy === 'summary' ? summary?.text ?? '' : '')
+    // Uncovered originals are never discarded by the summary strategy. Only a
+    // committed coverage cursor permits replacing them with summary text.
+    const fitted = fitContextWithinBudget(contextEntries, policy, system, policy.strategy === 'summary')
     return {
-      system: composeSystemWithSummary(assistant.persona, summary),
-      messages: currentEntry
-        ? [...keptMessages, { role: 'user' as const, content: currentEntry.content }]
-        : keptMessages,
-      droppedCount,
+      system,
+      messages: fitted.map(entry => ({ role: entry.isUser ? 'user' as const : 'assistant' as const, content: entry.content })),
+      droppedCount: history.length + 1 - fitted.length,
     }
   }
 
@@ -435,6 +494,9 @@ export const useAssistantStore = defineStore('assistant', () => {
     if (!text || isStreaming.value || isPreparing.value) {
       return null
     }
+    if (pendingConversationSave.value) {
+      throw new Error('请先重试保存当前会话，再发送新消息')
+    }
 
     const ticket = ++sendRevision
     const revision = revisionOf(assistant.id)
@@ -443,6 +505,9 @@ export const useAssistantStore = defineStore('assistant', () => {
     let context: Awaited<ReturnType<typeof buildContext>>
     try {
       context = await buildContext(assistant, text)
+    } catch (error) {
+      if (ticket === sendRevision) sendingAssistantId = null
+      throw error
     } finally {
       if (ticket === sendRevision) isPreparing.value = false
     }
@@ -457,12 +522,12 @@ export const useAssistantStore = defineStore('assistant', () => {
     }
 
     const userEntryId = String(generateUniqueId())
-    appendEntry(assistant.id, {
+    const userEntry: AssistantChatEntry = {
       id: userEntryId,
       content: text,
       isUser: true,
       timestamp: new Date().toISOString(),
-    })
+    }
 
     const replyEntry = reactive<AssistantChatEntry>({
       id: `${generateUniqueId()}`,
@@ -470,23 +535,46 @@ export const useAssistantStore = defineStore('assistant', () => {
       isUser: false,
       timestamp: new Date().toISOString(),
     })
-    appendEntry(assistant.id, replyEntry)
+    try {
+      saveConversationSnapshot({
+        ...conversations.value,
+        [assistant.id]: [...(conversations.value[assistant.id] ?? []), userEntry, replyEntry],
+      })
+    } catch (error) {
+      sendingAssistantId = null
+      throw new Error(`会话保存失败，尚未发送消息：${error instanceof Error ? error.message : String(error)}`)
+    }
+    warnConversationSize(assistant.id)
     activeReply = { assistantId: assistant.id, userEntryId, reply: replyEntry }
 
-    const result = await run({
-      type: 'chat',
-      prompt: text,
-      generateOptions: {
-        system: context.system,
-        model: assistant.defaultModel || undefined,
-        messages: context.messages,
-      },
-      successMessage: '',
-      errorPrefix: '对话',
-      onChunk: (_chunk, fullContent) => {
-        if (ticket === sendRevision) replyEntry.content = fullContent
-      },
-    })
+    let result: string | null
+    try {
+      result = await run({
+        type: 'chat',
+        prompt: text,
+        generateOptions: {
+          system: context.system,
+          model: assistant.defaultModel || undefined,
+          messages: context.messages,
+        },
+        successMessage: '',
+        errorPrefix: '对话',
+        onChunk: (_chunk, fullContent) => {
+          if (ticket === sendRevision) replyEntry.content = fullContent
+        },
+      })
+    } catch (error) {
+      if (ticket === sendRevision) {
+        sendingAssistantId = null
+        activeReply = null
+        conversations.value = {
+          ...conversations.value,
+          [assistant.id]: (conversations.value[assistant.id] ?? []).filter(entry => entry.id !== replyEntry.id && entry.id !== userEntryId),
+        }
+        retryConversationSave()
+      }
+      throw error
+    }
 
     if (ticket !== sendRevision) {
       return replyEntry.content.trim() &&
@@ -498,16 +586,19 @@ export const useAssistantStore = defineStore('assistant', () => {
     activeReply = null
     if (result === null) {
       // 失败/取消：移除空占位与用户消息，配合视图把输入还原，保证干净重试
-      removeEntry(assistant.id, replyEntry.id)
-      if (userEntryId) removeEntry(assistant.id, userEntryId)
+      conversations.value = {
+        ...conversations.value,
+        [assistant.id]: (conversations.value[assistant.id] ?? []).filter(entry => entry.id !== replyEntry.id && entry.id !== userEntryId),
+      }
+      retryConversationSave()
       return null
     }
 
     replyEntry.content = result
-    persistConversations()
+    const saved = retryConversationSave()
 
     // 回复完成后的后台压缩：仅 summary 策略且仍超阈值时执行；失败可见可重试
-    void maybeCompactAfterReply(assistant.id)
+    if (saved) void maybeCompactAfterReply(assistant.id)
 
     return replyEntry
   }
@@ -520,11 +611,11 @@ export const useAssistantStore = defineStore('assistant', () => {
     const policy = policyOf(assistant)
     if (policy.strategy !== 'summary') return
 
-    const entries = toCompactorEntries(conversations.value[assistantId] ?? [])
-    const evaluation = evaluateContext(entries, policy)
+    const entries = uncoveredEntries(assistantId)
+    const evaluation = evaluateContext(toCompactorEntries(entries), policy, composeSystemWithSummary(assistant.persona, validSummary(assistantId)?.text ?? ''))
     if (!evaluation.overThreshold) return
 
-    const { folded } = foldEntries(entries, policy.retainTurns)
+    const folded = entries.slice(0, Math.max(0, entries.length - policy.retainTurns))
     const success = await generateSummaryNow(assistantId, folded)
     if (success === null) return
     if (!success) {
@@ -542,6 +633,14 @@ export const useAssistantStore = defineStore('assistant', () => {
     activeAssistant,
     activeConversation,
     activeSummary,
+    contextTokenCount: computed(() => {
+      const assistant = activeAssistant.value
+      if (!assistant) return 0
+      const summary = activePolicy.value.strategy === 'summary' ? validSummary(assistant.id) : undefined
+      return estimateContextTokens(toCompactorEntries(summary ? uncoveredEntries(assistant.id) : activeConversation.value), composeSystemWithSummary(assistant.persona, summary?.text ?? ''))
+    }),
+    pendingConversationSave,
+    retryConversationSave,
     activePolicy,
     isStreaming,
     isPreparing,

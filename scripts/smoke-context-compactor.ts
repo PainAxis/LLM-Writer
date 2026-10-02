@@ -11,6 +11,8 @@ import {
   evaluateContext,
   foldEntries,
   keptWithinBudget,
+  fitContextWithinBudget,
+  estimateContextTokens,
 } from '../src/utils/contextCompactor'
 import type { CompactorEntry } from '../src/utils/contextCompactor'
 import type { ContextPolicy } from '../src/types/api'
@@ -78,5 +80,15 @@ const composed = composeSystemWithSummary('人设A', '摘要B')
 assert.ok(composed.includes('人设A') && composed.includes('摘要B'), '摘要应与人设合并')
 assert.ok(composed.indexOf('人设A') < composed.indexOf('摘要B'), '人设在前、摘要在后')
 console.log('✓ 测试6 通过：composeSystemWithSummary 组装')
+
+const finalPolicy = policy({ maxTokens: 30, maxTurns: 0 })
+const finalMessages = [{ isUser: false, content: '旧'.repeat(20) }, { isUser: true, content: '新'.repeat(5) }]
+const fitted = fitContextWithinBudget(finalMessages, finalPolicy, '设'.repeat(10))
+assert.deepEqual(fitted, [finalMessages[1]], 'personas consume the same final input budget')
+assert.ok(estimateContextTokens(fitted, '设'.repeat(10)) <= finalPolicy.maxTokens)
+assert.throws(() => fitContextWithinBudget(finalMessages, finalPolicy, '摘要', true), /尚未摘要/, 'summary mode cannot silently discard uncovered originals')
+assert.throws(() => fitContextWithinBudget([finalMessages[1]], finalPolicy, '设'.repeat(30)), /人设和当前消息超出/)
+assert.equal(evaluateContext([finalMessages[1]], finalPolicy, '设'.repeat(30)).overBudget, true)
+console.log('✓ 测试7 通过：最终预算计入人设/摘要，完整保留当前输入，拒绝未覆盖原文静默截断')
 
 console.log('\n=== ALL COMPACTOR TESTS PASSED ===')
