@@ -35,7 +35,9 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/services/backup.ts`, `src/services/billing.ts` | Backup validation/restoration and local usage/cost bookkeeping |
 | `src/stores/novel.ts`, `src/stores/assistant.ts`, `src/stores/writingGoals.ts` | Pinia state for writing, assistant conversations/summary coverage and writing goals |
 | `src/utils/storage.ts`, `src/utils/aiRequestScope.ts` | Central storage access and isolated, cancellable AI requests |
-| `src/utils/writer/` | Writer prompt builders and response parsers |
+| `src/utils/writer/` | Writer prompt builders and response parsers, including literal passage substitution for polishing |
+| `src/utils/writerContent.ts`, `src/utils/novelStats.ts` | Shared visible-text conversion, safe generated HTML, Unicode character counts and chapter-derived novel totals |
+| `src/utils/chapterParser.ts` | Explicit, complete AI chapter-outline parsing; invalid structures produce no fallback chapter |
 | `src/utils/` | Context budgets/compaction, corpus retrieval/portable transfer, virtual message windows, book imports, chapter parsing, event and mind-map data |
 | `src/types/` | Shared API, Writer, ShortStory, book-analysis, novel-management and tool types, plus library declarations |
 | `src/config/` | Default prompts, ShortStory defaults, typed tool definitions and announcements |
@@ -60,10 +62,10 @@ This overview describes the current source layout. Planned work is tracked in th
 |---------|-----------------------------|
 | AssistantManagement | `stores/assistant.ts` selects global/custom policies, isolates conversations and tracks summary coverage with `coveredThroughEntryId`; only committed, policy-compatible summaries replace covered originals; `useVirtualMessages.ts` measures visible rows and preserves scroll anchors; `utils/contextPolicy.ts` normalizes and resolves policies; [policy semantics](docs/assistant-context-policy.md) |
 | ShortStory | `useShortStoryWorkspace.ts`; `components/short-story/ShortStoryPromptSelector.vue`; `useShortStoryConfig.ts` for fresh defaults and async persistence; `useShortStoryGeneration.ts` for independent cancellable requests; `utils/shortStoryPrompts.ts` for prompt construction |
-| BookAnalysis | `useBookAnalysisWorkspace.ts`; `components/book-analysis/BookFileImportPanel.vue`; `useBookAnalysisFile.ts` for latest-import ownership and encoding; `utils/bookAnalysisContext.ts` for chapter detection, selected ranges and prompts |
-| NovelManagement | `useNovelManagementWorkspace.ts`; `components/novel-management/NovelMetadataForm.vue` for create/edit fields; `utils/novelList.ts` for filters and non-mutating sorting |
-| ToolsLibrary | `useToolsLibraryWorkspace.ts`; `components/tools/ToolCatalog.vue`; `config/tools.ts` as the tool registry; `utils/toolForms.ts` for required fields; `utils/toolPrompts.ts` for templates and selected novel/chapter context |
-| Writer corpus | `corpusData` is the per-novel source; `useWriterMaterialCrud.ts` owns atomic imports and `utils/corpusTransfer.ts` validates legacy/portable files; [format](docs/corpus.md) |
+| BookAnalysis | `useBookAnalysisWorkspace.ts`; `components/book-analysis/BookFileImportPanel.vue`; `useBookAnalysisFile.ts` for latest-import ownership and encoding; `utils/bookAnalysisContext.ts` for whole-line chapter detection, validated explicit selections and prompts |
+| NovelManagement | `useNovelManagementWorkspace.ts`; `components/novel-management/NovelMetadataForm.vue` for create/edit fields; `utils/novelList.ts` for filters and non-mutating sorting; `utils/novelStats.ts` for legacy-compatible display/export totals |
+| ToolsLibrary | `useToolsLibraryWorkspace.ts`; `components/tools/ToolCatalog.vue`; `config/tools.ts` as the tool registry; `utils/toolForms.ts` for required fields; `utils/toolPrompts.ts` for compatible tool templates, stable selected novel/chapter identities and authoritative form parameters |
+| Writer corpus | `corpusData` is the per-novel source; `useWriterMaterialCrud.ts` owns atomic imports and `utils/corpusTransfer.ts` validates legacy/portable files, including named empty drafts; [format](docs/corpus.md) |
 | MindMap | `useMindMapDraft.ts` for conflict checks and awaited saves; `utils/mindmapEditing.ts` for editable snapshots, validation and lossless entity updates; [protocol](docs/mindmap-editing.md) |
 | Editor teardown | `utils/destroyEditor.ts` cancels wangEditor selection throttling before destroying an editor |
 
@@ -71,7 +73,8 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The CI validation set contains 50 sequential smoke suites and 24 Chromium scenarios with synthetic data and API responses.
+- The configured CI validation set contains 57 sequential smoke suites and 33 Chromium scenarios with synthetic data and API responses. Use the reviewed revision’s CI results to confirm validation.
+- New suites: `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.
 - [Changelog](CHANGELOG.md): published changes and unreleased work.
@@ -81,7 +84,7 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 - ShortStory uses article/story workspaces and separate style, continuation, optimization and configuration dialogs in `src/components/short-story/`. `short-storyContext.ts` shares the page-owned typed workspace; editor refs and guarded writes live in `useShortStoryEditors.ts`. `useShortStorySelection.ts` captures and validates exact editor ranges for optimization.
 - BookAnalysis uses controls/results and chapter/prompt dialogs in `src/components/book-analysis/`. `book-analysisContext.ts` shares the page-owned typed workspace; `useBookChapterViewer.ts` owns chapter selection, reading and export. `useBookAnalysisLibraryWorkspace.ts` owns report dialogs and identity; `services/bookAnalysisLibrary.ts` validates and persists reports, also included in system backups.
 - Shared feature CSS is limited to the page root and its teleported dialog class. Generators and cancellation remain owned by the page lifecycle.
-- `stores/writingGoals.ts` owns both goal entry points and homepage state, serialized persistence, metadata-preserving edits and progress history. `utils/writingGoals.ts` normalizes legacy records and computes activity by local calendar day.
+- `stores/writingGoals.ts` owns both goal entry points and homepage state, serialized persistence, metadata-preserving edits and progress history. `utils/writingGoals.ts` normalizes legacy records, computes activity by local calendar day and counts only word-unit progress in word statistics. Explicit chapter goals use `章`; changing a unit resets current progress while retaining history with its original units.
 
 ## Persistence and Context Boundaries
 
@@ -90,5 +93,7 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 - Novel saves stage content before a coordinated commit and compare the versions actually seen by the editor. Edits to different novels can merge; conflicting edits to the same novel retain the local draft and reject overwriting the newer saved version. Copy the draft, refresh/reopen the novel and merge it manually.
 - Goal increments read the latest committed goal under the same cross-tab gate, preserving both increments and their history. This coordination protects novels and writing goals; other storage keys do not acquire cross-tab protection through this mechanism. See [persistence coordination](docs/persistence-coordination.md).
 - Assistant summaries persist their text together with a coverage cursor. Sending uses that summary plus uncovered original messages; failed or pending compaction does not advance coverage. Full local histories and legacy summary backups remain available.
-- `utils/eventLine.ts` remaps event chapter references by stable chapter identity for chapter management, Writer deletion and mind-map editing.
+- `utils/eventLine.ts` remaps event chapter references by stable chapter identity for chapter management, Writer deletion and mind-map editing. Chapter management commits recalculated chapter counts and both novel total fields with the same save.
+- `services/billing.ts` labels reported/estimated/unavailable usage, normalizes request types and computes exact filters and local-calendar trends; `TokenBilling.vue` renders recorded trend/distribution data and refreshes when usage changes.
+- Batch outline controllers retain invalid raw responses and enforce requested chapter counts before persistence; their source checks ignore incidental autosave metadata while still rejecting meaningful source changes.
 - API connection tests and model synchronization use cancellable form snapshots. Model caches are scoped to the provider endpoint and proxy, and only explicit configuration saves change active settings.

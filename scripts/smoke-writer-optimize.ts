@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { nextTick, ref } from 'vue'
 import { useWriterOptimize } from '../src/composables/useWriterOptimize'
 import { createAIRequestScope } from '../src/utils/aiRequestScope'
+import { getDefaultPromptsByCategory } from '../src/config/defaultPrompts'
+import { buildWriterOptimizePrompt } from '../src/utils/writer/optimizePrompt'
 import type { GenerateOptions, StreamCallback } from '../src/types/api'
 
 function deferred<T>() {
@@ -88,6 +90,32 @@ function fixture(initialSelection = '选中的原文') {
 }
 
 async function main() {
+  const defaultPassage = '原文含特殊替换符 $&、$1、$$，以及 <林> 与 A&B。'
+  const defaultPrompt = getDefaultPromptsByCategory('polish')[0]
+  assert.ok(defaultPrompt.content.includes('{原文内容}'), 'Exercise the actual bundled polish template')
+  const defaultPolish = fixture(defaultPassage)
+  defaultPolish.controller.openFromEditor()
+  defaultPolish.controller.selectPrompt(defaultPrompt)
+  const polishingDefault = defaultPolish.controller.start()
+  const sentDefault = defaultPolish.stream.pending[0].prompt
+  assert.ok(sentDefault.includes(`# Original text\n${defaultPassage}`))
+  assert.equal(sentDefault.includes('{原文内容}'), false)
+  assert.equal(sentDefault.split(defaultPassage).length, 2, 'A templated original passage is inserted once')
+  defaultPolish.stream.pending[0].resolve('润色后的特殊符号 $&、$1、$$ 与 <林>。')
+  assert.equal(await polishingDefault, true)
+  assert.equal(defaultPolish.controller.form.value.optimizedContent, '润色后的特殊符号 $&、$1、$$ 与 <林>。')
+  const literalPassage = '$& $1 $$ {原文内容} {未知变量}'
+  assert.equal(
+    buildWriterOptimizePrompt('请润色：{原文内容}', literalPassage),
+    `请润色：${literalPassage}\n\n请直接输出优化后的内容，无需额外说明：`,
+    'Passage braces and replacement tokens remain literal and are never substituted recursively',
+  )
+  assert.equal(
+    buildWriterOptimizePrompt('提升画面感 $&', defaultPassage),
+    `提升画面感 $&\n\n原始内容：\n${defaultPassage}\n\n请直接输出优化后的内容，无需额外说明：`,
+  )
+  console.log('✓ 默认润色模板在真实controller flow填入原文，特殊符号literal保留')
+
   const generated = fixture()
   generated.controller.openFromEditor()
   assert.equal(generated.controller.form.value.mode, 'selection')

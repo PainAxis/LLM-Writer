@@ -25,6 +25,7 @@ import {
 import { useShortStoryGeneration } from '@/composables/useShortStoryGeneration'
 import { useShortStorySelection } from '@/composables/useShortStorySelection'
 import { promptCatalog } from '@/services/promptCatalog'
+import { countWriterPlainText, countWriterWords, stripWriterHtml } from '@/utils/writerContent'
 import { useRouter } from 'vue-router'
 
 /** Typed orchestration for the ShortStory view. */
@@ -156,11 +157,7 @@ export function useShortStoryWorkspace() {
     return articleData.title.trim() && articleData.prompt.trim()
   })
 
-  const articleWordCount = computed(() => {
-    if (!articleContent.value) return 0
-    // 移除HTML标签并计算字数
-    return articleContent.value.replace(/<[^>]*>/g, '').trim().length
-  })
+  const articleWordCount = computed(() => countWriterWords(articleContent.value))
 
   // 短篇小说提示词选择
   const showStoryPromptSelector = ref(false)
@@ -290,8 +287,7 @@ export function useShortStoryWorkspace() {
     }
 
     try {
-      // 移除HTML标签，获取纯文本
-      const plainText = articleContent.value.replace(/<[^>]*>/g, '').trim()
+      const plainText = stripWriterHtml(articleContent.value)
       await navigator.clipboard.writeText(plainText)
       ElMessage.success('内容已复制到剪贴板')
     } catch {
@@ -305,8 +301,7 @@ export function useShortStoryWorkspace() {
       return
     }
 
-    // 移除HTML标签，获取纯文本
-    const plainText = articleContent.value.replace(/<[^>]*>/g, '').trim()
+    const plainText = stripWriterHtml(articleContent.value)
     const content = `${articleData.title}\n\n${plainText}`
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
@@ -372,7 +367,7 @@ export function useShortStoryWorkspace() {
   const performContinue = async () => {
     if (continuingStory.value) return
     const sourceContent = generatedStory.value
-    const currentText = sourceContent.replace(/<[^>]*>/g, '')
+    const currentText = stripWriterHtml(sourceContent)
     if (!currentText.trim()) {
       ElMessage.warning('请先生成一些内容再进行续写')
       return
@@ -569,7 +564,7 @@ export function useShortStoryWorkspace() {
 
   const exportStory = () => {
     // 实现导出功能
-    const pureText = generatedStory.value ? generatedStory.value.replace(/<[^>]*>/g, '') : ''
+    const pureText = stripWriterHtml(generatedStory.value)
     const content = `${storyData.title}\n\n${pureText}`
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -581,12 +576,8 @@ export function useShortStoryWorkspace() {
   }
 
   // 获取纯文本字数统计
-  const getTextWordCount = (html: string) => {
-    if (!html) return 0
-    // 移除HTML标签
-    const text = html.replace(/<[^>]*>/g, '')
-    return text.length
-  }
+  const getTextWordCount = countWriterWords
+  const getPlainTextWordCount = countWriterPlainText
 
   // 配置管理方法
   const loadConfigData = configuration.load
@@ -863,6 +854,7 @@ export function useShortStoryWorkspace() {
     optimizeSelection,
     exportStory,
     getTextWordCount,
+    getPlainTextWordCount,
     saveConfigData,
     addConfigItem,
     removeConfigItem,

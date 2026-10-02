@@ -331,7 +331,7 @@ export const TOOL_DEFINITIONS: Record<ToolType, ToolDefinition> = {
         label: '提示词模板',
         type: 'prompt-select',
         placeholder: '选择提示词模板（可选）',
-        category: 'content',
+        category: 'synopsis',
       },
       {
         key: 'style',
@@ -350,7 +350,7 @@ export const TOOL_DEFINITIONS: Record<ToolType, ToolDefinition> = {
     icon: '🌍',
     cardTitle: '宏大世界观生成器',
     description: '构建完整的虚构世界背景',
-    title: '宏达世界观生成器',
+    title: '宏大世界观生成器',
     hasNovelSelector: true, // 标记需要小说选择器
     fields: [
       {
@@ -509,4 +509,18 @@ export const TOOL_DEFINITIONS: Record<ToolType, ToolDefinition> = {
       { key: 'background', label: '背景设定', type: 'textarea', placeholder: '故事背景和现有冲突' },
     ],
   },
+}
+
+/** Tool output contracts apply equally to default prompts and user templates. */
+export const TOOL_OUTPUT_REQUIREMENTS: Record<ToolType, string> = {
+  outline: '只生成指定数量的章节细纲，不生成章节正文或全书策划案。每章包含标题、主要情节、冲突与转折、人物关系变化；章节之间保持连续性，与参考角色和世界观一致。',
+  cheat: '生成一个符合所选能力等级的金手指设定，包含能力名称与效果、获取和触发条件、限制与代价、成长路径，以及与小说世界和情节的结合点。',
+  opening: '只输出小说开篇正文，长度控制在500-800字。采用所选类型和氛围，体现主角特点与开篇场景，立即引入冲突或悬念；不输出大纲或创作说明。',
+  title: '生成指定数量的书名，每项附简短创意说明。符合小说类型、关键词和风格偏好，书名以3-8个字为佳，避免重复和俗套。',
+  genre: '提供指定数量的题材方向，符合流行趋势、目标读者和元素偏好。每项包含名称、核心概念、潜力、创作要点与创新方向。',
+  brainstorm: '提供指定数量的脑洞，符合所选脑洞类型和创意程度，围绕基础设定展开。每项包含标题、核心设定、创意亮点和发展方向。',
+  synopsis: '只输出100-200字的小说简介，不写章节正文、章节大纲或整部故事。遵循简介风格，突出主角、核心冲突、故事亮点和悬念，与已有设定一致。',
+  worldview: '构建符合所选世界类型和规模的完整世界观，不生成故事正文。覆盖地理、社会制度、文化、科技或力量体系、历史和规则，与参考小说和角色一致。',
+  character: '生成指定数量的角色档案，所有角色遵循所选定位、性别和性格要求。每项包括姓名、外貌、性格、背景、能力与弱点、动机、人际关系和情节作用；多个角色必须有差异。',
+  conflict: '设计符合所选冲突类型和强度的冲突情节，结合背景与小说已有设定。包含起因、各方动机、升级过程、转折高潮、解决方向及对人物的影响。',
 }

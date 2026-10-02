@@ -2,7 +2,7 @@ import { computed, ref, watch, type Ref } from 'vue'
 import type { WriterChapter, WriterCharacter, WriterContinueForm, WriterNovel } from '@/types/writer'
 import type { GenerateOptions, StreamCallback } from '@/types/api'
 import { isAIRequestCancelled } from '@/utils/aiRequestScope'
-import { formatGeneratedBody, stripWriterHtml } from '@/utils/writerContent'
+import { countWriterPlainText, formatGeneratedBody, stripWriterHtml } from '@/utils/writerContent'
 
 interface ContinueStream {
   isStreaming: Ref<boolean>
@@ -44,7 +44,7 @@ export function useWriterContinue(options: WriterContinueOptions) {
   const visible = ref(false)
   const form = ref<WriterContinueForm>(createContinueForm())
   const currentText = computed(() => stripWriterHtml(options.content.value))
-  const canStart = computed(() => Boolean(options.currentChapter.value) && currentText.value.length >= 50)
+  const canStart = computed(() => Boolean(options.currentChapter.value) && countWriterPlainText(currentText.value) >= 50)
   const isAppending = ref(false)
   const isCommitting = isAppending
   let sourceChapterId: number | null = null
@@ -127,7 +127,7 @@ export function useWriterContinue(options: WriterContinueOptions) {
       options.notify.warning('请先选择一个章节')
       return
     }
-    if (currentText.value.length < 50) {
+    if (countWriterPlainText(currentText.value) < 50) {
       options.notify.warning('请先写一些内容，AI将基于现有内容进行续写')
       return
     }

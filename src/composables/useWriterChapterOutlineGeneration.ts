@@ -80,11 +80,11 @@ const novelFingerprint = (novel: WriterNovel | null) => JSON.stringify(novel && 
   description: novel.description,
 })
 const chapterFingerprint = (chapters: readonly WriterChapter[]) => JSON.stringify(
+  // Body edits and autosave's word count/timestamps do not change outline continuity.
   chapters.map(chapter => ({
     id: chapter.id,
     title: chapter.title,
     description: chapter.description,
-    wordCount: chapter.wordCount,
   })),
 )
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error)
@@ -101,6 +101,7 @@ export function useWriterChapterOutlineGeneration(
   const batchSelectedPrompt = ref<PromptTemplate | null>(null)
   const singleTemplatePrompt = ref('')
   const batchTemplatePrompt = ref('')
+  const batchError = ref('')
   const activeMode = ref<WriterChapterOutlineMode | null>(null)
   const isGenerating = ref(false)
   const isCommitting = ref(false)
@@ -111,6 +112,7 @@ export function useWriterChapterOutlineGeneration(
   let lifecycle = 0
   let resetAfterCommit = false
   let activeGeneration: Promise<boolean> | null = null
+  let activeSource: GenerationSource | null = null
   let singlePromptFingerprint = ''
   let batchPromptFingerprint = ''
   let mutatingChapters = false
@@ -156,6 +158,7 @@ export function useWriterChapterOutlineGeneration(
       return false
     }
     lifecycle += 1
+    activeSource = null
     stream.reset()
     activeMode.value = null
     isGenerating.value = false
@@ -173,6 +176,7 @@ export function useWriterChapterOutlineGeneration(
     batchVisible.value = false
     batchForm.value = createBatchChapterGenerationForm()
     clearBatchPrompt()
+    batchError.value = ''
   }
 
   const resetSingle = () => {
@@ -364,7 +368,9 @@ export function useWriterChapterOutlineGeneration(
       formFingerprint: formFingerprint(form),
     }
     activeMode.value = mode
+    activeSource = source
     stream.reset()
+    if (mode === 'batch') batchError.value = ''
     isGenerating.value = true
 
     try {
@@ -375,6 +381,8 @@ export function useWriterChapterOutlineGeneration(
       })
       if (!draftIsCurrent(source)) return false
       if (!response.trim()) throw new Error('AI返回内容为空')
+      // Keep the complete final response available when parsing or saving fails.
+      stream.streamingContent.value = response
 
       const timestamp = now()
       const reservedIds = new Set(chapterCollection.map(chapter => chapter.id))
@@ -396,15 +404,15 @@ export function useWriterChapterOutlineGeneration(
         const parsed = options.parseBatchResponse(response)
         if (parsed.length === 0) throw new Error('AI返回内容无法解析为章节大纲')
         if (parsed.length !== batchSnapshot.count) {
-          options.notify.warning(
-            `期望生成${batchSnapshot.count}个章节，实际解析出${parsed.length}个章节`,
-          )
+          throw new Error(`期望生成${batchSnapshot.count}个章节，实际解析出${parsed.length}个章节；未保存，请检查原始回答后重试`)
         }
-        const firstChapterNumber = chapterCollection.length + 1
-        candidates = parsed.map((chapter, index) => ({
+        if (parsed.some(chapter => !chapter.title?.trim() || !chapter.description?.trim())) {
+          throw new Error('章节标题或大纲不完整；未保存，请检查原始回答后重试')
+        }
+        candidates = parsed.map(chapter => ({
           id: allocateId(reservedIds),
-          title: chapter.title || `AI生成章节 ${firstChapterNumber + index}`,
-          description: chapter.description || '暂无描述',
+          title: chapter.title,
+          description: chapter.description,
           content: '',
           wordCount: 0,
           createdAt: timestamp,
@@ -415,7 +423,10 @@ export function useWriterChapterOutlineGeneration(
 
       if (!draftIsCurrent(source)) return false
       const saved = await commitChapters(source, candidates)
-      if (!saved) return false
+      if (!saved) {
+        if (mode === 'batch' && operation === lifecycle) batchError.value = '生成的章节尚未保存，请重试；完整原始回答保留在下方'
+        return false
+      }
 
       const usedCustomPrompt = customPrompt !== undefined
       if (mode === 'single') {
@@ -431,10 +442,12 @@ export function useWriterChapterOutlineGeneration(
     } catch (error) {
       if (isAIRequestCancelled(error) || operation !== lifecycle) return false
       console.error(`${mode === 'single' ? '单章' : '批量章节'}生成失败:`, error)
+      if (mode === 'batch') batchError.value = `${errorMessage(error)}；完整原始回答保留在下方，可修改要求后重试`
       options.notify.error(`${mode === 'single' ? '单章生成' : '批量生成'}失败: ${errorMessage(error)}`)
       return false
     } finally {
       if (operation === lifecycle && !isCommitting.value) {
+        activeSource = null
         isGenerating.value = false
         activeMode.value = null
       }
@@ -502,6 +515,16 @@ export function useWriterChapterOutlineGeneration(
     if (previousNovel !== undefined && novel !== previousNovel) reset()
   }, { flush: 'sync' })
 
+  watch(() => [
+    novelFingerprint(options.currentNovel.value),
+    chapterFingerprint(options.chapters.value),
+    formFingerprint(singleForm.value),
+    formFingerprint(batchForm.value),
+  ], () => {
+    if (!mutatingChapters && isGenerating.value && !isCommitting.value
+      && activeSource && !draftIsCurrent(activeSource)) cancel()
+  }, { flush: 'sync' })
+
   watch(() => novelFingerprint(options.currentNovel.value), () => {
     if (singleSelectedPrompt.value
       && promptContextFingerprint('single') !== singlePromptFingerprint) clearSinglePrompt()
@@ -518,6 +541,7 @@ export function useWriterChapterOutlineGeneration(
     batchSelectedPrompt,
     singleTemplatePrompt,
     batchTemplatePrompt,
+    batchError,
     activeMode,
     isGenerating,
     isCommitting,

@@ -42,7 +42,7 @@
                   <div class="status-bar">
                     <div class="status-info">
                       <el-icon class="rotating"><Loading /></el-icon>
-                      <span>AI正在优化中... ({{ optimizedResult.length }}字)</span>
+                      <span>AI正在优化中... ({{ getPlainTextWordCount(optimizedResult) }}字)</span>
                     </div>
                   </div>
                 </div>
@@ -70,5 +70,5 @@
 <script setup lang="ts">
 import { useShortStoryWorkspaceContext } from '@/composables/short-storyContext'
 import { Loading } from '@element-plus/icons-vue'
-const { showOptimizeModal, selectedTextForOptimize, optimizeDirection, optimizedTextRef, optimizing, optimizedResult, performOptimize, copyOptimizedText, replaceOriginalText } = useShortStoryWorkspaceContext()
+const { showOptimizeModal, selectedTextForOptimize, optimizeDirection, optimizedTextRef, optimizing, optimizedResult, performOptimize, copyOptimizedText, replaceOriginalText, getPlainTextWordCount } = useShortStoryWorkspaceContext()
 </script>

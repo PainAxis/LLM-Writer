@@ -6,7 +6,7 @@ See [Project Structure](PROJECT_STRUCTURE.md) for the current implementation lay
 
 Completed foundations:
 
-- PR/main CI enforces zero lint warnings, type checking, production builds, 53 smoke suites and 28 real Chromium scenarios with a synthetic API.
+- PR/main CI enforces zero lint warnings, type checking, production builds, 57 smoke suites and 33 real Chromium scenarios with a synthetic API.
 - The main ruleset requires GitHub Actions `ci-quality` and `ci-browser` checks and an up-to-date branch before merging.
 - ShortStory uses isolated generation scopes for articles, stories, continuation and optimization, with cancellation/restart/clear/dialog-close/unmount coverage.
 - BookAnalysis, NovelManagement and ToolsLibrary generation use isolated scopes covering stop, source changes, dialog closure and unmount; tool progress no longer uses simulated timers.
@@ -26,4 +26,15 @@ The final four reliability workstreams are complete:
 - Novel and writing-goal commits coordinate across tabs. Different novels merge independently; conflicting changes to one novel keep the local draft and require copying it, refreshing/reopening the novel and merging manually. Concurrent goal increments retain both histories. This coordination is scoped to novels/goals; see [the persistence protocol](docs/persistence-coordination.md).
 - Assistant summaries record their covered message boundary, so sending combines a committed summary with uncovered originals. Failed or pending compaction retains the previous usable boundary and full local history.
 
-The first batch of existing-feature repairs is complete: exact ShortStory selection replacement, stable chapter/event links, a persistent book-analysis reference library, and isolated API draft testing/model synchronization. Further feature work starts with the remaining user workflow findings before adding new capabilities. Implementation details and validation remain documented in [Project Structure](PROJECT_STRUCTURE.md), CI and the unreleased changelog.
+The first batch of existing-feature repairs is complete: exact ShortStory selection replacement, stable chapter/event links, a persistent book-analysis reference library, and isolated API draft testing/model synchronization.
+
+The second batch is implemented:
+
+- Shared rich-text conversion preserves visible text, entities and paragraph boundaries for AI context, copying, exports, previews and word counts; generated prose is escaped before editor insertion.
+- Chapter management keeps both stored total fields consistent; legacy exports use actual chapter content. Named empty corpus drafts round-trip through portable files. Both goal entry points support chapter units and exclude non-word progress from word statistics, retaining historical units after edits.
+- Book analysis uses whole-line headings and requires explicit chapter selection when chapters are detected. Batch outlines require complete chapter structures and the requested count; invalid replies remain visible for retry. Outline requests tolerate incidental autosave changes, and polishing substitutes the latest passage literally.
+- Tool templates respect the selected novel/chapter identities and current form parameters; incompatible templates are rejected without changing the saved prompt catalog.
+- Billing filters use normalized request types, exact model IDs and complete local-calendar days. Recorded usage drives trend/distribution charts, and failures without usage evidence do not invent token consumption.
+- Placeholder chapter sorting/batch editing controls are explicitly disabled; the Settings placeholder for testing all connections is removed.
+
+The configured regression set now contains 57 smoke suites and 33 browser scenarios. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.

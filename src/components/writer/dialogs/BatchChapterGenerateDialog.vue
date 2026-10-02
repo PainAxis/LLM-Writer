@@ -71,13 +71,21 @@
         </el-collapse>
       </div>
 
-      <!-- 流式生成内容显示 -->
-      <div v-if="streaming" class="streaming-content-area">
+      <el-alert
+        v-if="error"
+        :title="error"
+        type="error"
+        show-icon
+        :closable="false"
+      />
+
+      <!-- Failed responses remain selectable and complete after streaming ends. -->
+      <div v-if="streaming || (error && streamingContent)" class="streaming-content-area">
         <el-card shadow="never" class="streaming-card">
           <template #header>
             <div class="streaming-header">
-              <span>🔄 AI正在批量生成章节大纲...</span>
-              <el-tag type="success" size="small">实时生成中...</el-tag>
+              <span>{{ streaming ? '🔄 AI正在批量生成章节大纲...' : 'AI完整原始回答（可选择复制）' }}</span>
+              <el-tag v-if="streaming" type="success" size="small">实时生成中...</el-tag>
             </div>
           </template>
           <div ref="streamingContentElement" class="streaming-content">
@@ -91,7 +99,7 @@
       <el-button :disabled="generating" @click="emit('choose-prompt')">选择提示词</el-button>
       <el-button type="primary" :loading="generating" :disabled="committing" @click="emit('generate')">
         <el-icon><Star /></el-icon>
-        {{ committing ? '保存中...' : selectedPrompt ? '使用自定义提示词生成' : '批量生成' }}
+        {{ committing ? '保存中...' : error ? '重新生成' : selectedPrompt ? '使用自定义提示词生成' : '批量生成' }}
       </el-button>
     </template>
   </el-dialog>
@@ -117,6 +125,7 @@ const props = defineProps<{
   streaming: boolean
   generating: boolean
   committing: boolean
+  error?: string
 }>()
 
 const streamingContentElement = ref<HTMLElement | null>(null)

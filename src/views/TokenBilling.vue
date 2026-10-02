@@ -90,23 +90,48 @@
         
         <div class="statistics-content">
           <el-row :gutter="20">
-            <el-col :span="12">
+            <el-col :xs="24" :md="12">
               <div class="chart-container">
                 <h4>Token使用趋势</h4>
-                <div class="chart-placeholder">
-                  <p>Token使用趋势图（可集成 ECharts）</p>
+                <div v-if="periodTotals.requestCount" class="usage-trend">
+                  <svg class="usage-chart" viewBox="0 0 600 220" role="img" :aria-label="`最近${trendDays}天Token使用趋势，共${periodTotals.tokenCount}Token`">
+                    <title>最近{{ trendDays }}天，每日本地时间的Token用量</title>
+                    <line x1="38" y1="178" x2="584" y2="178" class="chart-axis" />
+                    <line x1="38" y1="28" x2="584" y2="28" class="chart-grid" />
+                    <text x="38" y="18" class="chart-label">{{ formatNumber(trendMaximum) }} Token</text>
+                    <rect v-for="(day, index) in usageTrend" :key="day.date"
+                      :x="40 + index * 540 / trendDays" :y="178 - day.tokenCount / trendMaximum * 144"
+                      :width="Math.max(2, 540 / trendDays - 3)" :height="day.tokenCount / trendMaximum * 144"
+                      class="chart-bar" :data-date="day.date" :data-tokens="day.tokenCount">
+                      <title>{{ day.date }}：{{ day.tokenCount }} Token，{{ day.requestCount }}次请求</title>
+                    </rect>
+                    <text x="38" y="205" class="chart-label">{{ usageTrend[0]?.date.slice(5) }}</text>
+                    <text x="580" y="205" text-anchor="end" class="chart-label">{{ usageTrend.at(-1)?.date.slice(5) }}</text>
+                  </svg>
+                  <p class="period-summary">{{ periodTotals.requestCount }}次请求 · {{ formatNumber(periodTotals.tokenCount) }} Token</p>
                 </div>
+                <el-empty v-else description="该时段暂无使用记录" :image-size="80" />
               </div>
             </el-col>
-            <el-col :span="12">
+            <el-col :xs="24" :md="12">
               <div class="chart-container">
                 <h4>输入/输出Token分布</h4>
-                <div class="chart-placeholder">
-                  <p>输入/输出Token分布图（可集成 ECharts）</p>
+                <div v-if="periodTotals.inputTokens + periodTotals.outputTokens" class="token-distribution">
+                  <div class="distribution-bar" role="img" :aria-label="`输入${periodTotals.inputTokens}Token，输出${periodTotals.outputTokens}Token`">
+                    <span class="distribution-input" :style="{ width: `${inputShare}%` }"></span>
+                    <span class="distribution-output" :style="{ width: `${100 - inputShare}%` }"></span>
+                  </div>
+                  <div class="distribution-legend">
+                    <p><span class="legend-dot input-dot"></span>输入 <strong>{{ formatNumber(periodTotals.inputTokens) }}</strong> Token（{{ inputShare.toFixed(1) }}%）</p>
+                    <p><span class="legend-dot output-dot"></span>输出 <strong>{{ formatNumber(periodTotals.outputTokens) }}</strong> Token（{{ (100 - inputShare).toFixed(1) }}%）</p>
+                  </div>
+                  <p v-if="periodTotals.tokenCount > periodTotals.inputTokens + periodTotals.outputTokens" class="period-summary">另有{{ formatNumber(periodTotals.tokenCount - periodTotals.inputTokens - periodTotals.outputTokens) }} Token未区分输入/输出</p>
                 </div>
+                <el-empty v-else :description="periodTotals.tokenCount ? '该时段暂无输入/输出明细' : '该时段未记录Token用量'" :image-size="80" />
               </div>
             </el-col>
           </el-row>
+          <p class="period-summary">趋势基于本地保留的使用记录。</p>
         </div>
       </el-card>
     </div>
@@ -118,10 +143,7 @@
           <div class="filter-left">
             <el-select v-model="typeFilter" placeholder="类型筛选" style="width: 120px;">
               <el-option label="全部" value="all" />
-              <el-option label="文本生成" value="generation" />
-              <el-option label="文本润色" value="polish" />
-              <el-option label="大纲生成" value="outline" />
-              <el-option label="对话聊天" value="chat" />
+              <el-option v-for="option in typeFilterOptions" :key="option.value" :label="option.label" :value="option.value" />
             </el-select>
             
             <el-select v-model="modelFilter" placeholder="模型筛选" style="width: 140px;">
@@ -294,6 +316,10 @@
             <label>总Token：</label>
             <span>{{ formatNumber(selectedRecord.totalTokens) }}</span>
           </div>
+          <div class="detail-item">
+            <label>用量依据：</label>
+            <span>{{ getUsageSourceText(selectedRecord.usageSource) }}</span>
+          </div>
         </div>
         
         <div class="content-section">
@@ -331,13 +357,14 @@ import { toDate } from '@/utils/dates'
 import type { WriterTimestamp } from '@/types/writer'
 import type { TagProps } from 'element-plus'
 import type { BillingRecord } from '@/services/billing'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
   Download, Upload, DataAnalysis, 
   TrendCharts, Search, DocumentCopy 
 } from '@element-plus/icons-vue'
-import billingService from '../services/billing'
+import billingService, { BILLING_TYPE_LABELS, filterBillingRecords, normalizeBillingType, usageTrendFromRecords } from '../services/billing'
+import { StorageKeys } from '@/utils/storage'
 
 // 响应式数据
 const statisticsTimeRange = ref('7d')
@@ -350,17 +377,13 @@ const pageSize = ref(20)
 const showDetailsDialog = ref(false)
 const selectedRecord = ref<BillingRecord | null>(null)
 
-// Token统计数据
-const todayStats = computed(() => {
-  return billingService.getTodayStats()
-})
+const clock = ref(new Date())
+const billingRecords = ref<BillingRecord[]>([])
+const usageStats = ref(billingService.getUsageStats())
+const todayStats = computed(() => usageTrendFromRecords(billingRecords.value, 1, clock.value)[0])
 
 const todayTokens = computed(() => {
   return todayStats.value.tokenCount
-})
-
-const usageStats = computed(() => {
-  return billingService.getUsageStats()
 })
 
 const totalInputTokens = computed(() => {
@@ -375,8 +398,20 @@ const totalTokens = computed(() => {
   return totalInputTokens.value + totalOutputTokens.value
 })
 
-// 使用记录数据
-const billingRecords = ref<BillingRecord[]>([])
+const trendDays = computed(() => Number.parseInt(statisticsTimeRange.value, 10))
+const usageTrend = computed(() => usageTrendFromRecords(billingRecords.value, trendDays.value, clock.value))
+const periodTotals = computed(() => usageTrend.value.reduce((total, day) => ({
+  inputTokens: total.inputTokens + day.inputTokens, outputTokens: total.outputTokens + day.outputTokens,
+  tokenCount: total.tokenCount + day.tokenCount, requestCount: total.requestCount + day.requestCount,
+}), { inputTokens: 0, outputTokens: 0, tokenCount: 0, requestCount: 0 }))
+const trendMaximum = computed(() => Math.max(1, ...usageTrend.value.map(day => day.tokenCount)))
+const inputShare = computed(() => {
+  const known = periodTotals.value.inputTokens + periodTotals.value.outputTokens
+  return known ? periodTotals.value.inputTokens / known * 100 : 0
+})
+const typeFilterOptions = computed(() => [...new Set([
+  ...Object.keys(BILLING_TYPE_LABELS), ...billingRecords.value.map(record => normalizeBillingType(record.type)),
+])].map(value => ({ value, label: BILLING_TYPE_LABELS[value] ?? value })))
 
 // 模型筛选项从实际计费记录动态生成
 const modelFilterOptions = computed(() => {
@@ -387,6 +422,8 @@ const modelFilterOptions = computed(() => {
 const loadBillingRecords = () => {
   try {
     billingRecords.value = billingService.getBillingRecords()
+    usageStats.value = billingService.getUsageStats()
+    clock.value = new Date()
 
     // 如果没有数据，可选择是否添加示例数据
     if (billingRecords.value.length === 0) {
@@ -399,38 +436,12 @@ const loadBillingRecords = () => {
 }
 
 // 计算属性
-const filteredRecords = computed(() => {
-  let result = billingRecords.value
-  
-  // 类型筛选
-  if (typeFilter.value !== 'all') {
-    result = result.filter(record => record.type === typeFilter.value)
-  }
-  
-  // 模型筛选
-  if (modelFilter.value !== 'all') {
-    result = result.filter(record => record.model.toLowerCase().includes(modelFilter.value))
-  }
-  
-  // 日期筛选
-  if (dateRange.value && dateRange.value.length === 2) {
-    const [start, end] = dateRange.value
-    result = result.filter(record => {
-      const recordDate = new Date(record.timestamp)
-      return recordDate >= start && recordDate <= end
-    })
-  }
-  
-  // 关键词搜索
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase()
-    result = result.filter(record => 
-      record.content.toLowerCase().includes(keyword) ||
-      (record.response && record.response.toLowerCase().includes(keyword))
-    )
-  }
-  
-  return result.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+const filteredRecords = computed(() => filterBillingRecords(billingRecords.value, {
+  type: typeFilter.value, model: modelFilter.value, dates: dateRange.value, keyword: searchKeyword.value,
+}))
+watch([typeFilter, modelFilter, dateRange, searchKeyword, pageSize], () => { currentPage.value = 1 })
+watch(() => filteredRecords.value.length, length => {
+  currentPage.value = Math.min(currentPage.value, Math.max(1, Math.ceil(length / pageSize.value)))
 })
 
 const paginatedRecords = computed(() => {
@@ -459,18 +470,16 @@ const getTypeColor = (type: string) => {
     outline: 'warning',
     chat: 'info'
   }
-  return colors[type] || 'info'
+  return colors[normalizeBillingType(type)] || 'info'
 }
 
 const getTypeText = (type: string) => {
-  const texts: Record<string, string> = {
-    generation: '文本生成',
-    polish: '文本润色',
-    outline: '大纲生成',
-    chat: '对话聊天'
-  }
-  return texts[type] || '未知'
+  return BILLING_TYPE_LABELS[normalizeBillingType(type)] || type
 }
+
+const getUsageSourceText = (source: BillingRecord['usageSource']) => source ? ({
+  reported: '服务商返回', estimated: '按文本估算', mixed: '服务商返回与文本估算', unavailable: '未取得用量，未计入Token',
+}[source] ?? '历史记录未标注') : '历史记录未标注'
 
 const getStatusColor = (status: string) => {
   const colors: Record<string, TagProps['type']> = {
@@ -535,10 +544,24 @@ const copyContent = async (content: string) => {
   }
 }
 
-// 生命周期
+let clockTimer: ReturnType<typeof setInterval> | undefined
+let unsubscribe: (() => void) | undefined
+const handleStorage = (event: StorageEvent) => {
+  if (event.key === null || event.key === StorageKeys.billingRecords || event.key === StorageKeys.tokenUsageStats) loadBillingRecords()
+}
+const handleVisibility = () => { if (!document.hidden) loadBillingRecords() }
 onMounted(() => {
-  // 加载使用记录
   loadBillingRecords()
+  unsubscribe = billingService.subscribe(loadBillingRecords)
+  window.addEventListener('storage', handleStorage)
+  document.addEventListener('visibilitychange', handleVisibility)
+  clockTimer = setInterval(() => { clock.value = new Date() }, 60_000)
+})
+onUnmounted(() => {
+  unsubscribe?.()
+  if (clockTimer) clearInterval(clockTimer)
+  window.removeEventListener('storage', handleStorage)
+  document.removeEventListener('visibilitychange', handleVisibility)
 })
 </script>
 
@@ -669,17 +692,18 @@ onMounted(() => {
   color: var(--el-text-color-regular);
 }
 
-.chart-placeholder {
-  height: 200px;
-  background: var(--el-fill-color-light);
-  border: 2px dashed #e9ecef;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6c757d;
-  font-size: 14px;
-}
+.usage-chart { display: block; width: 100%; height: 220px; }
+.chart-axis { stroke: var(--el-border-color); }
+.chart-grid { stroke: var(--el-border-color-lighter); stroke-dasharray: 4 4; }
+.chart-label { fill: var(--el-text-color-secondary); font-size: 13px; }
+.chart-bar, .distribution-input, .input-dot { fill: var(--el-color-primary); background: var(--el-color-primary); }
+.distribution-output, .output-dot { background: var(--el-color-success); }
+.period-summary { margin: 0; font-size: 14px; color: var(--el-text-color-regular); }
+.token-distribution { padding: 50px 24px 24px; }
+.distribution-bar { display: flex; height: 32px; border-radius: 8px; overflow: hidden; }
+.distribution-bar span { display: block; }
+.distribution-legend { margin-top: 24px; font-size: 14px; color: var(--el-text-color-regular); }
+.legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
 
 .filter-section {
   margin-bottom: 20px;

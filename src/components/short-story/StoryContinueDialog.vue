@@ -136,11 +136,11 @@
               <div class="result-stats">
                 <div class="stat-item">
                   <span class="stat-label">续写字数</span>
-                  <span class="stat-value">{{ continueResult.length }}</span>
+                  <span class="stat-value">{{ getPlainTextWordCount(continueResult) }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-label">预计阅读</span>
-                  <span class="stat-value">{{ Math.ceil(continueResult.length / 300) }}分钟</span>
+                  <span class="stat-value">{{ Math.ceil(getPlainTextWordCount(continueResult) / 300) }}分钟</span>
                 </div>
               </div>
               <div ref="continueTextRef" class="result-text">{{ continueResult }}</div>
@@ -162,7 +162,7 @@
         <div class="dialog-footer">
           <div class="footer-info">
             <el-icon><InfoFilled /></el-icon>
-            <span>续写将基于当前{{ (generatedStory || '').replace(/<[^>]*>/g, '').length }}字的内容</span>
+            <span>续写将基于当前{{ getTextWordCount(generatedStory) }}字的内容</span>
           </div>
           <div class="footer-actions">
             <el-button size="large" @click="showContinueDialog = false">取消</el-button>
@@ -171,7 +171,7 @@
               size="large" 
               @click="performContinue" 
               :loading="continuingStory"
-              :disabled="!generatedStory || generatedStory.replace(/<[^>]*>/g, '').trim().length < 50"
+              :disabled="getTextWordCount(generatedStory) < 50"
             >
               <el-icon v-if="!continuingStory"><Magic /></el-icon>
               {{ continuingStory ? '续写中...' : (continueResult ? '重新续写' : '开始续写') }}
@@ -185,5 +185,5 @@
 <script setup lang="ts">
 import { useShortStoryWorkspaceContext } from '@/composables/short-storyContext'
 import { EditPen, Check, Loading, Setting, InfoFilled } from '@element-plus/icons-vue'
-const { generatedStory, showContinueDialog, continueDirection, continueWordCount, continueTextRef, continuingStory, continueResult, performContinue, copyContinueText } = useShortStoryWorkspaceContext()
+const { generatedStory, showContinueDialog, continueDirection, continueWordCount, continueTextRef, continuingStory, continueResult, performContinue, copyContinueText, getTextWordCount, getPlainTextWordCount } = useShortStoryWorkspaceContext()
 </script>

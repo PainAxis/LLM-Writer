@@ -4,7 +4,7 @@ import type { WritingGoal } from '@/types/management'
 import { storageGet, storageSet, StorageKeys, writeSerializedWithRetry } from '@/utils/storage'
 import { withStorageCommit } from '@/services/storageCoordination'
 import { generateUniqueId } from '@/utils/id'
-import { applyGoalProgress, normalizeWritingGoals, sortActiveGoals, toGoalDate, wordsWrittenToday, writingStreak } from '@/utils/writingGoals'
+import { applyGoalProgress, normalizeWritingGoals, resolveGoalUnit, sortActiveGoals, toGoalDate, wordsWrittenToday, writingStreak } from '@/utils/writingGoals'
 
 type GoalDetails = Pick<WritingGoal, 'title' | 'type' | 'targetValue' | 'startDate' | 'endDate'>
   & Partial<Pick<WritingGoal, 'description' | 'unit' | 'reminder' | 'reminderTime'>>
@@ -61,10 +61,19 @@ export function createWritingGoalsState(storage: GoalStorage) {
       const time = now().toISOString()
       if (goalId !== undefined) {
         const existing = requireGoal(current, goalId)
-        return current.map(goal => goal.id === goalId ? { ...existing, ...draft, updatedAt: time } : goal)
+        const unit = resolveGoalUnit(draft.type, draft.unit ?? (existing.type === draft.type ? existing.unit : undefined))
+        const previousUnit = resolveGoalUnit(existing.type, existing.unit)
+        const updated = { ...existing, ...draft, unit, updatedAt: time }
+        if (unit !== previousUnit) {
+          updated.currentValue = 0
+          updated.progressHistory = existing.progressHistory.map(record => ({ ...record, unit: record.unit ?? previousUnit }))
+          if (updated.status === 'completed') updated.status = 'active'
+          delete updated.completedAt
+        }
+        return current.map(goal => goal.id === goalId ? updated : goal)
       }
       return [...current, {
-        ...draft, id: id(), unit: draft.unit ?? (draft.type === 'streak_days' ? '天' : '字'),
+        ...draft, id: id(), unit: resolveGoalUnit(draft.type, draft.unit),
         currentValue: 0, status: 'active', progressHistory: [], createdAt: time, updatedAt: time,
         priority: Math.max(-1, ...current.map(goal => goal.priority ?? -1)) + 1,
       }]

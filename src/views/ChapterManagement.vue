@@ -64,8 +64,8 @@
           <div class="card-header">
             <span>{{ selectedNovel.title }} · 章节列表</span>
             <div class="header-actions">
-              <el-button size="small" @click="sortChapters">排序</el-button>
-              <el-button size="small" @click="batchEdit">批量编辑</el-button>
+              <el-button size="small" disabled title="批量排序尚未提供，请使用章节菜单中的上移、下移">排序</el-button>
+              <el-button size="small" disabled title="批量编辑尚未提供">批量编辑</el-button>
             </div>
           </div>
         </template>
@@ -265,7 +265,7 @@
           </div>
         </div>
         <div class="preview-content">
-          <p v-for="(paragraph, index) in (previewChapter.content || '').split('\n')" :key="index">
+          <p v-for="(paragraph, index) in stripWriterHtml(previewChapter.content || '').split(/\n+/)" :key="index">
             {{ paragraph }}
           </p>
         </div>
@@ -285,6 +285,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 import { subscribeNovelPersistenceStatus } from '@/services/novelPersistence'
 import { remapEventChapters } from '@/utils/eventLine'
+import { countWriterWords, stripWriterHtml } from '@/utils/writerContent'
+import { getChapterWordCount, getNovelWordStats } from '@/utils/novelStats'
 import { 
   Plus, EditPen, Calendar, Edit, View, MoreFilled, 
   CopyDocument, ArrowUp, ArrowDown, Delete 
@@ -343,6 +345,7 @@ const loadNovels = () => {
     if (parsedNovels) {
       novels.value = parsedNovels.map(novel => ({
         ...novel,
+        ...getNovelWordStats(novel),
         createdAt: toDate(novel.createdAt),
         updatedAt: toDate(novel.updatedAt)
       }))
@@ -393,6 +396,7 @@ const loadChapters = (novelId: number | null) => {
   if (novel && novel.chapterList) {
     chapters.value = novel.chapterList.map(chapter => ({
       ...chapter,
+      wordCount: getChapterWordCount(chapter),
       createdAt: toDate(chapter.createdAt),
       updatedAt: toDate(chapter.updatedAt)
     }))
@@ -406,12 +410,12 @@ const saveChaptersToNovel = async (nextChapters = chapters.value, novelId = sele
   if (!novelId) throw new Error('请先选择小说')
   const savedNovels = storageGet<ManagedNovel[]>(StorageKeys.novels, [])
   if (!savedNovels.some(n => n.id === novelId)) throw new Error('小说已不存在')
+  const countedChapters = nextChapters.map(chapter => ({ ...chapter, wordCount: getChapterWordCount(chapter) }))
   const nextNovels = savedNovels.map(novel => novel.id === novelId ? {
     ...novel,
-    chapterList: nextChapters,
+    chapterList: countedChapters,
     ...(novel.events ? { events: remapEventChapters(novel.events, novel.chapterList ?? [], nextChapters) } : {}),
-    wordCount: nextChapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0),
-    chapters: nextChapters.length,
+    ...getNovelWordStats({ chapterList: countedChapters }),
     updatedAt: new Date()
   } : novel)
   isSavingChapters.value = true
@@ -499,7 +503,7 @@ const saveChapter = async () => {
     return
   }
   try {
-    const wordCount = chapterForm.value.content.replace(/<[^>]*>/g, '').length
+    const wordCount = countWriterWords(chapterForm.value.content)
     const wasEditing = Boolean(editingChapter.value)
     const nextChapters = [...chapters.value]
     if (wasEditing) {
@@ -563,18 +567,6 @@ const toggleChapterSelection = (id: number, checked: string | number | boolean) 
   selectedChapters.value = checked
     ? [...new Set([...selectedChapters.value, id])]
     : selectedChapters.value.filter(selected => selected !== id)
-}
-
-const sortChapters = () => {
-  ElMessage.info('章节排序功能开发中...')
-}
-
-const batchEdit = () => {
-  if (selectedChapters.value.length === 0) {
-    ElMessage.warning('请先选择要编辑的章节')
-    return
-  }
-  ElMessage.info('批量编辑功能开发中...')
 }
 
 // 全局重试成功后同步列表；不重置正在编辑的表单。

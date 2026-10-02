@@ -310,6 +310,7 @@
       v-model:form="aiBatchChapterForm"
       :selected-prompt="batchChapterSelectedPrompt"
       :final-prompt="batchChapterFinalPrompt"
+      :error="chapterOutlineBatchError"
       :streaming-content="chapterOutlineStreamingContent"
       :streaming="isChapterOutlineStreaming && chapterOutlineMode === 'batch'"
       :generating="isGeneratingChapters"
@@ -761,6 +762,7 @@ const aiBatchChapterForm = chapterOutlineGeneration.batchForm
 const singleChapterSelectedPrompt = chapterOutlineGeneration.singleSelectedPrompt
 const batchChapterSelectedPrompt = chapterOutlineGeneration.batchSelectedPrompt
 const batchChapterFinalPrompt = chapterOutlineGeneration.batchTemplatePrompt
+const chapterOutlineBatchError = chapterOutlineGeneration.batchError
 const chapterOutlineMode = chapterOutlineGeneration.activeMode
 const isGeneratingChapters = chapterOutlineGeneration.isGenerating
 const isCommittingChapterOutlines = chapterOutlineGeneration.isCommitting

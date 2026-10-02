@@ -1,3 +1,4 @@
+import { stripWriterHtml } from '../writerContent'
 import { CHAPTER_EXCERPT_MAX_CHARS, trimTextFromEnd, trimTextFromStart } from '../tokenBudget'
 
 export interface ChapterContentPromptNovel {
@@ -116,7 +117,7 @@ export function describeNarrativeStyle(style: string): string {
 }
 
 function stripChapterHtml(content: string): string {
-  return content.replace(/<[^>]*>/g, '').trim()
+  return stripWriterHtml(content)
 }
 
 function resolveEventCharacterNames(

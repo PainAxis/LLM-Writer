@@ -9,6 +9,12 @@ const finite = (value: unknown, fallback: number) =>
 const timestamp = (value: unknown): WriterTimestamp =>
   typeof value === 'string' || typeof value === 'number' || value instanceof Date ? value : ''
 
+export function resolveGoalUnit(type: string, unit?: string): string {
+  if (type === 'chapters') return '章'
+  if (type === 'streak_days') return '天'
+  return unit?.trim() || '字'
+}
+
 export function toGoalDate(value: WriterTimestamp): Date {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [year, month, day] = value.split('-').map(Number)
@@ -41,7 +47,7 @@ export function normalizeWritingGoals(value: unknown): WritingGoal[] {
       targetValue: Math.max(1, finite(item.targetValue, 1000)),
       currentValue: Math.max(0, finite(item.currentValue, 0)),
       status: typeof item.status === 'string' ? item.status : 'active',
-      unit: typeof item.unit === 'string' ? item.unit : item.type === 'streak_days' ? '天' : '字',
+      unit: resolveGoalUnit(typeof item.type === 'string' ? item.type : 'daily', typeof item.unit === 'string' ? item.unit : undefined),
       startDate: timestamp(item.startDate), endDate: timestamp(item.endDate), progressHistory,
     }
   })
@@ -63,9 +69,11 @@ export function writingStreak(goals: readonly WritingGoal[], now = new Date()): 
   const today = calendarDay(now)
   const days = new Set<number>()
   for (const goal of goals) {
-    if (goal.type === 'streak_days') continue
     const totals = new Map<number, number>()
     for (const record of goal.progressHistory) {
+      // Recorded units survive goal type changes. Legacy streak records without
+      // a captured unit retain their original exclusion from writing activity.
+      if ((record.unit ?? (goal.type === 'streak_days' ? '天' : undefined)) === '天') continue
       const day = calendarDay(record.date)
       if (Number.isFinite(day) && day <= today) totals.set(day, (totals.get(day) ?? 0) + record.increment)
     }
@@ -80,8 +88,9 @@ export function writingStreak(goals: readonly WritingGoal[], now = new Date()): 
 
 export function wordsWrittenToday(goals: readonly WritingGoal[], now = new Date()): number {
   const today = calendarDay(now)
-  return Math.max(0, goals.filter(goal => goal.unit === '字').reduce((total, goal) =>
-    total + goal.progressHistory.filter(record => calendarDay(record.date) === today)
+  return Math.max(0, goals.reduce((total, goal) =>
+    total + goal.progressHistory.filter(record => calendarDay(record.date) === today
+      && (record.unit ?? resolveGoalUnit(goal.type, goal.unit)) === '字')
       .reduce((sum, record) => sum + record.increment, 0), 0))
 }
 
@@ -102,7 +111,7 @@ export function applyGoalProgress(
   if (increment === 0 && !cleanNote) return goal
   const result: WritingGoal = {
     ...goal, currentValue, updatedAt: now.toISOString(),
-    progressHistory: [{ id: recordId, date: now.toISOString(), increment, note: cleanNote }, ...goal.progressHistory],
+    progressHistory: [{ id: recordId, date: now.toISOString(), increment, note: cleanNote, unit: resolveGoalUnit(goal.type, goal.unit) }, ...goal.progressHistory],
   }
   if (currentValue >= result.targetValue) {
     result.status = 'completed'

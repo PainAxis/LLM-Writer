@@ -189,7 +189,7 @@
                 <div class="status-bar">
                   <div class="status-info">
                     <el-icon class="rotating"><Loading /></el-icon>
-                    <span>AI正在生成小说... ({{ streamingContent.length }}字)</span>
+                    <span>AI正在生成小说... ({{ getTextWordCount(generatedStory) }}字)</span>
                   </div>
                   <el-button size="small" type="danger" text @click="stopGeneration">停止生成</el-button>
                 </div>
@@ -220,5 +220,5 @@
 import { useShortStoryWorkspaceContext } from '@/composables/short-storyContext'
 import { MagicStick, EditPen, Download, Loading, Setting, List, InfoFilled } from '@element-plus/icons-vue'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
-const { activeTab, generatedStory, showAdvancedConfig, unifiedPrompt, selectedPromptTemplate, generating, streamingContent, continuingStory, showStoryPromptSelector, promptPlaceholder, editorRef, toolbarConfig, editorConfig, storyData, isConfigValid, customGenres, customPlotTypes, customEmotions, customTimeFrames, generateStory, continueStory, resetConfig, handleEditorCreated, onEditorChange, handleTextSelection, optimizeSelection, exportStory, getTextWordCount, openConfigManager, clearSelectedTemplate, stopGeneration } = useShortStoryWorkspaceContext()
+const { activeTab, generatedStory, showAdvancedConfig, unifiedPrompt, selectedPromptTemplate, generating, continuingStory, showStoryPromptSelector, promptPlaceholder, editorRef, toolbarConfig, editorConfig, storyData, isConfigValid, customGenres, customPlotTypes, customEmotions, customTimeFrames, generateStory, continueStory, resetConfig, handleEditorCreated, onEditorChange, handleTextSelection, optimizeSelection, exportStory, getTextWordCount, openConfigManager, clearSelectedTemplate, stopGeneration } = useShortStoryWorkspaceContext()
 </script>

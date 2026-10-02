@@ -86,7 +86,7 @@ for (const marker of [
 ]) {
   assert.ok(built.prompt.includes(marker), `最终提示词应包含：${marker}`)
 }
-assert.match(built.prompt, /【第1章内容】\n短篇&nbsp;上下文/)
+assert.match(built.prompt, /【第1章内容】\n短篇\u00a0上下文/)
 assert.match(built.prompt, /【第3章开头部分】\n开头标记/)
 assert.match(built.prompt, /【第3章结尾部分】[\s\S]*结尾标记/)
 assert.doesNotMatch(built.prompt, /中段不应出现/)

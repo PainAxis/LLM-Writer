@@ -23,6 +23,8 @@ export interface GoalProgress {
   date: WriterTimestamp
   increment: number
   note: string
+  /** Captured unit keeps historical activity meaningful when a goal changes units. */
+  unit?: string
 }
 export interface WritingGoal {
   id: number | string
@@ -46,6 +48,7 @@ export interface WritingGoal {
 export interface GoalForm {
   title: string
   type: string
+  unit: string
   targetValue: number
   description: string
   dateRange: Date[] | null

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { ref, watch } from 'vue'
 import { useWriterChapterEditOutlineGeneration } from '../src/composables/useWriterChapterEditOutlineGeneration'
+import { useWriterProject } from '../src/composables/useWriterProject'
 import { AIRequestCancelledError } from '../src/utils/aiRequestScope'
 import {
   buildChapterOutlinePrompt,
@@ -291,6 +292,76 @@ async function testValidationAndFailure() {
   console.log('✓ 前置校验、创建态上下文与请求失败路径保持表单完整')
 }
 
+async function testAutosaveMetadataDoesNotCancel() {
+  const f = fixture()
+  const generation = f.controller.generate()
+  // Both previous chapters and the edited chapter can be updated by editor persistence.
+  for (const chapter of f.chapters.value) {
+    chapter.content = '<p>自动保存的新正文</p>'
+    chapter.wordCount = 9999
+    chapter.updatedAt = new Date()
+    chapter.status = 'completed'
+  }
+  assert.equal(f.controller.isGenerating.value, true)
+  assert.equal(f.stream.stopCount(), 0)
+  f.stream.requests[0].resolve('自动保存期间完成的大纲')
+  assert.equal(await generation, true)
+  assert.equal(f.form.value.description, '自动保存期间完成的大纲')
+
+  let stored: WriterNovel[] = [{ id: 1, title: '小说', chapterList: [
+    { id: 11, title: '当前章', description: '原有大纲', content: '<p>旧正文</p>', wordCount: 3, status: 'draft' },
+  ] }]
+  const project = useWriterProject({
+    novelStore: { worldSettings: [] }, beforeUnloadTarget: null, notifyError: message => assert.fail(message),
+    persistence: { load: () => stored, save: async novels => { stored = novels } },
+  })
+  await project.initNovel('1')
+  const form = ref<WriterChapterForm>({ title: '当前章', description: '手工填写的大纲', status: 'draft' })
+  const stream = fakeStream()
+  const controller = useWriterChapterEditOutlineGeneration({
+    currentNovel: project.currentNovel, chapters: project.chapters, characters: project.characters,
+    worldSettings: ref([]), form, editingChapter: project.currentChapter, visible: ref(true), ensureApiReady: () => true,
+    stream, notify: { success() {}, warning: message => assert.fail(message), error: message => assert.fail(message) },
+  })
+  try {
+    const pending = controller.generate()
+    project.content.value = '<p>正文刚刚更新，需要自动保存。</p>'
+    project.onContentChange()
+    await project.autoSave()
+    assert.ok(project.chapters.value[0].wordCount! > 3)
+    assert.equal(controller.isGenerating.value, true)
+    stream.requests[0].resolve('生成完成的新大纲')
+    assert.equal(await pending, true)
+    assert.equal(form.value.description, '生成完成的新大纲')
+    assert.equal(stored[0].chapterList![0].content, '<p>正文刚刚更新，需要自动保存。</p>')
+  } finally {
+    controller.dispose()
+    await project.dispose()
+  }
+  console.log('✓ 真实正文自动保存及前章字数/状态/时间元数据变化不再取消编辑大纲')
+}
+
+async function testOutlineInputsStillCancelAndProtectManualDescription() {
+  const mutations: Array<(f: ReturnType<typeof fixture>) => void> = [
+    f => { f.chapters.value[0].title = '变化标题'; f.chapters.value[0].title = '潮汐' },
+    f => { f.chapters.value[0].description = '变化大纲'; f.chapters.value[0].description = '船队抵达港口' },
+    f => { f.chapters.value[0].id = 99; f.chapters.value[0].id = 1 },
+    f => { const first = f.chapters.value.shift()!; f.chapters.value.splice(1, 0, first) },
+    f => { f.form.value.description = '用户重新写下的完整大纲，必须保留' },
+  ]
+  for (const mutate of mutations) {
+    const f = fixture()
+    const pending = f.controller.generate()
+    mutate(f)
+    const manualDescription = f.form.value.description
+    f.stream.requests[0].resolve('迟到的大纲结果')
+    assert.equal(await pending, false)
+    assert.equal(f.form.value.description, manualDescription)
+    assert.equal(f.stream.stopCount(), 1)
+  }
+  console.log('✓ 身份/顺序/标题/前章大纲和用户手写大纲变更仍永久取消迟到结果')
+}
+
 async function main() {
   await testAtomicSuccessAndDefaultPrompt()
   await testUserEditPermanentlyInvalidatesRequest()
@@ -298,6 +369,8 @@ async function main() {
   await testNovelDialogAndContextRaces()
   await testIndependentCancelAndSupersession()
   await testValidationAndFailure()
+  await testAutosaveMetadataDoesNotCancel()
+  await testOutlineInputsStillCancelAndProtectManualDescription()
   console.log('\n=== WRITER CHAPTER EDIT OUTLINE GENERATION TESTS PASSED ===')
 }
 

@@ -5,6 +5,8 @@ import { ref } from 'vue'
 import ts from 'typescript'
 import { toDate } from '../src/utils/dates'
 import { remapEventChapters } from '../src/utils/eventLine'
+import { getChapterWordCount, getNovelWordStats } from '../src/utils/novelStats'
+import { countWriterWords } from '../src/utils/writerContent'
 import { registerChunkedKey, StorageKeys, storageGet, storageSet } from '../src/utils/storage'
 import { initNovelPersistence, retryNovelPersistence, subscribeNovelPersistenceStatus } from '../src/services/novelPersistence'
 
@@ -69,7 +71,7 @@ function setup(kind: 'novels' | 'chapters') {
   const errors: string[] = []
   let cancel = false
   const shared: Record<string, any> = {
-    ref, StorageKeys, storageGet, storageSet, remapEventChapters,
+    ref, StorageKeys, storageGet, storageSet, remapEventChapters, getChapterWordCount, getNovelWordStats, countWriterWords,
     novels: ref(clone(cached)),
     ElMessage: { success: (s: string) => success.push(s), error: (s: string) => errors.push(s) },
     ElMessageBox: { confirm: async () => { if (cancel) throw 'cancel' } },
@@ -135,6 +137,13 @@ async function verifyFailureThenRetry(kind: 'novels' | 'chapters', label: string
   assert.equal(writes, 2)
   assert.deepEqual(disk.find(novel => novel.id === 2), initial[1], '不能污染另一本小说')
   if (kind === 'chapters') assert.deepEqual(clone(state.novels.value[0].events), disk[0].events, '成功后页面事件和已保存章节保持配对')
+  if (kind === 'chapters') {
+    assert.equal(disk[0].wordCount, disk[0].totalWords, '所有章节变更必须同步两份总字数')
+    assert.deepEqual(getNovelWordStats(disk[0]), {
+      wordCount: disk[0].wordCount, totalWords: disk[0].totalWords,
+      chapters: disk[0].chapters, avgWordsPerChapter: disk[0].avgWordsPerChapter,
+    })
+  }
   console.log(`✓ ${label}：失败保留输入，重试成功，无提前成功提示`)
   return { state, initial }
 }
@@ -195,7 +204,7 @@ async function verifyGlobalRetry() {
           assert.equal(actual.title, rename ? '同一草稿改名' : '保留创建身份')
           assert.equal(actual.createdAt, originalDraft.createdAt, '重试不能重置原创建时间')
           if (kind === 'novels') {
-            assert.deepEqual(actual.chapterList, target.chapterList)
+            assert.deepEqual(actual.chapterList, target.chapterList.map((chapter: any) => ({ ...chapter, wordCount: 7 })), '保留恢复后的正文与扩展字段，同时修正显示计数')
             assert.deepEqual(actual.characters, target.characters)
           } else assert.equal(actual.notes, target.notes)
           assert.equal(draftRef.value, null, '成功关闭表单后应清除草稿身份')

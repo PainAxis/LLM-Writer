@@ -23,6 +23,8 @@ import { useGenerationTask } from '@/composables/useGenerationTask'
 import { filterNovelList } from '@/utils/novelList'
 import { storageGet, storageSet, StorageKeys } from '@/utils/storage'
 import { subscribeNovelPersistenceStatus } from '@/services/novelPersistence'
+import { getChapterWordCount, getNovelWordStats } from '@/utils/novelStats'
+import { stripWriterHtml } from '@/utils/writerContent'
 
 /** Typed orchestration for the NovelManagement view. */
 export function useNovelManagementWorkspace() {
@@ -75,10 +77,12 @@ export function useNovelManagementWorkspace() {
         // 将日期字符串转换为Date对象
         novels.value = parsedNovels.map((novel) => ({
           ...novel,
+          ...getNovelWordStats(novel),
           createdAt: toDate(novel.createdAt),
           updatedAt: toDate(novel.updatedAt),
-          chapterList: (novel.chapterList || []).map((chapter) => ({
+          chapterList: novel.chapterList?.map((chapter) => ({
             ...chapter,
+            wordCount: getChapterWordCount(chapter),
             createdAt: chapter.createdAt ? toDate(chapter.createdAt) : new Date(),
             updatedAt: chapter.updatedAt ? toDate(chapter.updatedAt) : new Date(),
           })),
@@ -352,22 +356,8 @@ export function useNovelManagementWorkspace() {
 
   const exportNovel = (novel: WriterNovel) => {
     try {
-      // 简化的HTML清理函数
-      const cleanHtml = (htmlString?: string) => {
-        if (!htmlString) return ''
-        return htmlString
-          .replace(/<br\s*\/?>/gi, '\n') // br标签转换为换行
-          .replace(/<\/p>/gi, '\n\n') // p结束标签转换为双换行
-          .replace(/<[^>]*>/g, '') // 移除所有HTML标签
-          .replace(/&nbsp;/g, ' ') // HTML空格转换为普通空格
-          .replace(/&lt;/g, '<') // HTML实体转换
-          .replace(/&gt;/g, '>')
-          .replace(/&amp;/g, '&')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/\n\s*\n\s*\n+/g, '\n\n') // 清理多余换行
-          .trim()
-      }
+      novel = { ...novel, ...getNovelWordStats(novel) }
+      const cleanHtml = (content?: string) => stripWriterHtml(content ?? '')
 
       // 构建导出内容
       let exportContent = `《${novel.title}》\n`
@@ -414,7 +404,7 @@ export function useNovelManagementWorkspace() {
             exportContent += `（章节内容暂无）\n\n`
           }
 
-          exportContent += `字数：${chapter.wordCount || 0}字\n`
+          exportContent += `字数：${getChapterWordCount(chapter)}字\n`
           exportContent += `更新时间：${formatDate(chapter.updatedAt || chapter.createdAt)}\n\n`
           exportContent += `${'='.repeat(50)}\n\n`
         })
@@ -472,22 +462,7 @@ export function useNovelManagementWorkspace() {
         return
       }
 
-      // 简化的HTML清理函数
-      const cleanHtml = (htmlString?: string) => {
-        if (!htmlString) return ''
-        return htmlString
-          .replace(/<br\s*\/?>/gi, '\n') // br标签转换为换行
-          .replace(/<\/p>/gi, '\n\n') // p结束标签转换为双换行
-          .replace(/<[^>]*>/g, '') // 移除所有HTML标签
-          .replace(/&nbsp;/g, ' ') // HTML空格转换为普通空格
-          .replace(/&lt;/g, '<') // HTML实体转换
-          .replace(/&gt;/g, '>')
-          .replace(/&amp;/g, '&')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/\n\s*\n\s*\n+/g, '\n\n') // 清理多余换行
-          .trim()
-      }
+      const cleanHtml = (content?: string) => stripWriterHtml(content ?? '')
 
       // 构建导出内容
       let exportContent = `📚 小说列表导出\n`
@@ -498,6 +473,7 @@ export function useNovelManagementWorkspace() {
       exportContent += `${'='.repeat(60)}\n\n`
 
       filteredNovels.value.forEach((novel, index) => {
+        novel = { ...novel, ...getNovelWordStats(novel) }
         exportContent += `【第${index + 1}部】《${novel.title}》\n`
         exportContent += `${'='.repeat(50)}\n\n`
 
@@ -528,8 +504,8 @@ export function useNovelManagementWorkspace() {
           exportContent += `📝 章节概要\n`
           novel.chapterList.forEach((chapter, chapterIndex) => {
             exportContent += `第${chapterIndex + 1}章 ${chapter.title}`
-            if (chapter.wordCount) {
-              exportContent += ` (${chapter.wordCount}字)`
+            if (getChapterWordCount(chapter)) {
+              exportContent += ` (${getChapterWordCount(chapter)}字)`
             }
             exportContent += `\n`
             if (chapter.description) {

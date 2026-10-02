@@ -1,6 +1,6 @@
 import { useApiConfig } from './apiConfig'
 import { getPreset, loadAISDK, probeProviderConnection, resolveLanguageModel, type ModelsProbeOptions } from './aiProviders'
-import billingService from './billing'
+import billingService, { resolveRecordedUsage } from './billing'
 import { PREVIOUS_CONTENT_MAX_CHARS, trimTextFromEnd } from '@/utils/tokenBudget'
 import { buildCorpusInjection, recommendCorpus } from '@/utils/corpusRetrieval'
 import { AIRequestCancelledError } from '@/utils/aiRequestScope'
@@ -101,15 +101,13 @@ class APIService {
     status: 'success' | 'failed',
     type: string,
   ): void {
-    const inputTokens = usage?.inputTokens ?? estimatedInputTokens
-    const outputTokens = usage?.outputTokens ?? billingService.estimateTokens(response)
+    const recordedUsage = resolveRecordedUsage(estimatedInputTokens, response, usage, status)
     billingService.recordAPICall({
       type,
       model,
       content: prompt,
       response,
-      inputTokens,
-      outputTokens,
+      ...recordedUsage,
       status,
     })
   }
@@ -119,10 +117,14 @@ class APIService {
   async generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
     this.assertConfigReady()
     const config = this.getConfig()
-    const estimatedInputTokens = billingService.estimateTokens(prompt)
+    const promptForEstimate = [options.system ?? '', ...(options.messages?.length
+      ? options.messages.map(message => message.content) : [prompt])].filter(Boolean).join('\n')
+    const estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
     const { maxOutputTokens, temperature } = this.buildRequestBody(config, options, false)
     const { signal, clearTimeout } = this.createTimeoutSignal(options.signal)
     const effectiveModel = options.model?.trim() || config.selectedModel
+    let content = ''
+    let usage: UsageInfo | undefined
 
     try {
       this.throwIfAborted(signal)
@@ -141,12 +143,13 @@ class APIService {
         abortSignal: signal,
       })
 
+      content = result.text ?? ''
+      usage = result.usage
       this.throwIfAborted(signal)
-      const content = result.text ?? ''
-      this.recordUsage(effectiveModel, prompt, content, estimatedInputTokens, result.usage, 'success', options.type ?? 'generation')
+      this.recordUsage(effectiveModel, promptForEstimate, content, estimatedInputTokens, usage, 'success', options.type ?? 'generation')
       return content
     } catch (error) {
-      this.recordUsage(effectiveModel, prompt, '', estimatedInputTokens, undefined, 'failed', options.type ?? 'generation')
+      this.recordUsage(effectiveModel, promptForEstimate, content, estimatedInputTokens, usage, 'failed', options.type ?? 'generation')
       this.throwIfAborted(signal)
       throw error
     } finally {
@@ -171,7 +174,7 @@ class APIService {
     const systemPrompt = options.system ? this.sanitizePrompt(options.system) : undefined
     const promptForEstimate = hasMessages
       ? `${systemPrompt ?? ''}\n${messages!.map((msg) => msg.content).join('\n')}`
-      : cleanPrompt
+      : [systemPrompt, cleanPrompt].filter(Boolean).join('\n')
     const estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
     const { maxOutputTokens, temperature } = this.buildRequestBody(config, options, true)
     const { clearTimeout, signal: abortSignal } = this.createTimeoutSignal(options.signal)
@@ -203,23 +206,21 @@ class APIService {
         onError: ({ error }) => { streamError = error },
       })
 
-      for await (const chunk of result.textStream) {
+      // Consume usage events as they arrive, so a later cancellation/error cannot
+      // discard usage the provider has already reported.
+      for await (const part of result.fullStream) {
+        if (part.type === 'finish-step') usage = part.usage
+        else if (part.type === 'finish') usage = part.totalUsage
+        else if (part.type === 'error') streamError = part.error
         this.throwIfAborted(abortSignal, fullContent)
-        fullContent += chunk
-        onChunk?.(chunk, fullContent)
+        if (part.type === 'text-delta') {
+          fullContent += part.text
+          onChunk?.(part.text, fullContent)
+        }
       }
       this.throwIfAborted(abortSignal, fullContent)
-      // SDK 的 textStream 只包含文本增量；服务端 error 事件需单独处理。
+      // A stream error may be followed by final usage events; report it after consuming them.
       if (streamError) throw streamError
-
-      // 读取真实用量；中断或无用量时由回退逻辑处理
-      try {
-        const u = await result.usage
-        usage = { inputTokens: u.inputTokens, outputTokens: u.outputTokens }
-      } catch {
-        usage = undefined
-      }
-      this.throwIfAborted(abortSignal, fullContent)
 
       if (!fullContent.trim()) {
         throw new Error('AI返回内容为空')

@@ -4,8 +4,8 @@
 
 The `CI` workflow runs on pull requests targeting `main`, pushes to `main`, and manual dispatch. Its check names are `ci-quality` and `ci-browser`.
 
-- `ci-quality` installs locked dependencies, rejects lint warnings, builds the app (including type checking), and runs all 53 suites in `npm run smoke:all` sequentially.
-- `ci-browser` builds the same revision and runs 28 Chromium scenarios against a local preview and synthetic API. It uploads `artifacts/browser` as `browser-evidence-<attempt>` for seven days, including failure screenshots and a Playwright trace when browser execution starts.
+- `ci-quality` installs locked dependencies, rejects lint warnings, builds the app (including type checking), and runs all 57 suites in `npm run smoke:all` sequentially.
+- `ci-browser` builds the same revision and runs 33 Chromium scenarios against a local preview and synthetic API. It uploads `artifacts/browser` as `browser-evidence-<attempt>` for seven days, including failure screenshots and a Playwright trace when browser execution starts.
 
 Both jobs use Node 24 and read-only repository permissions. Browser regression never needs real API credentials or a public tunnel. The current CI results are the validation record for each commit.
 
@@ -35,7 +35,17 @@ Scenarios 25–28 cover the first batch of existing-feature repairs:
 - **27 — Reference reports:** save a book-analysis report, reload without the source book, reopen it, clear/rewrite and update the same record, then delete and reload.
 - **28 — API drafts:** test successful and failed unsaved configurations without replacing committed settings; close the dashboard configuration dialog during pending requests and reject late results.
 
-The new module suites exercise rich-text and multi-paragraph ranges, report storage failures/retries, draft probes, proxy/header snapshots, endpoint-scoped model caches and request timeouts. Backup regressions include reference-library round trips, strict report validation and preserving reports when restoring older backups.
+Scenarios 29–33 cover the second batch of existing-feature repairs:
+
+- **29 — Book selection boundaries:** detect whole-line headings, require a selected chapter and inspect the synthetic request to ensure only the chosen chapter is analyzed; clearing the selection disables analysis again.
+- **30 — Outline and polishing results:** retain an invalid raw outline reply without creating chapters, then retry a complete requested-count response while autosave runs; verify polishing uses the latest editor text and resolves its passage placeholder.
+- **31 — Management totals and units:** import stale chapter counts, preview decoded text with paragraph boundaries, delete a chapter and verify both saved totals after reload; add two chapters of goal progress without increasing today's word count and verify both goal entry points.
+- **32 — Tool inputs and templates:** choose a specific novel and rich-text reference chapter, inspect synopsis/character requests for the selected source and form parameters, exclude incompatible templates and preserve literal dollar/placeholder-like user text.
+- **33 — Usage records and charts:** restore synthetic usage records, verify normalized request-type and exact model filters, include the selected end date's late-night records, check 7/30/90-day chart totals and distributions, then restore an empty ledger and verify honest empty states.
+
+Four added smoke suites complement these flows: `smoke:writer-content` checks safe rich-text conversion/rendering and editor update ownership; `smoke:management-correctness` checks actual exports, legacy totals and safe previews; `smoke:billing-correctness` checks usage evidence, exact filters and local-calendar trends; `smoke:tools-workspace` exercises the real generation handlers and template/source contracts. Expanded existing suites cover empty-corpus round trips with failed-save retry, goal unit edits with historical units, strict outline parsing and autosave, and explicit book-analysis ranges.
+
+The first-batch module suites exercise rich-text and multi-paragraph ranges, report storage failures/retries, draft probes, proxy/header snapshots, endpoint-scoped model caches and request timeouts. Backup regressions include reference-library round trips, strict report validation and preserving reports when restoring older backups.
 
 The module suites additionally inject storage failures for prompt creation/editing/deletion/import, API/configuration, genre and assistant management. They verify draft retention, success only after commit and retry. Summary tests verify covered-message cursors, pending/failed compaction and backup compatibility. `smoke:storage-coordination` and `smoke:storage-conflicts` exercise commit ordering and conflict handling. Uncaught page errors fail browser regression.
 

@@ -7,6 +7,7 @@ import type {
   WriterNovel,
   WriterWorldSetting,
 } from '@/types/writer'
+import { countWriterWords } from '@/utils/writerContent'
 import { migrateEventChapters } from '@/utils/eventLine'
 import { StorageKeys, storageGet, storageSet } from '@/utils/storage'
 import { registerNovelPersistenceRetryHandler } from '@/services/novelPersistence'
@@ -54,7 +55,7 @@ export function useWriterProject(options: WriterProjectOptions) {
   const corpusData = ref<WriterCorpusItem[]>([])
   const events = ref<WriterEvent[]>([])
   const worldSettings = computed(() => options.novelStore.worldSettings)
-  const contentWordCount = computed(() => content.value.replace(/<[^>]*>/g, '').length)
+  const contentWordCount = computed(() => countWriterWords(content.value))
   const hasUnsavedChanges = ref(false)
   const isSaving = ref(false)
   const saveError = ref<string | null>(null)
@@ -109,7 +110,10 @@ export function useWriterProject(options: WriterProjectOptions) {
     isSaving.value = true
     try {
       copyEditorContent()
-      const totalWordCount = chapters.value.reduce((sum, chapter) => sum + (chapter.wordCount || 0), 0)
+      const totalWordCount = chapters.value.reduce((sum, chapter) => {
+        if (typeof chapter.content === 'string') chapter.wordCount = countWriterWords(chapter.content)
+        return sum + (chapter.wordCount || 0)
+      }, 0)
       const novelData: WriterNovel = clone({
         ...currentNovel.value,
         chapterList: chapters.value,

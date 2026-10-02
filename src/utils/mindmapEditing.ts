@@ -1,3 +1,4 @@
+import { countWriterWords } from './writerContent'
 import type {
   WriterNovel,
   WriterChapter,
@@ -217,7 +218,7 @@ export function applyMindMapEdits(
   if (changes.removedChapters || result.chapterList.length !== (source.chapterList?.length ?? 0)) {
     const total = result.chapterList.reduce(
       (sum, chapter) =>
-        sum + (chapter.wordCount ?? chapter.content?.replace(/<[^>]*>/g, '').length ?? 0),
+        sum + (typeof chapter.content === 'string' ? countWriterWords(chapter.content) : chapter.wordCount ?? 0),
       0
     )
     result.wordCount = total

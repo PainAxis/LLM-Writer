@@ -3,6 +3,7 @@ import type { GenerateOptions, StreamCallback } from '@/types/api'
 import type { PromptTemplate, WriterChapter, WriterOptimizeForm } from '@/types/writer'
 import { isAIRequestCancelled } from '@/utils/aiRequestScope'
 import { formatGeneratedContent, stripWriterHtml } from '@/utils/writerContent'
+import { buildWriterOptimizePrompt } from '@/utils/writer/optimizePrompt'
 
 interface OptimizeStream {
   isStreaming: Ref<boolean>
@@ -193,12 +194,7 @@ export function useWriterOptimize(options: WriterOptimizeOptions) {
 
     const operation = lifecycle
     const promptContent = form.value.selectedPrompt?.content || form.value.customPrompt.trim()
-    const fullPrompt = `${promptContent}
-
-原始内容：
-${form.value.originalContent}
-
-请直接输出优化后的内容，无需额外说明：`
+    const fullPrompt = buildWriterOptimizePrompt(promptContent, form.value.originalContent)
 
     stream.reset()
     form.value.optimizedContent = ''

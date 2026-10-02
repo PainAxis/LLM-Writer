@@ -114,13 +114,13 @@ function validateValue(key: StorageKey, value: unknown): void {
     case StorageKeys.writingGoals:
       records(value, path, (item, p) => {
         idAndTitle(item, p)
-        fields(item, ['type', 'status'], string, p)
+        fields(item, ['type', 'status', 'unit'], string, p)
         fields(item, ['startDate', 'endDate', 'createdAt', 'updatedAt', 'completedAt'], v => string(v) || number(v), p)
         fields(item, ['targetValue', 'currentValue'], number, p)
         if ('progressHistory' in item) records(item.progressHistory, `${p}.progressHistory`, (record, rp) => {
           fields(record, ['date'], v => string(v) || number(v), rp)
           fields(record, ['increment'], number, rp)
-          fields(record, ['note'], string, rp)
+          fields(record, ['note', 'unit'], string, rp)
         })
       })
       break

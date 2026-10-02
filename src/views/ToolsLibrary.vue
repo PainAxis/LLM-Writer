@@ -39,7 +39,7 @@
                 multiple
                 collapse-tags
                 collapse-tags-tooltip
-                :disabled="!toolForm.selectedNovel"
+                :disabled="toolForm.selectedNovel === undefined || toolForm.selectedNovel === ''"
                 clearable
               >
                 <el-option 
@@ -61,18 +61,6 @@
                 @keyup.enter="generateContent"
                 @input="validateCharacterCount(field, $event)"
               />
-              <!-- 角色数量提示 -->
-              <div 
-                v-if="field.key === 'count' && currentToolType === 'character' && toolForm[field.key]"
-                class="character-count-hint"
-              >
-                <span v-if="isValidCharacterCount(toolForm[field.key])" class="valid-hint">
-                  ✓ 将生成 {{ toolForm[field.key] }} 个角色
-                </span>
-                <span v-else class="invalid-hint">
-                  ⚠️ 请输入1-15之间的数字
-                </span>
-              </div>
               
               <!-- 文本域 -->
               <el-input 
@@ -118,6 +106,14 @@
                   :value="option.value"
                 />
               </el-select>
+              <div v-if="field.type === 'prompt-select'" class="form-tip">模板用于补充创作要求，生成数量和风格以当前表单为准。</div>
+              <div
+                v-if="field.key === 'count' && currentToolType === 'character' && toolForm[field.key]"
+                class="character-count-hint"
+              >
+                <span v-if="isValidCharacterCount(toolForm[field.key])" class="valid-hint">✓ 将生成 {{ toolForm[field.key] }} 个角色</span>
+                <span v-else class="invalid-hint">⚠️ 请输入1-15之间的数字</span>
+              </div>
             </el-form-item>
           </el-form>
         </div>
