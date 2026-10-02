@@ -87,7 +87,9 @@ try {
     await serverCard().getByRole('button', { name: '检查连接', exact: true }).click()
     await expect(serverCard()).toContainText('读取灯塔资料')
     await expect(serverCard()).toContainText('禁止写入资料')
-    await serverCard().getByRole('checkbox', { name: /读取灯塔资料/ }).check()
+    // Element Plus hides its native input; interact with the visible label.
+    await serverCard().locator('.tool-list .el-checkbox').filter({ hasText: '读取灯塔资料' }).click()
+    await expect(serverCard().getByRole('checkbox', { name: /读取灯塔资料/ })).toBeChecked()
     await expect(serverCard().getByRole('checkbox', { name: /禁止写入资料/ })).not.toBeChecked()
     await serverCard().getByRole('button', { name: '保存工具授权', exact: true }).click()
     await expect(serverCard()).toContainText('已授权 1 个工具')
@@ -114,7 +116,7 @@ try {
     const dialog = page.getByRole('dialog', { name: '技能内容', exact: true })
     await expect(dialog).toContainText('browser-skill-activated-marker')
     await dialog.getByRole('button', { name: 'Close this dialog' }).click()
-    await page.locator('.extension-settings').getByRole('switch').first().click()
+    await page.locator('.extension-settings .el-switch').first().click()
     await expect(page.locator('.extension-settings').getByRole('switch').first()).toBeChecked()
   })
   await step('05 Create and persist author content through Writer', async () => {
