@@ -316,6 +316,24 @@ async function main() {
   assert.equal(guarded.currentChapter.value!.id, 1400)
   console.log('✓ 测试10 通过：失效 intent 不切章，并在提交时重新解析 canonical 章节')
 
+  const formattedNovel = makeNovel(15)
+  formattedNovel.chapterList = [
+    { id: 1500, title: '格式正文', content: '<p>甲 &amp; 😀</p><p>乙<br>丙</p>', wordCount: 999, status: 'draft' },
+    { id: 1501, title: '旧计数', content: '<p>丁<br>戊</p>', wordCount: 999, status: 'draft' },
+  ]
+  await seed([formattedNovel])
+  const formattedWriter = createWriter()
+  await formattedWriter.open(15)
+  assert.equal(formattedWriter.contentWordCount.value, 5, '实体按可见字符计数，换行空白不计，emoji只计一个码点')
+  assert.equal(await formattedWriter.saveNovelData(), true)
+  const formattedSaved = persisted()[0]
+  assert.deepEqual(formattedSaved.chapterList!.map(chapter => chapter.wordCount), [5, 2])
+  assert.equal(formattedSaved.wordCount, 7)
+  assert.equal(formattedSaved.totalWords, 7)
+  assert.equal(formattedSaved.chapterList![0].content, formattedNovel.chapterList[0].content)
+  await formattedWriter.dispose()
+  console.log('✓ 测试11 通过：保存保留富文本正文并统一可见字符、章节与小说总字数')
+
   console.log('\n=== ALL WRITER-INIT TESTS PASSED ===')
 }
 

@@ -1,22 +1,32 @@
 import type { BookChapter, BookAnalysisTemplate, BookAnalysisData } from '@/types/bookAnalysis'
 
+// Match a whole heading line, never a chapter reference embedded in prose.
+// Chinese headings also commonly omit the space before their title.
+const chapterHeading = /^(?:第[零〇一二三四五六七八九十百千万两\d]+[章节][^\r\n]*|Chapter[ \t]*\d+(?:[ \t　:：.．、\-—]+[^\r\n]*)?)$/i
+const bookLines = (content: string) => content.split(/\r\n?|\n/)
+
 export function detectBookChapters(content: string): BookChapter[] {
   const chapters: BookChapter[] = []
   let current: BookChapter | undefined
-  for (const [index, line] of content.split('\n').entries()) {
-    if (/(第[一二三四五六七八九十百千万\d]+[章节]|Chapter\s*\d+)/i.test(line)) {
-      current = { index: chapters.length, title: line.trim(), startLine: index, wordCount: 0 }
+  for (const [index, line] of bookLines(content).entries()) {
+    const title = line.trim()
+    if (chapterHeading.test(title)) {
+      current = { index: chapters.length, title, startLine: index, wordCount: 0 }
       chapters.push(current)
     } else if (current) current.wordCount += line.length
   }
   return chapters
 }
 
-export function readBookChapter(content: string, chapters: BookChapter[], chapter: BookChapter): string {
+function readChapter(content: string, chapters: BookChapter[], chapter: BookChapter, sourceLines?: string[]): string {
   if (chapter.startPos !== undefined) return content.slice(chapter.startPos, chapter.endPos)
-  const lines = content.split('\n')
+  const lines = sourceLines ?? bookLines(content)
   const next = chapters.find(item => item.index === chapter.index + 1)
   return lines.slice(chapter.startLine ?? 0, next?.startLine ?? lines.length).join('\n')
+}
+
+export function readBookChapter(content: string, chapters: BookChapter[], chapter: BookChapter): string {
+  return readChapter(content, chapters, chapter)
 }
 
 interface AnalysisSource {
@@ -31,23 +41,41 @@ interface AnalysisSource {
   encoding: string
 }
 
-export function prepareBookAnalysis(source: AnalysisSource): BookAnalysisData {
+/** The preview and submission must describe the same explicit text selection. */
+export function prepareBookAnalysisSelection(source: Pick<AnalysisSource, 'content' | 'chapters' | 'selectedChapters' | 'start' | 'end'>):
+  Pick<BookAnalysisData, 'textToAnalyze' | 'analysisInfo' | 'chapterInfos'> {
   const { content, chapters, selectedChapters, start, end } = source
-  const template = source.templates.find(item => String(item.id) === String(source.templateId))
-  if (!template) throw new Error('未找到分析模板，请检查提示词库设置。')
   let textToAnalyze = ''
   const chapterInfos: BookAnalysisData['chapterInfos'] = []
-  for (const index of selectedChapters) {
-    const chapter = chapters.find(item => item.index === index)
-    if (!chapter) continue
-    textToAnalyze += readBookChapter(content, chapters, chapter) + '\n\n'
-    chapterInfos.push({ title: chapter.title, wordCount: chapter.wordCount, summary: chapter.summary || '暂无简读' })
+  if (chapters.length) {
+    if (!selectedChapters.length) throw new Error('请至少选择一个章节后开始分析')
+    const sourceLines = chapters.some(chapter => chapter.startPos === undefined) ? bookLines(content) : undefined
+    for (const index of selectedChapters) {
+      const chapter = chapters.find(item => item.index === index)
+      if (!chapter) throw new Error('章节选择已失效，请重新选择要分析的章节')
+      textToAnalyze += readChapter(content, chapters, chapter, sourceLines) + '\n\n'
+      chapterInfos.push({ title: chapter.title, wordCount: chapter.wordCount, summary: chapter.summary || '暂无简读' })
+    }
+  } else {
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start || end > content.length) {
+      throw new Error('请设置有效的分析字数范围')
+    }
+    textToAnalyze = content.slice(start - 1, end)
   }
-  if (!selectedChapters.length) textToAnalyze = content.slice(Math.max(0, start - 1), Math.min(content.length, end))
+  if (!textToAnalyze.trim()) throw new Error('所选分析范围没有正文')
   return {
     textToAnalyze,
-    analysisInfo: selectedChapters.length ? `分析章节：${selectedChapters.length}章` : `分析范围：第${start} - ${end}字`,
-    chapterInfos, template, totalWordCount: content.length, fileName: source.fileName, encoding: source.encoding,
+    analysisInfo: chapters.length ? `分析章节：${chapterInfos.length}章` : `分析范围：第${start} - ${end}字`,
+    chapterInfos,
+  }
+}
+
+export function prepareBookAnalysis(source: AnalysisSource): BookAnalysisData {
+  const template = source.templates.find(item => String(item.id) === String(source.templateId))
+  if (!template) throw new Error('未找到分析模板，请检查提示词库设置。')
+  return {
+    ...prepareBookAnalysisSelection(source),
+    template, totalWordCount: source.content.length, fileName: source.fileName, encoding: source.encoding,
   }
 }
 

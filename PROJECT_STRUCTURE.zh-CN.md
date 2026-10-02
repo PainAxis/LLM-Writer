@@ -35,7 +35,9 @@
 | `src/services/backup.ts`、`src/services/billing.ts` | 备份校验与恢复、本地用量和成本记账 |
 | `src/stores/novel.ts`、`src/stores/assistant.ts`、`src/stores/writingGoals.ts` | 写作、助手会话/摘要覆盖范围与写作目标的 Pinia 状态 |
 | `src/utils/storage.ts`、`src/utils/aiRequestScope.ts` | 统一存储入口，以及可独立取消的 AI 请求作用域 |
-| `src/utils/writer/` | Writer 提示词构建与响应解析 |
+| `src/utils/writer/` | Writer 提示词构建与响应解析，包含润色原文的字面替换 |
+| `src/utils/writerContent.ts`、`src/utils/novelStats.ts` | 统一可见正文转换、安全生成 HTML、Unicode 字符计数和按章节计算小说总字数 |
+| `src/utils/chapterParser.ts` | 只接受结构明确、完整的 AI 章节大纲，无效结构不创建兜底章节 |
 | `src/utils/` | 上下文预算与压缩、语料检索、文档导入、章节解析、事件与导图数据处理 |
 | `src/types/` | API、Writer、短文、拆书、小说管理和工具的共享类型，以及第三方库声明 |
 | `src/config/` | 默认提示词、短文默认配置、带类型的工具定义与公告 |
@@ -60,10 +62,10 @@
 |------|------------|
 | AI 助手 | `stores/assistant.ts` 选择全局/独立策略、隔离会话，并通过 `coveredThroughEntryId` 记录摘要覆盖范围；只有已提交且符合当前策略的摘要才替代已覆盖原文；`useVirtualMessages.ts` 测量可见消息、保持滚动锚点并跟随新回复；`utils/contextPolicy.ts` 归一化并选择策略；[策略说明](docs/assistant-context-policy.md) |
 | ShortStory | `useShortStoryWorkspace.ts`； `components/short-story/ShortStoryPromptSelector.vue`；`useShortStoryConfig.ts` 管理独立默认值和异步保存；`useShortStoryGeneration.ts` 管理独立可取消请求；`utils/shortStoryPrompts.ts` 构建提示词 |
-| BookAnalysis | `useBookAnalysisWorkspace.ts`； `components/book-analysis/BookFileImportPanel.vue`；`useBookAnalysisFile.ts` 管理最新导入请求和编码；`utils/bookAnalysisContext.ts` 处理分章、选择范围与提示词 |
-| NovelManagement | `useNovelManagementWorkspace.ts`； `components/novel-management/NovelMetadataForm.vue` 复用创建/编辑表单；`utils/novelList.ts` 处理筛选和不修改原集合的排序 |
-| ToolsLibrary | `useToolsLibraryWorkspace.ts`； `components/tools/ToolCatalog.vue`；`config/tools.ts` 统一工具定义；`utils/toolForms.ts` 校验必填项；`utils/toolPrompts.ts` 处理模板及所选小说/章节上下文 |
-| Writer 语料 | 每部小说的 `corpusData` 为唯一来源；`useWriterMaterialCrud.ts` 执行原子导入，`utils/corpusTransfer.ts` 校验旧版和独立语料文件；[格式](docs/corpus.md) |
+| BookAnalysis | `useBookAnalysisWorkspace.ts`； `components/book-analysis/BookFileImportPanel.vue`；`useBookAnalysisFile.ts` 管理最新导入请求和编码；`utils/bookAnalysisContext.ts` 按整行识别章节标题，校验明确选择的范围并构建提示词 |
+| NovelManagement | `useNovelManagementWorkspace.ts`； `components/novel-management/NovelMetadataForm.vue` 复用创建/编辑表单；`utils/novelList.ts` 处理筛选和不修改原集合的排序；`utils/novelStats.ts` 统一旧数据兼容的展示与导出统计 |
+| ToolsLibrary | `useToolsLibraryWorkspace.ts`； `components/tools/ToolCatalog.vue`；`config/tools.ts` 统一工具定义；`utils/toolForms.ts` 校验必填项；`utils/toolPrompts.ts` 筛选兼容模板，按所选小说/章节身份和当前表单参数构建请求 |
+| Writer 语料 | 每部小说的 `corpusData` 为唯一来源；`useWriterMaterialCrud.ts` 执行原子导入，`utils/corpusTransfer.ts` 校验旧版和独立语料文件，兼容已命名的空内容草稿；[格式](docs/corpus.md) |
 | 思维导图 | `useMindMapDraft.ts` 检查来源冲突并等待保存；`utils/mindmapEditing.ts` 生成编辑快照、校验并保留实体字段；[编辑协议](docs/mindmap-editing.md) |
 | 编辑器销毁 | `utils/destroyEditor.ts` 在销毁 wangEditor 前取消待执行的选区节流回调 |
 
@@ -71,7 +73,8 @@
 
 ## 校验与发布
 
-- CI 校验集包含 50 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 24 个 Chromium 场景。
+- CI 校验配置包含 57 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 33 个 Chromium 场景。验证状态以审查提交的 CI 结果为准。
+- 新增测试集：`smoke:writer-content`、`smoke:management-correctness`、`smoke:billing-correctness`、`smoke:tools-workspace`。
 - [浏览器测试](scripts/browser-testing.md)：CI 检查、本地 Chromium 回归与可选预览。
 - [发布说明](scripts/releasing.md)：通过校验的静态构建、校验和及源码/CI 信息。
 - [更新日志](CHANGELOG.md)：已发布变更和未发布工作。
@@ -81,7 +84,7 @@
 - ShortStory 的短文/小说工作区，以及文风、续写、优化和配置对话框位于 `src/components/short-story/`。`short-storyContext.ts` 共享页面拥有的类型化工作区；编辑器引用与过期写入保护位于 `useShortStoryEditors.ts`；`useShortStorySelection.ts` 为优化捕获并校验精确编辑器选区。
 - BookAnalysis 的控制区、结果区及章节/提示词对话框位于 `src/components/book-analysis/`。`book-analysisContext.ts` 共享页面拥有的工作区；`useBookChapterViewer.ts` 负责章节选择、阅读与导出。`useBookAnalysisLibraryWorkspace.ts` 管理报告对话框和身份；`services/bookAnalysisLibrary.ts` 校验并持久化报告，也接入系统备份。
 - 共享样式仅作用于功能页面根节点和其浮层类。生成请求与取消仍由页面生命周期管理。
-- `stores/writingGoals.ts` 统一两个目标入口和首页状态，串行保存、保留编辑前的元数据并记录进度历史。`utils/writingGoals.ts` 归一化旧数据，按本地日历计算实际写作活动。
+- `stores/writingGoals.ts` 统一两个目标入口和首页状态，串行保存、保留编辑前的元数据并记录进度历史。`utils/writingGoals.ts` 归一化旧数据，按本地日历计算实际写作活动，字数统计仅纳入“字”单位。明确的章节目标使用“章”；更换单位会重置当前进度，并为历史记录保留原单位。
 
 ## 持久化与上下文边界
 
@@ -90,5 +93,7 @@
 - 小说保存先准备正文分片，再协调提交，并比较编辑器实际读取的版本。不同作品的修改可以合并；同一作品发生冲突时保留本地草稿，拒绝覆盖较新的已保存版本。需先复制草稿，再刷新页面、重新打开作品并手动合并。
 - 目标增量在同一跨标签页提交边界中读取最新记录，保留并发的增量和各自历史。这一机制保护小说与写作目标，其他存储键不会因此获得跨标签页保护。详见[持久化协调说明](docs/persistence-coordination.md)。
 - 助手摘要将正文和覆盖游标一起保存，发送时使用摘要与尚未覆盖的原始消息；压缩失败或仍在进行时不会推进覆盖范围。完整本地历史与旧版摘要备份保持可用。
-- `utils/eventLine.ts` 按稳定的章节身份重映射事件关联，供章节管理、Writer 删除及思维导图编辑共同使用。
+- `utils/eventLine.ts` 按稳定的章节身份重映射事件关联，供章节管理、Writer 删除及思维导图编辑共同使用。章节管理在同一次保存中提交重新计算的章节字数和小说的两个总字数字段。
+- `services/billing.ts` 标记服务商返回、估算及无法取得的用量，统一请求类型并计算精确筛选和本地日历趋势；`TokenBilling.vue` 展示实际趋势/分布数据，并在用量变化后刷新。
+- 批量大纲控制器保留无效原始回答，数量符合要求后才保存；来源校验忽略无关自动保存元数据，实际来源变化仍会拒绝迟到结果。
 - API 连接测试和模型同步使用可取消的表单快照；模型缓存按服务商端点和代理隔离，仅显式保存配置才修改当前生效设置。

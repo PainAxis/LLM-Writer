@@ -244,14 +244,22 @@
         </el-form-item>
         
         <el-form-item label="目标类型" prop="type">
-          <el-select v-model="goalForm.type" placeholder="请选择目标类型">
+          <el-select v-model="goalForm.type" placeholder="请选择目标类型" @change="changeGoalType">
             <el-option label="每日字数" value="daily" />
             <el-option label="每周字数" value="weekly" />
             <el-option label="每月字数" value="monthly" />
             <el-option label="总字数" value="total" />
-            <el-option label="章节数" value="custom" />
+            <el-option label="章节数" value="chapters" />
             <el-option label="连续天数" value="streak_days" />
+            <el-option label="自定义目标" value="custom" />
           </el-select>
+        </el-form-item>
+
+        <el-form-item label="计量单位">
+          <el-select v-model="goalForm.unit" :disabled="['chapters', 'streak_days'].includes(goalForm.type)">
+            <el-option v-for="unit in ['字', '章', '章节', '页', '小时', '天']" :key="unit" :label="unit" :value="unit" />
+          </el-select>
+          <span v-if="editingGoal && goalForm.unit !== editingGoal.unit">更改单位后当前进度归零，历史记录保留。</span>
         </el-form-item>
         
         <el-form-item label="目标数值" prop="targetValue">
@@ -406,7 +414,7 @@
               >
                 <div class="timeline-date">{{ formatDate(record.date) }}</div>
                 <div class="timeline-content">
-                  <div class="timeline-progress">+{{ record.increment }} {{ selectedGoal.unit }}</div>
+                  <div class="timeline-progress">{{ record.increment > 0 ? '+' : '' }}{{ record.increment }} {{ record.unit ?? selectedGoal.unit }}</div>
                   <div class="timeline-note" v-if="record.note">{{ record.note }}</div>
                 </div>
               </div>
@@ -419,7 +427,7 @@
 </template>
 
 <script setup lang="ts">
-import { toGoalDate as toDate } from '@/utils/writingGoals'
+import { resolveGoalUnit, toGoalDate as toDate } from '@/utils/writingGoals'
 import { useWritingGoalsStore } from '@/stores/writingGoals'
 import { storeToRefs } from 'pinia'
 import type { WriterTimestamp } from '@/types/writer'
@@ -450,6 +458,7 @@ const formRef = ref<FormInstance>()
 const goalForm = ref<GoalForm>({
   title: '',
   type: '',
+  unit: '字',
   targetValue: 1000,
   description: '',
   dateRange: [],
@@ -498,7 +507,8 @@ const getGoalIcon = (type: string) => {
     weekly: '📊',
     monthly: '📈',
     total: '📚',
-    custom: '📖',
+    chapters: '📖',
+    custom: '🎯',
     streak_days: '🔥'
   }
   return icons[type] || '🎯'
@@ -510,7 +520,8 @@ const getGoalTypeText = (type: string) => {
     weekly: '每周字数',
     monthly: '每月字数',
     total: '总字数',
-    custom: '章节数',
+    chapters: '章节数',
+    custom: '自定义目标',
     streak_days: '连续天数'
   }
   return texts[type] || '未知类型'
@@ -584,6 +595,7 @@ const editGoal = (goal: WritingGoal) => {
   goalForm.value = {
     title: goal.title,
     type: goal.type,
+    unit: resolveGoalUnit(goal.type, goal.unit),
     targetValue: goal.targetValue,
     description: goal.description ?? '',
     dateRange: [toDate(goal.startDate), toDate(goal.endDate)],
@@ -591,6 +603,10 @@ const editGoal = (goal: WritingGoal) => {
     reminderTime: goal.reminderTime ?? null
   }
   showCreateDialog.value = true
+}
+
+const changeGoalType = (type: string) => {
+  goalForm.value.unit = resolveGoalUnit(type, type === 'custom' ? goalForm.value.unit : undefined)
 }
 
 const pauseGoal = async (goal: WritingGoal) => {
@@ -620,7 +636,7 @@ const saveGoal = async () => {
   if (form.dateRange?.length !== 2) return
   try {
     const editing = editingGoal.value !== null
-    await goalsStore.saveGoal({ title: form.title, type: form.type, targetValue: form.targetValue, description: form.description,
+    await goalsStore.saveGoal({ title: form.title, type: form.type, unit: form.unit, targetValue: form.targetValue, description: form.description,
       startDate: form.dateRange[0], endDate: form.dateRange[1], reminder: form.reminder, reminderTime: form.reminderTime }, editingGoal.value?.id)
     showCreateDialog.value = false
     resetForm()
@@ -642,6 +658,7 @@ const resetForm = () => {
   goalForm.value = {
     title: '',
     type: '',
+    unit: '字',
     targetValue: 1000,
     description: '',
     dateRange: [],

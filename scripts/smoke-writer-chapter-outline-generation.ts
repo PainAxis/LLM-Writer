@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { ref } from 'vue'
 import { useWriterChapterOutlineGeneration } from '../src/composables/useWriterChapterOutlineGeneration'
+import { useWriterProject } from '../src/composables/useWriterProject'
+import { parseChapterResponse } from '../src/utils/chapterParser'
 import type { WriterChapter, WriterNovel } from '../src/types/writer'
 
 function deferred<T>() {
@@ -77,12 +79,7 @@ function fixture() {
       batchInputs.push(input)
       return `批量|${input.form.count}|${input.customPrompt ?? '默认'}|${input.chapters.length}`
     },
-    parseBatchResponse: response => response === '两个章节'
-      ? [
-          { title: '', description: '第一段' },
-          { title: '第四章', description: '第二段' },
-        ]
-      : [],
+    parseBatchResponse: parseChapterResponse,
     notify: {
       success: message => messages.push(`success:${message}`),
       warning: message => messages.push(`warning:${message}`),
@@ -265,16 +262,150 @@ async function testBatchGeneration() {
   f.controller.batchForm.value.count = 3
   const generation = f.controller.generateBatch()
   assert.equal(f.stream.requests[0].prompt, '批量|3|默认|2')
-  f.stream.requests[0].resolve('两个章节')
+  f.stream.requests[0].resolve(batchResponse(3))
   assert.equal(await generation, true)
-  assert.deepEqual(f.chapters.value.map(chapter => chapter.id), [1, 2, 3, 4])
-  assert.deepEqual(f.chapters.value.slice(2).map(chapter => chapter.title), ['AI生成章节 3', '第四章'])
-  assert.deepEqual(f.messages, [
-    'warning:期望生成3个章节，实际解析出2个章节',
-    'success:成功生成2个章节大纲',
-  ])
+  assert.deepEqual(f.chapters.value.map(chapter => chapter.id), [1, 2, 3, 4, 5])
+  assert.deepEqual(f.chapters.value.slice(2).map(chapter => chapter.title), ['新章1', '新章2', '新章3'])
+  assert.deepEqual(f.messages, ['success:成功生成3个章节大纲'])
   assert.equal(f.batchInputs.length, 1)
-  console.log('✓ 批量生成统一解析、数量告警、回退标题和事务提交')
+  console.log('✓ 批量生成真实解析结果完整匹配数量后才提交')
+}
+
+function batchResponse(count: number) {
+  return Array.from({ length: count }, (_, index) => `章节${index + 1}：\n标题：新章${index + 1}\n大纲：事件${index + 1}`).join('\n\n')
+}
+
+function testStrictParserFormatsAndFailure() {
+  assert.deepEqual(parseChapterResponse(batchResponse(2)), [
+    { title: '新章1', description: '事件1' }, { title: '新章2', description: '事件2' },
+  ])
+  assert.deepEqual(parseChapterResponse('第一章 归来\n主角返乡。\n\n第二章：夜访\n大纲：追查失踪案。'), [
+    { title: '归来', description: '主角返乡。' }, { title: '夜访', description: '追查失踪案。' },
+  ])
+  assert.deepEqual(parseChapterResponse('第一章归来\n主角返乡。\n\n第二章夜访\n追查失踪案。'), [
+    { title: '归来', description: '主角返乡。' }, { title: '夜访', description: '追查失踪案。' },
+  ])
+  assert.equal(parseChapterResponse(`以下是三个章节的大纲：\n${batchResponse(3)}`).length, 3)
+  assert.equal(parseChapterResponse(`以下是三个章节的大纲：\n\n\`\`\`text\n${batchResponse(3)}\n\`\`\``).length, 3)
+  assert.equal(parseChapterResponse('Here are two chapter outlines:\n```markdown\nChapter 1: Arrival\nOutline: Meet.\nChapter 2: Choices\nOutline: Decide.\n```').length, 2)
+  assert.deepEqual(parseChapterResponse('章节1：标题：行内标题\n大纲：具体事件。'), [
+    { title: '行内标题', description: '具体事件。' },
+  ])
+  assert.deepEqual(parseChapterResponse('Chapter 1: Arrival\nOutline: Meet the guard.\n\nChapter 2\nTitle: Choices\nOutline:\nFind the clue.\n\nChoose a side.'), [
+    { title: 'Arrival', description: 'Meet the guard.' },
+    { title: 'Choices', description: 'Find the clue.\n\nChoose a side.' },
+  ])
+  assert.deepEqual(parseChapterResponse('```text\r\n## 章节1：\r\n**标题：**归来\r\n**大纲：**主角返乡。\r\n```'), [
+    { title: '归来', description: '主角返乡。' },
+  ])
+  assert.deepEqual(parseChapterResponse('Title: Arrival\nOutline: Return home.\n\n标题：夜访\n大纲：追查失踪案。'), [
+    { title: 'Arrival', description: 'Return home.' }, { title: '夜访', description: '追查失踪案。' },
+  ])
+  assert.deepEqual(parseChapterResponse('1. 归来\n主角返乡。\n\n2. 夜访\n追查失踪案。'), [
+    { title: '归来', description: '主角返乡。' }, { title: '夜访', description: '追查失踪案。' },
+  ])
+  const longOutline = '完整的具体情节。'.repeat(100)
+  assert.equal(parseChapterResponse(`章节1：\n标题：完整章\n大纲：${longOutline}`)[0].description, longOutline)
+  for (const invalid of [
+    '', '抱歉，无法生成章节大纲。' + '请补充背景。'.repeat(100),
+    '抱歉，无法完成这个请求。\n\n请补充主角背景。\n以及故事矛盾。',
+    '普通标题\n普通说明\n\n另一段\n另一段说明',
+    '章节1：\n大纲：缺少标题', '标题：缺少大纲\n普通正文',
+    `${batchResponse(1)}\n\n章节2：\n标题：缺少正文`,
+    `${batchResponse(1)}\n\n${batchResponse(1)}`,
+  ]) assert.deepEqual(parseChapterResponse(invalid), [], 'Malformed/refusal output cannot become an invented or partial chapter')
+  console.log('✓ 中英文明确结构、markdown与多行大纲完整解析，拒绝任意段落/拒绝/不完整块')
+}
+
+async function testBatchFailureRetainsRawAndCanRetry() {
+  for (const response of [
+    '抱歉，缺少故事背景，无法生成章节大纲。' + '请补充主角背景和故事矛盾。'.repeat(40),
+    batchResponse(2),
+    `${batchResponse(2)}\n\n章节3：\n标题：没有大纲`,
+  ]) {
+    const f = fixture()
+    f.controller.openBatch()
+    f.controller.batchForm.value.plotRequirement = '保留用户要求'
+    const generation = f.controller.generateBatch()
+    f.stream.requests[0].resolve(response)
+    assert.equal(await generation, false)
+    assert.equal(f.persistCalls(), 0)
+    assert.equal(f.chapters.value.length, 2)
+    assert.equal(f.controller.batchVisible.value, true)
+    assert.equal(f.controller.batchForm.value.plotRequirement, '保留用户要求')
+    assert.equal(f.controller.streamingContent.value, response, 'The complete final response is retained without truncation')
+    assert.ok(f.controller.batchError.value)
+    assert.equal(f.messages.some(message => message.startsWith('success:')), false)
+    if (response === batchResponse(2)) assert.match(f.controller.batchError.value, /期望生成3个章节，实际解析出2个章节/)
+    const retry = f.controller.generateBatch()
+    assert.equal(f.controller.batchError.value, '')
+    f.stream.requests[1].resolve(batchResponse(3))
+    assert.equal(await retry, true)
+    assert.equal(f.persistCalls(), 1)
+  }
+  console.log('✓ 解析失败/数量不符不落盘，保留完整原文与可重试表单')
+}
+
+async function testRelevantContextChangesInvalidatePermanently() {
+  const edits: Array<(chapters: WriterChapter[]) => void> = [
+    chapters => { chapters[0].title = '修改标题'; chapters[0].title = '潮汐' },
+    chapters => { chapters[0].description = '修改大纲'; chapters[0].description = '众人抵达港口' },
+    chapters => { chapters.reverse(); chapters.reverse() },
+    chapters => { chapters[0].id = 99; chapters[0].id = 1 },
+  ]
+  for (const edit of edits) {
+    const f = fixture()
+    f.controller.openBatch()
+    const generation = f.controller.generateBatch()
+    edit(f.chapters.value)
+    f.stream.requests[0].resolve(batchResponse(3))
+    assert.equal(await generation, false)
+    assert.equal(f.persistCalls(), 0)
+    assert.equal(f.chapters.value.length, 2)
+  }
+  console.log('✓ 章节身份、顺序、标题与大纲真实变更永久取消旧结果，改回也不能恢复')
+}
+
+async function testRealAutosaveDuringBatchGeneration() {
+  let stored: WriterNovel[] = [{ id: 1, title: '小说', chapterList: [
+    { id: 11, title: '前章', description: '既有大纲', content: '<p>旧正文</p>', wordCount: 3, status: 'draft' },
+  ] }]
+  let saves = 0
+  const project = useWriterProject({
+    novelStore: { worldSettings: [] }, notifyError: message => assert.fail(message), beforeUnloadTarget: null,
+    persistence: { load: () => stored, save: async novels => { stored = novels; saves += 1 } },
+  })
+  await project.initNovel('1')
+  const stream = fakeStream()
+  const messages: string[] = []
+  const controller = useWriterChapterOutlineGeneration({
+    currentNovel: project.currentNovel, chapters: project.chapters, ensureApiReady: () => true,
+    persist: project.saveNovelData, buildSinglePrompt: () => '单章请求', buildBatchPrompt: () => '生成三章',
+    parseBatchResponse: parseChapterResponse, stream,
+    notify: { success: message => messages.push(message), warning: message => messages.push(message), error: message => messages.push(message) },
+  })
+  try {
+    project.content.value = '<p>刚刚补写的新正文。</p>'
+    project.onContentChange()
+    controller.openBatch()
+    controller.useBatchPrompt({ id: 1, title: '已填充模板', category: 'outline', content: '模板' }, '用户的生成要求')
+    const generation = controller.generateBatch()
+    await new Promise(resolve => setTimeout(resolve, 2100))
+    assert.ok(saves > 0, 'Exercise the real two-second editor autosave while the AI request is outstanding')
+    assert.ok(project.chapters.value[0].wordCount! > 3)
+    assert.equal(project.chapters.value[0].content, '<p>刚刚补写的新正文。</p>')
+    assert.ok(controller.batchSelectedPrompt.value, 'Autosave metadata cannot invalidate the prepared outline prompt')
+    stream.requests[0].resolve(batchResponse(3))
+    assert.equal(await generation, true)
+    assert.equal(project.chapters.value.length, 4)
+    assert.equal(stored[0].chapterList!.length, 4)
+    assert.equal(stored[0].chapterList![0].content, '<p>刚刚补写的新正文。</p>')
+    assert.equal(messages.length, 1)
+  } finally {
+    controller.reset()
+    await project.dispose()
+  }
+  console.log('✓ 真实正文2秒自动保存更新字数/正文/时间不再丢失批量章节结果')
 }
 
 async function main() {
@@ -285,6 +416,10 @@ async function main() {
   await testRejectedPersistenceIsNormalized()
   await testRestartAfterUnsettledCancellation()
   await testBatchGeneration()
+  testStrictParserFormatsAndFailure()
+  await testBatchFailureRetainsRawAndCanRetry()
+  await testRelevantContextChangesInvalidatePermanently()
+  await testRealAutosaveDuringBatchGeneration()
   console.log('\n=== WRITER CHAPTER OUTLINE GENERATION TESTS PASSED ===')
 }
 

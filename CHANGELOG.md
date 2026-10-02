@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+- Add persisted output and model-aware thinking controls to API settings, with provider-default modes, compatible/native request mapping, budget validation and backward-compatible backup support. New configurations use a 16,384-token output ceiling; existing saved limits remain unchanged. Add SDK wire regressions and browser scenario 34.
+- Let assistant summaries inherit the saved generation budget instead of overriding it with an 800-token ceiling that can be smaller than the model's thinking allocation; retain the concise summary prompt.
+- Capture the current browser selection before optimizing a short-story passage, preventing rapid selection followed by a click from using a stale editor range.
+
+- Reject provider output-limit and content-filter terminations instead of treating partial generations as successful. Explain reasoning-only budget exhaustion and preserve received text and reported usage on failure.
+- Share visible-text conversion across writing, AI context, copying, exports, previews and counts. Preserve paragraphs and decoded entities, count Unicode characters without whitespace, and escape generated prose before inserting editor HTML.
+- Keep chapter-management edits, copies, moves and deletions consistent with both novel total fields; derive legacy display/export totals from chapter bodies. Round-trip named empty corpus drafts without losing metadata.
+- Add explicit chapter-count goals in both entry points and keep non-word units out of word statistics. Unit changes reset current progress while preserving historical units, notes and legacy custom goals.
+- Require explicit detected-chapter selections in book analysis and recognize whole heading lines. Reject incomplete or wrong-count batch outlines without creating fallback chapters; retain raw replies for retry. Keep outline generation alive through incidental autosave and substitute the latest polishing passage literally.
+- Align tool defaults and compatible templates with the selected novel/chapter IDs, requested quantities and form parameters. Reject unsupported templates before generation without replacing saved user templates.
+- Record usage evidence separately from estimates; failures without reported usage or output no longer invent token consumption. Fix type/model/local-date filters and render recorded 7/30/90-day trends and input/output distributions with honest empty states.
+- Disable placeholder chapter sorting/batch-editing controls with explanations and remove the Settings placeholder for testing all connections.
+- Add `writer-content`, `management-correctness`, `billing-correctness` and `tools-workspace` smoke suites and browser scenarios 29–33. Configured coverage is now 58 smoke suites and 34 Chromium scenarios; CI records validation for each reviewed revision.
+
 - Replace optimized ShortStory text at its captured editor range, including repeated and formatted selections; source edits invalidate stale results.
 - Keep event chapter links attached to chapter identities after chapter reorder or deletion, with chapter/event changes persisted and retried together.
 - Persist book-analysis reports in a titled reference library with open, update and delete actions; include the library in complete and selective backups while preserving it when restoring older backups.
@@ -11,7 +25,7 @@
 - Coordinate novel commits across tabs, merge independent project edits, reject stale edits to the same project, and atomically apply goal progress increments. Protect failed clear/restore operations and export the latest committed, hydrated novel collection.
 - Track assistant summary coverage by message ID and policy, retain every uncovered message during delayed or failed compaction, and include persona and summary text in the final estimated context budget.
 - Centralize prompt catalog initialization and migration for all entry points, including fresh direct visits to BookAnalysis and ToolsLibrary; preserve intentional deletions and reject damaged stored catalogs without overwriting them.
-- Add storage coordination/conflict, configuration and prompt catalog smoke suites, plus fresh-entry and real multi-tab browser regressions. CI now runs 53 smoke suites and 28 Chromium scenarios.
+- Add storage coordination/conflict, configuration and prompt catalog smoke suites, plus fresh-entry and real multi-tab browser regressions. That validation set contained 53 smoke suites and 28 Chromium scenarios.
 - Updated the development-only brace-expansion dependency to 5.0.12; the full dependency audit is clean.
 - Unified both writing-goal entry points and the homepage on a shared typed store. Progress updates preserve notes and history, serialized saves retain the last committed state on failure, and edits retain legacy metadata. Continuous writing days use actual activity on local calendar dates, including DST boundaries and progress corrections.
 - Extracted ShortStory and BookAnalysis panels/dialogs into typed components with page-owned workspace contexts and feature-scoped shared styles. Moved short-story editor handling and book chapter viewing/export out of their workspace controllers.

@@ -109,9 +109,6 @@
                 placeholder="结束字数"
               />
             </div>
-            <p style="font-size: 12px; color: var(--el-text-color-secondary); margin: 5px 0 0 0;">
-              未检测到章节，将分析第 {{ analysisStartWords }} - {{ analysisEndWords }} 字
-            </p>
             
             <div class="local-chapter-section">
               <el-button 
@@ -127,6 +124,7 @@
               <p class="el-upload__tip">按约 3000 字及句末或换行拆分，不调用 AI。</p>
             </div>
           </div>
+          <p class="el-upload__tip" role="status">{{ analysisScopeDescription }}</p>
         </div>
         
         <!-- 操作按钮 -->
@@ -136,7 +134,7 @@
               type="primary" 
               @click="startAnalysis" 
               :loading="analyzing"
-              :disabled="!selectedTemplate || importingFile || savingLibraryReport"
+              :disabled="!selectedTemplate || importingFile || savingLibraryReport || Boolean(analysisScopeError)"
               block
             >
               <el-icon><DataAnalysis /></el-icon>
@@ -190,5 +188,5 @@
 import { useBookAnalysisWorkspaceContext } from '@/composables/book-analysisContext'
 import { DataAnalysis, Download, FolderAdd, MagicStick, View } from '@element-plus/icons-vue'
 import BookFileImportPanel from './BookFileImportPanel.vue'
-const { openAnalysisLibrary, libraryRecords, savingLibraryReport, libraryReportBusy, uploadedFile, bookContent, selectedEncoding, importingFile, isDocx, fileFormatLabel, handleFileChange, handleFileExceed, rereadWithEncoding, removeFile, selectedTemplate, selectedChapters, analysisStartWords, analysisEndWords, analysisResult, detectedChapters, autoDetectedChapters, analysisTemplates, estimatedChapters, selectAllChapters, clearChapterSelection, startLocalChapterDetection, analyzing, generatingSummary, stopAnalysis, startAnalysis, exportResults, saveToLibrary, openChapterViewer, openChapterDetailsViewer } = useBookAnalysisWorkspaceContext()
+const { openAnalysisLibrary, libraryRecords, savingLibraryReport, libraryReportBusy, uploadedFile, bookContent, selectedEncoding, importingFile, isDocx, fileFormatLabel, handleFileChange, handleFileExceed, rereadWithEncoding, removeFile, selectedTemplate, selectedChapters, analysisStartWords, analysisEndWords, analysisScopeError, analysisScopeDescription, analysisResult, detectedChapters, autoDetectedChapters, analysisTemplates, estimatedChapters, selectAllChapters, clearChapterSelection, startLocalChapterDetection, analyzing, generatingSummary, stopAnalysis, startAnalysis, exportResults, saveToLibrary, openChapterViewer, openChapterDetailsViewer } = useBookAnalysisWorkspaceContext()
 </script>

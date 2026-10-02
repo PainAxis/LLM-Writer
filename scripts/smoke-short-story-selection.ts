@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import ts from 'typescript'
 import { createEditor, Editor, Node, Text, Transforms, type Descendant, type Range } from 'slate'
 import { ref, shallowRef } from 'vue'
 import { useShortStorySelection } from '../src/composables/useShortStorySelection'
@@ -54,6 +56,64 @@ function fixture(children = [paragraph('不要走。'), paragraph('不要走。'
   f.selection.dispose()
 }
 console.log('✓ Repeated text replacement targets the selected second occurrence after selection moves, exactly once')
+
+{
+  // Exercise the actual component boundary without loading WangEditor's DOM runtime in Node.
+  const source = readFileSync(new URL('../src/components/short-story/ShortFictionWorkspace.vue', import.meta.url), 'utf8')
+  const handler = source.slice(source.indexOf('const optimizeCurrentSelection ='), source.indexOf('</script>'))
+  assert.ok(handler.startsWith('const optimizeCurrentSelection ='))
+  const executable = ts.transpileModule(`${handler}\nreturn optimizeCurrentSelection`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
+  }).outputText
+  const repeated = '雨落无声。'
+  const before = `第一处：${repeated}第二处：`
+  const after = '末尾保留。'
+  const f = fixture([paragraph(before + repeated + after)])
+  const end = before.length + repeated.length
+  f.select([0, 0], end, [0, 0], before.length + 1)
+  assert.equal(f.editor.getSelectionText(), '落无声。', 'Reproduce the throttled cached selection from Chromium')
+  const ownedNode = {}
+  const outsideNode = {}
+  const validDOM = { rangeCount: 1, isCollapsed: false, anchorNode: ownedNode, focusNode: ownedNode }
+  let nativeSelection: typeof validDOM | null = validDOM
+  let converted: Range | null = { anchor: { path: [0, 0], offset: end }, focus: { path: [0, 0], offset: before.length } }
+  let conversions = 0
+  let conversionError = false
+  let captured: ReturnType<typeof f.selection.capture> = null
+  const optimize = new Function('editorRef', 'window', 'DomEditor', 'optimizeSelection', executable)(
+    f.editorRef,
+    { getSelection: () => nativeSelection },
+    {
+      hasDOMNode: (_editor: unknown, node: object) => node === ownedNode,
+      toSlateRange: () => { conversions++; if (conversionError) throw new Error('Detached editor DOM'); return converted },
+    },
+    (range: Range | null) => { captured = f.selection.capture(range) },
+  )
+  optimize()
+  assert.equal(captured?.text, repeated, 'Live DOM selection must override the stale editor range synchronously')
+  f.select([0, 0], 0, [0, 0], 0)
+  assert.equal(f.selection.replace('新雨声。'), true)
+  assert.equal(Node.string(f.editor), before + '新雨声。' + after, 'Only the intended second occurrence is replaced')
+
+  for (const invalid of [null, { ...validDOM, rangeCount: 0 }, { ...validDOM, isCollapsed: true },
+    { ...validDOM, anchorNode: outsideNode }, { ...validDOM, focusNode: outsideNode }]) {
+    f.select([0, 0], 0, [0, 0], 4)
+    nativeSelection = invalid
+    optimize()
+    assert.equal(captured, null, 'Absent, collapsed or outside-editor DOM ranges cannot reuse a retained selection')
+    assert.equal(f.selection.isCurrent(), false)
+  }
+  assert.equal(conversions, 1, 'Both selection endpoints must belong to the editor before converting')
+  nativeSelection = validDOM
+  converted = null
+  optimize()
+  assert.equal(captured, null, 'An unconvertible DOM range must not fall back to cached selection')
+  conversionError = true
+  assert.doesNotThrow(optimize)
+  assert.equal(captured, null, 'A detached DOM conversion must reject safely')
+  f.selection.dispose()
+}
+console.log('✓ Live DOM selection beats throttled editor state; missing, collapsed, foreign and invalid ranges cannot revive stale selections')
 
 {
   const f = fixture([{

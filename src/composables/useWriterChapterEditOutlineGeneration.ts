@@ -75,10 +75,6 @@ const editingChapterIdentity = (chapter: Readonly<WriterChapter> | null): string
         id: chapter.id,
         title: chapter.title,
         description: chapter.description,
-        content: chapter.content,
-        wordCount: chapter.wordCount,
-        status: chapter.status,
-        updatedAt: chapter.updatedAt,
       }
     : null)
 
@@ -129,19 +125,28 @@ export function useWriterChapterEditOutlineGeneration(
       worldSettings: options.worldSettings.value,
     })
 
-  const observedIdentity = (): string => JSON.stringify({
-    novel: options.currentNovel.value
-      ? {
-          id: options.currentNovel.value.id,
-          title: options.currentNovel.value.title,
-          genre: options.currentNovel.value.genre,
-          description: options.currentNovel.value.description,
-        }
-      : null,
-    form: formIdentity(options.form.value),
-    editingChapter: editingChapterIdentity(options.editingChapter.value),
-    prompt: capturePromptSnapshot(),
-  })
+  const observedIdentity = (): string => {
+    const snapshot = capturePromptSnapshot()
+    return JSON.stringify({
+      novel: options.currentNovel.value
+        ? {
+            id: options.currentNovel.value.id,
+            title: options.currentNovel.value.title,
+            genre: options.currentNovel.value.genre,
+            description: options.currentNovel.value.description,
+          }
+        : null,
+      form: formIdentity(options.form.value),
+      editingChapter: editingChapterIdentity(options.editingChapter.value),
+      prompt: {
+        ...snapshot,
+        // Autosave metadata is incidental to an outline's continuity context.
+        chapters: snapshot.chapters.map(chapter => ({
+          id: chapter.id, title: chapter.title, description: chapter.description,
+        })),
+      },
+    })
+  }
 
   const sourceIsCurrent = (source: ChapterEditOutlineSource): boolean => {
     const novel = options.currentNovel.value
@@ -178,16 +183,16 @@ export function useWriterChapterEditOutlineGeneration(
   // an edit-then-revert sequence or a close-then-reopen sequence from making a
   // stale request look current again.
   const stopSourceWatch = watch(
-    () => [
-      options.visible.value,
-      options.currentNovel.value,
-      options.form.value,
-      options.editingChapter.value,
-      options.chapters.value,
-      options.characters.value,
-      options.worldSettings.value,
-      observedIdentity(),
-    ] as const,
+    [
+      () => options.visible.value,
+      () => options.currentNovel.value,
+      () => options.form.value,
+      () => options.editingChapter.value,
+      () => options.chapters.value,
+      () => options.characters.value,
+      () => options.worldSettings.value,
+      observedIdentity,
+    ],
     () => {
       if (!options.visible.value) {
         cancel()

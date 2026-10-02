@@ -40,6 +40,27 @@ function startMockServer(): Promise<http.Server> {
       req.on('end', () => {
         const parsed = JSON.parse(body)
         lastChatBody = parsed
+        const reasoningOnly = parsed.model === 'reasoning-only-length'
+        const limited = parsed.model === 'length-model' || reasoningOnly
+        const finishReason = limited ? 'length' : parsed.model === 'filtered-model' ? 'content_filter'
+          : parsed.model === 'unknown-finish-model' ? 'provider_complete' : 'stop'
+        const usage = {
+          prompt_tokens: 12,
+          completion_tokens: limited ? 4096 : 5,
+          ...(reasoningOnly ? { completion_tokens_details: { reasoning_tokens: 4096 } } : {}),
+        }
+        if (!parsed.stream) {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({
+            id: '1', object: 'chat.completion', created: 1, model: parsed.model,
+            choices: [{ index: 0, finish_reason: finishReason, message: {
+              role: 'assistant', content: reasoningOnly ? '' : '春眠不觉晓',
+              ...(reasoningOnly ? { reasoning_content: '先思考写作结构' } : {}),
+            } }],
+            usage,
+          }))
+          return
+        }
         res.writeHead(200, {
           'content-type': 'text/event-stream',
           'cache-control': 'no-cache',
@@ -61,15 +82,26 @@ function startMockServer(): Promise<http.Server> {
           return
         }
 
-        send(chunk('春眠'))
-        send(chunk('不觉晓'))
+        if (reasoningOnly) {
+          send({
+            id: '1', object: 'chat.completion.chunk', created: 1, model: parsed.model,
+            choices: [{ index: 0, delta: { reasoning_content: '先思考写作结构' } }],
+          })
+        } else {
+          send(chunk('春眠'))
+          send(chunk('不觉晓'))
+        }
         send({
           id: '1',
           object: 'chat.completion.chunk',
           created: 1,
           model: parsed.model,
-          choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-          usage: { prompt_tokens: 12, completion_tokens: 5 },
+          choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
+        })
+        // Providers may report final usage in a separate event after the finish reason.
+        send({
+          id: '1', object: 'chat.completion.chunk', created: 1, model: parsed.model,
+          choices: [], usage,
         })
         res.end('data: [DONE]\n\n')
       })
@@ -197,6 +229,37 @@ async function main() {
   const proxiedReply = await apiService.generateTextStream('经代理生成', {}, null)
   assert.strictEqual(proxiedReply, '春眠不觉晓', '对话应经代理前缀命中 mock 的 /chat/completions')
   console.log('✓ 测试10 通过：代理前缀拼接生效')
+
+  // ---- 测试 11：HTTP 200 的输出截断/内容过滤仍须失败，保留已显示内容与真实用量 ----
+  for (const stream of [false, true]) {
+    for (const scenario of [
+      { model: 'length-model', text: '春眠不觉晓', outputTokens: 4096, error: /输出Token上限/ },
+      { model: 'reasoning-only-length', text: '', outputTokens: 4096, error: /输出Token上限/ },
+      { model: 'filtered-model', text: '春眠不觉晓', outputTokens: 5, error: /内容过滤/ },
+    ]) {
+      let visibleContent = ''
+      const before = billingService.getBillingRecords().length
+      const request = stream
+        ? apiService.generateTextStream('写一首诗', { model: scenario.model }, (_chunk, full) => { visibleContent = full })
+        : apiService.generateText('写一首诗', { model: scenario.model })
+      await assert.rejects(request, scenario.error, `${stream ? 'stream' : 'nonstream'} ${scenario.model} must not succeed`)
+      if (stream) assert.strictEqual(visibleContent, scenario.text, '错误应保留已经显示的流式内容')
+      const records = billingService.getBillingRecords()
+      assert.strictEqual(records.length, before + 1, '每次失败只能记录一条计费记录')
+      const failed = records[0]
+      assert.strictEqual(failed.status, 'failed')
+      assert.strictEqual(failed.response, scenario.text, '失败记录应保留部分正文，不应混入推理内容')
+      assert.strictEqual(failed.inputTokens, 12)
+      assert.strictEqual(failed.outputTokens, scenario.outputTokens, '截断也应保留服务商实际报告的用量')
+      assert.strictEqual(failed.usageSource, 'reported')
+    }
+  }
+  console.log('✓ 测试11 通过：流式/非流式输出截断、纯推理耗尽预算与内容过滤均失败并保留用量')
+
+  // ---- 测试 12：未知完成原因的兼容服务仍可返回有效文本 ----
+  assert.strictEqual(await apiService.generateText('写一首诗', { model: 'unknown-finish-model' }), '春眠不觉晓')
+  assert.strictEqual(await apiService.generateTextStream('写一首诗', { model: 'unknown-finish-model' }), '春眠不觉晓')
+  console.log('✓ 测试12 通过：兼容未知 finish_reason 的服务')
 
   server.close()
 }

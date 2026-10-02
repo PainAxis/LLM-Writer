@@ -17,7 +17,7 @@
           <div class="config-tips">
             <h4>⚙️ 配置说明</h4>
             <div class="tips-content">
-              <p>支持所有 <strong>OpenAI 兼容格式</strong> 的 API 接口。</p>
+              <p>支持官方 API，以及自定义 <strong>OpenAI / Anthropic 兼容格式</strong> 的 API 接口。</p>
 
               <div class="params-info">
                 <h5>参数说明：</h5>
@@ -25,7 +25,8 @@
                   <li><strong>API地址</strong> - 您的 API 服务地址</li>
                   <li><strong>API密钥</strong> - 身份验证密钥</li>
                   <li><strong>模型选择</strong> - 如果没有想要的模型，支持自定义模型</li>
-                  <li><strong>Token限制</strong> - 控制生成长度</li>
+                  <li><strong>输出预算</strong> - 限制生成 Token，部分模型包含思考消耗</li>
+                  <li><strong>思考设置</strong> - 按模型能力设置开关、强度或预算</li>
                   <li><strong>创造性</strong> - 0保守，1创新</li>
                 </ul>
               </div>
@@ -33,13 +34,13 @@
               <div class="supported-apis">
                 <h5>特殊说明：</h5>
                 <ul>
-                  <li>openai格式api是大模型通用格式，支持所有大模型</li>
-                  <li>支持本地部署大模型，如ollama、llmstudio等，自行学习怎么获取openai格式api</li>
+                  <li>请按接口格式选择服务商；Anthropic 兼容网关也可调用非 Claude 模型</li>
+                  <li>本地部署的 Ollama、LM Studio 等服务，可选择 OpenAI 兼容格式接入</li>
                 </ul>
               </div>
 
               <div class="tips-note">
-                <p>💡 建议先测试连接再保存配置</p>
+                <p>💡 连接测试只检查地址与身份验证；是否支持预算参数，以实际生成请求为准。</p>
               </div>
             </div>
           </div>
@@ -57,7 +58,7 @@
                   :value="preset.id"
                 />
               </el-select>
-              <div class="form-tip">非 OpenAI 兼容的服务商由 AI SDK 原生适配，其余走 OpenAI 兼容层</div>
+              <div class="form-tip">自定义网关请按接口格式选择 OpenAI 兼容或 Anthropic，再填写服务地址。</div>
             </el-form-item>
 
             <el-form-item label="API密钥" required>
@@ -73,11 +74,11 @@
             <el-form-item label="API地址" :required="currentPreset.editableBaseURL">
               <el-input
                 v-model="form.baseURL"
-                placeholder="例如：https://api.openai.com/v1"
+                :placeholder="currentPreset.kind === 'anthropic' ? '例如：https://api.anthropic.com/v1' : '例如：https://api.openai.com/v1'"
                 :disabled="!currentPreset.editableBaseURL"
                 clearable
               />
-              <div class="form-tip">{{ currentPreset.editableBaseURL ? 'OpenAI 兼容格式的服务地址' : '由所选服务商预设，无需修改' }}</div>
+              <div class="form-tip">{{ baseURLHint }}</div>
             </el-form-item>
 
             <el-form-item label="模型选择">
@@ -117,10 +118,10 @@
               </div>
             </el-form-item>
 
-            <el-form-item label="最大Token">
+            <el-form-item label="输出预算">
               <div class="max-tokens-control">
                 <el-checkbox v-model="form.unlimitedTokens" @change="handleUnlimitedTokensChange">
-                  无限制Token
+                  服务商默认
                 </el-checkbox>
                 <el-input-number
                   v-if="!form.unlimitedTokens"
@@ -130,7 +131,56 @@
                   :step="1000"
                   style="width: 100%"
                 />
+                <div class="form-tip">单位为 Token；部分推理模型的输出预算包含思考 Token。服务商默认表示由服务商或 SDK 采用默认上限，仍受模型限制。</div>
               </div>
+            </el-form-item>
+
+            <el-form-item v-if="showThinkingProtocol" label="思考协议">
+              <el-select v-model="form.thinkingProtocol" style="width: 100%">
+                <el-option
+                  v-for="protocol in thinkingProtocolOptions"
+                  :key="protocol.value"
+                  :label="protocol.label"
+                  :value="protocol.value"
+                />
+              </el-select>
+              <div class="form-tip">{{ thinkingProtocolHint }}</div>
+            </el-form-item>
+
+            <el-form-item label="思考设置">
+              <div class="thinking-control">
+                <el-select v-model="form.thinkingMode" style="width: 100%" @change="onThinkingModeChange">
+                  <el-option
+                    v-for="mode in thinkingCapability.modes"
+                    :key="mode.value"
+                    :label="mode.label"
+                    :value="mode.value"
+                  />
+                </el-select>
+                <div class="form-tip">{{ thinkingCapability.label }}：{{ thinkingCapability.hint }}</div>
+              </div>
+            </el-form-item>
+
+            <el-form-item v-if="form.thinkingMode === 'effort'" label="思考强度">
+              <el-select v-model="form.thinkingEffort" style="width: 100%">
+                <el-option
+                  v-for="effort in thinkingCapability.efforts"
+                  :key="effort.value"
+                  :label="effort.label"
+                  :value="effort.value"
+                />
+              </el-select>
+            </el-form-item>
+
+            <el-form-item v-if="form.thinkingMode === 'budget'" label="思考预算">
+              <el-input-number
+                v-model="form.thinkingBudget"
+                :min="thinkingCapability.budgetMin"
+                :max="thinkingCapability.budgetMax"
+                :step="1024"
+                style="width: 100%"
+              />
+              <div class="form-tip">按 Token 设置思考预算，仅适用于支持此参数的模型。实际消耗与模型有关，部分模型将其作为目标值。</div>
             </el-form-item>
 
             <el-form-item label="创造性">
@@ -217,6 +267,7 @@ import { reactive, ref, computed, watch, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useApiConfig } from '@/services/apiConfig'
 import { PROVIDER_PRESETS, getPreset, fetchProviderModels, FALLBACK_MODELS } from '@/services/aiProviders'
+import { DEFAULT_OUTPUT_TOKENS, THINKING_PROTOCOL_OPTIONS, getThinkingCapability, validateGenerationBudget } from '@/utils/generationBudget'
 import apiService from '@/services/api'
 
 const { customModels: storedCustomModels, getProviderModels, activeConfig, isApiConfigured, updateConfig, setCustomModels, setProviderModels, resetConfig } = useApiConfig()
@@ -232,8 +283,12 @@ const form = reactive({
   apiKey: '',
   baseURL: 'https://api.openai.com/v1',
   selectedModel: 'gpt-5.4-mini',
-  maxTokens: 2000000,
+  maxTokens: DEFAULT_OUTPUT_TOKENS,
   unlimitedTokens: false,
+  thinkingProtocol: 'auto',
+  thinkingMode: 'default',
+  thinkingBudget: 4096,
+  thinkingEffort: 'medium',
   temperature: 0.7,
   customHeaders: {},
   proxyUrl: '',
@@ -243,6 +298,38 @@ const form = reactive({
 const headerRows = ref([])
 
 const currentPreset = computed(() => getPreset(form.provider))
+const baseURLHint = computed(() => currentPreset.value.kind === 'anthropic'
+  ? '支持 Anthropic 官方或兼容网关；填写基础地址（如 https://opencode.ai/zen/go/v1），不要附加 /messages。'
+  : currentPreset.value.editableBaseURL ? 'OpenAI 兼容格式的服务地址' : '由所选服务商预设，无需修改')
+const showThinkingProtocol = computed(() => form.provider !== 'google')
+const thinkingProtocolOptions = computed(() => form.provider === 'anthropic'
+  ? [THINKING_PROTOCOL_OPTIONS[0], { value: 'anthropic', label: 'Anthropic 兼容思考预算' }]
+  : THINKING_PROTOCOL_OPTIONS)
+const thinkingProtocolHint = computed(() => form.provider === 'anthropic'
+  ? 'Claude 按模型能力识别；非 Claude 模型默认不附加思考参数，确认网关支持后可选择兼容思考预算。'
+  : '自动识别模型与服务商；使用自定义模型别名时，可手动选择网关实际支持的协议。')
+const thinkingCapability = computed(() => getThinkingCapability(form))
+
+// A mode supported by one model need not be accepted by the next one.
+watch(() => [form.provider, form.selectedModel, form.thinkingProtocol], ([provider], [previousProvider]) => {
+  form.thinkingMode = 'default'
+  if (provider !== previousProvider) form.thinkingProtocol = 'auto'
+}, { flush: 'sync' })
+
+const onThinkingModeChange = () => {
+  const capability = thinkingCapability.value
+  if (form.thinkingMode === 'effort') {
+    const efforts = capability.efforts
+    form.thinkingEffort = efforts.find(effort => effort.value === 'medium')?.value
+      ?? efforts[Math.floor(efforts.length / 2)]?.value
+      ?? 'medium'
+  } else if (form.thinkingMode === 'budget') {
+    const maximum = capability.budgetMax ?? Number.MAX_SAFE_INTEGER
+    if (!Number.isSafeInteger(form.thinkingBudget) || form.thinkingBudget < capability.budgetMin || form.thinkingBudget > maximum) {
+      form.thinkingBudget = Math.max(capability.budgetMin, Math.min(4096, maximum))
+    }
+  }
+}
 
 const addHeaderRow = () => {
   headerRows.value.push({ key: '', value: '' })
@@ -316,6 +403,8 @@ const syncHeaderRows = (headers) => {
 // 切换服务商：带入预设地址与默认模型
 const onProviderChange = (providerId) => {
   const preset = getPreset(providerId)
+  form.thinkingProtocol = 'auto'
+  form.thinkingMode = 'default'
   form.baseURL = preset.baseURL
   if (preset.defaultModel) {
     form.selectedModel = preset.defaultModel
@@ -391,7 +480,8 @@ const formatTemperature = (value) => {
 }
 
 const handleUnlimitedTokensChange = () => {
-  form.maxTokens = form.unlimitedTokens ? null : 2000000
+  // Keep the previous numeric draft while the provider decides the output limit.
+  if (!form.unlimitedTokens && form.maxTokens == null) form.maxTokens = DEFAULT_OUTPUT_TOKENS
 }
 
 // 从模块状态同步到表单
@@ -401,8 +491,12 @@ const loadSavedConfig = () => {
   form.apiKey = saved.apiKey ?? ''
   form.baseURL = saved.baseURL ?? 'https://api.openai.com/v1'
   form.selectedModel = saved.selectedModel ?? 'gpt-5.4-mini'
-  form.maxTokens = saved.maxTokens ?? null
-  form.unlimitedTokens = Boolean(saved.unlimitedTokens)
+  form.maxTokens = saved.maxTokens ?? DEFAULT_OUTPUT_TOKENS
+  form.unlimitedTokens = Boolean(saved.unlimitedTokens) || saved.maxTokens === null
+  form.thinkingProtocol = saved.thinkingProtocol ?? 'auto'
+  form.thinkingMode = saved.thinkingMode ?? 'default'
+  form.thinkingBudget = saved.thinkingBudget ?? 4096
+  form.thinkingEffort = saved.thinkingEffort ?? 'medium'
   form.temperature = saved.temperature ?? 0.7
   form.customHeaders = saved.customHeaders ?? {}
   form.proxyUrl = saved.proxyUrl ?? ''
@@ -426,6 +520,11 @@ const saveConfig = async () => {
   if (disposed || validating.value || !validateForm()) return
 
   const draft = snapshotForm()
+  const budgetError = validateGenerationBudget(draft)
+  if (budgetError) {
+    ElMessage.warning(budgetError)
+    return
+  }
   try {
     updateConfig(draft)
   } catch (error) {
@@ -599,6 +698,10 @@ loadSavedConfig()
 }
 
 .max-tokens-control {
+  width: 100%;
+}
+
+.thinking-control {
   width: 100%;
 }
 

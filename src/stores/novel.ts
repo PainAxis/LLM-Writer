@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import apiService from '@/services/api'
 import { useApiConfig } from '@/services/apiConfig'
+import { stripWriterHtml, countWriterWords } from '@/utils/writerContent'
 import { generateUniqueId } from '@/utils/id'
 import type { ApiConfig, NovelBasicInfo, StreamCallback, TemplateInfo } from '@/types/api'
 
@@ -100,7 +101,7 @@ export const useNovelStore = defineStore('novel', () => {
   })
 
   // ---------- 计算属性 ----------
-  const wordCount = computed(() => currentNovel.value.replace(/<[^>]*>/g, '').length)
+  const wordCount = computed(() => countWriterWords(currentNovel.value))
 
   const readingTime = computed(() => Math.ceil(wordCount.value / 200))
 
@@ -278,11 +279,11 @@ export const useNovelStore = defineStore('novel', () => {
   }
 
   const updateStats = async () => {
-    const content = currentNovel.value.replace(/<[^>]*>/g, '')
+    const content = stripWriterHtml(currentNovel.value)
 
     articleStats.value = {
-      wordCount: content.length,
-      readingTime: Math.ceil(content.length / 200),
+      wordCount: countWriterWords(currentNovel.value),
+      readingTime: Math.ceil(countWriterWords(currentNovel.value) / 200),
       sentiment: analyzeSentiment(content),
       tags: generateTags(content),
       category: categorizeContent(content),
@@ -398,7 +399,7 @@ export const useNovelStore = defineStore('novel', () => {
     assertApiConfigured()
     setGeneratingChapter(true)
     try {
-      const previousContent = currentNovel.value.replace(/<[^>]*>/g, '')
+      const previousContent = stripWriterHtml(currentNovel.value)
       const result = await apiService.generateChapterContent(
         chapter.title,
         chapter.content,
@@ -453,7 +454,7 @@ export const useNovelStore = defineStore('novel', () => {
 
     isGeneratingSummary.value = true
     try {
-      const content = currentNovel.value.replace(/<[^>]*>/g, '')
+      const content = stripWriterHtml(currentNovel.value)
       const summary = await apiService.generateSummary(content, options)
       articleSummary.value = summary
       return summary
@@ -474,7 +475,7 @@ export const useNovelStore = defineStore('novel', () => {
 
     isGeneratingAdvice.value = true
     try {
-      const content = currentNovel.value.replace(/<[^>]*>/g, '')
+      const content = stripWriterHtml(currentNovel.value)
       const advice = await apiService.getWritingAdvice(content)
       writingAdvice.value = advice
       return advice

@@ -55,14 +55,14 @@
             <div class="original-content-preview">
               <h4>原始内容预览</h4>
               <el-input
-                :value="form.originalContent"
+                :model-value="form.originalContent"
                 type="textarea"
                 :rows="8"
                 readonly
                 placeholder="暂无内容"
                 class="original-content-textarea"
               />
-              <div class="content-stats">字数：{{ form.originalContent.length }}</div>
+              <div class="content-stats">字数：{{ originalWordCount }}</div>
             </div>
           </el-card>
         </el-col>
@@ -105,11 +105,9 @@
                 {{ form.optimizedContent }}
               </div>
               <div class="result-stats">
-                <span>润色后字数：{{ form.optimizedContent.length }}</span>
+                <span>润色后字数：{{ optimizedWordCount }}</span>
                 <span>
-                  字数变化：{{
-                    form.optimizedContent.length - form.originalContent.length > 0 ? '+' : ''
-                  }}{{ form.optimizedContent.length - form.originalContent.length }}
+                  字数变化：{{ wordCountChange > 0 ? '+' : '' }}{{ wordCountChange }}
                 </span>
               </div>
             </div>
@@ -157,10 +155,15 @@
 
 <script setup lang="ts">
 import { Check, Close, CopyDocument, MagicStick } from '@element-plus/icons-vue'
+import { computed } from 'vue'
 import type { PromptTemplate, WriterOptimizeForm } from '@/types/writer'
+import { countWriterPlainText } from '@/utils/writerContent'
 
 const visible = defineModel<boolean>({ required: true })
 const form = defineModel<WriterOptimizeForm>('form', { required: true })
+const originalWordCount = computed(() => countWriterPlainText(form.value.originalContent))
+const optimizedWordCount = computed(() => countWriterPlainText(form.value.optimizedContent))
+const wordCountChange = computed(() => optimizedWordCount.value - originalWordCount.value)
 
 defineProps<{
   prompts: readonly PromptTemplate[]

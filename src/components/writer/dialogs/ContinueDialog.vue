@@ -91,8 +91,8 @@
             <div v-else-if="streamingContent" class="result-area">
               <div class="result-content">{{ streamingContent }}</div>
               <div class="result-stats">
-                <span>续写字数：{{ streamingContent.length }}</span>
-                <span>总字数：{{ contentWordCount + streamingContent.length }}</span>
+                <span>续写字数：{{ countWriterPlainText(streamingContent) }}</span>
+                <span>总字数：{{ contentWordCount + countWriterPlainText(streamingContent) }}</span>
               </div>
             </div>
 
@@ -129,6 +129,7 @@
 
 <script setup lang="ts">
 import { ArrowRight, Check, Close, CopyDocument } from '@element-plus/icons-vue'
+import { countWriterPlainText } from '@/utils/writerContent'
 import type { WriterContinueForm } from '@/types/writer'
 
 const visible = defineModel<boolean>({ default: false })

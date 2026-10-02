@@ -211,10 +211,13 @@
         </el-form-item>
         
         <el-form-item label="目标类型" prop="type">
-          <el-select v-model="goalForm.type" placeholder="选择目标类型">
+          <el-select v-model="goalForm.type" placeholder="选择目标类型" @change="changeGoalType">
             <el-option label="每日目标" value="daily" />
             <el-option label="每周目标" value="weekly" />
             <el-option label="每月目标" value="monthly" />
+            <el-option label="总字数" value="total" />
+            <el-option label="章节数" value="chapters" />
+            <el-option label="连续天数" value="streak_days" />
             <el-option label="自定义期间" value="custom" />
           </el-select>
         </el-form-item>
@@ -238,15 +241,18 @@
         </el-form-item>
         
         <el-form-item label="计量单位" prop="unit">
-          <el-select v-model="goalForm.unit" placeholder="选择单位">
+          <el-select v-model="goalForm.unit" placeholder="选择单位" :disabled="['chapters', 'streak_days'].includes(goalForm.type)">
             <el-option label="字" value="字" />
             <el-option label="页" value="页" />
             <el-option label="章节" value="章节" />
+            <el-option label="章" value="章" />
             <el-option label="小时" value="小时" />
+            <el-option label="天" value="天" />
           </el-select>
+          <span v-if="editingGoal && goalForm.unit !== editingGoal.unit">更改单位后当前进度归零，历史记录保留。</span>
         </el-form-item>
         
-        <el-form-item v-if="goalForm.type === 'custom'" label="时间范围" prop="dateRange">
+        <el-form-item v-if="usesDateRange(goalForm.type)" label="时间范围" prop="dateRange">
           <el-date-picker
             v-model="goalForm.dateRange"
             type="daterange"
@@ -305,7 +311,7 @@ import { storeToRefs } from 'pinia'
 import type { FormInstance, TagProps } from 'element-plus'
 import type { WritingGoal } from '@/types/management'
 import type { WriterTimestamp } from '@/types/writer'
-import { toGoalDate } from '@/utils/writingGoals'
+import { resolveGoalUnit, toGoalDate } from '@/utils/writingGoals'
 import { useWritingGoalsStore } from '@/stores/writingGoals'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Calendar, Clock, TrendCharts, Trophy, Edit, MoreFilled, VideoPause, Delete, Rank } from '@element-plus/icons-vue'
@@ -344,14 +350,18 @@ const dateInput = (date: WriterTimestamp) => {
 }
 const formatDateRange = (start: WriterTimestamp, end: WriterTimestamp) => `${formatDate(start)} - ${formatDate(end)}`
 const getRemainingDays = (date: WriterTimestamp) => Math.max(0, Math.ceil((toGoalDate(date).getTime() - Date.now()) / 86_400_000))
-const getGoalTypeText = (type: string) => ({ daily: '每日', weekly: '每周', monthly: '每月', custom: '自定义' }[type] ?? '目标')
+const getGoalTypeText = (type: string) => ({ daily: '每日', weekly: '每周', monthly: '每月', total: '总字数', chapters: '章节数', streak_days: '连续天数', custom: '自定义' }[type] ?? '目标')
 const getGoalTypeColor = (type: string): TagProps['type'] => ({ daily: 'primary', weekly: 'success', monthly: 'warning', custom: 'info' } as Record<string, TagProps['type']>)[type] ?? 'info'
 const progressPercentage = (goal: WritingGoal) => Math.min(100, Math.max(0, Math.round(goal.currentValue / goal.targetValue * 100)))
 const resetGoalForm = () => { goalForm.value = emptyForm(); editingGoal.value = null; goalFormRef.value?.clearValidate() }
 const openAddGoal = () => { resetGoalForm(); showAddGoalDialog.value = true }
+const usesDateRange = (type: string) => ['custom', 'chapters', 'streak_days', 'total'].includes(type)
+const changeGoalType = (type: string) => {
+  goalForm.value.unit = resolveGoalUnit(type, type === 'custom' ? goalForm.value.unit : undefined)
+}
 const editGoal = (goal: WritingGoal) => {
   editingGoal.value = goal
-  goalForm.value = { title: goal.title, type: goal.type, description: goal.description ?? '', targetValue: goal.targetValue, unit: goal.unit ?? '字', dateRange: goal.type === 'custom' ? [dateInput(goal.startDate), dateInput(goal.endDate)] : null }
+  goalForm.value = { title: goal.title, type: goal.type, description: goal.description ?? '', targetValue: goal.targetValue, unit: resolveGoalUnit(goal.type, goal.unit), dateRange: usesDateRange(goal.type) ? [dateInput(goal.startDate), dateInput(goal.endDate)] : null }
   showAddGoalDialog.value = true
 }
 const updateProgress = (goal: WritingGoal) => {
@@ -376,8 +386,8 @@ const saveGoal = async () => {
   if (form.type === 'weekly') { start.setDate(start.getDate() - start.getDay()); end.setTime(start.getTime()); end.setDate(end.getDate() + 6) }
   if (form.type === 'monthly') { start.setDate(1); end.setMonth(start.getMonth()+1,0) }
   const existing = editingGoal.value?.type === form.type ? editingGoal.value : null
-  const startDate = form.type === 'custom' ? form.dateRange?.[0] : existing?.startDate || dateInput(start)
-  const endDate = form.type === 'custom' ? form.dateRange?.[1] : existing?.endDate || dateInput(end)
+  const startDate = usesDateRange(form.type) ? form.dateRange?.[0] : existing?.startDate || dateInput(start)
+  const endDate = usesDateRange(form.type) ? form.dateRange?.[1] : existing?.endDate || dateInput(end)
   if (!startDate || !endDate) return
   try {
     const editing = editingGoal.value !== null

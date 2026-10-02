@@ -553,7 +553,7 @@ try {
     const dialog = page.getByRole('dialog', { name: '爆款书名生成器', exact: true })
     const generate = dialog.getByRole('button', { name: '生成内容', exact: true })
     await expect(generate).toBeDisabled()
-    await dialog.locator('.el-form-item').filter({ hasText: '生成数量' }).locator('.el-select__wrapper').click()
+    await dialog.locator('.el-form-item').filter({ has: page.locator('.el-form-item__label', { hasText: /^生成数量$/ }) }).locator('.el-select__wrapper').click()
     await page.getByRole('option', { name: '5个书名', exact: true }).click()
     await dialog.locator('.el-form-item').filter({ hasText: '小说类型' }).locator('.el-select__wrapper').click()
     await page.getByRole('option', { name: '都市', exact: true }).click()
@@ -643,7 +643,7 @@ try {
     await go('tools')
     await page.locator('.tool-card').filter({ hasText: '爆款书名生成器' }).click()
     const dialog = page.getByRole('dialog', { name: '爆款书名生成器', exact: true })
-    await dialog.locator('.el-form-item').filter({ hasText: '生成数量' }).locator('.el-select__wrapper').click()
+    await dialog.locator('.el-form-item').filter({ has: page.locator('.el-form-item__label', { hasText: /^生成数量$/ }) }).locator('.el-select__wrapper').click()
     await page.getByRole('option', { name: '5个书名', exact: true }).click()
     await dialog.locator('.el-form-item').filter({ hasText: '小说类型' }).locator('.el-select__wrapper').click()
     await page.getByRole('option', { name: '都市', exact: true }).click()
@@ -664,7 +664,7 @@ try {
     await expect.poll(async () => (await metrics()).cancelled).toBeGreaterThan(restart.cancelled)
     await page.locator('.tool-card').filter({ hasText: '爆款书名生成器' }).click()
     await expect(result).toHaveCount(0)
-    await dialog.locator('.el-form-item').filter({ hasText: '生成数量' }).locator('.el-select__wrapper').click()
+    await dialog.locator('.el-form-item').filter({ has: page.locator('.el-form-item__label', { hasText: /^生成数量$/ }) }).locator('.el-select__wrapper').click()
     await page.getByRole('option', { name: '5个书名', exact: true }).click()
     await dialog.locator('.el-form-item').filter({ hasText: '小说类型' }).locator('.el-select__wrapper').click()
     await page.getByRole('option', { name: '都市', exact: true }).click()
@@ -1024,6 +1024,8 @@ try {
           await expect(templates.first()).toBeVisible()
           assert.ok(await templates.count() > 0, 'Direct Book Analysis visits must have default templates')
           await templates.first().click()
+          await expect(cleanPage.getByRole('button', { name: '开始拆书分析', exact: true })).toBeDisabled()
+          await cleanPage.getByRole('button', { name: '全选', exact: true }).click()
           await expect(cleanPage.getByRole('button', { name: '开始拆书分析', exact: true })).toBeEnabled()
         } else {
           await cleanPage.locator('.tool-card').filter({ hasText: '细纲生成器' }).click()
@@ -1351,6 +1353,508 @@ try {
         await target.unroute(`${mockURL}/models`, holdModels)
       }
     }
+  }))
+
+  await step('29 Require explicit detected chapters and preserve book heading boundaries', () => withIsolatedPage('29-book-analysis-scope', async target => {
+    await configureDisposableApi(target)
+    await go('book-analysis', target)
+    const source = '第一章 清晨\r\n他说：“第十章的线索还没解开。”\r\n' + '首章独有的街道。'.repeat(700) + '\r\n第二章 终点\r\n最终线索只在第二章。';
+    await target.locator('.upload-area input[type="file"]').setInputFiles({ name: 'explicit-chapters.txt', mimeType: 'text/plain', buffer: Buffer.from(source) })
+    await expect(target.locator('.file-name')).toHaveText('explicit-chapters.txt')
+    await target.locator('.setting-item').filter({ hasText: '拆书模板' }).locator('.el-select__wrapper').click()
+    await target.locator('.el-select-dropdown:visible').getByRole('option').first().click()
+    const start = target.getByRole('button', { name: '开始拆书分析', exact: true })
+    await expect(start).toBeDisabled()
+    await target.locator('.setting-item').filter({ hasText: '章节选择' }).locator('.el-select__wrapper').click()
+    const chapters = target.locator('.el-select-dropdown:visible').getByRole('option')
+    await expect(chapters).toHaveCount(2)
+    await chapters.filter({ hasText: '第二章 终点' }).click()
+    await target.keyboard.press('Escape')
+    await expect(start).toBeEnabled()
+    const request = target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/chat/completions`)
+    await start.click()
+    const sent = JSON.stringify((await request).postDataJSON().messages)
+    assert.ok(sent.includes('最终线索只在第二章。'))
+    assert.ok(!sent.includes('首章独有的街道。'), 'Only explicitly selected chapter content may be sent')
+    await expect(target.locator('.analysis-editor textarea')).toHaveValue(/联调生成片段/)
+    await expect(start).toBeEnabled()
+    await target.getByRole('button', { name: '清空', exact: true }).click()
+    await expect(start).toBeDisabled()
+  }))
+
+  await step('30 Retain invalid outline replies and survive autosave before retrying', () => withIsolatedPage('30-writer-outline-and-polish', async target => {
+    await configureDisposableApi(target)
+    await settingsData(target)
+    const fixture = { novels: [{ id: 30000, title: '生成边界测试', genre: 'fantasy', chapterList: [{ id: 30001, title: '现有章节', description: '主角抵达河岸', content: '<p>原有正文。</p>', wordCount: 5, status: 'draft' }] }] }
+    await importBackup({ name: 'outline-source.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) }, target)
+    await go('writer?novelId=30000', target)
+    const novel = () => target.evaluate(() => JSON.parse(localStorage.getItem('novels') || '[]').find(item => item.id === 30000))
+    const openBatch = async () => {
+      await target.getByRole('button', { name: '新增章节', exact: true }).hover()
+      await target.getByRole('menuitem', { name: 'AI批量生成', exact: true }).click()
+      const dialog = target.getByRole('dialog', { name: 'AI批量生成章节', exact: true })
+      await dialog.locator('.el-input-number input').fill('3')
+      return dialog
+    }
+    let dialog = await openBatch()
+    await dialog.getByRole('button', { name: '批量生成', exact: true }).click()
+    await expect(dialog.locator('.el-alert--error')).toBeVisible()
+    await expect(dialog.locator('.streaming-text-plain')).toContainText('联调生成片段 3')
+    assert.equal((await novel()).chapterList.length, 1, 'An unstructured reply cannot create a fallback chapter')
+    await dialog.getByRole('button', { name: '取消', exact: true }).click()
+
+    const latest = '刚刚补写：<林> A & B 😀。'
+    await target.locator('.editor-panel [contenteditable="true"]').fill(latest)
+    dialog = await openBatch()
+    let release
+    const gate = new Promise(resolve => { release = resolve })
+    const completion = ['章节1：\n标题：启程\n大纲：主角准备出发。', '章节2：\n标题：河岸\n大纲：主角在河岸遇见朋友。', '章节3：\n标题：归途\n大纲：两人结伴返回。'].join('\n')
+    const heldResponse = async route => {
+      await gate
+      const common = { id: 'outline-regression', object: 'chat.completion.chunk', created: 1, model: 'writer-mock' }
+      const chunks = [
+        { ...common, choices: [{ index: 0, delta: { content: completion }, finish_reason: null }] },
+        { ...common, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 12, completion_tokens: 24, total_tokens: 36 } },
+      ]
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body: chunks.map(chunk => `data: ${JSON.stringify(chunk)}\n\n`).join('') + 'data: [DONE]\n\n' })
+    }
+    await target.route(`${mockURL}/chat/completions`, heldResponse)
+    try {
+      const sent = target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/chat/completions`)
+      await dialog.getByRole('button', { name: '批量生成', exact: true }).click()
+      await sent
+      await expect.poll(async () => (await novel()).chapterList[0].wordCount).toBe([...latest.replace(/\s/g, '')].length)
+      release()
+      await expect(dialog).toBeHidden()
+      await expect.poll(async () => (await novel()).chapterList.length).toBe(4)
+      assert.deepEqual((await novel()).chapterList.map(chapter => chapter.title), ['现有章节', '启程', '河岸', '归途'])
+    } finally {
+      release()
+      await target.unroute(`${mockURL}/chat/completions`, heldResponse)
+    }
+    await target.locator('.chapter-item').filter({ has: target.locator('.chapter-info > p', { hasText: '现有章节' }) }).click()
+    await target.getByRole('button', { name: '优化', exact: true }).click()
+    const polish = target.getByRole('dialog', { name: 'AI文本润色', exact: true })
+    await expect(polish.locator('.original-content-textarea textarea')).toHaveValue(latest)
+    await polish.locator('.prompt-item').first().click()
+    const polished = target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/chat/completions`)
+    await polish.getByRole('button', { name: '开始润色', exact: true }).click()
+    const prompt = JSON.stringify((await polished).postDataJSON().messages)
+    assert.ok(prompt.includes(latest))
+    assert.ok(!prompt.includes('{原文内容}'))
+    await expect(polish.getByRole('button', { name: '开始润色', exact: true })).toBeEnabled()
+    await polish.getByRole('button', { name: 'Close this dialog' }).click()
+    await expect(target.locator('.saving-indicator')).toHaveCount(0)
+  }))
+
+
+  await step('31 Keep chapter totals, safe previews and chapter-goal units consistent after reload', () => withIsolatedPage('31-management-correctness', async target => {
+    const timestamp = new Date().toISOString()
+    const fixture = {
+      format: 'llm-writer-backup', version: 2, exportTime: timestamp,
+      data: { novels: [{
+        id: 31000, title: '统计与预览回归', genre: 'fantasy', tags: [], createdAt: timestamp, updatedAt: timestamp,
+        wordCount: 500, totalWords: 999, chapters: 2,
+        chapterList: [
+          { id: 31001, title: '保留章', content: '<p>甲&nbsp;乙</p><p>&lt;林&gt;&amp;&#x1F600;</p>', wordCount: 250, description: '', status: 'draft', createdAt: timestamp, updatedAt: timestamp },
+          { id: 31002, title: '删除章', content: '<p>结尾</p>', wordCount: 250, description: '', status: 'draft', createdAt: timestamp, updatedAt: timestamp },
+        ],
+      }] },
+    }
+    await settingsData(target)
+    await importBackup({ name: 'management-correctness.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) }, target)
+    const readNovel = () => target.evaluate(() => JSON.parse(localStorage.getItem('novels') || '[]').find(novel => novel.id === 31000))
+    await go('chapters', target)
+    const total = target.locator('.novel-stats .stat-item').filter({ hasText: '总字数' }).locator('.stat-value')
+    await expect(total).toHaveText('9字')
+    await expect(target.getByRole('button', { name: '排序', exact: true })).toBeDisabled()
+    await expect(target.getByRole('button', { name: '批量编辑', exact: true })).toBeDisabled()
+    const chapter = title => target.locator('.chapter-item').filter({ has: target.locator('h4', { hasText: title }) })
+    await chapter('保留章').getByRole('button', { name: '预览', exact: true }).click()
+    const preview = target.getByRole('dialog', { name: '章节预览', exact: true })
+    await expect(preview.locator('.preview-content p')).toHaveText(['甲 乙', '<林>&😀'])
+    await expect(preview.locator('.preview-content')).not.toContainText('<p>')
+    await expect(preview.locator('.preview-content')).not.toContainText('&nbsp;')
+    await preview.locator('.el-dialog__headerbtn').click()
+    await chapter('删除章').locator('.el-dropdown button').click()
+    await target.getByRole('menuitem', { name: '删除', exact: true }).click()
+    await target.getByRole('dialog', { name: '确认删除', exact: true }).getByRole('button', { name: '确定', exact: true }).click()
+    await expect.poll(async () => {
+      const novel = await readNovel()
+      return [novel.wordCount, novel.totalWords, novel.chapterList.length]
+    }).toEqual([7, 7, 1])
+    await target.reload()
+    await dismissAnnouncement(target)
+    await expect(total).toHaveText('7字')
+
+    await go('goals', target)
+    const title = '章节单位回归目标'
+    await target.getByRole('button', { name: '设定新目标', exact: true }).click()
+    const create = target.getByRole('dialog', { name: '创建新目标', exact: true })
+    await create.getByPlaceholder('请输入目标标题').fill(title)
+    await create.locator('.el-form-item').filter({ hasText: '目标类型' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '章节数', exact: true }).click()
+    await expect(create.locator('.el-form-item').filter({ hasText: '计量单位' }).locator('.el-select__wrapper')).toHaveText('章')
+    await create.locator('.el-form-item').filter({ hasText: '目标数值' }).getByRole('spinbutton').fill('10')
+    const date = new Date().toISOString().slice(0, 10)
+    await create.getByPlaceholder('开始日期').fill(date)
+    await create.getByPlaceholder('结束日期').fill(date)
+    await create.getByPlaceholder('结束日期').press('Enter')
+    await create.getByPlaceholder('请输入目标标题').click()
+    await create.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(create).toBeHidden()
+    const card = target.locator('.goal-card').filter({ hasText: title })
+    await expect(card.locator('.progress-text')).toContainText('0 / 10 章')
+    await card.getByRole('button', { name: '更新进度', exact: true }).click()
+    const progress = target.getByRole('dialog', { name: '更新进度', exact: true })
+    await progress.getByRole('spinbutton').fill('2')
+    await progress.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(progress).toBeHidden()
+    await expect(card.locator('.progress-text')).toContainText('2 / 10 章')
+    await expect(target.locator('.overview-item').filter({ hasText: '今日字数' }).locator('.overview-value')).toHaveText('0')
+    await target.reload()
+    await dismissAnnouncement(target)
+    await expect(card.locator('.progress-text')).toContainText('2 / 10 章')
+    await expect(target.locator('.overview-item').filter({ hasText: '今日字数' }).locator('.overview-value')).toHaveText('0')
+    const saved = await target.evaluate(goalTitle => JSON.parse(localStorage.getItem('writingGoals') || '[]').find(goal => goal.title === goalTitle), title)
+    assert.equal(saved.type, 'chapters')
+    assert.equal(saved.unit, '章')
+    assert.equal(saved.progressHistory[0].unit, '章')
+    await go('', target)
+    await target.getByRole('button', { name: '管理目标', exact: true }).click()
+    const manager = target.getByRole('dialog', { name: '写作目标管理', exact: true })
+    await expect(manager.locator('.goal-item').filter({ hasText: title }).locator('.progress-info')).toContainText(/2\s*\/\s*10\s*章/)
+  }))
+
+
+  await step('32 Keep Tools novel IDs and template tasks aligned with generation parameters', () => withIsolatedPage('32-tools-contracts', async target => {
+    const timestamp = new Date().toISOString()
+    const title = '同名工具回归作品'
+    const fixture = {
+      format: 'llm-writer-backup', version: 2, exportTime: timestamp,
+      data: { novels: [
+        { id: 32001, title, genre: '玄幻', description: '第一本龙王专属简介', tags: [], createdAt: timestamp, updatedAt: timestamp,
+          characters: [{ id: 32101, name: '龙王', description: '第一本龙族主角' }],
+          chapterList: [{ id: 32201, title: '龙王章', content: '<p>第一本龙王正文。</p>', status: 'draft', createdAt: timestamp, updatedAt: timestamp }] },
+        { id: 32002, title, genre: '科幻', description: '第二本星舰专属简介', tags: [], createdAt: timestamp, updatedAt: timestamp,
+          characters: [{ id: 32102, name: '舰长', description: '第二本人类舰长' }],
+          chapterList: [{ id: 32202, title: '星舰章', content: '<p>星舰&amp;舰长。</p><p>第二段：起航。</p>', status: 'draft', createdAt: timestamp, updatedAt: timestamp }] },
+      ] },
+    }
+    await settingsData(target)
+    await importBackup({ name: 'tools-contracts.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) }, target)
+    await configureDisposableApi(target)
+    await go('tools', target)
+    await target.locator('.tool-card').filter({ hasText: '简介生成器' }).click()
+    const synopsis = target.getByRole('dialog', { name: '简介生成器', exact: true })
+    await synopsis.locator('.el-form-item').filter({ hasText: '选择小说' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: title, exact: true }).nth(1).click()
+    await synopsis.locator('.el-form-item').filter({ hasText: '参考章节' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '星舰章', exact: true }).click()
+    await synopsis.locator('.el-form-item').filter({ hasText: '简介风格' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '直白介绍', exact: true }).click()
+    await synopsis.locator('.el-form-item').filter({ hasText: '提示词模板' }).locator('.el-select__wrapper').click()
+    await expect(target.getByRole('option', { name: '基础章节生成器', exact: true })).toHaveCount(0)
+    await target.getByRole('option', { name: /^简介生成器默认模板/ }).click()
+    const capture = () => target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/chat/completions`)
+    let sent = capture()
+    await synopsis.getByRole('button', { name: '生成内容', exact: true }).click()
+    let body = (await sent).postDataJSON()
+    const promptText = payload => payload.messages.map(message => typeof message.content === 'string' ? message.content : JSON.stringify(message.content)).join('\n')
+    let prompt = promptText(body)
+    assert.ok(prompt.includes('第二本星舰专属简介') && prompt.includes('舰长'))
+    assert.ok(!prompt.includes('第一本龙王专属简介') && !prompt.includes('龙王'))
+    assert.ok(prompt.includes('星舰&舰长。\n\n第二段：起航。'))
+    assert.ok(prompt.includes('100-200字') && prompt.includes('简介风格：直白介绍'))
+    assert.ok(!prompt.includes('Write the full prose') && !prompt.includes('[待填充]'))
+    await expect(synopsis.getByPlaceholder('生成的内容将在这里显示...')).toHaveValue(/联调生成片段 3/)
+    await synopsis.locator('.el-dialog__headerbtn').click()
+    await expect(synopsis).toBeHidden()
+
+    await target.locator('.tool-card').filter({ hasText: '角色生成器' }).click()
+    const character = target.getByRole('dialog', { name: '角色生成器', exact: true })
+    await character.getByPlaceholder('输入数量（1-15个角色）').fill('5')
+    await character.locator('.el-form-item').filter({ hasText: '角色定位' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '主角', exact: true }).click()
+    await character.locator('.el-form-item').filter({ hasText: '性别' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '女性', exact: true }).click()
+    const personality = '内向但善于伪装 $& $1 $$ {count}'
+    await character.getByPlaceholder('期望的性格特点').fill(personality)
+    await character.locator('.el-form-item').filter({ hasText: '提示词模板' }).locator('.el-select__wrapper').click()
+    await expect(target.getByRole('option', { name: '基础人物设定生成器', exact: true })).toHaveCount(0)
+    await target.getByRole('option', { name: /^角色生成器默认模板/ }).click()
+    sent = capture()
+    await character.getByRole('button', { name: '生成内容', exact: true }).click()
+    body = (await sent).postDataJSON()
+    prompt = promptText(body)
+    assert.ok(prompt.includes('生成数量：5个') && prompt.includes('性别：女性') && prompt.includes('角色定位：主角'))
+    assert.ok(prompt.includes(personality), 'Literal dollar and placeholder-like text must reach the API unchanged')
+    assert.ok(!prompt.includes('Design one') && !prompt.includes('[待填充]'))
+    await expect(character.getByPlaceholder('生成的内容将在这里显示...')).toHaveValue(/联调生成片段 3/)
+  }))
+
+
+  await step('33 Filter usage records and render real local-calendar trends', () => withIsolatedPage('33-billing-empty-state', async target => {
+    // Read the browser's calendar so fixture dates match the date picker's local timezone.
+    const calendar = await target.evaluate(() => {
+      const now = new Date()
+      const stamp = (offset, hour, minute = 0, second = 0, millisecond = 0) => {
+        const date = new Date(now)
+        date.setDate(date.getDate() - offset)
+        date.setHours(hour, minute, second, millisecond)
+        return {
+          timestamp: date.toISOString(),
+          day: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+        }
+      }
+      return { today: stamp(0, 0), yesterdayLate: stamp(1, 23, 59, 59, 999), yesterdayMorning: stamp(1, 10), fortnight: stamp(14, 12), older: stamp(60, 12) }
+    })
+    const record = (id, date, type, model, content, inputTokens, outputTokens) => ({
+      id, timestamp: date.timestamp, type, model, content, response: '合成统计响应',
+      inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, cost: 0,
+      status: 'success', usageSource: 'reported',
+    })
+    const records = [
+      record(33001, calendar.yesterdayLate, 'content_generation', 'Vendor/MyModel', '截止日深夜生成记录', 20, 10),
+      record(33002, calendar.yesterdayMorning, 'optimize', 'Vendor/MyModel', '截止日润色记录', 30, 15),
+      record(33003, calendar.today, 'content_generation', 'Vendor/MyModel-Pro', '后一天生成记录', 10, 5),
+      record(33004, calendar.fortnight, 'content_generation', 'Another/Model', '十四天前生成记录', 50, 25),
+      record(33005, calendar.older, 'chat', 'Another/Model', '六十天前聊天记录', 80, 40),
+    ]
+    const fixture = {
+      format: 'llm-writer-backup', version: 2, exportTime: new Date().toISOString(),
+      data: {
+        billing_records: records,
+        token_usage_stats: { totalInputTokens: 190, totalOutputTokens: 95, totalCost: 0 },
+      },
+    }
+    const importFixture = async (name, data) => {
+      await settingsData(target)
+      await importBackup({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)) }, target)
+      await go('billing', target)
+    }
+    await importFixture('billing-calendar-fixture.json', fixture)
+    const rows = target.locator('.billing-records .el-table__body-wrapper tr.el-table__row')
+    const stats = target.locator('.record-stats')
+    await expect(stats).toContainText('共 5 条记录')
+    const selectFilter = async (index, option) => {
+      await target.locator('.filter-left .el-select').nth(index).locator('.el-select__wrapper').click()
+      await target.locator('.el-select-dropdown:visible').getByRole('option', { name: option, exact: true }).click()
+    }
+
+    await selectFilter(0, '文本生成')
+    await expect(stats).toContainText('共 3 条记录')
+    await expect(rows.filter({ hasText: '截止日深夜生成记录' })).toHaveCount(1)
+    await expect(rows.filter({ hasText: '十四天前生成记录' })).toHaveCount(1)
+    await selectFilter(0, '文本润色')
+    await expect(stats).toContainText('共 1 条记录')
+    await expect(rows.filter({ hasText: '截止日润色记录' })).toHaveCount(1)
+    await selectFilter(0, '全部')
+    await selectFilter(1, 'Vendor/MyModel')
+    await expect(stats).toContainText('共 2 条记录')
+    await expect(rows.filter({ hasText: '后一天生成记录' })).toHaveCount(0)
+    await selectFilter(1, '全部模型')
+
+    // The end date includes its 23:59:59.999 record and excludes the following day.
+    await target.getByPlaceholder('开始日期').fill(calendar.yesterdayLate.day)
+    await target.getByPlaceholder('结束日期').fill(calendar.yesterdayLate.day)
+    await target.getByPlaceholder('结束日期').press('Enter')
+    await target.getByRole('heading', { name: 'Token 使用统计', exact: true }).click()
+    await expect(target.getByPlaceholder('结束日期')).toHaveValue(calendar.yesterdayLate.day)
+    await expect(stats).toContainText('共 2 条记录')
+    await expect(rows.filter({ hasText: '截止日深夜生成记录' })).toHaveCount(1)
+    await expect(rows.filter({ hasText: '后一天生成记录' })).toHaveCount(0)
+
+    // The summary charts use the selected reporting period and all retained records.
+    for (const [days, tokens, inputs, outputs, requests] of [[7, 90, 60, 30, 3], [30, 165, 110, 55, 4], [90, 285, 190, 95, 5]]) {
+      await target.locator('.time-filter').getByText(`最近${days}天`, { exact: true }).click()
+      const chart = target.getByRole('img', { name: `最近${days}天Token使用趋势，共${tokens}Token`, exact: true })
+      await expect(chart).toBeVisible()
+      await expect(chart.locator('rect.chart-bar')).toHaveCount(days)
+      const actualTokens = await chart.locator('rect.chart-bar').evaluateAll(bars => bars.reduce((total, bar) => total + Number(bar.getAttribute('data-tokens')), 0))
+      assert.equal(actualTokens, tokens)
+      await expect(chart.locator(`rect[data-date="${calendar.yesterdayLate.day}"]`)).toHaveAttribute('data-tokens', '75')
+      await expect(target.getByRole('img', { name: `输入${inputs}Token，输出${outputs}Token`, exact: true })).toBeVisible()
+      await expect(target.locator('.period-summary').first()).toHaveText(`${requests}次请求 · ${tokens} Token`)
+    }
+    await screenshot('33-billing-filters-and-trends', target)
+
+    // Import an empty ledger through the same supported UI to cover both chart empty states.
+    const empty = { ...fixture, data: { billing_records: [], token_usage_stats: { totalInputTokens: 0, totalOutputTokens: 0, totalCost: 0 } } }
+    await importFixture('billing-empty-fixture.json', empty)
+    await expect(stats).toContainText('共 0 条记录')
+    await expect(target.getByText('该时段暂无使用记录', { exact: true })).toBeVisible()
+    await expect(target.getByText('该时段未记录Token用量', { exact: true })).toBeVisible()
+    await expect(target.locator('.usage-chart')).toHaveCount(0)
+    await expect(target.locator('.distribution-bar')).toHaveCount(0)
+  }))
+
+  await step('34 Persist thinking settings and send the configured generation budget after reload', () => withIsolatedPage('34-generation-budget-request', async target => {
+    await configureDisposableApi(target)
+    const field = label => target.locator('.api-config .el-form-item').filter({
+      has: target.locator('.el-form-item__label', { hasText: new RegExp(`^${label}$`) }),
+    })
+    const output = field('输出预算')
+    const providerDefault = output.getByRole('checkbox', { name: '服务商默认', exact: true })
+    await expect(providerDefault).not.toBeChecked()
+    await output.getByRole('spinbutton').fill('24576')
+    await output.getByRole('spinbutton').press('Tab')
+    // Element Plus visually hides its native checkbox; users click the label.
+    await output.locator('.el-checkbox__label').click()
+    await expect(providerDefault).toBeChecked()
+    await expect(output.getByRole('spinbutton')).toHaveCount(0)
+    await output.locator('.el-checkbox__label').click()
+    await expect(providerDefault).not.toBeChecked()
+    await expect(output.getByRole('spinbutton')).toHaveValue('24576')
+
+    // The mock model is a custom alias: choose its accepted protocol explicitly.
+    await field('思考协议').locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: 'OpenAI 思考强度', exact: true }).click()
+    await field('思考设置').locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '按思考强度', exact: true }).click()
+    await field('思考强度').locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '低', exact: true }).click()
+    await target.getByRole('button', { name: '保存配置', exact: true }).click()
+    const savedBudget = () => target.evaluate(() => {
+      const { provider, selectedModel, maxTokens, unlimitedTokens, thinkingProtocol, thinkingMode, thinkingEffort } = JSON.parse(localStorage.getItem('apiConfig') || '{}')
+      return { provider, selectedModel, maxTokens, unlimitedTokens, thinkingProtocol, thinkingMode, thinkingEffort }
+    })
+    const expected = {
+      provider: 'custom', selectedModel: 'writer-mock', maxTokens: 24576, unlimitedTokens: false,
+      thinkingProtocol: 'openai', thinkingMode: 'effort', thinkingEffort: 'low',
+    }
+    await expect.poll(savedBudget).toEqual(expected)
+    await expect(target.getByRole('button', { name: '测试连接', exact: true })).toBeEnabled()
+    await target.reload()
+    await dismissAnnouncement(target)
+    await expect(providerDefault).not.toBeChecked()
+    await expect(output.getByRole('spinbutton')).toHaveValue('24576')
+    await expect(field('模型选择').locator('.el-select__wrapper')).toHaveText('writer-mock')
+    await expect(field('思考协议').locator('.el-select__wrapper')).toHaveText('OpenAI 思考强度')
+    await expect(field('思考设置').locator('.el-select__wrapper')).toHaveText('按思考强度')
+    await expect(field('思考强度').locator('.el-select__wrapper')).toHaveText('低')
+    assert.deepEqual(await savedBudget(), expected)
+    await screenshot('34-generation-budget-settings', target)
+
+    await go('tools', target)
+    await target.locator('.tool-card').filter({ hasText: '爆款书名生成器' }).click()
+    const dialog = target.getByRole('dialog', { name: '爆款书名生成器', exact: true })
+    await dialog.locator('.el-form-item').filter({ has: target.locator('.el-form-item__label', { hasText: /^生成数量$/ }) }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '5个书名', exact: true }).click()
+    await dialog.locator('.el-form-item').filter({ hasText: '小说类型' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '都市', exact: true }).click()
+    await dialog.getByPlaceholder('输入相关关键词，用逗号分隔').fill('雨后城市,预算回归')
+    const captured = target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/chat/completions`)
+    await dialog.getByRole('button', { name: '生成内容', exact: true }).click()
+    const body = (await captured).postDataJSON()
+    assert.equal(body.model, 'writer-mock')
+    assert.equal(body.stream, true)
+    assert.equal(body.reasoning_effort, 'low', 'The reloaded thinking setting must reach the actual SDK request')
+    assert.equal(body.max_completion_tokens, 24576, 'OpenAI-compatible reasoning requests must retain the configured total output cap')
+    assert.equal(Object.hasOwn(body, 'max_tokens'), false, 'The legacy output field must not accompany max_completion_tokens')
+    await expect(dialog.getByPlaceholder('生成的内容将在这里显示...')).toHaveValue(/联调生成片段 3/)
+  }))
+
+  await step('35 Configure a native Anthropic gateway and preserve its thinking budget through reload and generation', () => withIsolatedPage('35-anthropic-gateway-budget', async target => {
+    const model = 'qwen3.8-flash'
+    const reply = '雾港失物局：消失的雨夜来客。'
+    const probes = []
+    // Both mock routes stay on the guarded preview origin; no real API or key is used.
+    await target.route(`${mockURL}/models`, async route => {
+      probes.push(route.request())
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: model }] }) })
+    })
+    await target.route(`${mockURL}/messages`, async route => {
+      const events = [
+        { type: 'message_start', message: { id: 'native-browser-test', type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 12, output_tokens: 0 } } },
+        { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+        { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: reply } },
+        { type: 'content_block_stop', index: 0 },
+        { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 24 } },
+        { type: 'message_stop' },
+      ]
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body: events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('') })
+    })
+    const field = label => target.locator('.api-config .el-form-item').filter({
+      has: target.locator('.el-form-item__label', { hasText: new RegExp(`^${label}$`) }),
+    })
+    await go('config', target)
+    await field('服务商').locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: 'Anthropic / 兼容接口', exact: true }).click()
+    const address = field('API地址').getByRole('textbox')
+    await expect(address).toBeEnabled()
+    await expect(address).toHaveValue('https://api.anthropic.com/v1')
+    await address.fill(`${mockURL}/`)
+    await target.getByPlaceholder('请输入API密钥').fill('preview-test-key')
+    await target.getByRole('button', { name: '获取模型列表', exact: true }).click()
+    await expect(field('模型选择').locator('.el-select__wrapper')).toHaveText(model)
+    await expect.poll(() => probes.length).toBe(1)
+    const probeHeaders = await probes[0].allHeaders()
+    assert.equal(probes[0].method(), 'GET')
+    assert.equal(probeHeaders['x-api-key'], 'preview-test-key')
+    assert.equal(probeHeaders['anthropic-version'], '2023-06-01')
+    assert.equal(probeHeaders.authorization, undefined)
+
+    // An unknown native model stays conservative until the user confirms its budget format.
+    await field('思考设置').locator('.el-select__wrapper').click()
+    await expect(target.locator('.el-select-dropdown:visible').getByRole('option')).toHaveCount(1)
+    await target.getByRole('option', { name: '服务商默认', exact: true }).click()
+    await field('思考协议').locator('.el-select__wrapper').click()
+    await expect(target.locator('.el-select-dropdown:visible').getByRole('option')).toHaveCount(2)
+    await target.getByRole('option', { name: 'Anthropic 兼容思考预算', exact: true }).click()
+    await field('思考设置').locator('.el-select__wrapper').click()
+    await expect(target.locator('.el-select-dropdown:visible').getByRole('option')).toHaveCount(3)
+    await target.getByRole('option', { name: '按 Token 预算', exact: true }).click()
+    await field('输出预算').getByRole('spinbutton').fill('4096')
+    await field('输出预算').getByRole('spinbutton').press('Tab')
+    await field('思考预算').getByRole('spinbutton').fill('1024')
+    await field('思考预算').getByRole('spinbutton').press('Tab')
+    await target.getByRole('button', { name: '保存配置', exact: true }).click()
+    await expect(target.getByRole('button', { name: '测试连接', exact: true })).toBeEnabled()
+    await expect.poll(() => probes.length).toBe(2)
+    const savedConfig = () => target.evaluate(() => {
+      const { provider, baseURL, selectedModel, thinkingProtocol, thinkingMode, thinkingBudget, maxTokens, unlimitedTokens } = JSON.parse(localStorage.getItem('apiConfig') || '{}')
+      return { provider, baseURL, selectedModel, thinkingProtocol, thinkingMode, thinkingBudget, maxTokens, unlimitedTokens }
+    })
+    const expected = { provider: 'anthropic', baseURL: `${mockURL}/`, selectedModel: model, thinkingProtocol: 'anthropic', thinkingMode: 'budget', thinkingBudget: 1024, maxTokens: 4096, unlimitedTokens: false }
+    await expect.poll(savedConfig).toEqual(expected)
+    await target.reload()
+    await dismissAnnouncement(target)
+    await expect(address).toHaveValue(`${mockURL}/`)
+    await expect(field('思考协议').locator('.el-select__wrapper')).toHaveText('Anthropic 兼容思考预算')
+    await expect(field('思考设置').locator('.el-select__wrapper')).toHaveText('按 Token 预算')
+    await expect(field('思考预算').getByRole('spinbutton')).toHaveValue('1024')
+    await expect(field('输出预算').getByRole('spinbutton')).toHaveValue('4096')
+    assert.deepEqual(await savedConfig(), expected)
+    await screenshot('35-anthropic-gateway-settings', target)
+
+    await go('tools', target)
+    await target.locator('.tool-card').filter({ hasText: '爆款书名生成器' }).click()
+    const dialog = target.getByRole('dialog', { name: '爆款书名生成器', exact: true })
+    await dialog.locator('.el-form-item').filter({ has: target.locator('.el-form-item__label', { hasText: /^生成数量$/ }) }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '5个书名', exact: true }).click()
+    await dialog.locator('.el-form-item').filter({ hasText: '小说类型' }).locator('.el-select__wrapper').click()
+    await target.getByRole('option', { name: '都市', exact: true }).click()
+    await dialog.getByPlaceholder('输入相关关键词，用逗号分隔').fill('雾港,失物局')
+    const generateButton = dialog.getByRole('button', { name: '生成内容', exact: true })
+    await expect(generateButton).toBeEnabled()
+    const [request] = await Promise.all([
+      target.waitForRequest(request => request.method() === 'POST' && request.url() === `${mockURL}/messages`),
+      generateButton.click(),
+    ])
+    const body = request.postDataJSON()
+    const headers = await request.allHeaders()
+    assert.equal(headers['x-api-key'], 'preview-test-key')
+    assert.equal(headers['anthropic-version'], '2023-06-01')
+    assert.equal(headers.authorization, undefined)
+    assert.equal(body.model, model)
+    assert.equal(body.stream, true)
+    assert.equal(body.max_tokens, 4096, 'The native adapter must preserve the configured total output cap')
+    assert.deepEqual(body.thinking, { type: 'enabled', budget_tokens: 1024 })
+    assert.equal(Object.hasOwn(body, 'max_completion_tokens'), false)
+    assert.equal(Object.hasOwn(body, 'enable_thinking'), false, 'A Qwen model on a native gateway must not receive DashScope parameters')
+    assert.equal(Object.hasOwn(body, 'thinking_budget'), false)
+    await expect(dialog.getByPlaceholder('生成的内容将在这里显示...')).toHaveValue(reply)
   }))
 
   assert.deepEqual(errors, [], 'The browser must not raise uncaught errors or unsaved-data navigation dialogs')

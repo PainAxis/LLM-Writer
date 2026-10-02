@@ -12,6 +12,7 @@ import { useBookAnalysisFile } from '@/composables/useBookAnalysisFile'
 import { useBookAnalysisLibraryWorkspace } from '@/composables/useBookAnalysisLibraryWorkspace'
 import {
   detectBookChapters,
+  prepareBookAnalysisSelection,
   prepareBookAnalysis,
   buildBookAnalysisPrompt,
 } from '@/utils/bookAnalysisContext'
@@ -83,6 +84,31 @@ export function useBookAnalysisWorkspace() {
   const detectedChapters = ref<BookChapter[]>([])
 
   const autoDetectedChapters = ref<BookChapter[]>([])
+
+  const analysisScope = computed(() => {
+    try {
+      return {
+        selection: prepareBookAnalysisSelection({
+          content: bookContent.value,
+          chapters: detectedChapters.value,
+          selectedChapters: selectedChapters.value,
+          start: analysisStartWords.value,
+          end: analysisEndWords.value,
+        }),
+        error: '',
+      }
+    } catch (error) {
+      return { selection: null, error: error instanceof Error ? error.message : '请选择有效的分析范围' }
+    }
+  })
+  const analysisScopeError = computed(() => analysisScope.value.error)
+  const analysisScopeDescription = computed(() => {
+    const { selection, error } = analysisScope.value
+    if (!selection) return error
+    return selection.chapterInfos.length
+      ? `将分析所选的 ${selection.chapterInfos.length} 个章节，共 ${selection.textToAnalyze.length.toLocaleString()} 字`
+      : `${selection.analysisInfo}，共 ${selection.textToAnalyze.length.toLocaleString()} 字`
+  })
 
   const { showChapterDetails, showChapterContent, selectedViewChapter, currentViewChapter, currentChapterContent, selectedDetailChapter, currentDetailChapter, currentDetailChapterContent, activeDetailTab, openChapterViewer, closeChapterContent, loadChapterContent, copyChapterContent, exportChapterContent, selectDetailChapter, copyDetailChapterContent, exportDetailChapterContent, exportAllChapterSummary, exportAllChapterContent, openChapterDetailsViewer } = useBookChapterViewer({ bookContent, detectedChapters, autoDetectedChapters })
 
@@ -240,6 +266,10 @@ Requirements:
     if (importingFile.value || analyzing.value || savingLibraryReport.value) return
     if (!selectedTemplate.value) {
       ElMessage.error('请选择分析模板')
+      return
+    }
+    if (analysisScopeError.value) {
+      ElMessage.warning(analysisScopeError.value)
       return
     }
     try {
@@ -528,6 +558,8 @@ ${chapterInfos
     selectedChapters,
     analysisStartWords,
     analysisEndWords,
+    analysisScopeError,
+    analysisScopeDescription,
     analysisProgress,
     analysisStatus,
     analysisResult,

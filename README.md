@@ -20,11 +20,11 @@
 ## 🚀 Features
 
 ### Writing Workbench
-- **Novel management**: template-based project creation, metadata, three-state chapters (draft / done / published), covers, import & export
+- **Novel management**: template-based project creation, metadata, three-state chapters (draft / done / published), covers, import & export; chapter edits keep visible-text totals consistent with previews and exports
 - **AI writing assistant**: smart continuation (200-5000 chars), content polishing (grammar / style / emotion / logic), all-material generation, streaming output, interrupt anytime
-- **Corpus library**: per-novel data with legacy JSON import and portable export; category management, title/content search, **context-aware material recommendation with one-click injection** (character bigram relevance scoring)
+- **Corpus library**: per-novel data with legacy JSON import and portable export, including named empty drafts; category management, title/content search, **context-aware material recommendation with one-click injection** (character bigram relevance scoring)
 - **Event line**: chapter association, multi-select participating characters, list / timeline views
-- **Writing tools library**: 10 generators — outline / characters / ideas / titles / genre / worldbuilding / golden finger / golden opening / synopsis / conflict
+- **Writing tools library**: 10 generators — outline / characters / ideas / titles / genre / worldbuilding / golden finger / golden opening / synopsis / conflict; compatible templates honor the selected novel, reference chapters and form parameters
 - **Mind map**: mind map generated from novel data (chapters / events / characters / worldbuilding / corpus), with editable titles/entities, validated save/cancel and theme-aware PNG export
 
 ### AI & Utilities
@@ -32,10 +32,11 @@
 - **Context budget management**: dual-dimension budget (tokens / entries), sliding-window truncation vs incremental summary as explicit alternatives, failure handling via dialogs (no silent degradation)
 - **Model list sync**: one-click pull of server-side model lists with caching; built-in common models as fallback
 - **Prompt library**: category management, variable system, import & export, usage statistics
-- **Book analysis**: UTF-8/GBK TXT decoding and browser-side DOCX text extraction; local chapter-heading detection and optional length-based splitting; 5-dimension AI analysis, a persistent reference library, and report backup/restore
+- **Book analysis**: UTF-8/GBK TXT decoding and browser-side DOCX text extraction; whole-line chapter-heading detection, explicit chapter selection for analysis and optional length-based splitting; 5-dimension AI analysis, a persistent reference library, and report backup/restore
 - **Short fiction**: multi-template short-form writing
-- **Writing goals**: daily / weekly / monthly targets, progress tracking, achievement incentives
-- **Token billing**: local usage statistics and cost ledger (simulated)
+- **Writing goals**: daily / weekly / monthly, chapter-count and custom targets; shared progress/history across both entry points, with word statistics restricted to word units
+- **Generation budgets**: persisted output ceilings and model-aware thinking controls (effort, on/off or token budget), with provider defaults and local validation. See [generation budgets](docs/generation-budgets.md).
+- **Token billing**: local usage statistics and cost ledger (no real charges), usage-source labels, exact model/type/date filters and 7/30/90-day charts from recorded usage
 
 ### Engineering
 - **Tiered local storage**: localStorage + IndexedDB auto-tiering with versioned content shards; old shards are cleaned up only after metadata commits. Save status follows actual completion and supports retry. Failed content loading blocks project access while preserving stored data
@@ -92,6 +93,10 @@ npm run smoke:writer-stream           # Chapter switching, dialog lifecycle and 
 npm run smoke:writer-init             # Project loading, material isolation and save/switch races
 npm run smoke:writer-actions          # Failed edits/deletes, retry and async chapter selection
 npm run smoke:management-persistence  # Management pages wait for durable saves before UI changes
+npm run smoke:writer-content          # Safe rich-text conversion, paragraph boundaries and visible-text counts
+npm run smoke:management-correctness  # Consistent chapter totals, legacy exports and safe previews
+npm run smoke:billing-correctness     # Usage evidence, exact filters and local-calendar trends
+npm run smoke:tools-workspace         # Actual tool handlers, selected IDs and template contracts
 npm run smoke:book-import             # TXT/DOCX parsing, encodings and local chapter splitting
 npm run smoke:backup                  # v2/legacy backups, validation, restore and rollback
 npm run smoke:bundle                  # In-memory production build: home and feature dependency graphs
@@ -103,7 +108,7 @@ npm run smoke:eventline               # Chapter-number migration and compatibili
 npm run smoke:prompts                 # Default prompts and merge rules
 ```
 
-CI runs strict lint, the production build, all smoke suites and Chromium regression on pull requests and main updates. For local browser setup, see [browser testing](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 58 smoke suites and 34 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

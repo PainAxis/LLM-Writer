@@ -1,3 +1,4 @@
+import { stripWriterHtml } from '@/utils/writerContent'
 import { computed, ref, shallowRef, watch } from 'vue'
 import type { Ref } from 'vue'
 import { extractPromptVariables, renderPromptTemplate } from '@/composables/usePromptPicker'
@@ -80,16 +81,7 @@ function arraysEqual(left: readonly number[], right: readonly number[]): boolean
 export function cleanChapterContentPreview(content: string | undefined, maxLength = 80): string {
   if (!content) return ''
 
-  const plainText = content
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
+  const plainText = stripWriterHtml(content).replace(/\s+/g, ' ').trim()
 
   return plainText.length > maxLength ? plainText.slice(0, maxLength) : plainText
 }

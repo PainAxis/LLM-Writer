@@ -10,8 +10,9 @@ export function parseCorpus(input: unknown): WriterCorpusItem[] {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`第 ${index + 1} 条语料格式错误`)
     const item = value as Record<string, unknown>
     if (typeof item.id !== 'number' || !Number.isSafeInteger(item.id) || item.id <= 0
-      || typeof item.content !== 'string' || !item.content.trim()) {
-      throw new Error(`第 ${index + 1} 条语料需要有效 ID 和非空内容`)
+      || typeof item.content !== 'string'
+      || (!item.content.trim() && !(typeof item.title === 'string' && item.title.trim()))) {
+      throw new Error(`第 ${index + 1} 条语料需要有效 ID、文本内容和非空标题或内容`)
     }
     for (const field of ['title', 'type', 'category']) {
       if (item[field] !== undefined && typeof item[field] !== 'string') throw new Error(`第 ${index + 1} 条语料的 ${field} 必须是文本`)

@@ -342,7 +342,6 @@ export const useAssistantStore = defineStore('assistant', () => {
         type: 'chat-summary',
         model: assistant.defaultModel || undefined,
         signal: controller.signal,
-        maxTokens: 800,
         temperature: 0.3,
         system: '你是对话摘要助手。请忠实、精炼地概括对话内容，保留关键事实、决定与未尽事项。',
       })

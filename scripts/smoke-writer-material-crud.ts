@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { ref } from 'vue'
 import { useWriterMaterialCrud, type WriterMaterialDeleteRequest } from '../src/composables/useWriterMaterialCrud'
+import { createCorpusExport } from '../src/utils/corpusTransfer'
 import type {
   WriterChapter,
   WriterCharacter,
@@ -350,6 +351,24 @@ async function testLegacyCorpusTransfer() {
   console.log('✓ Legacy corpus import is atomic, awaited, collision-safe and tied to the original project')
 }
 
+async function testCorpusDraftRoundtrip() {
+  const f = fixture()
+  f.crud.addCorpus()
+  f.crud.corpusForm.value.title = '待完善的空内容语料'
+  assert.equal(await f.crud.saveCorpus(), true)
+  const file = { text: async () => JSON.stringify(createCorpusExport(f.corpusData.value)) }
+  const original = JSON.parse(JSON.stringify(f.corpusData.value))
+  f.save(false)
+  assert.equal(await f.crud.importCorpusFile(file), false)
+  assert.deepEqual(JSON.parse(JSON.stringify(f.corpusData.value)), original, '往返导入失败不能新增半份语料')
+  f.save(true)
+  assert.equal(await f.crud.importCorpusFile(file), true)
+  assert.equal(f.corpusData.value.length, original.length * 2)
+  assert.equal(f.corpusData.value.at(-1)!.content, '')
+  assert.equal(new Set(f.corpusData.value.map(item => item.id)).size, f.corpusData.value.length)
+  console.log('✓ 命名空语料保存后可导回，导入失败完整回滚并可重试')
+}
+
 async function main() {
   await testCreateTransactions()
   await testEditDraftIsolationAndRollback()
@@ -358,6 +377,7 @@ async function main() {
   await testNovelRaceGuards()
   await testGlobalMutationLock()
   await testLegacyCorpusTransfer()
+  await testCorpusDraftRoundtrip()
   console.log('\n=== ALL WRITER MATERIAL CRUD TESTS PASSED ===')
 }
 

@@ -487,6 +487,7 @@
 </template>
 
 <script setup lang="ts">
+import { cleanChapterContentPreview } from '@/composables/useChapterContentWorkspace'
 import { computed, ref } from 'vue'
 import { Check, MagicStick } from '@element-plus/icons-vue'
 import type {
@@ -612,21 +613,8 @@ const getChapterStatusText = (status?: WriterChapterStatus): string =>
   chapterStatusTexts[status ?? ''] ?? '草稿'
 const isMultilineVariable = (variable: string): boolean => multilineVariables.has(variable)
 
-const cleanHtmlForPreview = (htmlContent: string, maxLength = 80): string => {
-  if (!htmlContent) return ''
+const cleanHtmlForPreview = cleanChapterContentPreview
 
-  let cleanText = htmlContent.replace(/<[^>]*>/g, '')
-  cleanText = cleanText
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-  cleanText = cleanText.replace(/\s+/g, ' ').trim()
-
-  return cleanText.length > maxLength ? cleanText.substring(0, maxLength) : cleanText
-}
 </script>
 
 <style scoped>

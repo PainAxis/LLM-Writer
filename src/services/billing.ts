@@ -13,6 +13,7 @@ export interface BillingRecord {
   totalTokens: number
   cost: number
   status: 'success' | 'failed'
+  usageSource?: 'reported' | 'estimated' | 'mixed' | 'unavailable'
 }
 
 export interface UsageStats {
@@ -25,6 +26,8 @@ export interface UsageStats {
 
 export interface UsageTrendItem {
   date: string
+  inputTokens: number
+  outputTokens: number
   tokenCount: number
   cost: number
   requestCount: number
@@ -38,6 +41,88 @@ export interface RecordAPICallParams {
   inputTokens: number
   outputTokens: number
   status?: 'success' | 'failed'
+  usageSource?: BillingRecord['usageSource']
+}
+
+export const BILLING_TYPE_LABELS: Record<string, string> = {
+  generation: '文本生成', polish: '文本润色', outline: '大纲生成', chat: '对话聊天',
+  character: '角色生成', worldview: '世界观生成',
+}
+export function normalizeBillingType(type: string): string {
+  const aliases: Record<string, string> = {
+    content_generation: 'generation', continue: 'generation', synopsis: 'generation',
+    optimize: 'polish', 'chat-summary': 'chat',
+  }
+  return aliases[type] ?? type
+}
+
+const validTokens = (value: number | undefined): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : undefined
+
+/** Failure alone is not evidence that a provider consumed the submitted prompt. */
+export function resolveRecordedUsage(
+  estimatedInputTokens: number,
+  response: string,
+  reported: { inputTokens?: number; outputTokens?: number } | undefined,
+  status: 'success' | 'failed',
+): Pick<BillingRecord, 'inputTokens' | 'outputTokens' | 'usageSource'> {
+  const input = validTokens(reported?.inputTokens)
+  const output = validTokens(reported?.outputTokens)
+  const canEstimate = status === 'success' || response.length > 0
+  const anyReported = input !== undefined || output !== undefined
+  return {
+    inputTokens: input ?? (canEstimate ? validTokens(estimatedInputTokens) ?? 0 : 0),
+    outputTokens: output ?? (canEstimate ? estimateTokenCount(response) : 0),
+    usageSource: input !== undefined && output !== undefined ? 'reported'
+      : canEstimate ? (anyReported ? 'mixed' : 'estimated') : anyReported ? 'reported' : 'unavailable',
+  }
+}
+
+function localDateKey(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+}
+
+export function usageTrendFromRecords(records: BillingRecord[], days = 7, now = new Date()): UsageTrendItem[] {
+  const trend: UsageTrendItem[] = []
+  const count = Number.isFinite(days) ? Math.min(90, Math.max(1, Math.floor(days))) : 7
+  for (let offset = count - 1; offset >= 0; offset--) {
+    const date = new Date(now)
+    date.setHours(0, 0, 0, 0)
+    date.setDate(date.getDate() - offset)
+    trend.push({ date: localDateKey(date), inputTokens: 0, outputTokens: 0, tokenCount: 0, cost: 0, requestCount: 0 })
+  }
+  const byDay = new Map(trend.map(item => [item.date, item]))
+  for (const record of records) {
+    const timestamp = new Date(record.timestamp)
+    if (!Number.isFinite(timestamp.getTime()) || timestamp > now) continue
+    const day = byDay.get(localDateKey(timestamp))
+    if (!day) continue
+    const input = validTokens(record.inputTokens) ?? 0
+    const output = validTokens(record.outputTokens) ?? 0
+    day.inputTokens += input
+    day.outputTokens += output
+    day.tokenCount += validTokens(record.totalTokens) ?? input + output
+    day.cost += Number.isFinite(record.cost) && record.cost >= 0 ? record.cost : 0
+    day.requestCount++
+  }
+  return trend
+}
+
+export function filterBillingRecords(records: BillingRecord[], filters: {
+  type: string; model: string; dates: Date[] | null; keyword: string
+}): BillingRecord[] {
+  const keyword = filters.keyword.trim().toLocaleLowerCase()
+  const start = filters.dates?.length === 2 ? new Date(filters.dates[0]) : null
+  const end = filters.dates?.length === 2 ? new Date(filters.dates[1]) : null
+  start?.setHours(0, 0, 0, 0)
+  if (end) { end.setHours(0, 0, 0, 0); end.setDate(end.getDate() + 1) }
+  return records.filter(record => {
+    if (filters.type !== 'all' && normalizeBillingType(record.type) !== filters.type) return false
+    if (filters.model !== 'all' && record.model !== filters.model) return false
+    const timestamp = new Date(record.timestamp)
+    if (start && end && !(timestamp >= start && timestamp < end)) return false
+    return !keyword || `${record.content}\n${record.response}`.toLocaleLowerCase().includes(keyword)
+  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 }
 
 interface ModelPricing {
@@ -79,6 +164,13 @@ const DEFAULT_STATS: UsageStats = {
  * 本地模拟计费服务：Token 用量统计与成本台账（非真实扣费）。
  */
 class BillingService {
+  private listeners = new Set<() => void>()
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
+
   constructor() {
     this.initializeStorage()
   }
@@ -147,6 +239,7 @@ class BillingService {
         totalTokens: (params.inputTokens || 0) + (params.outputTokens || 0),
         cost,
         status: params.status ?? 'success',
+        ...(params.usageSource ? { usageSource: params.usageSource } : {}),
       }
 
       records.unshift(record)
@@ -158,6 +251,9 @@ class BillingService {
       storageSet(StorageKeys.billingRecords, records)
       this.deductBalance(cost)
       this.updateUsageStats(params.inputTokens || 0, params.outputTokens || 0, cost)
+      for (const listener of this.listeners) {
+        try { listener() } catch (error) { console.error('刷新使用统计失败:', error) }
+      }
 
       return record
     } catch (error) {
@@ -203,25 +299,7 @@ class BillingService {
   }
 
   getUsageTrend(days = 7): UsageTrendItem[] {
-    const records = this.getBillingRecords()
-    const trend: UsageTrendItem[] = []
-
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      const dateString = date.toDateString()
-
-      const dayRecords = records.filter((record) => new Date(record.timestamp).toDateString() === dateString)
-
-      trend.push({
-        date: dateString,
-        tokenCount: dayRecords.reduce((sum, record) => sum + record.totalTokens, 0),
-        cost: dayRecords.reduce((sum, record) => sum + record.cost, 0),
-        requestCount: dayRecords.length,
-      })
-    }
-
-    return trend
+    return usageTrendFromRecords(this.getBillingRecords(), days)
   }
 
   cleanOldRecords(): void {

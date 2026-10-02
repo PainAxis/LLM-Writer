@@ -74,6 +74,14 @@ function fixture() {
 }
 
 async function main() {
+  const tooShort = fixture()
+  tooShort.content.value = `<p>${'字'.repeat(49)}</p>${'<p><br></p>'.repeat(20)}`
+  assert.equal(tooShort.controller.canStart.value, false, 'Blank paragraphs must not meet the 50-character requirement')
+  assert.equal(tooShort.controller.open(), undefined)
+  tooShort.content.value = `<p>${'😀'.repeat(50)}</p>`
+  assert.equal(tooShort.controller.canStart.value, true, 'Unicode characters use the same visible count as the editor')
+  console.log('✓ 续写门槛不计空白或段落分隔，Unicode字符计数与编辑器一致')
+
   const generated = fixture()
   generated.controller.open()
   assert.equal(generated.controller.visible.value, true)

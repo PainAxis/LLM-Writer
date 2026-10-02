@@ -1,5 +1,6 @@
 import { ref, shallowRef, nextTick, type Ref } from 'vue'
 import type { IDomEditor } from '@wangeditor/editor'
+import { plainTextToWriterHtml } from '../utils/writerContent'
 
 /** Editor refs/configuration and guarded updates shared by the article/story components. */
 export function useShortStoryEditors() {
@@ -45,7 +46,7 @@ export function useShortStoryEditors() {
     text: string,
     isCurrent: () => boolean
   ) => {
-    const html = text.replace(/\n/g, '<br/>')
+    const html = plainTextToWriterHtml(text)
     content.value = html
     const instance = editor.value
     nextTick(() => {

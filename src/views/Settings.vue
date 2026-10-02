@@ -10,7 +10,6 @@
             <template #header>
               <div class="card-header">
                 <span>🔑 AI模型API配置</span>
-                <el-button type="primary" @click="testAllConnections">测试所有连接</el-button>
               </div>
             </template>
             
@@ -446,11 +445,6 @@ const dataStats = ref({
 })
 
 // 方法
-const testAllConnections = () => {
-  ElMessage.info('正在测试所有API连接...')
-  // 这里调用API配置组件的测试方法
-}
-
 // 计算数据统计
 const calculateDataStats = () => {
   try {

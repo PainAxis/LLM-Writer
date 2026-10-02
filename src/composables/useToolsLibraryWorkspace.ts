@@ -30,7 +30,7 @@ import { useNovelStore } from '@/stores/novel'
 import { useAIStream } from '@/composables/useAIStream'
 import { useGenerationTask } from '@/composables/useGenerationTask'
 import { TOOL_DEFINITIONS as toolsConfig } from '@/config/tools'
-import { buildToolPrompt } from '@/utils/toolPrompts'
+import { buildToolPrompt, getToolPrompts } from '@/utils/toolPrompts'
 import { isToolFormComplete } from '@/utils/toolForms'
 import { storageGet, StorageKeys } from '@/utils/storage'
 import { promptCatalog } from '@/services/promptCatalog'
@@ -65,7 +65,6 @@ export function useToolsLibraryWorkspace() {
   const loadNovelList = () => {
     try {
       const savedNovels = storageGet<StoredToolNovel[]>(StorageKeys.novels, [])
-      console.log('原始小说数据:', savedNovels) // 调试用
 
       if (!Array.isArray(savedNovels)) {
         console.warn('小说数据不是数组格式')
@@ -75,12 +74,13 @@ export function useToolsLibraryWorkspace() {
 
       novelList.value = savedNovels
         .map((novel) => {
-          if (!novel || typeof novel !== 'object') {
+          if (!novel || typeof novel !== 'object'
+            || !((typeof novel.id === 'string' && novel.id.trim()) || (typeof novel.id === 'number' && Number.isFinite(novel.id)))) {
             return null
           }
 
           return {
-            value: novel.id || `novel_${Date.now()}_${Math.random()}`,
+            value: novel.id,
             label: novel.title || '未命名小说',
             chapters: Array.isArray(novel.chapterList)
               ? novel.chapterList
@@ -91,7 +91,6 @@ export function useToolsLibraryWorkspace() {
         })
         .filter((novel) => novel !== null) // 过滤掉无效的小说
 
-      console.log('处理后的小说列表:', novelList.value) // 调试用
     } catch (error) {
       console.error('加载小说列表失败:', error)
       novelList.value = []
@@ -100,19 +99,17 @@ export function useToolsLibraryWorkspace() {
 
   // 当选择小说时，更新章节列表
   const onNovelChange = (novelId: ToolId) => {
-    console.log('选择的小说ID:', novelId) // 调试用
-    const selectedNovel = novelList.value.find((novel) => novel.value === novelId)
-    console.log('找到的小说:', selectedNovel) // 调试用
+    const selectedNovel = novelList.value.find((novel) => String(novel.value) === String(novelId))
 
     if (selectedNovel && selectedNovel.chapters && Array.isArray(selectedNovel.chapters)) {
-      console.log('小说章节数据:', selectedNovel.chapters) // 调试用
       selectedNovelChapters.value = selectedNovel.chapters
         .map((chapter) => {
-          if (!chapter || typeof chapter !== 'object') {
+          if (!chapter || typeof chapter !== 'object'
+            || !((typeof chapter.id === 'string' && chapter.id.trim()) || (typeof chapter.id === 'number' && Number.isFinite(chapter.id)))) {
             return null
           }
           return {
-            value: chapter.id || `chapter_${Date.now()}_${Math.random()}`,
+            value: chapter.id,
             label: chapter.title || '未命名章节',
             content: chapter.content || '',
             description: chapter.description || '',
@@ -120,7 +117,6 @@ export function useToolsLibraryWorkspace() {
         })
         .filter((chapter) => chapter !== null)
     } else {
-      console.log('没有找到有效的章节数据') // 调试用
       selectedNovelChapters.value = []
     }
 
@@ -138,7 +134,8 @@ export function useToolsLibraryWorkspace() {
   const currentToolType = ref<ToolType>('title')
 
   // 计算属性：检查是否可以生成
-  const canGenerate = computed(() => isToolFormComplete(currentTool.value, toolForm))
+  const canGenerate = computed(() => isToolFormComplete(currentTool.value, toolForm)
+    && (!currentTool.value.hasNovelSelector || novelList.value.some(novel => String(novel.value) === String(toolForm.selectedNovel))))
 
   // 计算属性：显示内容（用于流式输出）
   const displayContent = computed(() => {
@@ -202,11 +199,18 @@ export function useToolsLibraryWorkspace() {
       ElMessage.error('请先配置API密钥')
       return
     }
+    let prompt: string
+    try {
+      prompt = buildPrompt()
+    } catch (error) {
+      ElMessage.warning(error instanceof Error ? error.message : String(error))
+      return
+    }
     generatedContent.value = ''
     generatingProgress.value = 0
     generatingStatusText.value = '正在准备生成...'
     await generationTask.start({
-      prompt: buildPrompt(),
+      prompt,
       options: { type: 'content_generation' },
       onText: (text, isCurrent) => {
         generatedContent.value = text
@@ -314,16 +318,19 @@ ${generatedContent.value}
   // 根据分类获取提示词
   const getPromptsByCategory = (category?: string) => {
     if (!category) return []
-    return availablePrompts.value.filter((prompt) => prompt.category === category)
+    return getToolPrompts(currentToolType.value, availablePrompts.value, category)
   }
 
   // 当选择提示词时
   const onPromptChange = (promptId?: number | string) => {
-    console.log('选择的提示词ID:', promptId)
     if (promptId !== undefined && promptId !== '') {
+      const category = currentTool.value.fields.find(field => field.type === 'prompt-select')?.category
       selectedPromptData.value =
-        availablePrompts.value.find((prompt) => prompt.id === promptId) ?? null
-      console.log('选择的提示词数据:', selectedPromptData.value)
+        getPromptsByCategory(category).find(prompt => prompt.id === promptId) ?? null
+      if (!selectedPromptData.value) {
+        toolForm.selectedPrompt = undefined
+        ElMessage.warning('此模板不适用于当前工具，请选择兼容模板或使用默认生成')
+      }
     } else {
       selectedPromptData.value = null
     }
