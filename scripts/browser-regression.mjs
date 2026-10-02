@@ -1624,8 +1624,8 @@ try {
     const fixture = {
       format: 'llm-writer-backup', version: 2, exportTime: new Date().toISOString(),
       data: {
-        billingRecords: records,
-        tokenUsageStats: { totalInputTokens: 190, totalOutputTokens: 95, totalCost: 0 },
+        billing_records: records,
+        token_usage_stats: { totalInputTokens: 190, totalOutputTokens: 95, totalCost: 0 },
       },
     }
     const importFixture = async (name, data) => {
@@ -1680,7 +1680,7 @@ try {
     await screenshot('33-billing-filters-and-trends', target)
 
     // Import an empty ledger through the same supported UI to cover both chart empty states.
-    const empty = { ...fixture, data: { billingRecords: [], tokenUsageStats: { totalInputTokens: 0, totalOutputTokens: 0, totalCost: 0 } } }
+    const empty = { ...fixture, data: { billing_records: [], token_usage_stats: { totalInputTokens: 0, totalOutputTokens: 0, totalCost: 0 } } }
     await importFixture('billing-empty-fixture.json', empty)
     await expect(stats).toContainText('共 0 条记录')
     await expect(target.getByText('该时段暂无使用记录', { exact: true })).toBeVisible()
