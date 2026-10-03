@@ -48,6 +48,8 @@ export const StorageKeys = {
   assistantSummaries: 'assistantSummaries',
   /** 全局上下文容量策略 */
   contextPolicy: 'contextPolicy',
+  /** MCP server allowlists and writing Skills; excludes session credentials. */
+  extensions: 'extensions',
   // ---- 旧版项目遗留键（仅用于一次性数据迁移读取，不再写入） ----
   /** @deprecated 旧版官方 API 配置 */
   officialApiConfig: 'officialApiConfig',
@@ -95,6 +97,14 @@ export function registerChunkedKey(key: StorageKey | string, backend: ChunkedKey
 }
 
 /** 读取并反序列化，失败或缺失时返回 fallback；已注册分片后端的键优先走内存缓存 */
+export function storageGetStrict<T>(key: StorageKey | string, fallback: T): T {
+  const resolved = resolveKey(key)
+  const backend = chunkedBackends.get(resolved)
+  if (backend) return backend.get() as T
+  const raw = localStorage.getItem(resolved)
+  return raw === null ? fallback : JSON.parse(raw) as T
+}
+
 export function storageGet<T>(key: StorageKey | string, fallback: T): T {
   const resolved = resolveKey(key)
   const backend = chunkedBackends.get(resolved)

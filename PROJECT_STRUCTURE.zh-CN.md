@@ -34,6 +34,8 @@
 | `src/services/promptCatalog.ts` | 五个提示词入口共享的初始化、迁移与提交后更新 |
 | `src/services/backup.ts`、`src/services/billing.ts` | 备份校验与恢复、本地用量和成本记账 |
 | `src/stores/novel.ts`、`src/stores/assistant.ts`、`src/stores/writingGoals.ts` | 写作、助手会话/摘要覆盖范围与写作目标的 Pinia 状态 |
+| `src/services/mcp.ts`、`src/services/skills.ts`、`src/services/writingTools.ts`、`src/services/extensionsRuntime.ts` | 按请求管理 MCP、Skills、创作工具与受限模型调用；[扩展说明](docs/extensions.md) |
+| `src/stores/extensions.ts`、`src/components/extensions/` | 严格校验的扩展配置、内存令牌与助手授权入口 |
 | `src/utils/storage.ts`、`src/utils/aiRequestScope.ts` | 统一存储入口，以及可独立取消的 AI 请求作用域 |
 | `src/utils/writer/` | Writer 提示词构建与响应解析，包含润色原文的字面替换 |
 | `src/utils/writerContent.ts`、`src/utils/novelStats.ts` | 统一可见正文转换、安全生成 HTML、Unicode 字符计数和按章节计算小说总字数 |
@@ -73,7 +75,7 @@
 
 ## 校验与发布
 
-- CI 校验配置包含 57 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 33 个 Chromium 场景。验证状态以审查提交的 CI 结果为准。
+- CI 校验配置包含 64 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 45 个 Chromium 场景。验证状态以审查提交的 CI 结果为准。
 - 新增测试集：`smoke:writer-content`、`smoke:management-correctness`、`smoke:billing-correctness`、`smoke:tools-workspace`。
 - [浏览器测试](scripts/browser-testing.md)：CI 检查、本地 Chromium 回归与可选预览。
 - [发布说明](scripts/releasing.md)：通过校验的静态构建、校验和及源码/CI 信息。

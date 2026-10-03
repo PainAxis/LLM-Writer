@@ -58,6 +58,10 @@
 
         
 
+        <el-tab-pane label="创作扩展" name="extensions">
+          <ExtensionSettings />
+        </el-tab-pane>
+
         <!-- 数据管理 -->
         <el-tab-pane label="数据管理" name="data">
           <el-card shadow="never">
@@ -386,10 +390,12 @@
 
 <script setup lang="ts">
 import type { BackupGroup } from '@/services/backup'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Upload, Document, Setting, Delete, ChatLineSquare, Collection } from '@element-plus/icons-vue'
 import ApiConfig from '@/components/ApiConfig.vue'
+import ExtensionSettings from '@/components/extensions/ExtensionSettings.vue'
 import { version as appVersion } from '../../package.json'
 import { storageGet, storageRemove, storageClear, StorageKeys } from '@/utils/storage'
 import {
@@ -424,7 +430,9 @@ const resetContextPolicy = () => {
 }
 
 // 响应式数据
-const activeTab = ref('api')
+const route = useRoute()
+const activeTab = ref(route.query.tab === 'extensions' ? 'extensions' : 'api')
+watch(() => route.query.tab, tab => { if (tab === 'extensions') activeTab.value = 'extensions' })
 const showImportDialog = ref(false)
 const importOptions = ref([...ALL_BACKUP_GROUPS])
 const isImporting = ref(false)
@@ -622,7 +630,7 @@ const clearSettings = () => {
   ).then(async () => {
     const settingsKeys = [
       StorageKeys.apiConfig, StorageKeys.customModels, StorageKeys.providerModels,
-      StorageKeys.contextPolicy, StorageKeys.shortStoryConfig, StorageKeys.chapterSummaryPromptTemplate,
+      StorageKeys.contextPolicy, StorageKeys.shortStoryConfig, StorageKeys.chapterSummaryPromptTemplate, StorageKeys.extensions,
       StorageKeys.theme, StorageKeys.officialApiConfig, StorageKeys.customApiConfig,
       StorageKeys.legacySettingsApiConfig, StorageKeys.legacySettingsTokenUsage,
     ]

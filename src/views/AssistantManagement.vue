@@ -91,6 +91,8 @@
           </div>
         </div>
 
+        <AssistantExtensions :disabled="store.isStreaming || store.isPreparing" />
+
         <el-alert v-if="store.pendingConversationSave" title="会话尚未保存，请勿刷新或关闭页面。重试保存后可继续，重试不会重新调用 AI。" type="warning" :closable="false" show-icon>
           <el-button size="small" @click="store.retryConversationSave()">重试保存会话</el-button>
         </el-alert>
@@ -109,7 +111,15 @@
             class="virtual-message"
           >
             <div class="message-row" :class="{ user: entry.isUser }">
-              <div class="bubble">{{ entry.content }}</div>
+              <div class="bubble">
+                {{ entry.content }}
+                <details v-if="entry.toolActivity?.length" class="tool-activity">
+                  <summary>工具调用（{{ entry.toolActivity.length }}）</summary>
+                  <div v-for="activity in entry.toolActivity" :key="activity.toolCallId">
+                    {{ activity.toolName }} · {{ activity.status === 'running' ? '执行中' : activity.status === 'success' ? '完成' : '失败或中止' }}
+                  </div>
+                </details>
+              </div>
             </div>
           </div>
           <div :style="{ height: `${messageWindow.after}px` }" aria-hidden="true" />
@@ -258,6 +268,7 @@ import { useVirtualMessages } from '@/composables/useVirtualMessages'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, DeleteFilled, Edit, Plus, Promotion, VideoPause } from '@element-plus/icons-vue'
 import { useAssistantStore } from '@/stores/assistant'
+import AssistantExtensions from '@/components/extensions/AssistantExtensions.vue'
 import { useApiConfig } from '@/services/apiConfig'
 import { FALLBACK_MODELS } from '@/services/aiProviders'
 import { normalizeContextPolicy } from '@/utils/contextPolicy'

@@ -52,6 +52,7 @@ function harness(initial: Record<string, unknown> = {}) {
   const dependencies = {
     ...compactor, normalizeContextPolicy, resolveAssistantContextPolicy,
     computed, ref, reactive, watch, onScopeDispose, StorageKeys,
+    useExtensionsStore: () => ({ captureRequest: () => undefined }),
     defineStore: (_id: string, factory: () => unknown) => factory,
     createPersistentState: (key: string, fallback: unknown) => ({ load: () => clone(disk.get(key) ?? fallback), save: (value: unknown) => {
       beforeSave(key, value)

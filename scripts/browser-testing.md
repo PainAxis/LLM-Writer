@@ -4,8 +4,8 @@
 
 The `CI` workflow runs on pull requests targeting `main`, pushes to `main`, and manual dispatch. Its check names are `ci-quality` and `ci-browser`.
 
-- `ci-quality` installs locked dependencies, rejects lint warnings, builds the app (including type checking), and runs all 57 suites in `npm run smoke:all` sequentially.
-- `ci-browser` builds the same revision and runs 33 Chromium scenarios against a local preview and synthetic API. It uploads `artifacts/browser` as `browser-evidence-<attempt>` for seven days, including failure screenshots and a Playwright trace when browser execution starts.
+- `ci-quality` installs locked dependencies, rejects lint warnings, builds the app (including type checking), and runs all 64 suites in `npm run smoke:all` sequentially.
+- `ci-browser` builds the same revision and runs 35 baseline Chromium scenarios and 10 extension scenarios against a local preview and synthetic API. It uploads `artifacts/browser` and `artifacts/browser-extensions` as `browser-evidence-<attempt>` for seven days, including failure screenshots and a Playwright trace when browser execution starts.
 
 Both jobs use Node 24 and read-only repository permissions. Browser regression never needs real API credentials or a public tunnel. The current CI results are the validation record for each commit.
 
@@ -62,3 +62,5 @@ The preview serves only `dist` assets and the three synthetic DOCX fixtures unde
 Configure a custom API with the preview origin plus `/__test/v1`, key `preview-test-key`, and model `writer-mock` or `writer-mock-slow`. The slow model allows cancellation to be exercised. These values are synthetic test configuration.
 
 [Cloudflare Quick Tunnels do not support SSE](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/#limitations). Use the public preview for page interactions; the local Chromium job verifies incremental streaming and cancellation.
+
+The extension workflow (`npm run test:browser-extensions`) uses actual local HTTP MCP and OpenAI-compatible fixtures. It covers server create/edit/discovery, explicit tool authorization, resource/prompt previews, Skill imports, project access, tool traces, stopping a pending MCP request, reload and session-token exclusion.

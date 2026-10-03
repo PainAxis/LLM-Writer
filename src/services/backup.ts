@@ -1,5 +1,6 @@
 import { THINKING_MODES, THINKING_PROTOCOLS } from '@/utils/generationBudget'
 import { normalizeBookAnalysisLibrary } from './bookAnalysisLibrary'
+import { normalizeExtensionSettings } from '@/stores/extensions'
 import {
   StorageKeys, storageGet, storageGetRaw, storageReadCommitted, storageReplace, storageSetRaw, storageRemove,
   type StorageKey,
@@ -17,7 +18,7 @@ export const BACKUP_GROUPS = {
     StorageKeys.shortStoryConfig, StorageKeys.chapterSummaryPromptTemplate,
     StorageKeys.accountBalance, StorageKeys.billingRecords, StorageKeys.tokenUsageStats,
     StorageKeys.lastReadAnnouncementVersion, StorageKeys.lastReadAnnouncementDate,
-    StorageKeys.theme, StorageKeys.contextPolicy,
+    StorageKeys.theme, StorageKeys.contextPolicy, StorageKeys.extensions,
   ],
 } as const
 
@@ -137,6 +138,15 @@ function validateValue(key: StorageKey, value: unknown): void {
       check(object(value), path)
       for (const [id, entries] of Object.entries(value)) records(entries, `${path}.${id}`, (entry, p) => {
         check(string(entry.id) && string(entry.content) && typeof entry.isUser === 'boolean' && string(entry.timestamp), p)
+        fields(entry, ['requestStatus'], status => status === 'failed' || status === 'cancelled', p)
+        if ('toolActivity' in entry) {
+          check(Array.isArray(entry.toolActivity) && entry.toolActivity.length <= 48, `${p}.toolActivity`)
+          records(entry.toolActivity, `${p}.toolActivity`, (activity, ap) => {
+            check(string(activity.toolCallId) && activity.toolCallId.length > 0 && activity.toolCallId.length <= 256, ap)
+            check(string(activity.toolName) && activity.toolName.length > 0 && activity.toolName.length <= 256, ap)
+            check(['running', 'success', 'error'].includes(activity.status as string), ap)
+          })
+        }
       })
       break
     case StorageKeys.assistantSummaries:
@@ -187,6 +197,9 @@ function validateValue(key: StorageKey, value: unknown): void {
     case StorageKeys.contextPolicy:
       policy(value, path)
       break
+    case StorageKeys.extensions:
+      try { normalizeExtensionSettings(value) } catch { check(false, path) }
+      break
     case StorageKeys.accountBalance:
       check((string(value) || number(value)) && String(value).trim() !== '' && Number.isFinite(Number(value)), path)
       break
@@ -212,7 +225,7 @@ export async function createBackup(groups: readonly BackupGroup[] = ALL_BACKUP_G
     if (key === StorageKeys.apiConfig && value === null) {
       value = storageGet(StorageKeys.customApiConfig, null) ?? storageGet(StorageKeys.officialApiConfig, null)
     }
-    if (value !== null) data[key] = value
+    if (value !== null) data[key] = key === StorageKeys.extensions ? normalizeExtensionSettings(value) : value
   }
   return { format: 'llm-writer-backup', version: 2, exportTime: new Date().toISOString(), data }
 }
@@ -251,7 +264,10 @@ export function parseBackup(input: unknown): Data {
     }
   }
   check(Object.keys(data).length > 0, '没有可恢复的数据')
-  for (const [key, value] of Object.entries(data)) validateValue(key as StorageKey, value)
+  for (const [key, value] of Object.entries(data)) {
+    validateValue(key as StorageKey, value)
+    if (key === StorageKeys.extensions && value !== null) data[key] = normalizeExtensionSettings(value)
+  }
   return data
 }
 

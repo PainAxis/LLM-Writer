@@ -71,11 +71,22 @@
     "smoke:legacy-view-data": "node --import tsx scripts/smoke-legacy-view-data.ts",
     "smoke:virtual-messages": "node --import tsx scripts/smoke-virtual-messages.ts",
     "smoke:corpus-transfer": "node --import tsx scripts/smoke-corpus-transfer.ts",
-    "smoke:writing-goals": "node --import tsx scripts/smoke-writing-goals.ts"
+    "smoke:writing-goals": "node --import tsx scripts/smoke-writing-goals.ts",
+    "smoke:mcp": "node --import tsx scripts/smoke-mcp.ts",
+    "smoke:writing-skills": "node --import tsx scripts/smoke-writing-skills.ts",
+    "smoke:writing-tools": "node --import tsx scripts/smoke-writing-tools.ts",
+    "smoke:extension-settings": "node --import tsx scripts/smoke-extension-settings.ts",
+    "smoke:extension-generation": "node --import tsx scripts/smoke-extension-generation.ts",
+    "test:browser-extensions": "node scripts/browser-extension-regression.mjs",
+    "test:extensions-live": "node --import tsx scripts/live-extension-generation.ts",
+    "test:jina-live": "node --import tsx scripts/live-jina-writing.ts",
+    "test:humanizer-live": "node --import tsx scripts/live-humanizer-writing.ts",
+    "smoke:jina-writing-evidence": "node --import tsx scripts/smoke-jina-writing-evidence.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
     "@ai-sdk/google": "^4.0.63",
+    "@ai-sdk/mcp": "^2.0.66",
     "@ai-sdk/openai-compatible": "^3.0.43",
     "@element-plus/icons-vue": "^2.3.2",
     "@mind-elixir/export-mindmap": "^0.1.10",
@@ -89,7 +100,8 @@
     "mind-elixir": "^4.3.1",
     "pinia": "^4.0.3",
     "vue": "^3.5.42",
-    "vue-router": "^5.3.0"
+    "vue-router": "^5.3.0",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

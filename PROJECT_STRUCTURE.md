@@ -34,6 +34,8 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/services/promptCatalog.ts` | Shared prompt initialization, migration and committed updates across all five prompt entry points |
 | `src/services/backup.ts`, `src/services/billing.ts` | Backup validation/restoration and local usage/cost bookkeeping |
 | `src/stores/novel.ts`, `src/stores/assistant.ts`, `src/stores/writingGoals.ts` | Pinia state for writing, assistant conversations/summary coverage and writing goals |
+| `src/services/mcp.ts`, `src/services/skills.ts`, `src/services/writingTools.ts`, `src/services/extensionsRuntime.ts` | Request-scoped MCP, Skills, project tools and bounded model execution; [extension semantics](docs/extensions.md) |
+| `src/stores/extensions.ts`, `src/components/extensions/` | Strictly persisted extension settings, in-memory credentials and assistant opt-in controls |
 | `src/utils/storage.ts`, `src/utils/aiRequestScope.ts` | Central storage access and isolated, cancellable AI requests |
 | `src/utils/writer/` | Writer prompt builders and response parsers, including literal passage substitution for polishing |
 | `src/utils/writerContent.ts`, `src/utils/novelStats.ts` | Shared visible-text conversion, safe generated HTML, Unicode character counts and chapter-derived novel totals |
@@ -74,7 +76,7 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The configured CI validation set contains 58 sequential smoke suites and 34 Chromium scenarios with synthetic data and API responses. Use the reviewed revision’s CI results to confirm validation.
+- The configured CI validation set contains 64 sequential smoke suites and 45 Chromium scenarios with synthetic data and API responses. Use the reviewed revision’s CI results to confirm validation.
 - New suites: `smoke:generation-budget`, `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Add opt-in assistant writing extensions with six project-scoped read-only tools, remote Streamable HTTP MCP connections and explicit tool allowlists.
+- Add four built-in Agent Skills and validated `SKILL.md`/folder imports, with selected instructions and on-demand references.
+- Preserve tool execution status on failure/cancellation, reserve schema budgets before context fitting, and record reported usage across model steps. Extension settings and imported Skills participate in backups; MCP session tokens do not.
+- Add protocol, import, authorization, generation-loop and Chromium business regressions. Document first-stage scope and optional live OpenCode Go validation in [writing extensions](docs/extensions.md).
+
 - Add persisted output and model-aware thinking controls to API settings, with provider-default modes, compatible/native request mapping, budget validation and backward-compatible backup support. New configurations use a 16,384-token output ceiling; existing saved limits remain unchanged. Add SDK wire regressions and browser scenario 34.
 - Let assistant summaries inherit the saved generation budget instead of overriding it with an 800-token ceiling that can be smaller than the model's thinking allocation; retain the concise summary prompt.
 - Capture the current browser selection before optimizing a short-story passage, preventing rapid selection followed by a click from using a stale editor range.

@@ -140,6 +140,7 @@ export const FALLBACK_MODELS: FallbackModel[] = [
 interface AISDK {
   streamText: typeof import('ai')['streamText']
   generateText: typeof import('ai')['generateText']
+  stepCountIs: typeof import('ai')['stepCountIs']
   createOpenAICompatible: typeof import('@ai-sdk/openai-compatible')['createOpenAICompatible']
   createAnthropic: typeof import('@ai-sdk/anthropic')['createAnthropic']
   createGoogleGenerativeAI: typeof import('@ai-sdk/google')['createGoogleGenerativeAI']
@@ -157,6 +158,7 @@ export function loadAISDK(): Promise<AISDK> {
     ]).then(([ai, oc, anthropic, google]) => ({
       streamText: ai.streamText,
       generateText: ai.generateText,
+      stepCountIs: ai.stepCountIs,
       createOpenAICompatible: oc.createOpenAICompatible,
       createAnthropic: anthropic.createAnthropic,
       createGoogleGenerativeAI: google.createGoogleGenerativeAI,

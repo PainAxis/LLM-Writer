@@ -35,7 +35,7 @@ jobs:
   browser:
     name: ci-browser
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -47,12 +47,15 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - run: npm run test:browser-extensions
       - run: npm run test:browser
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: browser-evidence-${{ github.run_attempt }}
-          path: artifacts/browser
+          path: |
+            artifacts/browser
+            artifacts/browser-extensions
           if-no-files-found: warn
           retention-days: 7
