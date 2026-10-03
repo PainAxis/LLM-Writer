@@ -16,6 +16,9 @@ const luxunSources = {
   office: '上午九点，林遥带着两张表去办事大厅申请修好楼道的灯。三号窗口让她先去四号窗口盖章，四号窗口又说，只有三号窗口受理后才能盖章。她问受理需要什么，工作人员指了指墙上的流程图。图上两个箭头正好连成一个圈。林遥等了四十分钟，最后仍没有递交成功。大厅门口挂着“让群众少跑一趟”的牌子。她没有与工作人员争吵，也不知道这套流程是谁定的。离开时，她把两张没有盖章的表重新装进文件袋，打算第二天再来。楼道的灯至今没有修好。',
   fiction: '傍晚六点，陈默在巷口看见卖伞的周伯摔倒。周伯的三把蓝伞滚到路边，一把红伞仍握在手里。五个路人停下来围观，却没有人上前。陈默问要不要叫救护车，周伯摇头，说自己只是脚滑，先扶起来就好。陈默把他扶到屋檐下，又捡回三把蓝伞。一个穿灰衣的旁观者说自己早就想帮忙，只怕被误会；其他人没有接话。陈默不确定周伯是否受伤，便陪他等女儿。十分钟后，女儿还没有到，雨却下大了。周伯没有卖出一把伞，也没有责怪那些站着的人。',
 }
+const fountainSources = {
+  scene: '第一段发生在夜里的车站候车室。MAYA把一个未拆封的蓝色信封递给LEON，说：“天亮前别打开。”LEON将信封放进外套内袋，回答：“我会在北侧站台等你。”第二段发生在次日黎明的北侧站台。LEON站在站牌下，手里仍拿着未拆封的蓝色信封。MAYA走来，问：“你打开过吗？”LEON摇头，回答：“没有。”',
+}
 const profiles = {
   humanizer: {
     directory: 'humanizer-zh', files: ['SKILL.md', 'LICENSE'], name: 'humanizer-zh',
@@ -31,6 +34,14 @@ const profiles = {
     // Style comes exclusively from the selected Skill, never from the shared A/B prompt.
     prompt: '请把下面两份叙事素材分别改写成可独立阅读的中文短段落，每段约180—280字，两段合计不超过600字。保留人物、时间、数字、行为和先后关系，以及否定、未完成和不确定的含义；可以调整叙述方式并加入比喻或评论，但不要新增事实性事件、人物或结果。只返回JSON对象，键为office、fiction，各值为改写后的正文，不要解释或Markdown代码块。\n',
     system: '执行中文文稿改写。服从用户对事实和输出格式的要求。本文内容已全部提供，无需调用工具。',
+  },
+  fountain: {
+    directory: 'screenplay-fountain-format', files: ['SKILL.md'], name: 'screenplay-fountain-format',
+    sha256: 'aa2ccbd193e786b577100aa474fea8e0a1459d1f699b0e4862430d97dee33793',
+    sources: fountainSources,
+    // No format name, example, or competing JSON requirement in the shared prompt.
+    prompt: '请根据以下场景素材整理成一份可直接使用的稿件。保持角色姓名、全部对白逐字不变，以及地点、时间、蓝色信封未拆封和动作先后关系。不要新增人物或事件。只返回稿件，不要解释。\n',
+    system: '按用户要求整理提供的写作素材。只根据给定素材生成内容。',
   },
 }
 const phrases = ['值得注意的是', '里程碑', '充分彰显', '卓越实力', '注入', '强劲动能', '总而言之', '不仅', '更是', '命运的齿轮', '巨大', '画卷', '千言万语', '交响', '不禁感慨']
@@ -75,6 +86,34 @@ function styleReviewAids(prose: Prose) {
     characterCounts: Object.fromEntries(Object.entries(prose).map(([name, value]) => [name, [...value].length])),
   }
 }
+function fountainReview(output: string) {
+  // Accept one presentation fence, without repairing any screenplay syntax inside it.
+  const trimmed = output.trim()
+  const fenced = /^```(?:fountain|text)?\s*\n([\s\S]*?)\n```$/i.exec(trimmed)
+  const text = (fenced?.[1] ?? trimmed).replace(/\r\n/g, '\n')
+  const lines = text.split('\n').map(line => line.trim())
+  const headings = lines.flatMap((line, index) => /^(?:INT\.?|EXT\.?)\s+.+/i.test(line) ? [index] : [])
+  const cues = lines.flatMap((line, index) => /^@?(?:MAYA|LEON)$/.test(line) ? [index] : [])
+  const dialogue = ['天亮前别打开。', '我会在北侧站台等你。', '你打开过吗？', '没有。']
+  const speakers = ['MAYA', 'LEON', 'MAYA', 'LEON']
+  const dialogueLines = cues.map(index => {
+    const next = lines[index + 1] ?? ''
+    return /^\([^)]*\)$/.test(next) ? lines[index + 2] ?? '' : next
+  })
+  const checks = {
+    twoSceneHeadings: headings.length === 2,
+    sceneBoundaries: headings.length === 2 && headings.every(index => (index === 0 || lines[index - 1] === '') && lines[index + 1] === ''),
+    interiorThenExterior: headings.length === 2 && /^INT/i.test(lines[headings[0]!]!) && /^EXT/i.test(lines[headings[1]!]!),
+    nightThenDawn: headings.length === 2 && /NIGHT|夜/i.test(lines[headings[0]!]!) && /DAWN|DAYBREAK|黎明|清晨/i.test(lines[headings[1]!]!),
+    fourUppercaseCharacterCues: cues.length === 4 && cues.every((index, position) => lines[index]!.replace(/^@/, '') === speakers[position]),
+    cueBoundaries: cues.length === 4 && cues.every(index => index > 0 && lines[index - 1] === '' && !!lines[index + 1]),
+    immediateExactDialogue: cues.length === 4 && dialogueLines.every((line, position) => line.replace(/^“(.*)”$|^"(.*)"$/, '$1$2') === dialogue[position]),
+  }
+  return { formatPassed: Object.values(checks).every(Boolean), formatChecks: checks,
+    verbatimDialoguePreserved: dialogue.every(line => text.includes(line)),
+    presentationFence: !!fenced, sceneHeadingCount: headings.length, characterCueCount: cues.length,
+    validationScope: 'Checks the two-scene fixture structure, not the complete Fountain grammar. Full factual fidelity requires text review.' }
+}
 function safeError(error: unknown): { error: string; status?: number; reason?: string } {
   const value = error && typeof error === 'object' ? error as Record<string, unknown> : {}
   const reason = new Map([
@@ -91,7 +130,7 @@ async function main() {
   let key = process.env.LLM_WRITER_TEST_API_KEY?.trim() || ''
   if (!key) { process.stdout.write('{"passed":false,"error":"LLM_WRITER_TEST_API_KEY is required; no requests were made."}\n'); process.exitCode = 2; return }
   const profileName = process.env.LLM_WRITER_TEST_SKILL?.trim() || 'humanizer'
-  if (profileName !== 'humanizer' && profileName !== 'luxun') throw new Error('Invalid Skill selector')
+  if (profileName !== 'humanizer' && profileName !== 'luxun' && profileName !== 'fountain') throw new Error('Invalid Skill selector')
   const profile = profiles[profileName]
   const sources: Prose = profile.sources
   const prompt = profile.prompt + JSON.stringify(sources)
@@ -137,7 +176,7 @@ async function main() {
     const systemBlocks = Array.isArray(request.system) ? request.system.map(part => part && typeof part === 'object' && 'text' in part ? part.text : '').join('\n') : ''
     const fullPresent = (system + '\n' + systemBlocks).includes(instructionLiteral)
     active.fullInstructions = fullPresent === active.enabled
-    active.noExtraTools = profileName === 'luxun' ? (request.tools ?? []).length === 0
+    active.noExtraTools = profileName !== 'humanizer' ? (request.tools ?? []).length === 0
       : (request.tools ?? []).every(tool => (tool.name ?? tool.function?.name) === 'writing_skill_read_reference')
     assert.ok(active.fullInstructions && active.noExtraTools, 'Skill instruction/authorization mismatch')
     const userContent = (request.messages ?? []).filter(message => message.role === 'user').map(message => JSON.stringify(message.content)).join('')
@@ -192,7 +231,7 @@ async function main() {
           const output = await api.generateTextStream(prompt, { maxTokens: OUTPUT_TOKENS, temperature: 0.1, signal: controller.signal, extensions,
             system: profile.system, type: `live-${profileName}-validation` }, (_chunk, fullText) => { rawOutput = fullText.slice(0, 16_000); rawOutputTruncated = fullText.length > 16_000 })
           generationCompleted = true
-          prose = parseProse(output, sources)
+          prose = profileName === 'fountain' ? { screenplay: output } : parseProse(output, sources)
         } catch (failure) { error = safeError(failure) }
         finally { clearTimeout(timer) }
         const record = billing.getBillingRecords().find(item => !previousIds.has(item.id))
@@ -204,6 +243,7 @@ async function main() {
           tokens: { input: record?.inputTokens ?? 0, output: record?.outputTokens ?? 0, source: record?.usageSource ?? 'unavailable' },
           ...(flags ? { qualityFlags: flags, qualityChecksPassed: Object.values(flags).every(Boolean), stockPhraseOccurrences: { technical: phraseCount(prose!.technical!), fiction: phraseCount(prose!.fiction!) } } : {}),
           ...(prose ? { output: prose, ...(profileName === 'luxun' ? { reviewAids: styleReviewAids(prose), factsRequireManualReview: true, styleRequiresManualReview: true } : {}) } : {}),
+          ...(prose && profileName === 'fountain' ? { ...fountainReview(prose.screenplay!), factsRequireManualReview: true } : {}),
           ...(!prose ? { rawOutput, rawOutputTruncated } : {}),
           ...(error ? { failure: error } : {}) })
         active = undefined
@@ -219,14 +259,18 @@ async function main() {
     Object.assign(console, previousConsole)
   }
   const integrationPassed = !setupError && outcomes.length === providers.length * arms.length && outcomes.every(outcome => outcome.integrationPassed)
-  const passed = integrationPassed && (profileName === 'luxun' || outcomes.every(outcome => outcome.qualityChecksPassed))
+  const passed = integrationPassed && (profileName === 'luxun' || (profileName === 'fountain'
+    ? outcomes.every(outcome => outcome.verbatimDialoguePreserved && (!outcome.skillEnabled || outcome.formatPassed))
+    : outcomes.every(outcome => outcome.qualityChecksPassed)))
   const outputDifference = providers.map(provider => {
     const before = outcomes.find(outcome => outcome.provider === provider && !outcome.skillEnabled)?.output as Prose | undefined
     const after = outcomes.find(outcome => outcome.provider === provider && outcome.skillEnabled)?.output as Prose | undefined
-    return { provider, ...(before && after ? { identical: Object.keys(sources).every(name => before[name] === after[name]), changedPassages: Object.keys(sources).filter(name => before[name] !== after[name]) } : { unavailable: true }) }
+    const fields = profileName === 'fountain' ? ['screenplay'] : Object.keys(sources)
+    return { provider, ...(before && after ? { identical: fields.every(name => before[name] === after[name]), changedPassages: fields.filter(name => before[name] !== after[name]) } : { unavailable: true }) }
   })
   let report = JSON.stringify({ passed, integrationPassed, profile: profileName, arms: arms.map(enabled => enabled ? 'enabled' : 'baseline'),
-    passScope: profileName === 'luxun' ? 'Integration only; facts and style require manual review.' : 'Integration and deterministic Humanizer checks.',
+    passScope: profileName === 'luxun' ? 'Integration only; facts and style require manual review.' : profileName === 'fountain'
+      ? 'Integration, verbatim dialogue, and selected-arm fixture-format checks; full facts require manual review.' : 'Integration and deterministic Humanizer checks.',
     sourceHash, maxOutputTokens: OUTPUT_TOKENS, timeoutMs: TIMEOUT_MS, sources,
     ...(profileName === 'humanizer' ? { stockPhraseBaseline: { technical: phraseCount(sources.technical!), fiction: phraseCount(sources.fiction!) } } : {}),
     note: 'Counts, lexical flags, and output differences are review aids, not style gains or AI-detection scores. Review the synthetic outputs for semantic changes and style; no automatic retries.', outputDifference, outcomes, ...(setupError ? { setupError } : {}) })
