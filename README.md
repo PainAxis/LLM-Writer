@@ -109,7 +109,7 @@ npm run smoke:eventline               # Chapter-number migration and compatibili
 npm run smoke:prompts                 # Default prompts and merge rules
 ```
 
-CI is configured to run strict lint, the production build, 63 smoke suites and 44 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 64 smoke suites and 44 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

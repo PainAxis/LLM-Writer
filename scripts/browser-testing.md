@@ -4,7 +4,7 @@
 
 The `CI` workflow runs on pull requests targeting `main`, pushes to `main`, and manual dispatch. Its check names are `ci-quality` and `ci-browser`.
 
-- `ci-quality` installs locked dependencies, rejects lint warnings, builds the app (including type checking), and runs all 63 suites in `npm run smoke:all` sequentially.
+- `ci-quality` installs locked dependencies, rejects lint warnings, builds the app (including type checking), and runs all 64 suites in `npm run smoke:all` sequentially.
 - `ci-browser` builds the same revision and runs 35 baseline Chromium scenarios and 9 extension scenarios against a local preview and synthetic API. It uploads `artifacts/browser` and `artifacts/browser-extensions` as `browser-evidence-<attempt>` for seven days, including failure screenshots and a Playwright trace when browser execution starts.
 
 Both jobs use Node 24 and read-only repository permissions. Browser regression never needs real API credentials or a public tunnel. The current CI results are the validation record for each commit.

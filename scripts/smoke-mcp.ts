@@ -10,6 +10,7 @@ type RequestBody = { id?: number | string; method: string; params?: Record<strin
 const requests: { path: string; body: RequestBody; auth?: string; protocol?: string; methodHeader?: string }[] = []
 let terminated = 0
 let abortedRequests = 0
+let jinaResult: Record<string, unknown> = {}
 const tool = (name: string, readOnly = true) => ({
   name, description: `Mock ${name}`, inputSchema: { type: 'object', properties: { name: { type: 'string' } } },
   annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly },
@@ -54,7 +55,9 @@ const mock = http.createServer((req, res) => {
     }
     if (body.id === undefined) { res.writeHead(202).end(); return }
     if (body.method === 'tools/list') {
-      if (path === '/endless') {
+      if (path === '/jina-compat') {
+        result({ tools: [tool('search_web'), tool('read_url')] })
+      } else if (path === '/endless') {
         const page = Number(body.params?.cursor ?? '0')
         result({ tools: [tool(`page_${page}`)], nextCursor: String(page + 1) })
       } else if (path === '/oversize') {
@@ -75,6 +78,7 @@ const mock = http.createServer((req, res) => {
       result({ messages: [{ role: 'user', content: { type: 'text', text: `检查 ${(body.params?.arguments as Record<string, string>)?.character} 的人物一致性` } }] }); return
     }
     if (body.method === 'tools/call') {
+      if (path === '/jina-compat') { result(jinaResult); return }
       if (body.params?.name === 'throw_error') { error(-32603, `Server error containing ${req.headers.authorization}`); return }
       if (body.params?.name === 'hang') { res.on('close', () => { abortedRequests++ }); return }
       if (body.params?.name === 'big_result') {
@@ -150,6 +154,52 @@ try {
   assert.ok(requests.some(request => request.path === '/modern' && request.body.method === 'tools/call' && request.methodHeader === 'tools/call'))
   assert.ok(requests.filter(request => ['/modern', '/legacy'].includes(request.path)).every(request => request.auth === 'Bearer test-token'))
 
+  // Exercise the production adapter/SDK while routing every endpoint to the
+  // local fixture. No Jina credential, real search, or external request is used.
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (_input, init) => originalFetch(`${origin}/jina-compat`, init)
+  try {
+    const query = 'site:nps.gov "Fresnel lens" synthetic-private-query'
+    const authContent = (text: string, status = 'Unauthorized') => ({ type: 'text', text: `Error: Search failed for query "${text}": ${status}` })
+    const authFailure = { content: [authContent(query)], isError: false }
+    const sanitizedFailure = { content: [{ type: 'text', text: 'MCP 鉴权失败，请检查本次会话的 Token' }], isError: true }
+    for (const url of ['https://mcp.jina.ai/v1?include_tools=search_web,read_url', 'https://mcp.jina.ai/sse']) {
+      const jina = await connectRemoteMcp(config('/jina-compat', { url, allowedTools: ['search_web', 'read_url'] }))
+      connections.push(jina)
+      const search = jina.tools[namespacedMcpToolName('library', 'search_web')]
+      const execute = () => search.execute!({ query }, execution()) as Promise<Record<string, unknown>>
+      jinaResult = authFailure
+      assert.deepEqual(await execute(), sanitizedFailure, 'Jina authentication failures must not be reported as success or echo the query')
+      jinaResult = { content: [authContent(query, 'Forbidden')], isError: false }
+      assert.deepEqual(await execute(), sanitizedFailure)
+      jinaResult = { content: [authContent(query), authContent('second query', 'Forbidden')], isError: false }
+      assert.deepEqual(await search.execute!({ query: [query, 'second query'] }, execution()), sanitizedFailure)
+      for (const unchanged of [
+        { content: [{ type: 'text', text: `A source discusses this message: ${authContent(query).text}` }], isError: false },
+        { content: [authContent('another query')], isError: false },
+        { content: [authContent(query, 'Gateway Timeout')], isError: false },
+        { content: [authContent(query), { type: 'text', text: 'A successful search result' }], isError: false },
+        { ...authFailure, structuredContent: { document: 'a source containing an error example' } },
+        { ...authFailure, isError: true },
+      ]) {
+        jinaResult = unchanged
+        assert.deepEqual(await execute(), unchanged, 'Only the exact unflagged auth envelope is normalized')
+      }
+      jinaResult = authFailure
+      assert.deepEqual(await jina.tools[namespacedMcpToolName('library', 'read_url')].execute!({ query }, execution()), authFailure,
+        'Document contents from other Jina tools remain unchanged')
+      await jina.close()
+    }
+    for (const url of ['https://mcp.jina.ai.example/v1', 'https://example.com/v1', 'https://mcp.jina.ai/custom']) {
+      const other = await connectRemoteMcp(config('/jina-compat', { url, allowedTools: ['search_web'] }))
+      connections.push(other)
+      jinaResult = authFailure
+      assert.deepEqual(await other.tools[namespacedMcpToolName('library', 'search_web')].execute!({ query }, execution()), authFailure,
+        'Other servers and endpoints retain standard MCP result semantics')
+      await other.close()
+    }
+  } finally { globalThis.fetch = originalFetch }
+
   const disabled = await connectRemoteMcp(config('/modern', { enabled: false, allowedTools: ['write_note'] }))
   connections.push(disabled)
   assert.equal(Object.keys(disabled.tools).length, 0)
@@ -187,7 +237,7 @@ try {
   await assert.rejects(hanging.tools[namespacedMcpToolName('library', 'lookup_character')].execute!({}, execution()) as Promise<unknown>, { name: 'AbortError' })
   assert.equal(requests.length, before, 'Cancelled connection must not execute subsequent tools')
   assert.ok(abortedRequests >= 1)
-  console.log('Passed MCP modern/legacy HTTP discovery, opt-in tools, previews, limits, cancellation and cleanup')
+  console.log('Passed MCP modern/legacy HTTP discovery, opt-in tools, previews, limits, Jina auth compatibility, cancellation and cleanup')
 } finally {
   await Promise.allSettled(connections.map(connection => connection.close()))
   mock.closeAllConnections()

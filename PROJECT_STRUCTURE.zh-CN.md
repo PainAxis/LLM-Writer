@@ -75,7 +75,7 @@
 
 ## 校验与发布
 
-- CI 校验配置包含 63 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 44 个 Chromium 场景。验证状态以审查提交的 CI 结果为准。
+- CI 校验配置包含 64 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 44 个 Chromium 场景。验证状态以审查提交的 CI 结果为准。
 - 新增测试集：`smoke:writer-content`、`smoke:management-correctness`、`smoke:billing-correctness`、`smoke:tools-workspace`。
 - [浏览器测试](scripts/browser-testing.md)：CI 检查、本地 Chromium 回归与可选预览。
 - [发布说明](scripts/releasing.md)：通过校验的静态构建、校验和及源码/CI 信息。

@@ -101,6 +101,25 @@ function clip(text: string): McpContentPreview {
   }
 }
 
+function normalizeJinaSearchAuthError(
+  server: RemoteMcpServer, toolName: string, args: Record<string, unknown>, result: CallToolResult,
+): CallToolResult {
+  if (toolName !== 'search_web' || result.isError || result.structuredContent !== undefined || !Array.isArray(result.content)) return result
+  const url = new URL(server.url)
+  if (url.origin !== 'https://mcp.jina.ai' || !['/v1', '/sse'].includes(url.pathname)) return result
+  const queries = typeof args.query === 'string' ? [args.query] : args.query
+  if (!Array.isArray(queries) || !queries.length || queries.length > 5 ||
+      queries.some(query => typeof query !== 'string') || result.content.length !== queries.length) return result
+  // Jina's search formatter currently omits isError for failed upstream searches.
+  // Match its complete auth envelope against the actual queries, never prose that
+  // merely mentions an error, another tool's document, or another MCP server.
+  const authenticationFailed = result.content.every((part, index) => part && typeof part === 'object' && part.type === 'text' &&
+    ['Unauthorized', 'Forbidden'].some(status => part.text === `Error: Search failed for query "${queries[index]}": ${status}`))
+  return authenticationFailed ? {
+    content: [{ type: 'text', text: 'MCP 鉴权失败，请检查本次会话的 Token' }], isError: true,
+  } : result
+}
+
 function boundedToolResult(result: CallToolResult): CallToolResult {
   const serialized = JSON.stringify(result)
   if (serialized.length <= MCP_MAX_RESULT_CHARS) return result
@@ -303,7 +322,7 @@ export async function connectRemoteMcp(
             throw new McpConnectionError('MCP 工具参数无效或超过大小限制')
           }
           const result = await activeClient.callTool({ name, arguments: args as Record<string, unknown>, options: request })
-          return boundedToolResult(result)
+          return boundedToolResult(normalizeJinaSearchAuthError(server, name, args as Record<string, unknown>, result))
         }, { signal: execution.abortSignal }),
         toModelOutput: ({ output }) => ({ type: 'text', value: clip(JSON.stringify(output)).text }),
       })
