@@ -93,8 +93,14 @@ function parseFrontmatter(content: string): { metadata: Record<string, unknown>;
     || Array.isArray(metadata.metadata) || Object.values(metadata.metadata).some(item => typeof item !== 'string'))) {
     throw new Error('Skill metadata 必须是文本键值映射')
   }
-  if (metadata['allowed-tools'] !== undefined && typeof metadata['allowed-tools'] !== 'string') {
-    throw new Error('Skill allowed-tools 必须是文本')
+  const allowedTools = metadata['allowed-tools']
+  // Agent Skills specifies a space-separated string (https://agentskills.io/specification).
+  // Also preserve bounded YAML lists used by Claude Code packages such as Humanizer-zh.
+  // Neither representation grants permissions; the application controls available tools.
+  if (allowedTools !== undefined && typeof allowedTools !== 'string'
+    && (!Array.isArray(allowedTools) || allowedTools.length === 0 || allowedTools.length > 64
+      || allowedTools.some(item => typeof item !== 'string' || !item.trim() || item.length > 256))) {
+    throw new Error('Skill allowed-tools 必须是文本，或包含 1–64 个非空文本项的列表（每项不超过 256 字符）')
   }
   const instructions = match[2]!.trim()
   if (!instructions) throw new Error('SKILL.md 缺少技能指令正文')

@@ -6,7 +6,7 @@ See [Project Structure](PROJECT_STRUCTURE.md) for the current implementation lay
 
 Completed foundations:
 
-- PR/main CI enforces zero lint warnings, type checking, production builds, 64 smoke suites and 44 real Chromium scenarios with a synthetic API.
+- PR/main CI enforces zero lint warnings, type checking, production builds, 64 smoke suites and 45 real Chromium scenarios with a synthetic API.
 - The main ruleset requires GitHub Actions `ci-quality` and `ci-browser` checks and an up-to-date branch before merging.
 - ShortStory uses isolated generation scopes for articles, stories, continuation and optimization, with cancellation/restart/clear/dialog-close/unmount coverage.
 - BookAnalysis, NovelManagement and ToolsLibrary generation use isolated scopes covering stop, source changes, dialog closure and unmount; tool progress no longer uses simulated timers.
@@ -39,7 +39,7 @@ The second batch is implemented:
 
 API settings now include persisted output ceilings and model-aware thinking controls, with actual SDK wire coverage and a settings-to-generation browser scenario. See [generation budgets](docs/generation-budgets.md).
 
-The configured regression set now contains 64 smoke suites and 44 browser scenarios. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
+The configured regression set now contains 64 smoke suites and 45 browser scenarios. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
 
 ## Feature roadmap
 

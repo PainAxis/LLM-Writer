@@ -53,6 +53,35 @@ assert.throws(() => normalizeWritingSkill({ ...skill, source: 'mcp' }), /来源�
 assert.throws(() => parseSkillPackage(packageFiles, { existingSkills: BUILTIN_WRITING_SKILLS.concat(skill) }), /已存在/)
 assert.throws(() => parseSkillPackage(packageFiles, { existingSkills: [{ id: 'builtin:writing-check', name: 'writing-check' }] }), /已存在/)
 
+// Match the public Humanizer-zh package's frontmatter shape without rewriting its YAML list.
+const humanizerDefinition = `---
+name: humanizer-zh
+description: 编辑中文文本，保留事实和作者声音。
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - AskUserQuestion
+metadata:
+  trigger: 编辑或审阅中文文本
+  revision: "2026-09-23"
+---
+Revise only the supplied text and preserve its meaning.`
+const humanizer = await importSkillPackage([new File([humanizerDefinition], 'SKILL.md')])
+assert.deepEqual(humanizer.metadata['allowed-tools'], ['Read', 'Write', 'Edit', 'AskUserQuestion'])
+assert.ok(humanizer.warnings.some(warning => warning.includes('工具权限由应用设置控制')))
+assert.deepEqual(normalizeWritingSkill(JSON.parse(JSON.stringify(humanizer))), humanizer)
+assert.deepEqual(await createSkillTools([humanizer]), {}, 'Metadata must not grant Read/Write/Edit/AskUserQuestion tools')
+const humanizerWithReference = parseSkillPackage([
+  { path: 'SKILL.md', content: humanizerDefinition },
+  { path: 'README.md', content: 'Optional reference' },
+])
+assert.deepEqual(Object.keys(await createSkillTools([humanizerWithReference])), ['writing_skill_read_reference'])
+for (const allowedTools of [null, true, 42, {}, [], ['Read', 42], ['Read', {}], [''], ['  '], Array(65).fill('Read'), ['x'.repeat(257)]]) {
+  const malformed = definition().replace('allowed-tools: "Read"', `allowed-tools: ${JSON.stringify(allowedTools)}`)
+  assert.throws(() => parseSkillPackage([{ path: 'SKILL.md', content: malformed }]), /allowed-tools/)
+}
+
 for (const name of ['WRITING', '-writing', 'writing-', 'writing--check', 'a'.repeat(65)]) {
   assert.throws(() => parseSkillPackage([{ path: 'SKILL.md', content: definition().replace('name: writing-check', `name: ${name}`) }]), /name/)
 }

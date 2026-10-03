@@ -1,6 +1,6 @@
 /** Actual built Vue app, real local HTTP tools/providers, and real Chromium. */
 import assert from 'node:assert/strict'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -60,7 +60,7 @@ try {
     await go('config')
     await page.getByPlaceholder('请输入API密钥').fill('synthetic-provider-browser-key')
     await page.getByPlaceholder('例如：https://api.openai.com/v1').fill(`${fixture.origin}/__test/v1`)
-    for (const model of ['extension-writing', 'extension-mcp-delay', 'extension-loop']) {
+    for (const model of ['extension-writing', 'extension-mcp-delay', 'extension-loop', 'extension-context-only']) {
       await page.getByPlaceholder('输入模型名称，如 qwen-max').fill(model)
       await page.getByRole('button', { name: '添加', exact: true }).click()
     }
@@ -202,6 +202,104 @@ try {
     const confirm = page.getByRole('dialog', { name: '删除服务', exact: true })
     await confirm.getByRole('button', { name: /^(确定|OK)$/ }).click()
     await expect(serverCard()).toHaveCount(0)
+    assert.equal(fixture.metrics.forbiddenCalls, 0)
+  })
+  await step('10 Import upstream Humanizer-zh, preserve it on reload, and isolate activation from tool permissions', async () => {
+    const skillPath = path.join(root, 'scripts/fixtures/humanizer-zh/SKILL.md')
+    const source = await readFile(skillPath, 'utf8')
+    const sourceParts = source.split(/^---\s*$/m)
+    assert.equal(sourceParts.length, 3, 'The pinned upstream fixture has one frontmatter block')
+    const instructions = sourceParts[2].trim()
+    const skillId = 'imported:humanizer-zh'
+    const readSettings = () => page.evaluate(() => JSON.parse(localStorage.getItem('extensions')))
+    const readSkill = async () => (await readSettings()).importedSkills.find(skill => skill.id === skillId)
+    const systemText = body => body.messages.filter(message => message.role === 'system').map(message => message.content).join('\n')
+    const assertNoTools = body => assert.deepEqual(body.tools || [], [], 'Skill metadata must not grant Read, Write, Edit, or AskUserQuestion')
+    async function captureReply(prompt) {
+      const before = fixture.captured.length
+      await send(prompt)
+      await expect.poll(() => fixture.captured.length).toBe(before + 1)
+      await expect(page.getByRole('button', { name: '发送', exact: true })).toBeVisible()
+      await expect(page.locator('.message-row:not(.user) .bubble').last()).toContainText(FINAL_REPLY)
+      return fixture.captured[before].body
+    }
+
+    // Import the actual unmodified file using the same browser control as an author.
+    await page.locator('.extension-settings input[type="file"][accept=".md"]').setInputFiles(skillPath)
+    let preview = page.getByRole('dialog', { name: '技能内容', exact: true })
+    await expect(preview.getByRole('heading', { name: 'humanizer-zh', exact: true })).toBeVisible()
+    await expect(preview).toContainText('allowed-tools 元数据已保留；工具权限由应用设置控制')
+    assert.equal(await preview.locator('pre.content-preview').first().textContent(), instructions)
+    const imported = await readSkill()
+    assert.equal(imported.instructions, instructions)
+    assert.deepEqual(imported.metadata['allowed-tools'], ['Read', 'Write', 'Edit', 'AskUserQuestion'])
+    assert.equal(imported.files[0].content, source)
+    await preview.getByRole('button', { name: 'Close this dialog' }).click()
+
+    await chooseModel('extension-context-only')
+    await go('assistants')
+    await page.getByRole('button', { name: '新建', exact: true }).click()
+    const assistant = page.getByRole('dialog', { name: '新建助手', exact: true })
+    await assistant.getByPlaceholder('例如：情节构思助手').fill('第三方中文润色助手')
+    // The full upstream Chinese instructions need more than the default 8k token budget.
+    await assistant.locator('.el-radio').filter({ hasText: '自定义' }).click()
+    await assistant.getByRole('spinbutton', { name: 'Token 预算', exact: true }).fill('32000')
+    await assistant.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(assistant).toBeHidden()
+    const extensions = page.locator('.assistant-extensions')
+    const novelSelect = formField(extensions, '允许读取的小说')
+    await novelSelect.locator('.el-select__wrapper').hover()
+    await novelSelect.locator('.el-select__clear').click()
+    await expect.poll(async () => (await readSettings()).writingToolIds).toEqual([])
+    const skillsSelect = formField(extensions, '写作 Skills')
+    await skillsSelect.locator('.el-select__wrapper').hover()
+    await skillsSelect.locator('.el-select__clear').click()
+    await expect.poll(async () => (await readSettings()).selectedSkillIds).toEqual([])
+    await skillsSelect.locator('.el-select__wrapper').click()
+    await page.getByRole('option', { name: /humanizer-zh/ }).click()
+    await page.locator('.chat-title').click()
+    await expect.poll(async () => (await readSettings()).selectedSkillIds).toEqual([skillId])
+
+    const activated = await captureReply('润色这句话，保留事实：项目计划在五月启动内部测试，目前还没有结果。')
+    assert.ok(systemText(activated).includes(JSON.stringify(instructions)), 'The entire upstream body reaches the provider without truncation')
+    assert.equal(systemText(activated).includes('browser-skill-activated-marker'), false)
+    assertNoTools(activated)
+
+    await page.reload()
+    await dismissAnnouncement()
+    await expect(extensions).toContainText('humanizer-zh')
+    await expect.poll(readSkill).toEqual(imported)
+    assert.deepEqual((await readSettings()).selectedSkillIds, [skillId])
+    const reloaded = await captureReply('再次润色这句话：团队只完成了原型，尚未开始正式部署。')
+    assert.ok(systemText(reloaded).includes(JSON.stringify(instructions)))
+    assertNoTools(reloaded)
+    await go('settings?tab=extensions')
+    await page.locator('.skill-card').filter({ hasText: 'humanizer-zh' }).getByRole('button', { name: '查看内容', exact: true }).click()
+    preview = page.getByRole('dialog', { name: '技能内容', exact: true })
+    await expect(preview).toContainText('allowed-tools 元数据已保留；工具权限由应用设置控制')
+    assert.equal(await preview.locator('pre.content-preview').first().textContent(), instructions)
+    await preview.getByRole('button', { name: 'Close this dialog' }).click()
+
+    // Deselection and the master switch independently remove instructions from the next request.
+    await go('assistants')
+    await skillsSelect.locator('.el-select__wrapper').click()
+    await page.getByRole('option', { name: /humanizer-zh/ }).click()
+    await page.locator('.chat-title').click()
+    await expect.poll(async () => (await readSettings()).selectedSkillIds).toEqual([])
+    const deselected = await captureReply('请直接回复已收到。')
+    assert.equal(JSON.stringify(deselected).includes('humanizer-zh'), false)
+    assert.equal(systemText(deselected).includes(JSON.stringify(instructions)), false)
+    assertNoTools(deselected)
+    await skillsSelect.locator('.el-select__wrapper').click()
+    await page.getByRole('option', { name: /humanizer-zh/ }).click()
+    await page.locator('.chat-title').click()
+    await expect.poll(async () => (await readSettings()).selectedSkillIds).toEqual([skillId])
+    await extensions.locator('.el-switch').click()
+    await expect(extensions.getByRole('switch')).not.toBeChecked()
+    const disabled = await captureReply('扩展已关闭，请直接回复已收到。')
+    assert.equal(JSON.stringify(disabled).includes('humanizer-zh'), false)
+    assert.equal(systemText(disabled).includes(JSON.stringify(instructions)), false)
+    assertNoTools(disabled)
     assert.equal(fixture.metrics.forbiddenCalls, 0)
   })
   assert.deepEqual(pageErrors, [])

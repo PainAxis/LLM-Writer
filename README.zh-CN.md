@@ -109,7 +109,7 @@ npm run smoke:eventline               # 章号迁移与兼容
 npm run smoke:prompts                 # 默认提示词与合并规则
 ```
 
-CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、64 组冒烟测试与 44 个 Chromium 场景。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。本地浏览器测试配置见[浏览器测试说明](scripts/browser-testing.md)。
+CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、64 组冒烟测试与 45 个 Chromium 场景。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。本地浏览器测试配置见[浏览器测试说明](scripts/browser-testing.md)。
 
 ### 首次使用
 1. 点击右上角「API配置」，选择服务商并填入 API 地址与密钥（可选：同步模型列表、配置代理前缀）

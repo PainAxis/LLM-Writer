@@ -80,6 +80,7 @@
     "test:browser-extensions": "node scripts/browser-extension-regression.mjs",
     "test:extensions-live": "node --import tsx scripts/live-extension-generation.ts",
     "test:jina-live": "node --import tsx scripts/live-jina-writing.ts",
+    "test:humanizer-live": "node --import tsx scripts/live-humanizer-writing.ts",
     "smoke:jina-writing-evidence": "node --import tsx scripts/smoke-jina-writing-evidence.ts"
   },
   "dependencies": {
