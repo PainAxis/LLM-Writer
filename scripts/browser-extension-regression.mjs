@@ -211,11 +211,14 @@ try {
     assert.equal(sourceParts.length, 3, 'The pinned upstream fixture has one frontmatter block')
     const instructions = sourceParts[2].trim()
     const skillId = 'imported:humanizer-zh'
+    const assistantName = '第三方中文润色助手'
     const readSettings = () => page.evaluate(() => JSON.parse(localStorage.getItem('extensions')))
     const readSkill = async () => (await readSettings()).importedSkills.find(skill => skill.id === skillId)
     const systemText = body => body.messages.filter(message => message.role === 'system').map(message => message.content).join('\n')
     const assertNoTools = body => assert.deepEqual(body.tools || [], [], 'Skill metadata must not grant Read, Write, Edit, or AskUserQuestion')
     async function captureReply(prompt) {
+      await expect(page.locator('.chat-name')).toHaveText(assistantName)
+      await expect(page.locator('.context-meter')).toContainText('/ 32.0K')
       const before = fixture.captured.length
       await send(prompt)
       await expect.poll(() => fixture.captured.length).toBe(before + 1)
@@ -240,7 +243,7 @@ try {
     await go('assistants')
     await page.getByRole('button', { name: '新建', exact: true }).click()
     const assistant = page.getByRole('dialog', { name: '新建助手', exact: true })
-    await assistant.getByPlaceholder('例如：情节构思助手').fill('第三方中文润色助手')
+    await assistant.getByPlaceholder('例如：情节构思助手').fill(assistantName)
     // The full upstream Chinese instructions need more than the default 8k token budget.
     await assistant.locator('.el-radio').filter({ hasText: '自定义' }).click()
     await assistant.getByRole('spinbutton', { name: 'Token 预算', exact: true }).fill('32000')
@@ -270,6 +273,8 @@ try {
     await expect(extensions).toContainText('humanizer-zh')
     await expect.poll(readSkill).toEqual(imported)
     assert.deepEqual((await readSettings()).selectedSkillIds, [skillId])
+    // A fresh page selects the first assistant; reopen this saved 32k-budget conversation.
+    await page.locator('.assistant-item').filter({ hasText: assistantName }).click()
     const reloaded = await captureReply('再次润色这句话：团队只完成了原型，尚未开始正式部署。')
     assert.ok(systemText(reloaded).includes(JSON.stringify(instructions)))
     assertNoTools(reloaded)
@@ -282,6 +287,7 @@ try {
 
     // Deselection and the master switch independently remove instructions from the next request.
     await go('assistants')
+    await page.locator('.assistant-item').filter({ hasText: assistantName }).click()
     await skillsSelect.locator('.el-select__wrapper').click()
     await page.getByRole('option', { name: /humanizer-zh/ }).click()
     await page.locator('.chat-title').click()
