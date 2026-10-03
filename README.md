@@ -19,6 +19,8 @@
 
 ## 🚀 Features
 
+- **Memory retrieval prototype**: local Orama keyword and author-marked clue retrieval, chapter revision checks, disclosure cutoffs, and source evidence. Open **记忆检索 · 原型** in the sidebar; see [scope and walkthrough](docs/memory-prototype.md).
+
 ### Writing Workbench
 - **Novel management**: template-based project creation, metadata, three-state chapters (draft / done / published), covers, import & export; chapter edits keep visible-text totals consistent with previews and exports
 - **AI writing assistant**: smart continuation (200-5000 chars), content polishing (grammar / style / emotion / logic), all-material generation, streaming output, interrupt anytime
@@ -109,7 +111,7 @@ npm run smoke:eventline               # Chapter-number migration and compatibili
 npm run smoke:prompts                 # Default prompts and merge rules
 ```
 
-CI is configured to run strict lint, the production build, 64 smoke suites and 45 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 65 smoke suites and 53 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

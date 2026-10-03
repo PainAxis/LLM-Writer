@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Add an isolated Memory Lab prototype with Orama keyword/author-clue retrieval in a Web Worker, content-derived chapter revisions, pre-ranking disclosure filters and exact source evidence. Include an editable 80-chapter private demo and read-only retrieval of committed novels; no AI API is called and existing generation tools are unchanged.
+- Add memory correctness and million-character synthetic capacity checks, plus eight built-app Chromium acceptance scenarios. Configured CI coverage is 65 smoke suites and 53 browser scenarios; see [prototype scope and walkthrough](docs/memory-prototype.md).
+
 - Add opt-in assistant writing extensions with six project-scoped read-only tools, remote Streamable HTTP MCP connections and explicit tool allowlists.
 - Add four built-in Agent Skills and validated `SKILL.md`/folder imports, with selected instructions and on-demand references.
 - Preserve tool execution status on failure/cancellation, reserve schema budgets before context fitting, and record reported usage across model steps. Extension settings and imported Skills participate in backups; MCP session tokens do not.
