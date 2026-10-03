@@ -74,6 +74,11 @@
           <template #title>思维导图</template>
         </el-menu-item>
 
+        <el-menu-item index="/memory">
+          <el-icon><Search /></el-icon>
+          <template #title>记忆检索 · 原型</template>
+        </el-menu-item>
+
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
           <template #title>系统设置</template>
@@ -196,7 +201,7 @@ import { useApiConfig } from '@/services/apiConfig'
 import { FALLBACK_MODELS } from '@/services/aiProviders'
 import {
   House, Document, ChatLineSquare, ChatDotRound, Collection, Notebook, Aim,
-  CreditCard, Setting, Key, Tools, EditPen, DataAnalysis, Share,
+  CreditCard, Setting, Key, Tools, EditPen, DataAnalysis, Share, Search,
   Expand, Fold, Bell, Sunny, Moon, Monitor
 } from '@element-plus/icons-vue'
 import { useTheme } from '@/composables/useTheme'
@@ -261,6 +266,7 @@ const pageTitle = computed(() => {
     '/tools': '工具库',
     '/short-story': '短文写作',
     '/book-analysis': '拆书工具',
+    '/memory': '记忆检索原型',
     '/settings': '系统设置'
   }
   return titleMap[route.path] || '首页'

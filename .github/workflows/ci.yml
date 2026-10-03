@@ -47,6 +47,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - run: npm run test:browser-memory
       - run: npm run test:browser-extensions
       - run: npm run test:browser
       - name: Upload browser evidence
@@ -57,5 +58,6 @@ jobs:
           path: |
             artifacts/browser
             artifacts/browser-extensions
+            artifacts/browser-memory
           if-no-files-found: warn
           retention-days: 7
