@@ -9,10 +9,6 @@ const endpoint = 'https://mcp.jina.ai/v1?include_tools=search_web,read_url&max_t
 // Deliberately invalid. Discovery is public; this exercises Authorization CORS
 // without loading, transmitting, or retaining a production credential.
 const syntheticToken = 'synthetic-jina-browser-discovery-not-a-real-api-key'
-const allowedMethods = new Set([
-  'server/discover', 'initialize', 'notifications/initialized', 'tools/list',
-  'resources/list', 'prompts/list',
-])
 const report = {
   status: 'running',
   phase: 'vite-start',
@@ -53,6 +49,7 @@ try {
       configureServer(vite) {
         vite.middlewares.use('/__jina_discovery', (_request, response) => {
           response.setHeader('Content-Type', 'text/html; charset=utf-8')
+          response.setHeader('Content-Security-Policy', "connect-src 'self' https://mcp.jina.ai")
           response.end('<!doctype html><html><head><title>Jina discovery validation</title></head><body>Public MCP discovery validation</body></html>')
         })
       },
@@ -67,6 +64,15 @@ try {
   browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({ serviceWorkers: 'block' })
   const page = await context.newPage()
+  // Do not use page/context.route: Playwright fulfills intercepted OPTIONS
+  // preflights itself, which would hide the server's actual CORS policy.
+  // Request events below only observe native browser network activity.
+  page.on('request', request => {
+    if (request.url() !== endpoint) return
+    if (request.headers().authorization === `Bearer ${syntheticToken}`) report.authorizationRequests++
+    if (rpcMethod(request) === 'server/discover') report.modernDiscoveryAttempts++
+    if (rpcMethod(request) === 'tools/call') report.toolsCalled++
+  })
   page.on('pageerror', () => { report.pageErrors++ })
   page.on('console', message => {
     if (message.type() === 'error' && /CORS/i.test(message.text()) && message.text().includes('mcp.jina.ai')) {
@@ -87,31 +93,34 @@ try {
       report.successfulAuthorizedDiscoveryRequests++
     }
   })
-  await context.route('**/*', async route => {
-    const request = route.request()
-    const url = new URL(request.url())
-    if (url.origin === origin) return route.continue()
-    if (request.url() !== endpoint) {
-      report.blockedRequests++
-      return route.abort('blockedbyclient')
-    }
-    const method = rpcMethod(request)
-    if (method === 'tools/call') report.toolsCalled++
-    if ((request.method() === 'POST' && !allowedMethods.has(method)) ||
-        !['POST', 'GET', 'DELETE', 'OPTIONS'].includes(request.method())) {
-      report.blockedRequests++
-      return route.abort('blockedbyclient')
-    }
-    if (request.headers().authorization === `Bearer ${syntheticToken}`) report.authorizationRequests++
-    if (method === 'server/discover') report.modernDiscoveryAttempts++
-    // Preserve browser request headers and native cross-origin enforcement.
-    return route.continue()
-  })
-
   report.phase = 'browser-discovery'
   await page.goto(`${origin}/__jina_discovery`)
   const result = await page.evaluate(async ({ url, bearerToken }) => {
     const { connectRemoteMcp, namespacedMcpToolName } = await import('/src/services/mcp.ts')
+    const originalFetch = globalThis.fetch
+    const allowedMethods = new Set([
+      'server/discover', 'initialize', 'notifications/initialized', 'tools/list',
+      'resources/list', 'prompts/list',
+    ])
+    const guard = { blockedRequests: 0, toolCallAttempts: 0 }
+    globalThis.fetch = async (input, init) => {
+      const target = new URL(input instanceof Request ? input.url : String(input), location.href)
+      const method = String(init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase()
+      let allowed = target.href === url && ['POST', 'GET', 'DELETE', 'OPTIONS'].includes(method)
+      if (method === 'POST') {
+        let body
+        try { body = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined } catch { /* blocked below */ }
+        if (body?.method === 'tools/call') guard.toolCallAttempts++
+        allowed = allowed && body && !Array.isArray(body) && allowedMethods.has(body.method)
+      }
+      if (!allowed) {
+        guard.blockedRequests++
+        throw new Error('Public discovery guard blocked an unexpected request')
+      }
+      // No header/body rewriting, synthetic response, or transport proxy:
+      // Chromium must execute the real preflight against Jina's own policy.
+      return originalFetch(input, init)
+    }
     let connection
     try {
       connection = await connectRemoteMcp({
@@ -124,18 +133,23 @@ try {
         authorizedTools: Object.keys(connection.tools).sort(),
         expectedAuthorizedTools: ['search_web', 'read_url'].map(name => namespacedMcpToolName('jina-browser', name)).sort(),
         truncated: connection.discovery.truncated,
+        guard,
       }
     } finally {
       await connection?.close()
+      globalThis.fetch = originalFetch
     }
   }, { url: endpoint, bearerToken: syntheticToken })
 
   report.phase = 'assertions'
+  report.blockedRequests = result.guard.blockedRequests
+  report.toolCallAttempts = result.guard.toolCallAttempts
   assert.deepEqual(result.discoveredTools, ['read_url', 'search_web'], 'Discover exactly the two requested public tools')
   assert.deepEqual(result.authorizedTools, result.expectedAuthorizedTools, 'Expose exactly the explicitly authorized tools')
   assert.match(result.protocolVersion, /^\d{4}-\d{2}-\d{2}$/, 'Negotiate an explicit MCP protocol version')
   assert.equal(result.truncated, false, 'Filtered discovery must fit the application budget')
   assert.equal(report.toolsCalled, 0, 'Do not attempt any remote tool execution')
+  assert.equal(report.toolCallAttempts, 0, 'Do not request any remote tool execution')
   assert.equal(report.blockedRequests, 0, 'Do not attempt unexpected network operations')
   assert.ok(report.authorizationRequests > 0, 'Exercise the Authorization request header')
   assert.ok(report.successfulAuthorizedDiscoveryRequests > 0, 'Read tool discovery successfully with Authorization present')
