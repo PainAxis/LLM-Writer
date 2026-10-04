@@ -459,8 +459,9 @@ function invalidateExternalSource() {
   stats.value = null
   busy.value = false
   sourceRefreshNeeded.value = true
-  client?.dispose()
-  client = undefined
+  // Keep only the worker's completed baseline. A fresh persisted-source sync
+  // is still required before any search can expose evidence again.
+  client?.invalidateSource()
 }
 
 function onStorage(event: StorageEvent) {

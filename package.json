@@ -92,7 +92,9 @@
     "test:memory-stress-hybrid": "node --expose-gc --import tsx scripts/stress-memory-hybrid.ts",
     "test:browser-memory-stress": "node --import tsx scripts/browser-memory-stress.mjs",
     "test:memory-stress-live": "node --import tsx scripts/stress-memory-jina.ts",
-    "test:memory-corpus-fetch": "node --import tsx scripts/fetch-memory-corpus.mjs"
+    "test:memory-corpus-fetch": "node --import tsx scripts/fetch-memory-corpus.mjs",
+    "smoke:memory-client": "node --import tsx scripts/smoke-memory-client.ts",
+    "smoke:memory-incremental": "node --import tsx scripts/smoke-memory-incremental.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

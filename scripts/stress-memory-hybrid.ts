@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { createServer } from 'node:http'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -15,6 +16,7 @@ assert.ok(Number.isFinite(BATCH_DELAY_MS) && BATCH_DELAY_MS >= 0 && BATCH_DELAY_
 
 interface Body { input?: string[]; task?: string; dimensions?: number; documents?: string[]; query?: string }
 interface RequestLog {
+  actionId: string
   kind: 'passage' | 'query' | 'rerank'
   items: number
   requestBytes: number
@@ -27,6 +29,7 @@ type Fault = '429' | '500' | 'dimensions' | 'truncated-json' | 'rerank-index' | 
 interface FaultPlan { kind: RequestLog['kind']; nth: number; fault: Fault; entered?: () => void; release?: Promise<void> }
 interface Measurement {
   name: string
+  actionId: string
   syncMs: number
   searchMs: number
   totalMs: number
@@ -38,6 +41,7 @@ interface Measurement {
   requestBytes: number
   responseBytes: number
   diagnostics: MemorySearchResult['diagnostics']
+  sync: MemoryIndexStats['sync']
 }
 
 const logs: RequestLog[] = []
@@ -45,14 +49,22 @@ const violations: string[] = []
 const measurements: Measurement[] = []
 const checks: Array<{ name: string; details: Record<string, unknown> }> = []
 let faultPlan: FaultPlan | undefined
-let faultSeen = 0
 let latency = 0
 let maximumHeap = 0
 let maximumRss = 0
 let corpusManifest: Record<string, unknown> | undefined
-let scope: { project: MemoryProjectInput; cutoff: number } | undefined
-let guardProject: MemoryProjectInput | undefined
-const sourceLocations = new Map<string, number[]>()
+interface ActionScope {
+  project: MemoryProjectInput
+  cutoff: number
+  sourceLocations: Map<string, number[]>
+  faultPlan?: FaultPlan
+  faultSeen: number
+  latency: number
+}
+const actionContext = new AsyncLocalStorage<string>()
+const actionScopes = new Map<string, ActionScope>()
+const sourceSnapshots = new Map<string, Pick<ActionScope, 'project' | 'sourceLocations'>>()
+let actionSequence = 0
 
 function sampleMemory() {
   const memory = process.memoryUsage()
@@ -61,23 +73,32 @@ function sampleMemory() {
   return { heapMiB: memory.heapUsed / 1024 ** 2, rssMiB: memory.rss / 1024 ** 2 }
 }
 
-function setScope(project: MemoryProjectInput, cutoff: number) {
-  if (guardProject !== project) sourceLocations.clear()
-  guardProject = project
-  scope = { project, cutoff }
+function setScope(actionId: string, project: MemoryProjectInput, cutoff: number, fingerprint: string) {
+  const source = sourceSnapshots.get(fingerprint) ?? { project, sourceLocations: new Map<string, number[]>() }
+  // The engine fingerprint is only a lookup hint for this independent oracle.
+  // A production fingerprint bug must not let old text validate a new request.
+  assert.equal(source.project.id, project.id)
+  assert.equal(source.project.chapters.length, project.chapters.length)
+  for (const [position, chapter] of project.chapters.entries()) {
+    const canonical = source.project.chapters[position]!
+    assert.equal(canonical.id, chapter.id, 'A shared oracle snapshot must preserve exact chapter identity and order')
+    assert.equal(canonical.title, chapter.title)
+    assert.equal(canonical.text, chapter.text, 'A shared oracle snapshot must equal the independently supplied complete chapter text')
+  }
+  sourceSnapshots.set(fingerprint, source)
+  actionScopes.set(actionId, { ...source, cutoff, faultPlan, faultSeen: 0, latency })
 }
 
-function assertPayload(texts: string[]) {
-  assert.ok(scope, 'every outbound document must belong to an active disclosure scope')
+function assertPayload(texts: string[], scope: ActionScope) {
   const chapterIds = new Set<string>()
   for (const text of texts) {
-    let locations = sourceLocations.get(text)
+    let locations = scope.sourceLocations.get(text)
     if (!locations) {
       locations = scope.project.chapters.flatMap((chapter, i) => chapter.text.includes(text) ? [i + 1] : [])
-      sourceLocations.set(text, locations)
+      scope.sourceLocations.set(text, locations)
     }
-    assert.ok(locations.some(ordinal => ordinal <= scope!.cutoff), 'outbound document must be an exact quote from a currently disclosed chapter')
-    locations.filter(ordinal => ordinal <= scope!.cutoff).forEach(ordinal => chapterIds.add(scope!.project.chapters[ordinal - 1]!.id))
+    assert.ok(locations.some(ordinal => ordinal <= scope.cutoff), 'outbound document must be an exact quote from the disclosed snapshot that authorized its request')
+    locations.filter(ordinal => ordinal <= scope.cutoff).forEach(ordinal => chapterIds.add(scope.project.chapters[ordinal - 1]!.id))
   }
   return [...chapterIds]
 }
@@ -115,18 +136,22 @@ const server = createServer(async (request, response) => {
     const inputs = body.documents ?? body.input!
     assert.ok(Array.isArray(inputs) && inputs.every(text => typeof text === 'string'))
     assert.ok(inputs.length <= (kind === 'rerank' ? 60 : 32), 'production request batch limit')
-    const sourceChapterIds = kind !== 'query' ? assertPayload(inputs) : []
+    const actionId = request.headers['x-memory-stress-action']
+    assert.equal(typeof actionId, 'string', 'Every actual HTTP request must identify the action that issued it')
+    const requestScope = actionScopes.get(actionId as string)
+    assert.ok(requestScope, 'Every outbound document must belong to its own recorded disclosure scope')
+    const sourceChapterIds = kind !== 'query' ? assertPayload(inputs, requestScope) : []
     if (kind !== 'rerank') assert.equal(body.dimensions, DIMENSIONS)
-    item = { kind, items: inputs.length, requestBytes: raw.byteLength, responseBytes: 0, completed: false, sourceChapterIds }
+    item = { actionId: actionId as string, kind, items: inputs.length, requestBytes: raw.byteLength, responseBytes: 0, completed: false, sourceChapterIds }
     logs.push(item)
     let injected: FaultPlan | undefined
-    if (faultPlan && kind === faultPlan.kind && ++faultSeen === faultPlan.nth) injected = faultPlan
+    if (requestScope.faultPlan && kind === requestScope.faultPlan.kind && ++requestScope.faultSeen === requestScope.faultPlan.nth) injected = requestScope.faultPlan
     if (injected) {
       item.fault = injected.fault
       injected.entered?.()
       if (injected.fault === 'hold') await injected.release
     }
-    if (latency) await delay(latency)
+    if (requestScope.latency) await delay(requestScope.latency)
     if (response.destroyed) return
     let payload: string
     if (injected?.fault === '429' || injected?.fault === '500') {
@@ -156,13 +181,24 @@ await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
 const address = server.address()
 assert.ok(address && typeof address !== 'string')
 const origin = `http://127.0.0.1:${address.port}`
+const nativeFetch = globalThis.fetch
+// Correlate at transport invocation, before an aborted request can arrive late at
+// the server. This adds only a fixture-local header; native fetch still does HTTP.
+globalThis.fetch = (input, init) => {
+  const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url)
+  assert.equal(url.origin, origin, 'The engineering suite may only call its loopback fixture')
+  const actionId = actionContext.getStore()
+  assert.ok(actionId && actionScopes.has(actionId), 'HTTP calls require a source-bound action context')
+  const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined))
+  headers.set('x-memory-stress-action', actionId)
+  return nativeFetch(input, { ...init, headers })
+}
 const options: MemoryRemoteOptions = {
   embedding: { protocol: 'jina', endpoint: `${origin}/v1/embeddings`, model: 'engineering-feature-hash-512', apiKey: 'local-synthetic-test-only', dimensions: DIMENSIONS },
   rerank: { endpoint: `${origin}/v1/rerank`, model: 'engineering-bigram-overlap', apiKey: 'local-synthetic-test-only' },
 }
 
 function injected(fault: Fault, nth = 1, kind: RequestLog['kind'] = 'passage') {
-  faultSeen = 0
   faultPlan = { fault, nth, kind }
 }
 
@@ -185,26 +221,30 @@ function verifyResult(result: MemorySearchResult, project: MemoryProjectInput, s
 }
 
 async function run(index: MemoryIndex, project: MemoryProjectInput, cutoff: number, text: string, name: string, remote = options) {
-  const started = performance.now()
-  const fromRequest = logs.length
-  // Mirror MemoryLab's fresh-read/sync-before-search lifecycle, including clone and validation cost.
-  const freshSnapshot = structuredClone(project)
-  const stats = await index.sync(freshSnapshot)
-  const syncMs = performance.now() - started
-  setScope(project, cutoff)
-  const searched = performance.now()
-  const result = await index.search({ text, throughChapterId: project.chapters[cutoff - 1]!.id, limit: 12 }, remote)
-  const searchMs = performance.now() - searched
-  verifyResult(result, project, stats, cutoff)
-  const currentRequests = logs.slice(fromRequest)
-  if (result.diagnostics.semantic === 'used') {
-    assert.equal(currentRequests.filter(request => request.kind === 'passage' && request.completed && !request.fault).reduce((sum, request) => sum + request.items, 0), result.diagnostics.embeddedPassages, 'claimed embeddings must match completed valid HTTP response items')
-  }
-  measurements.push({ name, syncMs, searchMs, totalMs: performance.now() - started,
-    chars: stats.chars, passages: stats.chunks, ...sampleMemory(), requests: currentRequests.length,
-    requestBytes: currentRequests.reduce((sum, request) => sum + request.requestBytes, 0),
-    responseBytes: currentRequests.reduce((sum, request) => sum + request.responseBytes, 0), diagnostics: result.diagnostics })
-  return { result, stats, requests: currentRequests }
+  const actionId = `${++actionSequence}:${name}`
+  return actionContext.run(actionId, async () => {
+    const started = performance.now()
+    // Mirror MemoryLab's fresh-read/sync-before-search lifecycle, including clone and validation cost.
+    const freshSnapshot = structuredClone(project)
+    const stats = await index.sync(freshSnapshot)
+    const syncMs = performance.now() - started
+    setScope(actionId, freshSnapshot, cutoff, stats.fingerprint)
+    const searched = performance.now()
+    const result = await index.search({ text, throughChapterId: project.chapters[cutoff - 1]!.id, limit: 12 }, remote)
+    const searchMs = performance.now() - searched
+    verifyResult(result, project, stats, cutoff)
+    // A cancelled prior request can reach the server after this action starts.
+    // Log-array offsets would wrongly count that old batch toward the new result.
+    const currentRequests = logs.filter(request => request.actionId === actionId)
+    if (result.diagnostics.semantic === 'used') {
+      assert.equal(currentRequests.filter(request => request.kind === 'passage' && request.completed && !request.fault).reduce((sum, request) => sum + request.items, 0), result.diagnostics.embeddedPassages, 'claimed embeddings must match completed valid HTTP response items')
+    }
+    measurements.push({ name, actionId, syncMs, searchMs, totalMs: performance.now() - started,
+      chars: stats.chars, passages: stats.chunks, ...sampleMemory(), requests: currentRequests.length,
+      requestBytes: currentRequests.reduce((sum, request) => sum + request.requestBytes, 0),
+      responseBytes: currentRequests.reduce((sum, request) => sum + request.responseBytes, 0), diagnostics: result.diagnostics, sync: stats.sync })
+    return { result, stats, requests: currentRequests }
+  })
 }
 
 function hybrid(result: MemorySearchResult) {
@@ -213,6 +253,17 @@ function hybrid(result: MemorySearchResult) {
   assert.equal(result.diagnostics.rerank, 'used')
   assert.ok(result.diagnostics.rerankedCandidates > 0)
   assert.equal(result.diagnostics.cachedPassages + result.diagnostics.embeddedPassages, result.diagnostics.eligiblePassages)
+}
+
+function syncWork(stats: MemoryIndexStats, mode: MemoryIndexStats['sync']['mode'], rebuiltChapters: number) {
+  assert.equal(stats.sync.mode, mode)
+  assert.equal(stats.sync.rebuiltChapters, rebuiltChapters)
+  assert.equal(stats.sync.reusedChapters, stats.chapters.length - rebuiltChapters)
+  assert.equal(stats.sync.insertedDocuments + stats.sync.reusedDocuments, stats.chunks + stats.clues)
+  if (mode === 'unchanged') {
+    assert.equal(stats.sync.insertedDocuments, 0)
+    assert.equal(stats.sync.removedDocuments, 0)
+  }
 }
 
 function checkpoint(name: string, details: Record<string, unknown> = {}) {
@@ -237,6 +288,7 @@ try {
   latency = BATCH_DELAY_MS
   const cold = await run(index, project, project.chapters.length, probe(), 'cold-full-with-synthetic-latency')
   hybrid(cold.result)
+  syncWork(cold.stats, 'full', 600)
   assert.ok(cold.stats.chars >= 1_300_000)
   assert.ok(cold.stats.chunks > 1000 && cold.stats.chunks <= 2000, `measured semantic scope ${cold.stats.chunks} must fit the production limit`)
   assert.equal(cold.result.diagnostics.embeddedPassages, cold.stats.chunks)
@@ -254,6 +306,7 @@ try {
     const text = target.query
     const query = await run(index, project, cutoff, text, `warm-session-${i + 1}`)
     hybrid(query.result)
+    syncWork(query.stats, 'unchanged', 0)
     assert.equal(query.result.diagnostics.embeddedPassages, 0)
     assert.equal(query.result.diagnostics.cachedPassages, query.result.diagnostics.eligiblePassages)
     assert.equal(query.requests.filter(request => request.kind === 'passage').length, 0)
@@ -286,9 +339,12 @@ try {
   }
   const edited = await run(index, project, 600, fixture.editTargets[0]!.replacementValue, 'twenty-old-chapters-revised')
   hybrid(edited.result)
+  syncWork(edited.stats, 'incremental', 20)
   assert.ok(edited.result.hits.some(hit => hit.quote.includes(fixture.editTargets[0]!.replacementValue)))
   assert.equal(edited.stats.staleClues, 20)
-  assert.ok(edited.result.diagnostics.embeddedPassages >= 40 && edited.result.diagnostics.embeddedPassages <= 80)
+  assert.equal(edited.result.diagnostics.embeddedPassages, 40, 'each of the 20 changed 2200-character chapters has two passages')
+  assert.equal(edited.stats.sync.insertedDocuments, 40)
+  assert.equal(edited.stats.sync.removedDocuments, 60, 'replace 40 passages and remove 20 stale anchored clues')
   assert.equal(edited.result.diagnostics.cachedPassages + edited.result.diagnostics.embeddedPassages, edited.result.diagnostics.eligiblePassages)
   // Captured request counts plus diagnostics prove unchanged spans were not re-embedded.
   const changedChunks = edited.stats.chunks - edited.result.diagnostics.cachedPassages
@@ -298,31 +354,64 @@ try {
   for (const chapterId of editedIds) {
     assert.notEqual(edited.stats.chapters.find(chapter => chapter.id === chapterId)!.revision, cold.stats.chapters.find(chapter => chapter.id === chapterId)!.revision)
   }
-  checkpoint('twenty edited old chapters invalidate source revisions', { editedChapters: 20, reembeddedPassages: changedChunks, reusedPassages: edited.result.diagnostics.cachedPassages, staleClues: edited.stats.staleClues })
+  checkpoint('twenty edited old chapters invalidate source revisions', { editedChapters: 20, reembeddedPassages: changedChunks, reusedPassages: edited.result.diagnostics.cachedPassages, staleClues: edited.stats.staleClues, sync: edited.stats.sync })
   const oldFact = await run(index, project, 600, fixture.editTargets[0]!.oldValue, 'old-fact-after-twenty-edits')
   hybrid(oldFact.result)
   assert.ok(oldFact.result.hits.every(hit => !hit.quote.includes(fixture.editTargets[0]!.oldValue)))
+
+  const repeatedTarget = fixture.editTargets[0]!
+  const alternateValue = repeatedTarget.replacementValue.replace('赤铜封蜡', '碧玉封蜡')
+  let previousValue = repeatedTarget.replacementValue
+  for (let iteration = 1; iteration <= 8; iteration++) {
+    const nextValue = iteration % 2 ? alternateValue : repeatedTarget.replacementValue
+    project = { ...project, chapters: project.chapters.map(chapter => chapter.id === repeatedTarget.chapterId
+      ? { ...chapter, text: chapter.text.replaceAll(previousValue, nextValue) } : chapter) }
+    const updated = await run(index, project, 600, nextValue, `warm-single-chapter-edit-${iteration}`)
+    hybrid(updated.result)
+    syncWork(updated.stats, 'incremental', 1)
+    assert.equal(updated.stats.sync.insertedDocuments, 2)
+    assert.equal(updated.stats.sync.removedDocuments, 2)
+    assert.equal(updated.result.diagnostics.embeddedPassages, 2)
+    assert.equal(updated.result.diagnostics.cachedPassages, 1198)
+    const passageRequests = updated.requests.filter(request => request.kind === 'passage')
+    assert.equal(passageRequests.length, 1)
+    assert.ok(passageRequests.every(request => request.sourceChapterIds.length === 1 && request.sourceChapterIds[0] === repeatedTarget.chapterId))
+    assert.ok(updated.result.hits.some(hit => hit.chapterId === repeatedTarget.chapterId && hit.quote.includes(nextValue)))
+    assert.ok(updated.result.hits.every(hit => !hit.quote.includes(previousValue)), 'a saved chapter must never return its prior revision')
+    previousValue = nextValue
+  }
+  assert.equal(previousValue, repeatedTarget.replacementValue)
+  checkpoint('eight consecutive warm single-chapter edits retain all unrelated vectors and keyword documents', {
+    iterations: 8, reembeddedPassagesPerEdit: 2, reusedPassagesPerEdit: 1198, passageRequestsPerEdit: 1,
+  })
 
   const tail = project.chapters.splice(500, 1)[0]!
   project = { ...project, chapters: [tail, ...project.chapters] }
   const reordered = await run(index, project, 100, tail.text.slice(0, 28), 'reordered-narrative-cutoff')
   hybrid(reordered.result)
+  syncWork(reordered.stats, 'incremental', 0)
+  assert.equal(reordered.stats.sync.insertedDocuments, 0)
+  assert.equal(reordered.stats.sync.removedDocuments, 0)
   assert.equal(reordered.result.diagnostics.embeddedPassages, 0)
   assert.ok(reordered.result.hits.some(hit => hit.chapterId === tail.id && hit.ordinal === 1))
   project = { ...project, chapters: project.chapters.filter((_, i) => i < 590) }
   const deleted = await run(index, project, 590, probe(), 'delete-ten-chapters')
   hybrid(deleted.result)
+  syncWork(deleted.stats, 'incremental', 0)
+  assert.equal(deleted.stats.sync.insertedDocuments, 0)
   assert.equal(deleted.result.diagnostics.embeddedPassages, 0)
   await assert.rejects(index.search({ text: '删除检查', throughChapterId: 'nonexistent-chapter' }, options), /截止章节不存在/)
   const existingIds = new Set(project.chapters.map(chapter => chapter.id))
   const regrown = { ...project, chapters: [...project.chapters, ...beforeEdit.chapters.filter(chapter => !existingIds.has(chapter.id))] }
   const grown = await run(index, regrown, 600, probe(), 'append-ten-chapters')
   hybrid(grown.result)
+  syncWork(grown.stats, 'incremental', 10)
   assert.equal(grown.result.diagnostics.embeddedPassages, cold.stats.chunks - deleted.stats.chunks)
   assert.equal(grown.result.diagnostics.cachedPassages, deleted.stats.chunks)
   const other = { ...project, id: 'stress-hybrid-independent-project' }
   const switched = await run(index, other, 60, probe(), 'same-manuscript-different-project')
   hybrid(switched.result)
+  syncWork(switched.stats, 'full', 590)
   assert.equal(switched.result.diagnostics.cachedPassages, 0)
   assert.equal(switched.result.diagnostics.embeddedPassages, switched.result.diagnostics.eligiblePassages)
   checkpoint('chapter reorder/delete/growth and project isolation', { remainingChapters: project.chapters.length, readdedChapters: 10, readdedPassages: grown.result.diagnostics.embeddedPassages, projectSwitchEmbedded: switched.result.diagnostics.embeddedPassages })
@@ -372,11 +461,12 @@ try {
   const entered = new Promise<void>(resolve => { enter = resolve })
   const held = new Promise<void>(resolve => { release = resolve })
   const cancelledIndex = new MemoryIndex()
-  await cancelledIndex.sync(project)
-  setScope(project, 590)
-  faultSeen = 0
+  const cancelSnapshot = structuredClone(project)
+  const cancelStats = await cancelledIndex.sync(cancelSnapshot)
   faultPlan = { kind: 'passage', nth: 1, fault: 'hold', entered: enter, release: held }
-  const pending = cancelledIndex.search({ text: probe(), throughChapterId: project.chapters[589]!.id }, options)
+  const cancelActionId = `${++actionSequence}:cancelled-source-snapshot`
+  setScope(cancelActionId, cancelSnapshot, 590, cancelStats.fingerprint)
+  const pending = actionContext.run(cancelActionId, () => cancelledIndex.search({ text: probe(), throughChapterId: project.chapters[589]!.id }, options))
   const rejected = assert.rejects(pending, /快照已变化|新的请求/)
   await entered
   await cancelledIndex.sync(beforeEdit)
@@ -421,13 +511,14 @@ try {
   assert.deepEqual(violations, [])
   reportStatus = 'passed'
 } finally {
+  globalThis.fetch = nativeFetch
   server.closeAllConnections()
   await new Promise<void>(resolve => server.close(() => resolve()))
   const warm = measurements.filter(item => item.name.startsWith('warm-session-'))
   const report = {
     status: reportStatus, elapsedMs: performance.now() - started,
     method: 'Production MemoryIndex and provider adapters; real loopback HTTP; deterministic 512-dimensional feature-hash embedding and literal/bigram reranker.',
-    limitations: ['Synthetic mixed Chinese/English prose, not a human-authored production novel.', 'Hash vectors and lexical reranking cannot establish paid-model semantic recall or relevance quality.', 'Node execution excludes browser IndexedDB hydration, Worker messaging and rendering.', 'Warm timings include structuredClone and MemoryIndex.sync source validation before every query; an exactly unchanged source may reuse its keyword index.', 'The overall 65000ms budget control-flow test uses an explicitly accelerated 350ms timer.', 'More than 2000 eligible passages is reported as a capability fallback, never semantic success.'],
+    limitations: ['Synthetic mixed Chinese/English prose, not a human-authored production novel.', 'Hash vectors and lexical reranking cannot establish paid-model semantic recall or relevance quality.', 'Node execution excludes browser IndexedDB hydration, Worker messaging and rendering.', 'Warm timings include structuredClone and MemoryIndex.sync source validation before every query; an exactly unchanged source may reuse its keyword index.', 'Fixture-local HTTP action IDs and retained canonical snapshots instrument request ownership, disclosure and exact response accounting. Their overhead is included here; use the paired engine benchmark for performance comparisons.', 'The overall 65000ms budget control-flow test uses an explicitly accelerated 350ms timer.', 'More than 2000 eligible passages is reported as a capability fallback, never semantic success.'],
     dimensions: DIMENSIONS, corpusManifest, warmQueries: warm.length, checks,
     timingsMs: Object.fromEntries(['syncMs', 'searchMs', 'totalMs'].map(key => [key, {
       p50: percentile(warm.map(item => item[key as 'syncMs']), 0.5),
@@ -435,7 +526,8 @@ try {
       max: Math.max(0, ...warm.map(item => item[key as 'syncMs'])),
     }])),
     memory: { observedPeakHeapMiB: maximumHeap / 1024 ** 2, observedPeakRssMiB: maximumRss / 1024 ** 2, sampling: 'after requests and queries; process-wide, not exact allocation tracing' },
-    http: { requests: logs.length, requestBytes: logs.reduce((sum, item) => sum + item.requestBytes, 0), responseBytes: logs.reduce((sum, item) => sum + item.responseBytes, 0), passagesSubmitted: logs.filter(item => item.kind === 'passage').reduce((sum, item) => sum + item.items, 0), violations },
+    http: { requests: logs.length, requestBytes: logs.reduce((sum, item) => sum + item.requestBytes, 0), responseBytes: logs.reduce((sum, item) => sum + item.responseBytes, 0), passagesSubmitted: logs.filter(item => item.kind === 'passage').reduce((sum, item) => sum + item.items, 0), violations,
+      actionAttribution: 'Fixture-local header assigned at native fetch invocation; late requests retain their issuing snapshot, cutoff, fault plan and latency.', capturedActions: actionScopes.size, canonicalSourceSnapshots: sourceSnapshots.size },
     measurements,
   }
   await mkdir('artifacts/memory-stress', { recursive: true })

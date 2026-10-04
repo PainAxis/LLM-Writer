@@ -42,6 +42,16 @@ export interface MemoryIndexStats {
   staleClues: number
   chars: number
   buildMs: number
+  /** Work performed for this validated sync; documents include passages and accepted clues. */
+  sync: {
+    mode: 'full' | 'incremental' | 'unchanged'
+    rebuiltChapters: number
+    reusedChapters: number
+    insertedDocuments: number
+    /** Documents removed in-place; a discarded full index is not counted. */
+    removedDocuments: number
+    reusedDocuments: number
+  }
 }
 
 export interface MemoryQuery {
@@ -110,6 +120,7 @@ export interface MemorySearchResult {
 }
 
 export type MemoryWorkerRequest =
+  | { id: number; type: 'invalidate' }
   | { id: number; type: 'sync'; project: MemoryProjectInput }
   | { id: number; type: 'search'; query: MemoryQuery; options?: MemoryRemoteOptions }
 

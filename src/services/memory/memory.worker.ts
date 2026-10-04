@@ -10,7 +10,9 @@ const scope = self as unknown as {
 scope.onmessage = async (event) => {
   const request = event.data
   try {
-    if (request.type === 'sync') {
+    if (request.type === 'invalidate') {
+      index.invalidateSource()
+    } else if (request.type === 'sync') {
       scope.postMessage({ id: request.id, ok: true, type: 'sync', result: await index.sync(request.project) })
     } else if (request.type === 'search') {
       scope.postMessage({ id: request.id, ok: true, type: 'search', result: await index.search(request.query, request.options) })

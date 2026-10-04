@@ -4,6 +4,8 @@
 
 These tests extend the [memory prototype](memory-prototype.md) acceptance checks beyond the small demonstration manuscript. They separate local capacity, retrieval correctness, provider failure handling, browser workflows and real-model recall so that passing one does not imply passing all of them.
 
+The recorded results below belong to **PR #30** and retain that revision's full-rebuild and browser cache-loss observations. The current implementation adds [chapter-level incremental indexing and cache retention](memory-incremental-index.md); its repeated-edit and focus-return checks extend the same workloads. Historical measurements are not new-version benchmarks.
+
 ## Workloads and interpretation
 
 | Group | Workload | What it establishes |
@@ -28,11 +30,11 @@ The expanded workload exposed two problems that the small acceptance fixture did
 
 The [ranking comparison](testing/memory-stress-2026-10-04/ranking-before.json) and [corrected results](testing/memory-stress-2026-10-04/ranking-after.json) use the same frozen v1 fixture: 600 chapters, 1,320,000 characters, 1,200 body passages and 300 clues. The final capacity fixture uses a revised random generator with broader template/location coverage; do not compare its timings or quality directly against this v1 ranking experiment. The ranking correction does not imply perfect rank-1 relevance: all 24 tested fact sources remained at rank 2.
 
-The [synchronization comparison](testing/memory-stress-2026-10-04/sync-before.json) and [reuse results](testing/memory-stress-2026-10-04/sync-after.json) measure `structuredClone` plus the production synchronization call over 1,178 public-corpus passages. They exclude browser storage, Worker messages, rendering, retrieval and provider calls. Reuse skips unnecessary tokenization; it does not accelerate the first build or a changed-source rebuild. Three repeated measurements are not a percentile benchmark.
+The [synchronization comparison](testing/memory-stress-2026-10-04/sync-before.json) and [reuse results](testing/memory-stress-2026-10-04/sync-after.json) measure `structuredClone` plus the production synchronization call over 1,178 public-corpus passages. They exclude browser storage, Worker messages, rendering, retrieval and provider calls. The PR #30 reuse change skipped unnecessary tokenization; it did not accelerate the first build or a changed-source rebuild. Three repeated measurements are not a percentile benchmark.
 
 An additional legacy-format boundary remains. When an earlier fixture stored plain text directly, opening Writer and selecting chapter 2 saved the initially selected chapter 1 through wangEditor. Its blank-line conversion added 24 newline characters to that **otherwise unedited chapter**; the textual facts were unchanged. The final fixture uses canonical Writer HTML and checks all 600 visible-source hashes, allowing only the deliberately edited chapter to change. This corrects the test's storage-format assumption; it does not fix or certify whitespace-preserving round trips for legacy plain-text chapters.
 
-## Recorded stress results — 2026-10-04
+## Recorded PR #30 stress results — 2026-10-04
 
 ### Local capacity and editing
 
@@ -50,7 +52,7 @@ The tests also retracted 30 edited chapters' stale facts/clues, hid and revealed
 
 The 3.3-million- and 10.5-million-character sources have 3,000 and 10,000 passages, exceeding the semantic channel's 2,000-passage limit. Their successful results are **local retrieval capacity**, not complete-source embedding/reranking capacity.
 
-These local measurements used Node 24.19.0 on Linux x64, an Intel Xeon Platinum 8573C environment exposing nine logical CPUs and 9.734 GiB total memory, with a 2,240 MiB Node heap limit per profile. Other test work ran in the shared environment. The ten-million-character result exposes a remaining practical cost: **editing still requires roughly a minute of rebuilding and the process reached about 2 GiB RSS**. Successful completion does not make this workload suitable for every desktop or mobile browser.
+These local measurements used Node 24.19.0 on Linux x64, an Intel Xeon Platinum 8573C environment exposing nine logical CPUs and 9.734 GiB total memory, with a 2,240 MiB Node heap limit per profile. Other test work ran in the shared environment. At that revision, the ten-million-character result exposed a practical cost: **editing required roughly a minute of rebuilding and the process reached about 2 GiB RSS**. Successful completion does not make this workload suitable for every desktop or mobile browser.
 
 ### Controlled HTTP hybrid workload
 
@@ -88,7 +90,7 @@ The 56-query distribution combines local, cold/warm hybrid, post-edit rebuild an
 
 The scenarios checked 24 cross-volume queries, a distant planted passage, 12 future-identity boundaries, real Writer editing in a second tab, cancellation, reload and source evidence. All 600 chapter texts were independently verified after saving; the 599 unedited chapters remained exactly unchanged. Indexed text stayed at 1,559,999 characters. Stored HTML changed from 1,670,912 to 1,670,814 code units through editor serialization, so its size is not used as a substitute for visible-text integrity. There were no uncaught browser errors or future-identity markers in provider payloads.
 
-The browser run also confirmed the cache-lifecycle limitation: **returning from Writer re-embedded all 1,200 eligible passages in 38 batches**, not just the changed chapter. The same count was submitted again after the explicit cache clear and cancellation recovery. These local-provider results establish the actual UI behavior; they do not measure paid-model latency or browser CORS against Jina.
+The PR #30 browser run also confirmed its cache-lifecycle limitation: **returning from Writer re-embedded all 1,200 eligible passages in 38 batches**, not just the changed chapter. The same count was submitted again after the explicit cache clear and cancellation recovery. These local-provider results establish the actual UI behavior; they do not measure paid-model latency or browser CORS against Jina.
 
 ### Real Jina over the complete public-domain anthology
 
@@ -119,7 +121,7 @@ npx playwright install chromium
 npm run test:browser-memory-stress
 ```
 
-The `ci-memory-stress` job runs local capacity and controlled-provider workloads; the separate `ci-memory-browser-stress` job runs the built-app Chromium workload in parallel. Existing smoke tests and shorter browser regressions remain separate; the stress scripts are not counted as additional smoke suites.
+The `ci-memory-stress` job runs local capacity and controlled-provider workloads; the separate `ci-memory-browser-stress` job runs the built-app Chromium workload in parallel. Existing smoke tests and shorter browser regressions remain separate; the stress scripts are not counted as additional smoke suites. The current local workload adds repeated single-chapter saves, the hybrid workload checks incremental vector reuse through those saves, and the browser workload checks unchanged-focus reuse plus partial re-embedding after a real Writer edit. See the [incremental acceptance rules](memory-incremental-index.md#validation).
 
 For the optional paid-service run:
 
@@ -147,7 +149,7 @@ Passing a retrieval test requires the expected source and current provenance. A 
 
 Reports retain corpus dimensions, operation counts, success/failure details, latency distributions, memory observations and the runtime environment. They contain no API credentials or private manuscripts. Query lists and expected sources are defined before a real-service run; misses remain in the report rather than being removed from the denominator.
 
-Engine search time measures the retrieval call. A browser search action also reads committed chapter text, synchronizes the keyword index, crosses the Worker boundary and renders the result; its latency is not comparable to an engine-only query. Synchronization reuses a completely unchanged validated snapshot but rebuilds on source changes. The hybrid stress runner likewise includes a fresh source clone and synchronization in each whole-action measurement. Cold embedding includes source-vector creation. Warm queries reuse the eligible source vectors but still embed the query and, if enabled, rerank candidates.
+Engine search time measures the retrieval call. A browser search action also reads committed chapter text, synchronizes the keyword index, crosses the Worker boundary and renders the result; its latency is not comparable to an engine-only query. Synchronization reuses a completely unchanged validated snapshot and can update affected chapters incrementally. Report its synchronization mode and document-work counters alongside timing; compaction or recovery can require a full build. The hybrid stress runner likewise includes a fresh source clone and synchronization in each whole-action measurement. Cold embedding includes source-vector creation. Warm queries reuse the eligible source vectors but still embed the query and, if enabled, rerank candidates.
 
 Use p50/p95 with the reported sample count. One run on one machine is evidence of that run, not a performance service-level guarantee. Node process RSS includes the runtime, fixture and other objects, and is not the index's isolated memory cost. Browser heap observations have a different scope and must not be compared directly with RSS.
 
@@ -155,10 +157,10 @@ Use p50/p95 with the reported sample count. One run on one machine is evidence o
 
 These tests exercise the existing limits rather than silently raising them:
 
-- Each prototype search rereads and validates the committed source. The keyword index can be reused only when the complete validated source is unchanged; well-formed stale clues retain their exclusion, and malformed clue data does not use this shortcut. Any source change still triggers a full rebuild; chapter-level incremental indexing and persisted index snapshots remain unimplemented.
+- Each prototype search rereads and validates the complete committed source. Chapter-level incremental indexing reduces changed-source index work, but does not remove full-source reading, cloning or validation. First builds, project changes, interrupted mutations and periodic compaction can still require a full index build. Persisted index snapshots remain unimplemented; see [incremental boundaries](memory-incremental-index.md).
 - Semantic retrieval accepts at most **2,000 eligible passages**, with sequential batches of **32**. A larger source explicitly falls back to local retrieval; it does not embed only an undisclosed subset.
 - Each provider request has a **15-second** timeout and all remote work for one search shares a **65-second** budget. A slow cold build can exhaust that budget while a warm query succeeds. Record the actual stages and fallback reason in both cases.
-- The vector cache is bounded by **2,000 entries / 32 MiB** and is lost when the route lifecycle ends. For actual novels, window focus or novel-storage invalidation currently disposes the Worker too, so returning from Writer can require a full cold embedding pass. Engine-only partial-vector reuse does not establish cache retention across that browser workflow. It is not durable background indexing.
+- The vector cache is bounded by **2,000 entries / 32 MiB** and is lost when the route lifecycle ends. Window focus or novel-storage invalidation retains the Worker baseline but immediately hides old evidence and requires fresh committed-source synchronization. Explicit cancellation, provider changes, cache clearing and project switches still discard the caches. It is not durable background indexing.
 - A chapter's title and entire body determine its revision. Editing one sentence changes the cache scope for all chunks in that chapter, even if other chunks' text is unchanged.
 - Reranking sees at most **60** fused candidates. It cannot recover a relevant passage absent from those candidates.
 - Existing generation tools and prompts do not yet use this prototype. Retrieval tests therefore do not demonstrate long-form generation consistency, automatic foreshadowing detection, summarization quality or a fact relationship graph.

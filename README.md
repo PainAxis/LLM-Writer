@@ -19,7 +19,7 @@
 
 ## 🚀 Features
 
-- **Memory retrieval prototype**: Orama keyword and author-marked clue retrieval, optional semantic embeddings and reranking, chapter revision checks, disclosure cutoffs before external requests, and source evidence. External services are off by default; their settings and keys stay in the page session. Open **记忆检索 · 原型** in the sidebar; see [scope and walkthrough](docs/memory-prototype.md).
+- **Memory retrieval prototype**: Orama keyword and author-marked clue retrieval, optional semantic embeddings and reranking, chapter revision checks, disclosure cutoffs before external requests, and source evidence. Changed chapters update incrementally; returning from a Writer tab can reuse compatible cached vectors after fresh source validation. External services are off by default; their settings and keys stay in the page session. Open **记忆检索 · 原型** in the sidebar; see [scope and walkthrough](docs/memory-prototype.md).
 
 ### Writing Workbench
 - **Novel management**: template-based project creation, metadata, three-state chapters (draft / done / published), covers, import & export; chapter edits keep visible-text totals consistent with previews and exports
@@ -110,11 +110,13 @@ npm run smoke:mindmap                 # Mind-map branches, mounting and truncati
 npm run smoke:eventline               # Chapter-number migration and compatibility
 npm run smoke:prompts                 # Default prompts and merge rules
 npm run smoke:memory                  # Local memory, revisions, disclosure and capacity
+npm run smoke:memory-incremental      # Changed chapters, index reuse and recovery
+npm run smoke:memory-client           # Worker invalidation and cache lifecycle
 npm run smoke:memory-providers        # Embedding/reranking wire formats and response validation
 npm run smoke:memory-hybrid           # Hybrid retrieval, cache, fallback and stale results
 ```
 
-CI is configured to run strict lint, the production build, 67 smoke suites and 71 Chromium scenarios (63 existing plus eight long-novel stress scenarios) on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 69 smoke suites and 74 Chromium scenarios (65 shorter scenarios plus nine long-novel stress scenarios) on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [incremental indexing and cache lifecycle](docs/memory-incremental-index.md), [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)
