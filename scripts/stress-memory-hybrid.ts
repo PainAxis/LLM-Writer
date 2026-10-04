@@ -38,6 +38,7 @@ interface Measurement {
   requestBytes: number
   responseBytes: number
   diagnostics: MemorySearchResult['diagnostics']
+  sync: MemoryIndexStats['sync']
 }
 
 const logs: RequestLog[] = []
@@ -203,7 +204,7 @@ async function run(index: MemoryIndex, project: MemoryProjectInput, cutoff: numb
   measurements.push({ name, syncMs, searchMs, totalMs: performance.now() - started,
     chars: stats.chars, passages: stats.chunks, ...sampleMemory(), requests: currentRequests.length,
     requestBytes: currentRequests.reduce((sum, request) => sum + request.requestBytes, 0),
-    responseBytes: currentRequests.reduce((sum, request) => sum + request.responseBytes, 0), diagnostics: result.diagnostics })
+    responseBytes: currentRequests.reduce((sum, request) => sum + request.responseBytes, 0), diagnostics: result.diagnostics, sync: stats.sync })
   return { result, stats, requests: currentRequests }
 }
 
@@ -213,6 +214,17 @@ function hybrid(result: MemorySearchResult) {
   assert.equal(result.diagnostics.rerank, 'used')
   assert.ok(result.diagnostics.rerankedCandidates > 0)
   assert.equal(result.diagnostics.cachedPassages + result.diagnostics.embeddedPassages, result.diagnostics.eligiblePassages)
+}
+
+function syncWork(stats: MemoryIndexStats, mode: MemoryIndexStats['sync']['mode'], rebuiltChapters: number) {
+  assert.equal(stats.sync.mode, mode)
+  assert.equal(stats.sync.rebuiltChapters, rebuiltChapters)
+  assert.equal(stats.sync.reusedChapters, stats.chapters.length - rebuiltChapters)
+  assert.equal(stats.sync.insertedDocuments + stats.sync.reusedDocuments, stats.chunks + stats.clues)
+  if (mode === 'unchanged') {
+    assert.equal(stats.sync.insertedDocuments, 0)
+    assert.equal(stats.sync.removedDocuments, 0)
+  }
 }
 
 function checkpoint(name: string, details: Record<string, unknown> = {}) {
@@ -237,6 +249,7 @@ try {
   latency = BATCH_DELAY_MS
   const cold = await run(index, project, project.chapters.length, probe(), 'cold-full-with-synthetic-latency')
   hybrid(cold.result)
+  syncWork(cold.stats, 'full', 600)
   assert.ok(cold.stats.chars >= 1_300_000)
   assert.ok(cold.stats.chunks > 1000 && cold.stats.chunks <= 2000, `measured semantic scope ${cold.stats.chunks} must fit the production limit`)
   assert.equal(cold.result.diagnostics.embeddedPassages, cold.stats.chunks)
@@ -254,6 +267,7 @@ try {
     const text = target.query
     const query = await run(index, project, cutoff, text, `warm-session-${i + 1}`)
     hybrid(query.result)
+    syncWork(query.stats, 'unchanged', 0)
     assert.equal(query.result.diagnostics.embeddedPassages, 0)
     assert.equal(query.result.diagnostics.cachedPassages, query.result.diagnostics.eligiblePassages)
     assert.equal(query.requests.filter(request => request.kind === 'passage').length, 0)
@@ -286,9 +300,12 @@ try {
   }
   const edited = await run(index, project, 600, fixture.editTargets[0]!.replacementValue, 'twenty-old-chapters-revised')
   hybrid(edited.result)
+  syncWork(edited.stats, 'incremental', 20)
   assert.ok(edited.result.hits.some(hit => hit.quote.includes(fixture.editTargets[0]!.replacementValue)))
   assert.equal(edited.stats.staleClues, 20)
-  assert.ok(edited.result.diagnostics.embeddedPassages >= 40 && edited.result.diagnostics.embeddedPassages <= 80)
+  assert.equal(edited.result.diagnostics.embeddedPassages, 40, 'each of the 20 changed 2200-character chapters has two passages')
+  assert.equal(edited.stats.sync.insertedDocuments, 40)
+  assert.equal(edited.stats.sync.removedDocuments, 60, 'replace 40 passages and remove 20 stale anchored clues')
   assert.equal(edited.result.diagnostics.cachedPassages + edited.result.diagnostics.embeddedPassages, edited.result.diagnostics.eligiblePassages)
   // Captured request counts plus diagnostics prove unchanged spans were not re-embedded.
   const changedChunks = edited.stats.chunks - edited.result.diagnostics.cachedPassages
@@ -298,31 +315,64 @@ try {
   for (const chapterId of editedIds) {
     assert.notEqual(edited.stats.chapters.find(chapter => chapter.id === chapterId)!.revision, cold.stats.chapters.find(chapter => chapter.id === chapterId)!.revision)
   }
-  checkpoint('twenty edited old chapters invalidate source revisions', { editedChapters: 20, reembeddedPassages: changedChunks, reusedPassages: edited.result.diagnostics.cachedPassages, staleClues: edited.stats.staleClues })
+  checkpoint('twenty edited old chapters invalidate source revisions', { editedChapters: 20, reembeddedPassages: changedChunks, reusedPassages: edited.result.diagnostics.cachedPassages, staleClues: edited.stats.staleClues, sync: edited.stats.sync })
   const oldFact = await run(index, project, 600, fixture.editTargets[0]!.oldValue, 'old-fact-after-twenty-edits')
   hybrid(oldFact.result)
   assert.ok(oldFact.result.hits.every(hit => !hit.quote.includes(fixture.editTargets[0]!.oldValue)))
+
+  const repeatedTarget = fixture.editTargets[0]!
+  const alternateValue = repeatedTarget.replacementValue.replace('赤铜封蜡', '碧玉封蜡')
+  let previousValue = repeatedTarget.replacementValue
+  for (let iteration = 1; iteration <= 8; iteration++) {
+    const nextValue = iteration % 2 ? alternateValue : repeatedTarget.replacementValue
+    project = { ...project, chapters: project.chapters.map(chapter => chapter.id === repeatedTarget.chapterId
+      ? { ...chapter, text: chapter.text.replaceAll(previousValue, nextValue) } : chapter) }
+    const updated = await run(index, project, 600, nextValue, `warm-single-chapter-edit-${iteration}`)
+    hybrid(updated.result)
+    syncWork(updated.stats, 'incremental', 1)
+    assert.equal(updated.stats.sync.insertedDocuments, 2)
+    assert.equal(updated.stats.sync.removedDocuments, 2)
+    assert.equal(updated.result.diagnostics.embeddedPassages, 2)
+    assert.equal(updated.result.diagnostics.cachedPassages, 1198)
+    const passageRequests = updated.requests.filter(request => request.kind === 'passage')
+    assert.equal(passageRequests.length, 1)
+    assert.ok(passageRequests.every(request => request.sourceChapterIds.length === 1 && request.sourceChapterIds[0] === repeatedTarget.chapterId))
+    assert.ok(updated.result.hits.some(hit => hit.chapterId === repeatedTarget.chapterId && hit.quote.includes(nextValue)))
+    assert.ok(updated.result.hits.every(hit => !hit.quote.includes(previousValue)), 'a saved chapter must never return its prior revision')
+    previousValue = nextValue
+  }
+  assert.equal(previousValue, repeatedTarget.replacementValue)
+  checkpoint('eight consecutive warm single-chapter edits retain all unrelated vectors and keyword documents', {
+    iterations: 8, reembeddedPassagesPerEdit: 2, reusedPassagesPerEdit: 1198, passageRequestsPerEdit: 1,
+  })
 
   const tail = project.chapters.splice(500, 1)[0]!
   project = { ...project, chapters: [tail, ...project.chapters] }
   const reordered = await run(index, project, 100, tail.text.slice(0, 28), 'reordered-narrative-cutoff')
   hybrid(reordered.result)
+  syncWork(reordered.stats, 'incremental', 0)
+  assert.equal(reordered.stats.sync.insertedDocuments, 0)
+  assert.equal(reordered.stats.sync.removedDocuments, 0)
   assert.equal(reordered.result.diagnostics.embeddedPassages, 0)
   assert.ok(reordered.result.hits.some(hit => hit.chapterId === tail.id && hit.ordinal === 1))
   project = { ...project, chapters: project.chapters.filter((_, i) => i < 590) }
   const deleted = await run(index, project, 590, probe(), 'delete-ten-chapters')
   hybrid(deleted.result)
+  syncWork(deleted.stats, 'incremental', 0)
+  assert.equal(deleted.stats.sync.insertedDocuments, 0)
   assert.equal(deleted.result.diagnostics.embeddedPassages, 0)
   await assert.rejects(index.search({ text: '删除检查', throughChapterId: 'nonexistent-chapter' }, options), /截止章节不存在/)
   const existingIds = new Set(project.chapters.map(chapter => chapter.id))
   const regrown = { ...project, chapters: [...project.chapters, ...beforeEdit.chapters.filter(chapter => !existingIds.has(chapter.id))] }
   const grown = await run(index, regrown, 600, probe(), 'append-ten-chapters')
   hybrid(grown.result)
+  syncWork(grown.stats, 'incremental', 10)
   assert.equal(grown.result.diagnostics.embeddedPassages, cold.stats.chunks - deleted.stats.chunks)
   assert.equal(grown.result.diagnostics.cachedPassages, deleted.stats.chunks)
   const other = { ...project, id: 'stress-hybrid-independent-project' }
   const switched = await run(index, other, 60, probe(), 'same-manuscript-different-project')
   hybrid(switched.result)
+  syncWork(switched.stats, 'full', 590)
   assert.equal(switched.result.diagnostics.cachedPassages, 0)
   assert.equal(switched.result.diagnostics.embeddedPassages, switched.result.diagnostics.eligiblePassages)
   checkpoint('chapter reorder/delete/growth and project isolation', { remainingChapters: project.chapters.length, readdedChapters: 10, readdedPassages: grown.result.diagnostics.embeddedPassages, projectSwitchEmbedded: switched.result.diagnostics.embeddedPassages })

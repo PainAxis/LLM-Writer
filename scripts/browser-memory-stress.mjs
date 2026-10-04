@@ -54,6 +54,7 @@ const storedHtmlUtf8Bytes = novel.chapterList.reduce((total, chapter) => total +
 const server = await startPreviewServer({ port: 0, sha: process.env.GITHUB_SHA || 'local' })
 const origin = `http://127.0.0.1:${server.address().port}`
 const remote = { hold: false, requests: [], held: new Set(), errors: [] }
+let providerCutoff = 0
 const fixture = createServer(async (request, response) => {
   response.setHeader('Access-Control-Allow-Origin', origin)
   response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -68,8 +69,15 @@ const fixture = createServer(async (request, response) => {
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
     const texts = kind === 'embeddings' ? body.input : body.documents
     assert.ok(Array.isArray(texts) && texts.every(text => typeof text === 'string'))
+    assert.ok(texts.length <= (kind === 'rerank' ? 60 : 32), 'Browser provider requests must respect production batch limits')
+    const sourceOrdinals = body.task === 'retrieval.query' ? [] : texts.map(text => {
+      const match = [...expectedSources].find(([ordinal, source]) => ordinal <= providerCutoff && source.includes(text))
+      assert.ok(match, 'Every submitted passage/rerank candidate must be an exact span of the independently expected current, disclosed source')
+      return match[0]
+    })
     const entry = {
       kind, task: body.task, texts: texts.length, chars: texts.reduce((total, text) => total + text.length, 0),
+      sourceOrdinals,
       oldFact: texts.some(text => text.includes(fact.oldValue)),
       revisedFact: texts.some(text => text.includes(fact.replacementValue)),
       futureFact: texts.some(text => /MASK\d+/.test(text)), status: 'pending',
@@ -156,6 +164,7 @@ async function dismissAnnouncement(target = page) {
 }
 
 async function search(query, cutoff = 600) {
+  providerCutoff = cutoff
   await control('cutoff').selectOption(String(idFor(cutoff)))
   await control('query').fill(query)
   const started = performance.now()
@@ -359,8 +368,9 @@ try {
     await inspectEvidence(fact)
     const cold = remote.requests.filter(entry => entry.task === 'retrieval.passage')
     const embeddedPassages = cold.reduce((sum, entry) => sum + entry.texts, 0)
-    assert.ok(embeddedPassages >= 800, 'Cold search must exercise at least 800 real source passages')
-    assert.ok(cold.length >= 25, 'Cold search must use at least 25 sequential embedding batches')
+    assert.equal(embeddedPassages, 1200, 'The 400 disclosed 2600-character chapters contain three passages each')
+    assert.equal(cold.length, 38)
+    assert.equal(cold.flatMap(entry => entry.sourceOrdinals).filter(ordinal => ordinal === fact.ordinal).length, 3)
     await search(oldIdentifier, 400)
     await expect(control('retrieval-status')).toContainText('本次新嵌入 0 个')
     assert.equal(remote.requests.filter(entry => entry.task === 'retrieval.passage').length, cold.length)
@@ -370,7 +380,22 @@ try {
     assert.deepEqual(await storedSnapshot(), baseline)
   })
 
-  await step('05 Commit an early chapter edit in Writer and exclude its old text, vector and evidence', async () => {
+  await step('05 Regain focus with unchanged source, clear evidence immediately and retain every validated vector', async () => {
+    await inspectEvidence(fact)
+    const before = remote.requests.length
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect(results()).toHaveCount(0)
+    await expect(control('evidence-quote')).toHaveCount(0)
+    await search(oldIdentifier, 400)
+    await expect(control('retrieval-status')).toContainText('本次新嵌入 0 个')
+    await expect(control('retrieval-status')).toContainText('复用缓存 1200 个')
+    assert.equal(remote.requests.slice(before).filter(entry => entry.task === 'retrieval.passage').length, 0)
+    await inspectEvidence(fact)
+    assert.deepEqual(await storedSnapshot(true), baseline)
+    report.unchangedFocus = { reembeddedPassages: 0, reusedPassages: 1200, invalidatedVisibleEvidence: true }
+  })
+
+  await step('06 Commit an early chapter edit in Writer and re-embed only that chapter while excluding its old revision', async () => {
     const writer = await context.newPage()
     const revisedBody = corpus.project.chapters[fact.ordinal - 1].text.replaceAll(fact.oldValue, fact.replacementValue)
     try {
@@ -384,6 +409,8 @@ try {
       await expect(writer.locator('.saving-indicator')).toHaveCount(0)
     } finally { await writer.close() }
     await page.bringToFront()
+    await expect(results()).toHaveCount(0)
+    await expect(control('evidence-quote')).toHaveCount(0)
     expectedSources.set(fact.ordinal, revisedBody.trim())
     const committed = await storedSnapshot(true)
     assert.equal(committed.chapters, 600)
@@ -394,8 +421,15 @@ try {
     await search(newIdentifier, 400)
     const revision = await inspectEvidence(fact, fact.quote.replaceAll(fact.oldValue, fact.replacementValue))
     assert.notEqual(revision, oldRevision)
-    assert.ok(remote.requests.slice(before).some(entry => entry.revisedFact && entry.task === 'retrieval.passage'))
+    const revisedPassages = remote.requests.slice(before).filter(entry => entry.task === 'retrieval.passage')
+    assert.equal(revisedPassages.length, 1, 'Returning from Writer must preserve the worker cache, requiring one partial batch')
+    assert.equal(revisedPassages.reduce((total, entry) => total + entry.texts, 0), 3, 'Only the edited chapter\'s three passages need replacement vectors')
+    assert.ok(revisedPassages.some(entry => entry.revisedFact))
+    assert.ok(revisedPassages.every(entry => entry.sourceOrdinals.every(ordinal => ordinal === fact.ordinal)), 'Unedited chapters must never be re-embedded after a Writer save')
+    await expect(control('retrieval-status')).toContainText('本次新嵌入 3 个')
+    await expect(control('retrieval-status')).toContainText('复用缓存 1197 个')
     assert.ok(remote.requests.slice(before).every(entry => !entry.oldFact && !entry.futureFact), 'Only the committed revision may be embedded or reranked')
+    report.writerEditVerification = { ...report.writerEditVerification, reembeddedPassages: 3, reusedPassages: 1197, passageBatches: 1 }
     await screenshot('revised-long-novel-evidence')
     await search(oldIdentifier, 400)
     await expect(control('results')).not.toContainText(fact.oldValue)
@@ -404,9 +438,10 @@ try {
     baseline = committed
   })
 
-  await step('06 Cancel an in-flight large retrieval and prevent a late response from publishing or seeding cache', async () => {
+  await step('07 Cancel an in-flight large retrieval and prevent a late response from publishing or seeding cache', async () => {
     await control('clear-cache').click()
     remote.hold = true
+    providerCutoff = 400
     await control('cutoff').selectOption(String(idFor(400)))
     await control('query').fill(newIdentifier)
     await control('search').click()
@@ -422,12 +457,12 @@ try {
     const before = remote.requests.length
     await search(newIdentifier, 400)
     await expect(control('retrieval-status')).toContainText('复用缓存 0 个')
-    assert.ok(remote.requests.slice(before).filter(entry => entry.task === 'retrieval.passage').length >= 25)
+    assert.equal(remote.requests.slice(before).filter(entry => entry.task === 'retrieval.passage').length, 38)
     await inspectEvidence(fact, fact.quote.replaceAll(fact.oldValue, fact.replacementValue))
     assert.deepEqual(await storedSnapshot(true), baseline)
   })
 
-  await step('07 Reload the chunked novel and verify persisted revision with providers disabled', async () => {
+  await step('08 Reload the chunked novel and verify persisted revision with providers disabled', async () => {
     report.responsiveness = await page.evaluate(() => {
       const metrics = window.__memoryStressPerformance
       metrics.stopped = true
@@ -455,7 +490,7 @@ try {
     await screenshot('reloaded-persisted-revision')
   })
 
-  await step('08 Check UI heartbeat, end-to-end latency, uncaught errors and durable source integrity', async () => {
+  await step('09 Check UI heartbeat, end-to-end latency, uncaught errors and durable source integrity', async () => {
     const durations = report.queries.map(query => query.durationMs).sort((a, b) => a - b)
     report.queryLatency = {
       count: durations.length, p50Ms: durations[Math.ceil(durations.length * 0.5) - 1],

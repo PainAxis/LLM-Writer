@@ -66,6 +66,9 @@ const fixture = createServer(async (request, response) => {
     // Intentionally do not retain request headers or bearer credentials.
     const entry = { kind, body, status: 'pending' }
     requests.push(entry)
+    response.on('close', () => {
+      if (!response.writableEnded) entry.status = 'aborted'
+    })
     const send = () => {
       heldResponses.delete(send)
       if (response.destroyed) { entry.status = 'aborted'; return }
@@ -107,6 +110,24 @@ await context.route('**/*', route => {
   blockedRequests.push(`${url.origin}${url.pathname}`)
   return route.abort('blockedbyclient')
 })
+// One persisted novel exercises focus/storage invalidation separately from the
+// editable demo. Each short chapter contributes exactly one source passage.
+const fixtureNovel = {
+  id: 39101, title: '外部来源缓存验收作品', genre: 'fantasy',
+  description: 'Synthetic read-only browser fixture.', tags: [], status: 'writing',
+  createdAt: '2026-10-04T00:00:00.000Z', updatedAt: '2026-10-04T00:00:00.000Z',
+  chapters: 20, characters: [], worldSettings: [], events: [], corpusData: [],
+  chapterList: Array.from({ length: 20 }, (_, i) => ({
+    id: i + 1, title: `第${i + 1}章`,
+    content: `<p>第${i + 1}日，沈砚带着钥匙经过驿站，检查编号 ${i + 1} 的仓房。</p>`,
+    status: 'draft', tags: [],
+    createdAt: '2026-10-04T00:00:00.000Z', updatedAt: '2026-10-04T00:00:00.000Z',
+  })),
+}
+await context.addInitScript(({ novel, fixtureOrigin }) => {
+  if (location.origin !== fixtureOrigin) return
+  if (localStorage.getItem('novels') === null) localStorage.setItem('novels', JSON.stringify([novel]))
+}, { novel: fixtureNovel, fixtureOrigin: origin })
 const page = await context.newPage()
 const control = id => page.getByTestId(`memory-${id}`)
 const results = () => page.locator('[data-testid^="memory-result-"]')
@@ -338,7 +359,55 @@ try {
     await expect(control('retrieval-status')).toContainText('已参与混合检索')
   })
 
-  await step('10 Leaving or reloading the route forgets settings and credentials', async () => {
+  await step('10 Repeated focus and storage invalidation hide evidence while retaining completed source vectors', async () => {
+    await control('source').selectOption('novel:39101')
+    await expect(control('search')).toBeEnabled()
+    await control('cutoff').selectOption('10')
+    await search('钥匙')
+    await expect(control('retrieval-status')).toContainText('本次新嵌入 10 个')
+    await results().first().click()
+    await expect(control('evidence-quote')).toBeVisible()
+    const before = documentRequests().length
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('focus'))
+      window.dispatchEvent(new StorageEvent('storage', { key: 'novels' }))
+      window.dispatchEvent(new Event('focus'))
+    })
+    await expect(results()).toHaveCount(0)
+    await expect(control('evidence-quote')).toHaveCount(0)
+    await expect(control('stats')).toHaveCount(0)
+    await expect(control('retrieval-status')).toHaveCount(0)
+    await search('钥匙')
+    assert.equal(documentRequests().length, before, 'An unchanged committed source must reuse every vector after repeated invalidation')
+    await expect(control('retrieval-status')).toContainText('本次新嵌入 0 个 · 复用缓存 10 个')
+  })
+
+  await step('11 Focus cancels an in-flight provider request without discarding previously completed vectors', async () => {
+    await control('cutoff').selectOption('20')
+    fixtureState.embeddings = 'hold'
+    await control('query').fill('钥匙')
+    await control('search').click()
+    await expect.poll(() => heldResponses.size).toBeGreaterThan(0)
+    const interruptedRequest = documentRequests().at(-1)
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('focus'))
+      window.dispatchEvent(new StorageEvent('storage', { key: null }))
+    })
+    await expect(control('search')).toBeEnabled()
+    await expect(control('stats')).toHaveCount(0)
+    await expect(results()).toHaveCount(0)
+    await expect.poll(() => interruptedRequest.status).toBe('aborted')
+    fixtureState.embeddings = 'ok'
+    for (const release of [...heldResponses]) release()
+    const before = documentRequests().length
+    await search('钥匙')
+    const renewed = documentRequests().slice(before).flatMap(entry => entry.body.input)
+    assert.equal(renewed.length, 10, 'Cancelled, incomplete passage responses cannot populate the resumed cache')
+    await expect(control('retrieval-status')).toContainText('本次新嵌入 10 个 · 复用缓存 10 个')
+    await expect(control('error')).toHaveCount(0)
+  })
+
+  await step('12 Leaving or reloading the route forgets settings and credentials', async () => {
     await assertNoStoredKeys()
     await page.evaluate(() => { location.hash = '/' })
     await page.waitForURL(/#\/$/)

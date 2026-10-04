@@ -43,7 +43,7 @@ Enabling a service authorizes requests to the configured endpoint when searching
 
 Embedding processes at most 2,000 disclosed passages, in batches of 32. If the disclosed source exceeds this limit, semantic retrieval falls back explicitly to local retrieval rather than embedding a silent subset. Reranking receives at most 60 fused candidates. Provider requests have a 15-second per-request timeout and a 65-second total remote budget.
 
-The semantic channel ranks eligible vectors by an exact cosine-similarity scan. Source vectors use an in-memory cache bounded by 2,000 entries and 32 MiB of vector data, scoped to source revisions and provider/model/dimension settings. Identical eligible passages can reuse cached vectors; queries are embedded again. Changing the source or embedding configuration cannot reuse incompatible vectors. The cache is derived data, is not part of a novel backup and is discarded when the page lifecycle ends. For actual novels, the current page also disposes its Worker on window focus or novel-storage invalidation, so returning from Writer can clear the entire vector cache. Use the cache-clear control to discard it earlier.
+The semantic channel ranks eligible vectors by an exact cosine-similarity scan. Source vectors use an in-memory cache bounded by 2,000 entries and 32 MiB of vector data, scoped to source revisions and provider/model/dimension settings. Identical eligible passages can reuse cached vectors; queries are embedded again. Changing the source or embedding configuration cannot reuse incompatible vectors. The cache is derived data and is not part of a novel backup. For actual novels, window focus or novel-storage invalidation immediately clears visible evidence and blocks retrieval until a fresh committed-source synchronization; the surviving Worker can reuse its completed index and compatible vectors. Returning from Writer in another tab therefore need not re-embed unchanged chapters. Explicit cancellation, provider changes, the cache-clear control, project switches and leaving or reloading the route still discard the Worker and its caches.
 
 Provider errors leave local keyword and clue retrieval available with an explicit fallback message. The results identify which retrieval stages actually ran. Cancellation or changes to the source, query, cutoff or provider settings invalidate pending results; a late provider response cannot restore stale evidence.
 
@@ -51,7 +51,9 @@ External retrieval is an experimental option, not a prerequisite for the three l
 
 ## Revision and runtime boundaries
 
-The keyword index is derived in-memory data. Every search reads and validates the current committed source. When the complete project identity/title, chapter order/IDs/titles/bodies and clue metadata exactly match the previously validated snapshot, synchronization can reuse its keyword index and revisions. Well-formed stale clues retain their previous exclusion; malformed clue data takes the normal validation path. Any source change still **rebuilds the entire project**; chapter-level incremental indexing and persisted index snapshots are not implemented. Starting synchronization invalidates old asynchronous work before checking for reuse. A failed build reports an error instead of continuing to serve previous facts. Index epochs and page request versions reject results from outdated requests.
+The keyword index is derived in-memory data. Every search reads and validates the current committed source. A completely unchanged source reuses the validated index. Same-project edits can update affected chapters and clues incrementally, retaining unchanged chapter revisions and indexed documents. Chapter order remains part of the disclosure boundary. Well-formed stale clues retain their exclusion; malformed clue data takes the validation path. Cold builds, project changes, interrupted index mutations and periodic metadata compaction can still require a full build. No index snapshot is persisted. See [incremental indexing and cache lifecycle](memory-incremental-index.md) for the exact reuse and recovery boundaries.
+
+Starting synchronization invalidates old asynchronous work before checking for reuse. Source invalidation can retain a completed baseline privately, but that baseline cannot serve searches until fresh synchronization succeeds. A failed build reports an error instead of continuing to serve previous facts. Index epochs and page request versions reject results from outdated requests.
 
 Every piece of evidence comes from the current chapter snapshot. Whole-book summaries, character settings, worldbuilding and external material are not indexed because they do not yet have item-level disclosure boundaries and source revisions. Author-provided clue labels and aliases are treated as information known at the source chapter; authors must ensure they do not contain later secrets. Automatic clue extraction, clue-resolution inference and fact relationship graphs remain future work.
 
@@ -63,6 +65,8 @@ The private demo is outside novel backups. Resetting it overwrites only that ind
 
 ```bash
 npm run smoke:memory
+npm run smoke:memory-incremental
+npm run smoke:memory-client
 npm run smoke:memory-providers
 npm run smoke:memory-hybrid
 npm run build
@@ -70,7 +74,7 @@ npm run test:browser-memory
 npm run test:browser-memory-hybrid
 ```
 
-Core regressions cover chapter edits/deletion, ordering changes, project isolation, stale clues, failed builds, concurrent snapshots and a million-character synthetic manuscript. Provider/hybrid regressions check wire formats, invalid responses, semantic fusion, cache reuse, cancellation and fallback. Browser regressions exercise the actual built application, demo editing/restoration, evidence, committed-novel reads and optional providers. The configured project has 67 smoke suites, 63 shorter browser scenarios and eight additional long-novel browser scenarios; validation status comes from the reviewed revision's CI results. Synthetic data and deterministic provider responses test engineering boundaries; they do not measure real-novel semantic recall.
+Core regressions cover chapter edits/deletion, ordering changes, project isolation, stale clues, failed builds, concurrent snapshots and a million-character synthetic manuscript. Provider/hybrid regressions check wire formats, invalid responses, semantic fusion, cache reuse, cancellation and fallback. Browser regressions exercise the actual built application, demo editing/restoration, evidence, committed-novel reads and optional providers. The configured project has 69 smoke suites, 65 shorter browser scenarios and nine long-novel browser scenarios; validation status comes from the reviewed revision's CI results. Synthetic data and deterministic provider responses test engineering boundaries; they do not measure real-novel semantic recall.
 
 For larger workloads, see the [long-novel stress tests](memory-stress-tests.md), which separate local capacity, hybrid-provider behavior, browser workflows and real-novel recall, with explicit measurement and fallback boundaries.
 

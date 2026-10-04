@@ -7,7 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getHeapStatistics } from 'node:v8'
 import { MemoryIndex } from '../src/services/memory/engine'
-import type { MemoryProjectInput, MemorySearchResult } from '../src/types/memory'
+import type { MemoryIndexStats, MemoryProjectInput, MemorySearchResult } from '../src/types/memory'
 import { createStressNovel, type StressProbe } from './fixtures/memory-stress-corpus'
 
 const outputDirectory = path.resolve('artifacts/memory-stress')
@@ -36,6 +36,17 @@ function recall(ranks: number[]) {
     at1: rounded(ranks.filter(rank => rank > 0 && rank <= 1).length / ranks.length),
     at5: rounded(ranks.filter(rank => rank > 0 && rank <= 5).length / ranks.length),
     at8: rounded(ranks.filter(rank => rank > 0 && rank <= 8).length / ranks.length),
+  }
+}
+
+function verifySyncWork(stats: MemoryIndexStats, mode: MemoryIndexStats['sync']['mode'], rebuiltChapters: number) {
+  assert.equal(stats.sync.mode, mode)
+  assert.equal(stats.sync.rebuiltChapters, rebuiltChapters, 'only changed/new chapter bodies may be hashed and chunked')
+  assert.equal(stats.sync.reusedChapters, stats.chapters.length - rebuiltChapters)
+  assert.equal(stats.sync.insertedDocuments + stats.sync.reusedDocuments, stats.chunks + stats.clues)
+  if (mode === 'unchanged') {
+    assert.equal(stats.sync.insertedDocuments, 0)
+    assert.equal(stats.sync.removedDocuments, 0)
   }
 }
 
@@ -110,6 +121,9 @@ async function runProfile(profile: Profile) {
     assert.equal(initialStats.chapters.length, profiles[profile].chapters)
     assert.equal(initialStats.clues, corpus.project.clues.length)
     assert.equal(initialStats.staleClues, 0)
+    verifySyncWork(initialStats, 'full', profiles[profile].chapters)
+    assert.equal(initialStats.sync.reusedDocuments, 0)
+    assert.equal(initialStats.sync.removedDocuments, 0)
     cases.push({ name: 'Build the complete varied multivolume manuscript with all anchored clues', passed: true })
 
     for (const probe of corpus.positiveQueries) {
@@ -175,6 +189,8 @@ async function runProfile(profile: Profile) {
     currentStats = await index.sync(rehydratedSnapshot)
     const unchangedSyncMs = performance.now() - secondBuild
     assert.equal(currentStats.fingerprint, initialStats.fingerprint)
+    verifySyncWork(currentStats, 'unchanged', 0)
+    const unchangedSyncWork = currentStats.sync
     const afterFullSync = await search(corpus.clues[0]!.query, corpus.clues.at(-1)!.throughChapterId)
     assert.ok(probeRank(afterFullSync, corpus.clues[0]!) > 0)
     cases.push({ name: 'Repeat a fresh-source sync, reusing the index only for a completely unchanged snapshot', passed: true })
@@ -190,9 +206,15 @@ async function runProfile(profile: Profile) {
     await assert.rejects(index.search({ text: corpus.editTargets[0]!.query, throughChapterId: edited.chapters.at(-1)!.id }), /尚未就绪/)
     currentStats = await pendingSync
     currentProject = edited
-    const editFullRebuildMs = performance.now() - editStarted
+    const editSyncMs = performance.now() - editStarted
+    verifySyncWork(currentStats, 'incremental', corpus.editTargets.length)
+    const editSyncWork = currentStats.sync
     assert.equal(currentStats.staleClues, corpus.editTargets.length)
     assert.equal(currentStats.clues, initialStats.clues - corpus.editTargets.length)
+    assert.equal(currentStats.chunks, initialStats.chunks, 'same-length substitutions must preserve passage boundaries')
+    assert.equal(currentStats.sync.removedDocuments, currentStats.sync.insertedDocuments + corpus.editTargets.length,
+      'changed chapter passages are replaced, while the now-stale anchored clues are removed')
+    assert.equal(currentStats.sync.reusedDocuments, initialStats.chunks + initialStats.clues - currentStats.sync.removedDocuments)
     for (const fact of corpus.editTargets) {
       const old = await search(fact.oldValue, edited.chapters.at(-1)!.id)
       assert.ok(old.hits.every(hit => !hit.quote.includes(fact.oldValue)), 'the old fact cannot remain in evidence after a chapter edit')
@@ -204,7 +226,32 @@ async function runProfile(profile: Profile) {
       assert.ok(staleClue.hits.every(hit => !(hit.kind === 'clue' && hit.chapterId === fact.chapterId)), 'unchanged annotation text cannot bypass a source revision change')
     }
     cases.push({ name: 'Batch-edit 30 old chapters after warm searches; retract every stale fact and all 30 stale clues', passed: true,
-      details: { editedChapters: corpus.editTargets.length, staleClues: currentStats.staleClues } })
+      details: { editedChapters: corpus.editTargets.length, staleClues: currentStats.staleClues, sync: editSyncWork } })
+
+    const repeatedEdits: Array<{ iteration: number; syncMs: number; sync: MemoryIndexStats['sync'] }> = []
+    const repeatedTarget = corpus.editTargets[0]!
+    const alternateValue = repeatedTarget.replacementValue.replace('赤铜封蜡', '碧玉封蜡')
+    let previousValue = repeatedTarget.replacementValue
+    for (let iteration = 1; iteration <= 12; iteration++) {
+      const nextValue = iteration % 2 ? alternateValue : repeatedTarget.replacementValue
+      const nextProject = { ...currentProject, chapters: currentProject.chapters.map(chapter => chapter.id === repeatedTarget.chapterId
+        ? { ...chapter, text: chapter.text.replaceAll(previousValue, nextValue) } : chapter) }
+      const started = performance.now()
+      currentStats = await index.sync(nextProject)
+      repeatedEdits.push({ iteration, syncMs: rounded(performance.now() - started), sync: currentStats.sync })
+      currentProject = nextProject
+      verifySyncWork(currentStats, 'incremental', 1)
+      assert.equal(currentStats.sync.insertedDocuments, currentStats.sync.removedDocuments)
+      assert.ok(currentStats.sync.insertedDocuments > 0 && currentStats.sync.insertedDocuments <= 6,
+        'a single edited chapter must not accumulate or rebuild other chapters\' index documents')
+      assert.equal(currentStats.chunks, initialStats.chunks)
+      assert.ok((await search(previousValue, nextProject.chapters.at(-1)!.id)).hits.every(hit => !hit.quote.includes(previousValue)))
+      assert.ok((await search(nextValue, nextProject.chapters.at(-1)!.id)).hits.some(hit => hit.chapterId === repeatedTarget.chapterId && hit.quote.includes(nextValue)))
+      previousValue = nextValue
+    }
+    assert.equal(previousValue, repeatedTarget.replacementValue, 'the alternating edit cycle ends on the original revised fixture')
+    cases.push({ name: '12 consecutive saves of one early chapter replace only its own documents and never recover a superseded revision', passed: true,
+      details: { editedChapter: repeatedTarget.chapterId, iterations: repeatedEdits.length, syncMs: distribution(repeatedEdits.map(edit => edit.syncMs)) } })
 
     const reordered = structuredClone(edited)
     const movedClue = corpus.clues.find(clue => clue.ordinal > 60)!
@@ -220,7 +267,11 @@ async function runProfile(profile: Profile) {
     const reorderStarted = performance.now()
     currentStats = await index.sync(reordered)
     currentProject = reordered
-    const reorderDeleteFullRebuildMs = performance.now() - reorderStarted
+    const reorderDeleteSyncMs = performance.now() - reorderStarted
+    verifySyncWork(currentStats, 'incremental', 0)
+    const reorderDeleteSyncWork = currentStats.sync
+    assert.equal(currentStats.sync.insertedDocuments, 0, 'ordinal changes must not re-tokenize retained text')
+    assert.ok(currentStats.sync.removedDocuments > 0)
     assert.equal(currentStats.chapters.length, initialStats.chapters.length - 20)
     assert.equal(currentStats.staleClues, corpus.editTargets.length + untouchedDeleted.length)
     const midCutoff = reordered.chapters[Math.floor(reordered.chapters.length / 2)]!.id
@@ -264,8 +315,9 @@ async function runProfile(profile: Profile) {
       corpus: corpus.manifest,
       index: { characters: initialStats.chars, chapters: initialStats.chapters.length, passages: initialStats.chunks, clues: initialStats.clues },
       timings: { corpusGenerationMs: rounded(corpusMs), coldFullRebuildMs: rounded(coldFullRebuildMs), unchangedSyncMs: rounded(unchangedSyncMs),
-        editFullRebuildMs: rounded(editFullRebuildMs), reorderDeleteFullRebuildMs: rounded(reorderDeleteFullRebuildMs),
+        editSyncMs: rounded(editSyncMs), reorderDeleteSyncMs: rounded(reorderDeleteSyncMs), repeatedSingleChapterSync: distribution(repeatedEdits.map(edit => edit.syncMs)),
         firstPassSearchOnly: distribution(queryTimes), repeatedSearchOnly: distribution(warmQueryTimes), totalWallMs: rounded(performance.now() - wallStart) },
+      syncWork: { cold: initialStats.sync, unchanged: unchangedSyncWork, thirtyChapterEdit: editSyncWork, reorderDelete: reorderDeleteSyncWork, repeatedEdits },
       memory: { heapLimitMiB: mib(getHeapStatistics().heap_size_limit), baselineHeapMiB: mib(heapStart), finalHeapMiB: mib(process.memoryUsage().heapUsed), observedHeapPeakMiB: mib(observedHeapPeak),
         processPeakRssMiB: rounded(process.resourceUsage().maxRSS / 1024),
         measurement: 'Each profile runs in a fresh child process. Peak RSS is the OS-reported high-water mark for the entire profile, including source, snapshots, index rebuild overlap and fixture creation. Heap peak is sampled at 25 ms and explicit checkpoints; brief synchronous peaks may be missed.' },
@@ -276,7 +328,7 @@ async function runProfile(profile: Profile) {
         'This corpus uses eight procedural paragraph templates and per-event numbers; unique paragraph strings do not imply natural literary diversity.',
         'The 48 planted compound-identifier/author-alias queries test exact-source retrieval. They are not an embedding-model semantic-quality benchmark.',
         'Natural multi-entity query quality is descriptive and includes the generated fact relation as its oracle; no external model is used.',
-        'Search-only timings exclude the fresh-source sync the UI performs before searching; unchanged sync and changed-source full rebuilds are reported separately.',
+        'Search-only timings exclude the fresh-source sync the UI performs before searching; unchanged, incremental edit and reorder/delete synchronization are reported separately. Work counters enforce scope without machine-specific latency thresholds.',
         'Node memory and timing do not substitute for browser measurements. The 20,000,001-character test covers rejection, not successful operation at the limit.',
       ],
     }

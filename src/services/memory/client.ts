@@ -25,6 +25,7 @@ export class MemoryClient {
     if (this.worker) return this.worker
     const worker = new Worker(new URL('./memory.worker.ts', import.meta.url), { type: 'module' })
     worker.onmessage = (event: MessageEvent<MemoryWorkerResponse>) => {
+      if (this.worker !== worker) return
       const message = event.data
       const pending = this.pending.get(message.id)
       if (!pending) return
@@ -34,6 +35,7 @@ export class MemoryClient {
       else pending.reject(new Error(message.error))
     }
     worker.onerror = () => {
+      if (this.worker !== worker) return
       this.rejectPending('检索进程启动或运行失败，请重建索引后重试')
       worker.terminate()
       if (this.worker === worker) this.worker = null
@@ -42,7 +44,7 @@ export class MemoryClient {
     return worker
   }
 
-  private request(message: MemoryWorkerRequest): Promise<MemoryIndexStats | MemorySearchResult> {
+  private request(message: Exclude<MemoryWorkerRequest, { type: 'invalidate' }>): Promise<MemoryIndexStats | MemorySearchResult> {
     return new Promise((resolve, reject) => {
       const worker = this.ensureWorker()
       const timeout = setTimeout(() => {
@@ -63,8 +65,24 @@ export class MemoryClient {
   }
 
   async sync(project: MemoryProjectInput): Promise<MemoryIndexStats> {
-    this.rejectPending('作品来源已改变，已取消之前的检索')
+    // Invalidate before serialization: an uncloneable new source must not leave
+    // the old source searchable in the surviving worker.
+    this.invalidateSource()
     return await this.request({ id: ++this.sequence, type: 'sync', project }) as MemoryIndexStats
+  }
+
+  /** Hide stale readiness and abort work without losing the last complete cache. */
+  invalidateSource(): void {
+    this.rejectPending('作品来源已改变，已取消之前的检索')
+    if (!this.worker) return
+    try {
+      // One-way control message: no timeout, promise, or replacement worker.
+      this.worker.postMessage({ id: ++this.sequence, type: 'invalidate' } satisfies MemoryWorkerRequest)
+    } catch {
+      // If invalidation cannot reach the worker, it is unsafe to reuse it.
+      this.worker.terminate()
+      this.worker = null
+    }
   }
 
   async search(query: MemoryQuery, options?: MemoryRemoteOptions): Promise<MemorySearchResult> {

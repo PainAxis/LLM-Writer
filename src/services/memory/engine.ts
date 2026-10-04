@@ -1,4 +1,4 @@
-import { create, insertMultiple, search, type Tokenizer } from '@orama/orama'
+import { create, insertMultiple, remove, search, type Tokenizer } from '@orama/orama'
 import { createTokenizer } from '@orama/tokenizers/mandarin'
 import type {
   MemoryChapterInput,
@@ -30,7 +30,7 @@ const REMOTE_BUDGET_MS = 65_000
 
 const schema = {
   projectId: 'enum',
-  ordinal: 'number',
+  chapterId: 'enum',
   kind: 'enum',
   content: 'string',
   title: 'string',
@@ -65,10 +65,25 @@ function createMemoryTokenizer(): Tokenizer {
 }
 
 function createDatabase() {
-  return create({ schema, components: { tokenizer: createMemoryTokenizer() } })
+  return create({ schema, sort: { enabled: false }, components: { tokenizer: createMemoryTokenizer() } })
 }
 
 type EvidenceRecord = Omit<MemoryEvidence, 'score' | 'reason'>
+interface IndexDocument {
+  id: string
+  projectId: string
+  chapterId: string
+  kind: string
+  content: string
+  title: string
+  annotations: string
+}
+
+function sameDocument(left: IndexDocument, right: IndexDocument): boolean {
+  return left.id === right.id && left.projectId === right.projectId && left.chapterId === right.chapterId
+    && left.kind === right.kind && left.content === right.content && left.title === right.title
+    && left.annotations === right.annotations
+}
 interface ReadyIndex {
   database: ReturnType<typeof createDatabase>
   project: MemoryProjectInput
@@ -76,6 +91,9 @@ interface ReadyIndex {
   revisions: Map<string, string>
   ordinals: Map<string, number>
   evidence: Map<string, EvidenceRecord>
+  passages: Map<string, EvidenceRecord[]>
+  documents: Map<string, IndexDocument>
+  removedSinceRebuild: number
   stats: MemoryIndexStats
 }
 
@@ -118,7 +136,7 @@ function snapshotProject(project: MemoryProjectInput): MemoryProjectInput {
 }
 
 function copyStats(stats: MemoryIndexStats): MemoryIndexStats {
-  return { ...stats, chapters: stats.chapters.map(chapter => ({ ...chapter })) }
+  return { ...stats, sync: { ...stats.sync }, chapters: stats.chapters.map(chapter => ({ ...chapter })) }
 }
 
 /** Compare the complete accepted source, never timestamps or only chapter lengths. */
@@ -234,6 +252,9 @@ function cosine(left: Float32Array, right: Float32Array): number {
 export class MemoryIndex {
   private epoch = 0
   private ready: ReadyIndex | undefined
+  // An invalidated, completed snapshot can be reused only after a fresh source sync.
+  // A build consumes this baseline exclusively before any await or database mutation.
+  private retained: ReadyIndex | undefined
   private searchSequence = 0
   private searchController: AbortController | undefined
   private vectorCache = new Map<string, CachedVector>()
@@ -267,20 +288,37 @@ export class MemoryIndex {
     this.vectorBytes += vector.byteLength
   }
 
+  /** Hide stale evidence and cancel requests without discarding an untouched completed baseline. */
+  invalidateSource(): void {
+    ++this.epoch
+    this.searchController?.abort()
+    if (this.ready) this.retained = this.ready
+    this.ready = undefined
+  }
+
   async sync(project: MemoryProjectInput): Promise<MemoryIndexStats> {
-    const previous = this.ready
+    // Exclusive ownership: an overlapping sync must build its own database. It cannot
+    // observe or republish this build's partially removed/inserted documents.
+    const baseline = this.ready ?? this.retained
+    this.ready = undefined
+    this.retained = undefined
     const epoch = ++this.epoch
     this.searchController?.abort()
-    // Invalidate BEFORE cloning/hashing: failed rebuilds must never resurrect old facts.
-    this.ready = undefined
     const started = performance.now()
     const snapshot = snapshotProject(project)
-    // Fresh committed reads are still mandatory, but identical validated content needs no
-    // re-tokenization. Old asynchronous work remains invalidated by the epoch above.
-    // Well-formed stale annotations retain the same exclusion decision; malformed
-    // annotation shapes still take the normal validation path.
-    if (epoch === this.epoch && previous && sameProjectSource(previous.project, snapshot)) {
-      const stats = { ...previous.stats, buildMs: performance.now() - started }
+    const previous = baseline?.project.id === snapshot.id ? baseline : undefined
+    const assertCurrent = () => {
+      if (epoch !== this.epoch) throw new Error('索引构建已被较新的项目快照替代。')
+    }
+    assertCurrent()
+    if (previous && sameProjectSource(previous.project, snapshot)) {
+      const stats: MemoryIndexStats = {
+        ...previous.stats, buildMs: performance.now() - started,
+        sync: {
+          mode: 'unchanged', rebuiltChapters: 0, reusedChapters: snapshot.chapters.length,
+          insertedDocuments: 0, removedDocuments: 0, reusedDocuments: previous.documents.size,
+        },
+      }
       this.ready = { ...previous, stats }
       return copyStats(stats)
     }
@@ -291,63 +329,61 @@ export class MemoryIndex {
     const ordinals = new Map<string, number>()
     const manifests: MemoryIndexStats['chapters'] = []
     const evidence = new Map<string, EvidenceRecord>()
-    const database = createDatabase()
-    let pending: Array<{ id: string; projectId: string; ordinal: number; kind: string; content: string; title: string; annotations: string }> = []
-    const assertCurrent = () => {
-      if (epoch !== this.epoch) throw new Error('索引构建已被较新的项目快照替代。')
-    }
-    const flush = async () => {
-      if (pending.length) await insertMultiple(database, pending)
-      pending = []
-      assertCurrent()
+    const passages = new Map<string, EvidenceRecord[]>()
+    const documents = new Map<string, IndexDocument>()
+    const work: MemoryIndexStats['sync'] = {
+      mode: previous ? 'incremental' : 'full', rebuiltChapters: 0, reusedChapters: 0,
+      insertedDocuments: 0, removedDocuments: 0, reusedDocuments: 0,
     }
     const add = (record: EvidenceRecord, annotations = '') => {
       if (evidence.size >= MAX_DOCUMENTS) throw new Error('索引条目超过原型的 100,000 条上限。')
       evidence.set(record.id, record)
-      pending.push({
-        id: record.id,
-        projectId: snapshot.id,
-        ordinal: record.ordinal,
-        kind: record.kind,
-        content: record.quote,
-        title: record.chapterTitle,
-        annotations,
-      })
+      const document: IndexDocument = {
+        id: record.id, projectId: snapshot.id, chapterId: record.chapterId, kind: record.kind,
+        content: record.quote, title: record.chapterTitle, annotations,
+      }
+      const old = previous?.documents.get(record.id)
+      documents.set(record.id, old && sameDocument(old, document) ? old : document)
     }
 
     let chars = 0
     let chunks = 0
     for (const [position, chapter] of snapshot.chapters.entries()) {
-      const revision = await chapterRevision(chapter)
+      const oldChapter = previous?.chapters.get(chapter.id)
+      const unchanged = oldChapter?.title === chapter.title && oldChapter.text === chapter.text
+      const revision = unchanged ? previous!.revisions.get(chapter.id)! : await chapterRevision(chapter)
       assertCurrent()
       const ordinal = position + 1
       revisions.set(chapter.id, revision)
       ordinals.set(chapter.id, ordinal)
       manifests.push({ id: chapter.id, title: chapter.title, ordinal, revision, chars: chapter.text.length })
       chars += chapter.text.length
-      for (const { start, end } of chunkSpans(chapter.text)) {
-        add({
-          id: `passage:${position}:${start}:${end}`,
-          projectId: snapshot.id,
-          chapterId: chapter.id,
-          chapterTitle: chapter.title,
-          ordinal,
-          revision,
-          start,
-          end,
-          quote: chapter.text.slice(start, end),
-          kind: 'passage',
-          label: '',
-        })
-        chunks++
-        if (pending.length >= 64) await flush()
+      let chapterPassages: EvidenceRecord[]
+      if (unchanged) {
+        work.reusedChapters++
+        chapterPassages = previous!.passages.get(chapter.id)!.map(record =>
+          record.ordinal === ordinal ? record : { ...record, ordinal })
+      } else {
+        work.rebuiltChapters++
+        chapterPassages = []
+        for (const { start, end } of chunkSpans(chapter.text)) {
+          chapterPassages.push({
+            // Identity is independent of chapter order, revision, or shifting offsets.
+            id: `passage:${JSON.stringify([chapter.id, chapterPassages.length])}`,
+            projectId: snapshot.id, chapterId: chapter.id, chapterTitle: chapter.title,
+            ordinal, revision, start, end, quote: chapter.text.slice(start, end), kind: 'passage', label: '',
+          })
+        }
       }
+      passages.set(chapter.id, chapterPassages)
+      for (const record of chapterPassages) add(record)
+      chunks += chapterPassages.length
     }
 
     let staleClues = 0
     const clueIds = new Set<string>()
     const acceptedClues: MemoryClue[] = []
-    for (const [position, clue] of snapshot.clues.entries()) {
+    for (const clue of snapshot.clues) {
       const chapter = chapters.get(clue.chapterId)
       if (!validClue(clue, chapter, revisions.get(clue.chapterId)) || clueIds.has(clue.id)) {
         staleClues++
@@ -356,31 +392,56 @@ export class MemoryIndex {
       clueIds.add(clue.id)
       acceptedClues.push(clue)
       add({
-        id: `clue:${position}`,
-        projectId: snapshot.id,
-        chapterId: chapter!.id,
-        chapterTitle: chapter!.title,
-        ordinal: ordinals.get(chapter!.id)!,
-        revision: revisions.get(chapter!.id)!,
-        start: clue.start,
-        end: clue.end,
-        quote: clue.quote,
-        kind: 'clue',
-        label: clue.label,
+        id: `clue:${JSON.stringify(clue.id)}`,
+        projectId: snapshot.id, chapterId: chapter!.id, chapterTitle: chapter!.title,
+        ordinal: ordinals.get(chapter!.id)!, revision: revisions.get(chapter!.id)!,
+        start: clue.start, end: clue.end, quote: clue.quote, kind: 'clue', label: clue.label,
       }, [clue.label, ...clue.aliases].join('\n'))
-      if (pending.length >= 64) await flush()
     }
-    await flush()
-    // Include order and author annotations, so an otherwise unchanged index has an unambiguous identity.
     const fingerprintBytes = new TextEncoder().encode(JSON.stringify([snapshot.id, manifests, acceptedClues]))
     const digest = await crypto.subtle.digest('SHA-256', fingerprintBytes)
     const fingerprint = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('')
     assertCurrent()
+
+    let removals = previous ? [...previous.documents.keys()].filter(id => previous.documents.get(id) !== documents.get(id)) : []
+    // Orama retains empty token nodes and internal IDs after removal. Periodic rebuilds
+    // bound edit-history growth instead of keeping every retired term for a long session.
+    const removedSinceRebuild = (previous?.removedSinceRebuild ?? 0) + removals.length
+    const compact = previous && removedSinceRebuild > Math.max(1_024, documents.size * 2)
+    const database = previous && !compact ? previous.database : createDatabase()
+    if (compact) {
+      work.mode = 'full'
+      removals = []
+    }
+    const additions = [...documents.values()].filter(document => !previous || compact || previous.documents.get(document.id) !== document)
+    work.removedDocuments = removals.length
+    work.insertedDocuments = additions.length
+    work.reusedDocuments = documents.size - additions.length
+    const yieldToMessages = async () => {
+      // A real task yield lets worker invalidation/cancel messages interrupt large edits.
+      await new Promise<void>(resolve => setTimeout(resolve, 0))
+      assertCurrent()
+    }
+    // removeMultiple in Orama 3.1.18 returns before later timer batches finish.
+    // Own these batches and await each public remove so publication is truly complete.
+    for (let offset = 0; offset < removals.length; offset += 64) {
+      assertCurrent()
+      for (const id of removals.slice(offset, offset + 64)) {
+        if (!await remove(database, id)) throw new Error('索引增量移除失败，请重新构建。')
+        assertCurrent()
+      }
+      await yieldToMessages()
+    }
+    for (let offset = 0; offset < additions.length; offset += 64) {
+      assertCurrent()
+      await insertMultiple(database, additions.slice(offset, offset + 64))
+      await yieldToMessages()
+    }
+    assertCurrent()
     const stats: MemoryIndexStats = {
       projectId: snapshot.id, fingerprint, chapters: manifests,
-      chunks, clues: acceptedClues.length, staleClues, chars, buildMs: performance.now() - started,
+      chunks, clues: acceptedClues.length, staleClues, chars, buildMs: performance.now() - started, sync: work,
     }
-    // Reuse only unchanged source spans. Order and cutoff are checked afresh for each search.
     const activeKeys = new Set([...evidence.values()].filter(record => record.kind === 'passage').map(sourceKey))
     for (const [key, entry] of this.vectorCache) {
       if (!activeKeys.has(key)) {
@@ -388,7 +449,10 @@ export class MemoryIndex {
         this.vectorCache.delete(key)
       }
     }
-    this.ready = { database, project: snapshot, chapters, revisions, ordinals, evidence, stats }
+    this.ready = {
+      database, project: snapshot, chapters, revisions, ordinals, evidence, passages, documents, stats,
+      removedSinceRebuild: previous && !compact ? removedSinceRebuild : 0,
+    }
     return copyStats(stats)
   }
 
@@ -407,6 +471,7 @@ export class MemoryIndex {
     }
     const cutoff = ready.ordinals.get(query.throughChapterId)
     if (cutoff === undefined) throw new Error('披露截止章节不存在；检索已阻止。')
+    const disclosedChapterIds = ready.project.chapters.slice(0, cutoff).map(chapter => chapter.id)
     // Snapshot primitive settings and query before the first await; callers may mutate UI objects.
     const embeddingInput = options?.embedding ? { ...options.embedding } : undefined
     const rerankInput = options?.rerank ? { ...options.rerank } : undefined
@@ -451,7 +516,7 @@ export class MemoryIndex {
             exact: false,
             threshold: 0.7,
             limit: Math.min(limit * 4, 200),
-            where: { projectId: { eq: ready.project.id }, ordinal: { lte: cutoff }, kind: { eq: kind } },
+            where: { projectId: { eq: ready.project.id }, chapterId: { in: disclosedChapterIds }, kind: { eq: kind } },
           })
           assertCurrent()
           // Give the best result from each channel a comparable chance to survive fusion.
