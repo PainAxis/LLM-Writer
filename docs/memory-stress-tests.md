@@ -70,6 +70,26 @@ The [hybrid report](testing/memory-stress-2026-10-04/hybrid.json) passed all 11 
 
 Observed process peak RSS was 1,417.63 MiB, with several test indexes alive; cold-action RSS was 399.60 MiB. Neither value is an isolated per-novel allocation. Local hash vectors, lexical reranking and loopback latency do not predict real Jina quality or latency.
 
+### Built-app browser workflow
+
+All **eight browser stress scenarios passed** in [CI run #75](https://github.com/PainAxis/LLM-Writer/actions/runs/37171182997); see the [browser report](testing/memory-stress-2026-10-04/browser.json). This was the PR integration build, merge commit `79968f1` for branch head `2860134`, rather than a standalone Node engine test. The environment used Chromium 153.0.8010.12, Node 24.21.0, Linux x64 and an AMD EPYC 7763 runner exposing four CPUs, at a 1440 × 1080 viewport. It was a desktop test, not a mobile-device benchmark.
+
+| Measurement | Observed result |
+| --- | --- |
+| Manuscript | 600 persisted chapter blobs; 1,560,000 generated prose characters / 1,559,999 indexed characters |
+| Initial selected-source load | 3,883 ms |
+| 56 completed UI search actions | p50 **174 ms**, p95 **4,406 ms**, maximum **4,413 ms** |
+| Cold semantic scope through chapter 400 | 1,200 eligible passages in 38 batches |
+| In-flight cancellation response | 40 ms; late response excluded and subsequent retrieval recovered |
+| Main-thread observations | Six long tasks, maximum 138 ms; maximum visible frame gap 133.4 ms |
+| Provider traffic | 125 local HTTP requests; three-dimensional synthetic vectors and controlled reranking |
+
+The 56-query distribution combines local, cold/warm hybrid, post-edit rebuild and cancellation-recovery actions. Each measurement starts at the search click and includes committed-source reading, Worker synchronization and rendered results. It is not a warm-only retrieval benchmark. The Writer edit scenario took 27.364 seconds for its **whole step**, including opening Writer, switching chapters, saving, reading, searching and assertions; the report does not isolate save latency.
+
+The scenarios checked 24 cross-volume queries, a distant planted passage, 12 future-identity boundaries, real Writer editing in a second tab, cancellation, reload and source evidence. All 600 chapter texts were independently verified after saving; the 599 unedited chapters remained exactly unchanged. Indexed text stayed at 1,559,999 characters. Stored HTML changed from 1,670,912 to 1,670,814 code units through editor serialization, so its size is not used as a substitute for visible-text integrity. There were no uncaught browser errors or future-identity markers in provider payloads.
+
+The browser run also confirmed the cache-lifecycle limitation: **returning from Writer re-embedded all 1,200 eligible passages in 38 batches**, not just the changed chapter. The same count was submitted again after the explicit cache clear and cancellation recovery. These local-provider results establish the actual UI behavior; they do not measure paid-model latency or browser CORS against Jina.
+
 ### Real Jina over the complete public-domain anthology
 
 The [completed Jina report](testing/memory-stress-2026-10-04/jina.json) evaluated all 22 predeclared questions against **1,296,626 characters, 171 chapters and 1,178 passages**, using `jina-embeddings-v3` at 512 dimensions and `jina-reranker-v2-base-multilingual`. All 18 positive remote questions used both semantic retrieval and reranking; no fallback query is counted as successful hybrid retrieval.

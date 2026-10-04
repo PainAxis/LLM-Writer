@@ -1,0 +1,1709 @@
+{
+  "startedAt": "2026-10-04T02:29:55.671Z",
+  "commit": "79968f1532ca5c73cf949e7cfda4021e9995b1f0",
+  "fixture": {
+    "fixtureVersion": 2,
+    "seed": 1365799083,
+    "chapters": 600,
+    "charsPerChapter": 2600,
+    "totalChars": 1560000,
+    "volumes": 12,
+    "castSize": 72,
+    "locations": 36,
+    "usedCast": 72,
+    "usedLocations": 36,
+    "paragraphTemplates": 8,
+    "usedParagraphTemplates": 8,
+    "generatedParagraphs": 19112,
+    "uniqueParagraphRatio": 1,
+    "description": "Deterministic procedural Chinese fiction: varied cast, locations, events and similar clue aliases; planted exact identifiers test retrieval and provenance, not literary realism or semantic-model quality.",
+    "storedHtmlChars": 1670912,
+    "storedHtmlUtf8Bytes": 4504280,
+    "indexedChars": 1559999,
+    "characterCounts": "totalChars counts generated prose; storedHtmlChars counts canonical persisted Writer HTML; indexedChars sums the exact visible chapter texts"
+  },
+  "environment": {
+    "browser": "153.0.8010.12",
+    "node": "v24.21.0",
+    "platform": "linux/x64",
+    "cpuModel": "AMD EPYC 7763 64-Core Processor",
+    "logicalCpus": 4,
+    "availableParallelism": 4,
+    "viewport": {
+      "width": 1440,
+      "height": 1080
+    }
+  },
+  "provider": "Local synthetic vectors and reranking; no external service or quality benchmark",
+  "tests": [
+    {
+      "name": "01 Load a 1.56M-character, 600-chapter novel from committed IndexedDB chunks",
+      "status": "passed",
+      "durationMs": 6571
+    },
+    {
+      "name": "02 Perform 24 consecutive cross-volume queries with exact source and revision checks",
+      "status": "passed",
+      "durationMs": 6676
+    },
+    {
+      "name": "03 Exclude later identities across 12 disclosure boundaries and immediately clear evidence",
+      "status": "passed",
+      "durationMs": 5345
+    },
+    {
+      "name": "04 Cold and warm hybrid searches process hundreds of passages without sending future chapters",
+      "status": "passed",
+      "durationMs": 5073
+    },
+    {
+      "name": "05 Commit an early chapter edit in Writer and exclude its old text, vector and evidence",
+      "status": "passed",
+      "durationMs": 27364
+    },
+    {
+      "name": "06 Cancel an in-flight large retrieval and prevent a late response from publishing or seeding cache",
+      "status": "passed",
+      "durationMs": 8771
+    },
+    {
+      "name": "07 Reload the chunked novel and verify persisted revision with providers disabled",
+      "status": "passed",
+      "durationMs": 6908
+    },
+    {
+      "name": "08 Check UI heartbeat, end-to-end latency, uncaught errors and durable source integrity",
+      "status": "passed",
+      "durationMs": 268
+    }
+  ],
+  "queries": [
+    {
+      "query": "FS00001",
+      "cutoff": 131,
+      "durationMs": 194,
+      "hits": 1
+    },
+    {
+      "query": "FS00027",
+      "cutoff": 157,
+      "durationMs": 182,
+      "hits": 1
+    },
+    {
+      "query": "FS00053",
+      "cutoff": 183,
+      "durationMs": 176,
+      "hits": 1
+    },
+    {
+      "query": "FS00079",
+      "cutoff": 209,
+      "durationMs": 169,
+      "hits": 1
+    },
+    {
+      "query": "FS00105",
+      "cutoff": 235,
+      "durationMs": 167,
+      "hits": 1
+    },
+    {
+      "query": "FS00131",
+      "cutoff": 261,
+      "durationMs": 164,
+      "hits": 1
+    },
+    {
+      "query": "FS00157",
+      "cutoff": 287,
+      "durationMs": 174,
+      "hits": 1
+    },
+    {
+      "query": "FS00183",
+      "cutoff": 313,
+      "durationMs": 171,
+      "hits": 1
+    },
+    {
+      "query": "FS00209",
+      "cutoff": 339,
+      "durationMs": 177,
+      "hits": 1
+    },
+    {
+      "query": "FS00235",
+      "cutoff": 365,
+      "durationMs": 202,
+      "hits": 1
+    },
+    {
+      "query": "FS00261",
+      "cutoff": 391,
+      "durationMs": 169,
+      "hits": 1
+    },
+    {
+      "query": "FS00287",
+      "cutoff": 417,
+      "durationMs": 174,
+      "hits": 1
+    },
+    {
+      "query": "FS00313",
+      "cutoff": 443,
+      "durationMs": 181,
+      "hits": 1
+    },
+    {
+      "query": "FS00339",
+      "cutoff": 469,
+      "durationMs": 176,
+      "hits": 1
+    },
+    {
+      "query": "FS00365",
+      "cutoff": 495,
+      "durationMs": 172,
+      "hits": 1
+    },
+    {
+      "query": "FS00391",
+      "cutoff": 521,
+      "durationMs": 167,
+      "hits": 1
+    },
+    {
+      "query": "FS00417",
+      "cutoff": 547,
+      "durationMs": 177,
+      "hits": 1
+    },
+    {
+      "query": "FS00443",
+      "cutoff": 573,
+      "durationMs": 161,
+      "hits": 1
+    },
+    {
+      "query": "FS00469",
+      "cutoff": 599,
+      "durationMs": 233,
+      "hits": 1
+    },
+    {
+      "query": "FS00495",
+      "cutoff": 600,
+      "durationMs": 175,
+      "hits": 1
+    },
+    {
+      "query": "FS00521",
+      "cutoff": 600,
+      "durationMs": 172,
+      "hits": 1
+    },
+    {
+      "query": "FS00547",
+      "cutoff": 600,
+      "durationMs": 147,
+      "hits": 1
+    },
+    {
+      "query": "FS00573",
+      "cutoff": 600,
+      "durationMs": 170,
+      "hits": 1
+    },
+    {
+      "query": "FS00600",
+      "cutoff": 600,
+      "durationMs": 156,
+      "hits": 2
+    },
+    {
+      "query": "FS00002",
+      "cutoff": 500,
+      "durationMs": 156,
+      "hits": 2
+    },
+    {
+      "query": "FS00002 第三声",
+      "cutoff": 500,
+      "durationMs": 169,
+      "hits": 12
+    },
+    {
+      "query": "MASK00578",
+      "cutoff": 577,
+      "durationMs": 205,
+      "hits": 0
+    },
+    {
+      "query": "MASK00578",
+      "cutoff": 578,
+      "durationMs": 175,
+      "hits": 1
+    },
+    {
+      "query": "MASK00580",
+      "cutoff": 579,
+      "durationMs": 168,
+      "hits": 0
+    },
+    {
+      "query": "MASK00580",
+      "cutoff": 580,
+      "durationMs": 174,
+      "hits": 1
+    },
+    {
+      "query": "MASK00582",
+      "cutoff": 581,
+      "durationMs": 170,
+      "hits": 0
+    },
+    {
+      "query": "MASK00582",
+      "cutoff": 582,
+      "durationMs": 173,
+      "hits": 1
+    },
+    {
+      "query": "MASK00584",
+      "cutoff": 583,
+      "durationMs": 182,
+      "hits": 0
+    },
+    {
+      "query": "MASK00584",
+      "cutoff": 584,
+      "durationMs": 180,
+      "hits": 1
+    },
+    {
+      "query": "MASK00586",
+      "cutoff": 585,
+      "durationMs": 185,
+      "hits": 0
+    },
+    {
+      "query": "MASK00586",
+      "cutoff": 586,
+      "durationMs": 177,
+      "hits": 1
+    },
+    {
+      "query": "MASK00588",
+      "cutoff": 587,
+      "durationMs": 161,
+      "hits": 0
+    },
+    {
+      "query": "MASK00588",
+      "cutoff": 588,
+      "durationMs": 178,
+      "hits": 1
+    },
+    {
+      "query": "MASK00590",
+      "cutoff": 589,
+      "durationMs": 179,
+      "hits": 0
+    },
+    {
+      "query": "MASK00590",
+      "cutoff": 590,
+      "durationMs": 172,
+      "hits": 1
+    },
+    {
+      "query": "MASK00592",
+      "cutoff": 591,
+      "durationMs": 167,
+      "hits": 0
+    },
+    {
+      "query": "MASK00592",
+      "cutoff": 592,
+      "durationMs": 173,
+      "hits": 1
+    },
+    {
+      "query": "MASK00594",
+      "cutoff": 593,
+      "durationMs": 175,
+      "hits": 0
+    },
+    {
+      "query": "MASK00594",
+      "cutoff": 594,
+      "durationMs": 175,
+      "hits": 1
+    },
+    {
+      "query": "MASK00596",
+      "cutoff": 595,
+      "durationMs": 195,
+      "hits": 0
+    },
+    {
+      "query": "MASK00596",
+      "cutoff": 596,
+      "durationMs": 180,
+      "hits": 1
+    },
+    {
+      "query": "MASK00598",
+      "cutoff": 597,
+      "durationMs": 191,
+      "hits": 0
+    },
+    {
+      "query": "MASK00598",
+      "cutoff": 598,
+      "durationMs": 186,
+      "hits": 1
+    },
+    {
+      "query": "MASK00600",
+      "cutoff": 599,
+      "durationMs": 172,
+      "hits": 0
+    },
+    {
+      "query": "MASK00600",
+      "cutoff": 600,
+      "durationMs": 161,
+      "hits": 1
+    },
+    {
+      "query": "FS00002",
+      "cutoff": 400,
+      "durationMs": 4413,
+      "hits": 2
+    },
+    {
+      "query": "FS00002",
+      "cutoff": 400,
+      "durationMs": 169,
+      "hits": 2
+    },
+    {
+      "query": "RN00002",
+      "cutoff": 400,
+      "durationMs": 4413,
+      "hits": 2
+    },
+    {
+      "query": "FS00002",
+      "cutoff": 400,
+      "durationMs": 174,
+      "hits": 2
+    },
+    {
+      "query": "RN00002",
+      "cutoff": 400,
+      "durationMs": 4406,
+      "hits": 2
+    },
+    {
+      "query": "RN00002",
+      "cutoff": 600,
+      "durationMs": 178,
+      "hits": 2
+    }
+  ],
+  "screenshots": [
+    "long-range-source-evidence.png",
+    "revised-long-novel-evidence.png",
+    "reloaded-persisted-revision.png"
+  ],
+  "initialLoadMs": 3883,
+  "hybridColdPassages": 1200,
+  "hybridColdBatches": 38,
+  "writerEditVerification": {
+    "verifiedChapters": 600,
+    "unchangedChapterTexts": 599,
+    "editedOrdinals": [
+      2
+    ]
+  },
+  "cancelResponseMs": 40,
+  "responsiveness": {
+    "visibleFrames": 3399,
+    "frameGapP95Ms": 16.799999999995634,
+    "frameGapMaxMs": 133.39999999999782,
+    "longTaskCount": 6,
+    "longTaskMaxMs": 138
+  },
+  "queryLatency": {
+    "count": 56,
+    "p50Ms": 174,
+    "p95Ms": 4406,
+    "maxMs": 4413,
+    "scope": "UI click through committed source read, Worker synchronization (reuse or rebuild), retrieval and rendered results; includes synthetic cold/warm provider cases"
+  },
+  "persistence": {
+    "metadataHash": "f4e3be72b267bae548e8b1a76eac04081fb7152e2c3ced9c56e10ab9aebb5c02",
+    "bodyHash": "b6e0ecbc56164c7d606442eb34f4b173e3fa34ce25a22a4fccd7159a65d132e0",
+    "chunks": 600,
+    "chars": 1670814,
+    "chapters": 600,
+    "initialChars": 1670912,
+    "generatedProseChars": 1560000,
+    "initialIndexedChars": 1559999,
+    "indexedChars": 1559999
+  },
+  "finishedAt": "2026-10-04T02:31:02.685Z",
+  "browserErrors": [],
+  "blockedRequests": [],
+  "providerRequests": [
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28322,
+      "oldFact": true,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27373,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27385,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28165,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27478,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27441,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28165,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27483,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27436,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28162,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27546,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27376,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28158,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27538,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27388,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28272,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27373,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27439,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28178,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27431,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27475,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28196,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27442,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27446,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28290,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27354,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27440,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28168,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27538,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27378,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28204,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27497,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27383,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28306,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27383,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27391,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28212,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 16,
+      "chars": 13331,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.query",
+      "texts": 1,
+      "chars": 7,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "rerank",
+      "texts": 2,
+      "chars": 1489,
+      "oldFact": true,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.query",
+      "texts": 1,
+      "chars": 7,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "rerank",
+      "texts": 2,
+      "chars": 1489,
+      "oldFact": true,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28322,
+      "oldFact": false,
+      "revisedFact": true,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27373,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27385,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28165,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27478,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27441,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28165,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27483,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27436,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28162,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27546,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27376,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28158,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27538,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27388,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28272,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27373,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27439,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28178,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27431,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27475,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28196,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27442,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27446,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28290,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27354,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27440,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28168,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27538,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27378,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28204,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27497,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27383,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28306,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27383,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27391,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28212,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 16,
+      "chars": 13331,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.query",
+      "texts": 1,
+      "chars": 7,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "rerank",
+      "texts": 2,
+      "chars": 1489,
+      "oldFact": false,
+      "revisedFact": true,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.query",
+      "texts": 1,
+      "chars": 7,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "rerank",
+      "texts": 2,
+      "chars": 1489,
+      "oldFact": false,
+      "revisedFact": true,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28322,
+      "oldFact": false,
+      "revisedFact": true,
+      "futureFact": false,
+      "status": "aborted"
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28322,
+      "oldFact": false,
+      "revisedFact": true,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27373,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27385,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28165,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27478,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27441,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28165,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27483,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27436,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28162,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27546,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27376,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28158,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27538,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27388,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28272,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27373,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27439,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28178,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27431,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27475,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28196,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27442,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27446,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28290,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27354,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27440,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28168,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27538,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27378,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28204,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27497,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27383,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28306,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27383,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 27391,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 32,
+      "chars": 28212,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.passage",
+      "texts": 16,
+      "chars": 13331,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "embeddings",
+      "task": "retrieval.query",
+      "texts": 1,
+      "chars": 7,
+      "oldFact": false,
+      "revisedFact": false,
+      "futureFact": false,
+      "status": 200
+    },
+    {
+      "kind": "rerank",
+      "texts": 2,
+      "chars": 1489,
+      "oldFact": false,
+      "revisedFact": true,
+      "futureFact": false,
+      "status": 200
+    }
+  ]
+}
