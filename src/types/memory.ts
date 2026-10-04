@@ -51,6 +51,37 @@ export interface MemoryQuery {
   limit?: number
 }
 
+/** Route-session settings only. Never persist credentials or include them in results. */
+export interface MemoryEmbeddingConfig {
+  protocol: 'jina' | 'openai-compatible'
+  endpoint: string
+  model: string
+  apiKey: string
+  dimensions: number
+}
+
+export interface MemoryRerankConfig {
+  endpoint: string
+  model: string
+  apiKey: string
+}
+
+export interface MemoryRemoteOptions {
+  embedding?: MemoryEmbeddingConfig
+  rerank?: MemoryRerankConfig
+}
+
+export interface MemoryRetrievalDiagnostics {
+  semantic: 'disabled' | 'used' | 'fallback'
+  rerank: 'disabled' | 'used' | 'fallback' | 'skipped'
+  eligiblePassages: number
+  embeddedPassages: number
+  cachedPassages: number
+  rerankedCandidates: number
+  /** Safe local messages; never provider response bodies or request credentials. */
+  warnings: string[]
+}
+
 export interface MemoryEvidence {
   id: string
   projectId: string
@@ -74,12 +105,13 @@ export interface MemorySearchResult {
   throughChapterId: string
   hits: MemoryEvidence[]
   searchMs: number
-  method: 'bm25+clues'
+  method: 'bm25+clues' | 'bm25+clues+semantic'
+  diagnostics: MemoryRetrievalDiagnostics
 }
 
 export type MemoryWorkerRequest =
   | { id: number; type: 'sync'; project: MemoryProjectInput }
-  | { id: number; type: 'search'; query: MemoryQuery }
+  | { id: number; type: 'search'; query: MemoryQuery; options?: MemoryRemoteOptions }
 
 export type MemoryWorkerResponse =
   | { id: number; ok: true; type: 'sync'; result: MemoryIndexStats }

@@ -13,7 +13,7 @@ scope.onmessage = async (event) => {
     if (request.type === 'sync') {
       scope.postMessage({ id: request.id, ok: true, type: 'sync', result: await index.sync(request.project) })
     } else if (request.type === 'search') {
-      scope.postMessage({ id: request.id, ok: true, type: 'search', result: await index.search(request.query) })
+      scope.postMessage({ id: request.id, ok: true, type: 'search', result: await index.search(request.query, request.options) })
     } else {
       throw new Error('不支持的检索操作')
     }

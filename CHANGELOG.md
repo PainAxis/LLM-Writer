@@ -2,8 +2,12 @@
 
 ## [Unreleased]
 
-- Add an isolated Memory Lab prototype with Orama keyword/author-clue retrieval in a Web Worker, content-derived chapter revisions, pre-ranking disclosure filters and exact source evidence. Include an editable 80-chapter private demo and read-only retrieval of committed novels; no AI API is called and existing generation tools are unchanged.
-- Add memory correctness and million-character synthetic capacity checks, plus eight built-app Chromium acceptance scenarios. Configured CI coverage is 65 smoke suites and 53 browser scenarios; see [prototype scope and walkthrough](docs/memory-prototype.md).
+- Extend Memory Lab with opt-in Jina/OpenAI-compatible embeddings and Jina-compatible reranking, reciprocal-rank fusion, a bounded revision/configuration-aware vector cache and explicit local fallback. Filter source disclosure before external requests, keep provider settings/keys in the current route session and invalidate stale asynchronous results.
+- Add provider/hybrid smoke regressions and ten additional built-app Chromium scenarios, bringing configured coverage to 67 smoke suites and 63 browser scenarios. Add an optional, separately invoked Jina live test using synthetic chapters.
+- Provide matching English and Simplified Chinese [memory prototype documentation](docs/memory-prototype.md), including provider setup, request/cache limits and remaining scope.
+
+- Add an isolated Memory Lab prototype with Orama keyword/author-clue retrieval in a Web Worker, content-derived chapter revisions, pre-ranking disclosure filters and exact source evidence. Include an editable 80-chapter private demo and read-only retrieval of committed novels; local-only mode calls no AI API and existing generation tools are unchanged.
+- Add memory correctness and million-character synthetic capacity checks, plus eight built-app Chromium acceptance scenarios. See [prototype scope and walkthrough](docs/memory-prototype.md).
 
 - Add opt-in assistant writing extensions with six project-scoped read-only tools, remote Streamable HTTP MCP connections and explicit tool allowlists.
 - Add four built-in Agent Skills and validated `SKILL.md`/folder imports, with selected instructions and on-demand references.

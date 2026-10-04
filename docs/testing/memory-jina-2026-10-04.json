@@ -1,0 +1,85 @@
+{
+  "startedAt": "2026-10-04T00:17:43.061Z",
+  "finishedAt": "2026-10-04T00:18:43.945Z",
+  "syntheticOnly": true,
+  "embeddingModel": "jina-embeddings-v3",
+  "dimensions": 512,
+  "rerankModel": "jina-reranker-v2-base-multilingual",
+  "requests": 11,
+  "sentChars": 632,
+  "passed": true,
+  "checks": [
+    {
+      "name": "Recover a contact arrangement with different wording",
+      "passed": true,
+      "elapsedMs": 23428,
+      "resultCount": 2,
+      "firstChapter": "c2",
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 2,
+        "embeddedPassages": 2,
+        "cachedPassages": 0,
+        "rerankedCandidates": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "Reuse source vectors without disclosing later chapters",
+      "passed": true,
+      "elapsedMs": 8925,
+      "resultCount": 2,
+      "firstChapter": "c1",
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 2,
+        "embeddedPassages": 0,
+        "cachedPassages": 2,
+        "rerankedCandidates": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "Replace an old fact and its source vector after an edit",
+      "passed": true,
+      "elapsedMs": 12232,
+      "resultCount": 2,
+      "firstChapter": "c1",
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 2,
+        "embeddedPassages": 1,
+        "cachedPassages": 1,
+        "rerankedCandidates": 2,
+        "warnings": []
+      }
+    },
+    {
+      "name": "Disclose the identity only after its source chapter",
+      "passed": true,
+      "elapsedMs": 16297,
+      "resultCount": 3,
+      "firstChapter": "c80",
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 3,
+        "embeddedPassages": 1,
+        "cachedPassages": 2,
+        "rerankedCandidates": 3,
+        "warnings": []
+      }
+    }
+  ],
+  "transport": "production-adapter-via-local-curl-proxy",
+  "browserCorsValidated": false,
+  "validationScope": "Production MemoryIndex and provider adapters; three synthetic chapters, four acceptance checks.",
+  "limitations": [
+    "Native Node fetch timed out in the test environment; a temporary curl fetch bridge used the environment proxy.",
+    "Real Jina browser CORS was not validated. Browser regression uses a local synthetic provider.",
+    "This is not a semantic quality or production capacity benchmark."
+  ]
+}

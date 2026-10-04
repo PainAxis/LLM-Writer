@@ -19,7 +19,7 @@
 
 ## 🚀 Features
 
-- **Memory retrieval prototype**: local Orama keyword and author-marked clue retrieval, chapter revision checks, disclosure cutoffs, and source evidence. Open **记忆检索 · 原型** in the sidebar; see [scope and walkthrough](docs/memory-prototype.md).
+- **Memory retrieval prototype**: Orama keyword and author-marked clue retrieval, optional semantic embeddings and reranking, chapter revision checks, disclosure cutoffs before external requests, and source evidence. External services are off by default; their settings and keys stay in the page session. Open **记忆检索 · 原型** in the sidebar; see [scope and walkthrough](docs/memory-prototype.md).
 
 ### Writing Workbench
 - **Novel management**: template-based project creation, metadata, three-state chapters (draft / done / published), covers, import & export; chapter edits keep visible-text totals consistent with previews and exports
@@ -109,9 +109,12 @@ npm run smoke:virtual-messages        # Long-history windows and measured row bo
 npm run smoke:mindmap                 # Mind-map branches, mounting and truncation fallback
 npm run smoke:eventline               # Chapter-number migration and compatibility
 npm run smoke:prompts                 # Default prompts and merge rules
+npm run smoke:memory                  # Local memory, revisions, disclosure and capacity
+npm run smoke:memory-providers        # Embedding/reranking wire formats and response validation
+npm run smoke:memory-hybrid           # Hybrid retrieval, cache, fallback and stale results
 ```
 
-CI is configured to run strict lint, the production build, 65 smoke suites and 53 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 67 smoke suites and 63 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

@@ -83,7 +83,11 @@
     "test:humanizer-live": "node --import tsx scripts/live-humanizer-writing.ts",
     "smoke:jina-writing-evidence": "node --import tsx scripts/smoke-jina-writing-evidence.ts",
     "smoke:memory": "node --import tsx scripts/smoke-memory-retrieval.ts",
-    "test:browser-memory": "node scripts/browser-memory-regression.mjs"
+    "test:browser-memory": "node scripts/browser-memory-regression.mjs",
+    "smoke:memory-providers": "node --import tsx scripts/smoke-memory-providers.ts",
+    "smoke:memory-hybrid": "node --import tsx scripts/smoke-memory-hybrid.ts",
+    "test:browser-memory-hybrid": "node scripts/browser-memory-hybrid-regression.mjs",
+    "test:memory-live": "node --import tsx scripts/live-memory-jina.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
