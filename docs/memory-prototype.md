@@ -14,7 +14,8 @@ This stage-three prototype exercises three acceptance goals: exclude outdated fa
 - Chapter revisions are SHA-256 hashes of the title and plain-text body. Clues bind to a revision and an exact source span; edits do not silently transfer them to a new revision.
 - The evidence panel displays the source quote, chapter, revision and UTF-16 range. Text interpolation displays source content without executing it as HTML.
 - An editable 80-chapter synthetic demo is saved separately in IndexedDB. Searches of actual novels read the latest committed text each time; the prototype does not write to those novels.
-- External services are optional and disabled by default. Local retrieval needs no API key and makes no model calls.
+- A [Cytoscape.js fact graph](memory-fact-graph.md) links people, events, objects and places to exact chapter evidence. Its local annotations are stored independently; optional model proposals use selected disclosed excerpts and the active generation API configuration.
+- External retrieval services are optional and disabled by default. Local retrieval needs no API key and makes no model calls.
 
 ## Try the acceptance cases
 
@@ -55,7 +56,7 @@ The keyword index is derived in-memory data. Every search reads and validates th
 
 Starting synchronization invalidates old asynchronous work before checking for reuse. Source invalidation can retain a completed baseline privately, but that baseline cannot serve searches until fresh synchronization succeeds. A failed build reports an error instead of continuing to serve previous facts. Index epochs and page request versions reject results from outdated requests.
 
-Every piece of evidence comes from the current chapter snapshot. Whole-book summaries, character settings, worldbuilding and external material are not indexed because they do not yet have item-level disclosure boundaries and source revisions. Author-provided clue labels and aliases are treated as information known at the source chapter; authors must ensure they do not contain later secrets. Automatic clue extraction, clue-resolution inference and fact relationship graphs remain future work.
+Every piece of evidence comes from the current chapter snapshot. Whole-book summaries, character settings, worldbuilding and external material are not indexed because they do not yet have item-level disclosure boundaries and source revisions. Author-provided clue labels and aliases are treated as information known at the source chapter; authors must ensure they do not contain later secrets. Automatic whole-novel clue extraction and clue-resolution inference remain future work. The separate [fact graph](memory-fact-graph.md) now provides manually created relationships and optional model proposals with its own exact-source checks and review provenance; it does not automatically add relationships to retrieval ranking.
 
 The prototype does not change the existing `writing_search` tool or generation prompts. The generation workflow therefore does not yet inherit these disclosure safeguards. Those entry points can adopt the same source-scope contract after it stabilizes.
 
@@ -69,12 +70,16 @@ npm run smoke:memory-incremental
 npm run smoke:memory-client
 npm run smoke:memory-providers
 npm run smoke:memory-hybrid
+npm run smoke:memory-fact-graph
+npm run smoke:memory-fact-store
+npm run smoke:memory-fact-extraction
 npm run build
 npm run test:browser-memory
 npm run test:browser-memory-hybrid
+npm run test:browser-memory-fact-graph
 ```
 
-Core regressions cover chapter edits/deletion, ordering changes, project isolation, stale clues, failed builds, concurrent snapshots and a million-character synthetic manuscript. Provider/hybrid regressions check wire formats, invalid responses, semantic fusion, cache reuse, cancellation and fallback. Browser regressions exercise the actual built application, demo editing/restoration, evidence, committed-novel reads and optional providers. The configured project has 69 smoke suites, 65 shorter browser scenarios and nine long-novel browser scenarios; validation status comes from the reviewed revision's CI results. Synthetic data and deterministic provider responses test engineering boundaries; they do not measure real-novel semantic recall.
+Core regressions cover chapter edits/deletion, ordering changes, project isolation, stale clues, failed builds, concurrent snapshots and a million-character synthetic manuscript. Provider/hybrid regressions check wire formats, invalid responses, semantic fusion, cache reuse, cancellation and fallback. Browser regressions exercise the actual built application, demo editing/restoration, evidence, committed-novel reads and optional providers. The configured project has 72 smoke suites, 78 shorter browser scenarios and nine long-novel browser scenarios; validation status comes from the reviewed revision's CI results. Synthetic data and deterministic provider responses test engineering boundaries; they do not measure real-novel semantic recall.
 
 For larger workloads, see the [long-novel stress tests](memory-stress-tests.md), which separate local capacity, hybrid-provider behavior, browser workflows and real-novel recall, with explicit measurement and fallback boundaries.
 
@@ -92,4 +97,4 @@ On **2026-10-04**, the [recorded Jina run](testing/memory-jina-2026-10-04.json) 
 
 Direct dependencies `@orama/orama` and `@orama/tokenizers` 3.1.18 come from [oramasearch/orama](https://github.com/oramasearch/orama), under Apache-2.0, Copyright 2023 OramaSearch Inc. Upstream source is unmodified. Copyright notices and license copies are in `public/licenses/` and ship with the static build.
 
-Orama Cloud, Answer Engine and persistence plugins are not included. Future graph and generation integrations must retain chapter-revision and disclosure constraints.
+Orama Cloud, Answer Engine and persistence plugins are not included. The fact graph uses Cytoscape.js under the MIT license; see [its scope and license](memory-fact-graph.md). Future generation integrations must retain chapter-revision and disclosure constraints.

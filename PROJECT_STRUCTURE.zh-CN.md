@@ -37,6 +37,7 @@
 | `src/services/mcp.ts`、`src/services/skills.ts`、`src/services/writingTools.ts`、`src/services/extensionsRuntime.ts` | 按请求管理 MCP、Skills、创作工具与受限模型调用；[扩展说明](docs/extensions.md) |
 | `src/stores/extensions.ts`、`src/components/extensions/` | 严格校验的扩展配置、内存令牌与助手授权入口 |
 | `src/views/MemoryLab.vue`、`src/services/memory/`、`src/types/memory.ts` | 独立记忆检索、Worker 内的增量索引、可选嵌入／重排服务、有容量上限的向量缓存，以及校验版本和披露范围的依据；[范围](docs/memory-prototype.zh-CN.md)与[增量生命周期](docs/memory-incremental-index.zh-CN.md) |
+| `src/components/memory/`、`src/services/memory/factGraph.ts`、`src/services/memory/factGraphStore.ts`、`src/services/memory/factExtraction.ts`、`src/types/factGraph.ts` | 有原文依据的事实关系、Cytoscape.js 展示、按作品隔离的独立持久化和有明确范围的可选模型提议；[图谱约定](docs/memory-fact-graph.zh-CN.md) |
 | `src/utils/storage.ts`、`src/utils/aiRequestScope.ts` | 统一存储入口，以及可独立取消的 AI 请求作用域 |
 | `src/utils/writer/` | Writer 提示词构建与响应解析，包含润色原文的字面替换 |
 | `src/utils/writerContent.ts`、`src/utils/novelStats.ts` | 统一可见正文转换、安全生成 HTML、Unicode 字符计数和按章节计算小说总字数 |
@@ -76,9 +77,10 @@
 
 ## 校验与发布
 
-- CI 校验配置包含 69 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 74 个 Chromium 场景，其中包括 9 个超长篇压力场景。验证状态以审查提交的 CI 结果为准。
+- CI 校验配置包含 72 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 87 个 Chromium 场景，其中包括 9 个超长篇压力场景。验证状态以审查提交的 CI 结果为准。
 - [超长篇记忆压力测试](docs/memory-stress-tests.zh-CN.md)：`ci-memory-stress` 检验本地容量与受控 HTTP 服务，`ci-memory-browser-stress` 单独检验浏览器持久化改稿；付费 Jina 为可选测试。复用语料位于 `scripts/fixtures/`，经审查的报告位于 `docs/testing/`。
 - 记忆增量回归：`smoke:memory-incremental` 与 `smoke:memory-client`；连续改稿／返回焦点检查扩展已有压力脚本。
+- 事实图谱回归：`smoke:memory-fact-graph`、`smoke:memory-fact-store`、`smoke:memory-fact-extraction` 与 `test:browser-memory-fact-graph`；[来源约定与容量](docs/memory-fact-graph.zh-CN.md)。
 - 其他测试集：`smoke:generation-budget`、`smoke:writer-content`、`smoke:management-correctness`、`smoke:billing-correctness`、`smoke:tools-workspace`。
 - [浏览器测试](scripts/browser-testing.md)：CI 检查、本地 Chromium 回归与可选预览。
 - [发布说明](scripts/releasing.md)：通过校验的静态构建、校验和及源码/CI 信息。
@@ -96,6 +98,7 @@
 - `promptCatalog.ts` 为 Writer、PromptsLibrary、ShortStory、BookAnalysis 和 ToolsLibrary 按需初始化或迁移提示词库。当前版本中用户已删除的模板及用户元数据会保留；损坏的存储数据会报错，并保留供恢复。
 - 提示词、API/配置、题材与助手管理完成存储写入后，才更新已保存状态并提示成功。保存失败保留可重试草稿或上次提交状态。
 - 小说保存先准备正文分片，再协调提交，并比较编辑器实际读取的版本。不同作品的修改可以合并；同一作品发生冲突时保留本地草稿，拒绝覆盖较新的已保存版本。需先复制草稿，再刷新页面、重新打开作品并手动合并。
+- 事实关系按作品存入独立 IndexedDB 记录，保存时原子比较版本；并发保存冲突会报错，不覆盖较新的图谱。修改来源后隐藏过期关系，不会悄悄重绑定或删除已存注释。这些记录不进入系统备份；详见[图谱持久化说明](docs/memory-fact-graph.zh-CN.md#持久化与容量)。
 - 目标增量在同一跨标签页提交边界中读取最新记录，保留并发的增量和各自历史。这一机制保护小说与写作目标，其他存储键不会因此获得跨标签页保护。详见[持久化协调说明](docs/persistence-coordination.md)。
 - 助手摘要将正文和覆盖游标一起保存，发送时使用摘要与尚未覆盖的原始消息；压缩失败或仍在进行时不会推进覆盖范围。完整本地历史与旧版摘要备份保持可用。
 - `utils/eventLine.ts` 按稳定的章节身份重映射事件关联，供章节管理、Writer 删除及思维导图编辑共同使用。章节管理在同一次保存中提交重新计算的章节字数和小说的两个总字数字段。

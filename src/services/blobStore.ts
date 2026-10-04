@@ -99,6 +99,31 @@ export async function idbSet(key: string, value: string): Promise<void> {
   await idbSetMany([{ key, content: value }])
 }
 
+/** Compare and replace in one readwrite transaction; success means committed. */
+export async function idbCompareAndSwap(key: string, expectedValue: string | null, value: string): Promise<boolean> {
+  const db = await openDB()
+  return new Promise<boolean>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    const store = tx.objectStore(STORE_NAME)
+    const request = store.get(key)
+    let matched = false
+    tx.oncomplete = () => resolve(matched)
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB 条件写入失败'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB 条件写入中止'))
+    request.onsuccess = () => {
+      if (((request.result as string | undefined) ?? null) !== expectedValue) return
+      try {
+        store.put(value, key)
+        matched = true
+      } catch (cause) {
+        tx.abort()
+        reject(cause)
+      }
+    }
+    request.onerror = () => reject(request.error ?? new Error('IndexedDB 条件读取失败'))
+  })
+}
+
 export async function idbDeleteMany(keys: string[]): Promise<void> {
   if (keys.length === 0) return
   await writeTransaction((store) => {

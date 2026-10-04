@@ -138,6 +138,8 @@
       </aside>
     </div>
 
+    <FactGraphPanel :project="project" :stats="stats" :through-chapter-id="cutoffId" :disabled="busy || dirty || !stats" :selected-evidence="evidence?.hit" @refresh-required="invalidateGraphSource" />
+
     <section v-if="isDemo" class="lab-card demo-editor" aria-labelledby="editor-title">
       <div class="section-heading">
         <h2 id="editor-title">示例素材编辑</h2>
@@ -164,6 +166,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
+import FactGraphPanel from '@/components/memory/FactGraphPanel.vue'
 import { MemoryClient } from '@/services/memory/client'
 import { createMemoryDemo, readMemoryDemo, readMemoryNovel, readMemoryNovelChoices, saveMemoryDemo } from '@/services/memory/labData'
 import type { MemoryIndexStats, MemoryProjectInput, MemoryRemoteOptions, MemorySearchResult } from '@/types/memory'
@@ -455,6 +458,11 @@ function discardEdits() {
 
 function invalidateExternalSource() {
   if (isDemo.value || disposed) return
+  invalidateGraphSource()
+}
+
+function invalidateGraphSource() {
+  if (disposed) return
   invalidateResults()
   stats.value = null
   busy.value = false

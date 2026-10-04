@@ -94,7 +94,11 @@
     "test:memory-stress-live": "node --import tsx scripts/stress-memory-jina.ts",
     "test:memory-corpus-fetch": "node --import tsx scripts/fetch-memory-corpus.mjs",
     "smoke:memory-client": "node --import tsx scripts/smoke-memory-client.ts",
-    "smoke:memory-incremental": "node --import tsx scripts/smoke-memory-incremental.ts"
+    "smoke:memory-incremental": "node --import tsx scripts/smoke-memory-incremental.ts",
+    "smoke:memory-fact-graph": "node --import tsx scripts/smoke-memory-fact-graph.ts",
+    "smoke:memory-fact-extraction": "node --import tsx scripts/smoke-memory-fact-extraction.ts",
+    "test:browser-memory-fact-graph": "node scripts/browser-memory-fact-graph.mjs",
+    "smoke:memory-fact-store": "node --import tsx scripts/smoke-memory-fact-store.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
@@ -108,6 +112,7 @@
     "@wangeditor/editor": "^5.1.23",
     "@wangeditor/editor-for-vue": "^5.1.12",
     "ai": "^7.0.91",
+    "cytoscape": "3.34.3",
     "element-plus": "^2.14.5",
     "entities": "^7.0.1",
     "mammoth": "^1.12.2",

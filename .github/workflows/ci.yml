@@ -98,6 +98,7 @@ jobs:
       - run: npm run build
       - run: npm run test:browser-memory
       - run: npm run test:browser-memory-hybrid
+      - run: npm run test:browser-memory-fact-graph
       - run: npm run test:browser-extensions
       - run: npm run test:browser
       - name: Upload browser evidence
@@ -110,5 +111,6 @@ jobs:
             artifacts/browser-extensions
             artifacts/browser-memory
             artifacts/browser-memory-hybrid
+            artifacts/browser-memory-fact-graph
           if-no-files-found: warn
           retention-days: 7
