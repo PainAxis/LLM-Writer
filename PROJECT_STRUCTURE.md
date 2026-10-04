@@ -76,7 +76,7 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The configured CI validation set contains 64 sequential smoke suites and 45 Chromium scenarios with synthetic data and API responses. Use the reviewed revision’s CI results to confirm validation.
+- The configured CI validation set contains 65 sequential smoke suites and 53 Chromium scenarios with synthetic data and API responses. Use the reviewed revision’s CI results to confirm validation.
 - New suites: `smoke:generation-budget`, `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.

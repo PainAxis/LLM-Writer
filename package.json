@@ -81,7 +81,9 @@
     "test:extensions-live": "node --import tsx scripts/live-extension-generation.ts",
     "test:jina-live": "node --import tsx scripts/live-jina-writing.ts",
     "test:humanizer-live": "node --import tsx scripts/live-humanizer-writing.ts",
-    "smoke:jina-writing-evidence": "node --import tsx scripts/smoke-jina-writing-evidence.ts"
+    "smoke:jina-writing-evidence": "node --import tsx scripts/smoke-jina-writing-evidence.ts",
+    "smoke:memory": "node --import tsx scripts/smoke-memory-retrieval.ts",
+    "test:browser-memory": "node scripts/browser-memory-regression.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
@@ -90,6 +92,8 @@
     "@ai-sdk/openai-compatible": "^3.0.43",
     "@element-plus/icons-vue": "^2.3.2",
     "@mind-elixir/export-mindmap": "^0.1.10",
+    "@orama/orama": "3.1.18",
+    "@orama/tokenizers": "3.1.18",
     "@wangeditor/editor": "^5.1.23",
     "@wangeditor/editor-for-vue": "^5.1.12",
     "ai": "^7.0.91",

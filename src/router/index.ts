@@ -21,6 +21,7 @@ const routes = [
       { path: 'short-story', name: 'ShortStory', component: () => import('@/views/ShortStory.vue') },
       { path: 'book-analysis', name: 'BookAnalysis', component: () => import('@/views/BookAnalysis.vue') },
       { path: 'mindmap', name: 'MindMap', component: () => import('@/views/MindMap.vue') },
+      { path: 'memory', name: 'MemoryLab', component: () => import('@/views/MemoryLab.vue') },
       { path: ':pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFound.vue') },
     ],
   },

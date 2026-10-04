@@ -6,7 +6,7 @@ See [Project Structure](PROJECT_STRUCTURE.md) for the current implementation lay
 
 Completed foundations:
 
-- PR/main CI enforces zero lint warnings, type checking, production builds, 64 smoke suites and 45 real Chromium scenarios with a synthetic API.
+- PR/main CI enforces zero lint warnings, type checking, production builds, 65 smoke suites and 53 real Chromium scenarios with a synthetic API.
 - The main ruleset requires GitHub Actions `ci-quality` and `ci-browser` checks and an up-to-date branch before merging.
 - ShortStory uses isolated generation scopes for articles, stories, continuation and optimization, with cancellation/restart/clear/dialog-close/unmount coverage.
 - BookAnalysis, NovelManagement and ToolsLibrary generation use isolated scopes covering stop, source changes, dialog closure and unmount; tool progress no longer uses simulated timers.
@@ -39,10 +39,12 @@ The second batch is implemented:
 
 API settings now include persisted output ceilings and model-aware thinking controls, with actual SDK wire coverage and a settings-to-generation browser scenario. See [generation budgets](docs/generation-budgets.md).
 
-The configured regression set now contains 64 smoke suites and 45 browser scenarios. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
+The configured regression set now contains 65 smoke suites and 53 browser scenarios. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
 
 ## Feature roadmap
 
 Stage 1 is implemented: opt-in assistant project tools, remote MCP connections and writing Skills. Protocol/import/authorization tests and built-app browser scenarios are part of CI; see [writing extensions](docs/extensions.md).
 
 Next: incremental chapter persistence and million-character editing, shared chapter/volume summaries, then hybrid retrieval and source-backed fact graphs. A bounded writing Agent follows once project tools and memory are stable. Local stdio MCP, script Skills and unattended tasks require an optional companion runtime.
+
+An isolated [stage-three retrieval prototype](docs/memory-prototype.md) now exercises local keyword/author-clue retrieval, chapter revision invalidation, disclosure cutoffs and evidence. It rebuilds each project in memory; stage-two chapter persistence, semantic retrieval, reranking, automatic fact graphs and generation-context integration remain future work.
