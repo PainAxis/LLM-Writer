@@ -1,0 +1,274 @@
+[
+  {
+    "id": "s01-old-feud",
+    "kind": "recall",
+    "query": "王进为什么害怕新上任的高太尉，要带母亲离开东京？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "shuihu-001",
+        "quote": "比先時曾學使棒，被我父親一棒打翻，三四個月將息不起。"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "s02-uproot-tree",
+    "kind": "recall",
+    "query": "鲁智深怎样让菜园里的泼皮佩服他的力气？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "shuihu-006",
+        "quote": "把腰只一趁，將那株綠楊樹帶根\n拔起。"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "s03-snow-shelter",
+    "kind": "recall",
+    "query": "草料场的住处被雪压塌以后，林冲夜里去哪里避寒？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "shuihu-009",
+        "quote": "殿上塑著一尊金甲山神，兩邊一個判官，一個小鬼"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "s04-drug-in-wine",
+    "kind": "recall",
+    "query": "智取生辰纲时，药到底是怎么混进第二桶酒里的？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "shuihu-015",
+        "quote": "次後吳用去松林裏取出藥來，抖在瓢裏"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "s05-drinking-count",
+    "kind": "recall",
+    "query": "武松上景阳冈之前究竟喝了多少碗酒？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "shuihu-022",
+        "quote": "前後共喫了十八碗"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "s06-rebellion-poem",
+    "kind": "recall",
+    "query": "宋江在浔阳楼写的诗中，用哪个古人来表现自己的野心？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "shuihu-038",
+        "quote": "他時若遂淩雲志，敢笑黃巢不丈夫！"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "s07-impostor-excuse",
+    "kind": "recall",
+    "query": "李逵抓住冒充自己的李鬼后，为什么一度饶了他的性命？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "shuihu-042",
+        "quote": "有個九十歲的老母，無人養贍"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "s08-stolen-armour",
+    "kind": "recall",
+    "query": "梁山打算把徐宁引上山时，派谁去东京偷他的甲？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "shuihu-055",
+        "quote": "今次卻用著鼓上蚤時遷\n去走一遭。"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "s09-succession-condition",
+    "kind": "recall",
+    "query": "晁盖临终对梁山寨主的继任者提出了什么条件？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "shuihu-059",
+        "quote": "若那個捉得射死我的，便教他做梁山\n泊主。"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "x01-teacher-address",
+    "kind": "recall",
+    "query": "孙悟空初次拜师，须菩提祖师住在什么山和洞里？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "xiyou-001",
+        "quote": "此山叫做靈臺方寸山，山\n中有座斜月三星洞"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "x02-staff-weight",
+    "kind": "recall",
+    "query": "孙悟空从东海拿走的那件兵器有多重？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "xiyou-003",
+        "quote": "如意金箍棒，重一萬三千五百斤。"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "x03-fruit-maturity",
+    "kind": "recall",
+    "query": "五庄观的奇果要经过多久才能成熟？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "xiyou-024",
+        "quote": "三千年一開花，三千年一結果，再三千年才得熟"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "x04-child-new-role",
+    "kind": "recall",
+    "query": "红孩儿被观音收服之后得到了什么身份？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "xiyou-042",
+        "quote": "稱你做善財童子，如何？"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "x05-pregnancy-cause",
+    "kind": "recall",
+    "query": "唐僧和八戒为什么在女儿国突然腹痛，并被说成有了身孕？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "xiyou-053",
+        "quote": "你師吃了子母河水，以此成了胎氣"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "x06-false-monkey",
+    "kind": "recall",
+    "query": "那个外貌声音都和悟空一样的冒牌猴王，本来是什么？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "xiyou-058",
+        "quote": "我觀假悟空乃六耳獼猴也。"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "x07-drought-cause",
+    "kind": "recall",
+    "query": "凤仙郡长久不下雨，郡侯当年做了什么冒犯上天的事情？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "xiyou-087",
+        "quote": "推倒供桌，潑了素饌，果是喚狗來吃\n了。"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "x08-scripture-payment",
+    "kind": "recall",
+    "query": "取经人发现白纸经书后，最后交出哪件东西才换到有字经？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "xiyou-098",
+        "quote": "僧取出紫金缽盂，雙手奉上道"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "x09-final-appointment",
+    "kind": "recall",
+    "query": "取经结束后，猪八戒为什么只被封为净坛使者？",
+    "throughChapterId": "xiyou-100",
+    "expected": [
+      {
+        "chapterId": "xiyou-100",
+        "quote": "因汝口壯身\n慵，食腸寬大。"
+      }
+    ],
+    "notes": "Natural-language Simplified Chinese question against unmodified Traditional Chinese source; exact source quote is the grading anchor."
+  },
+  {
+    "id": "future-shuihu-succession",
+    "kind": "future-exclusion",
+    "query": "晁盖临终对寨主继任者留下了什么遗嘱？",
+    "throughChapterId": "shuihu-058",
+    "expected": [],
+    "forbiddenQuotes": [
+      "若那個捉得射死我的，便教他做梁山\n泊主。"
+    ],
+    "notes": "The source discloses this exact will only after the cutoff. Earlier mentions of Chao Gai are valid but the later will must never be returned."
+  },
+  {
+    "id": "future-xiyou-identity",
+    "kind": "future-exclusion",
+    "query": "假孙悟空的真实身份是不是六耳猕猴？",
+    "throughChapterId": "xiyou-057",
+    "expected": [],
+    "forbiddenQuotes": [
+      "六耳獼猴"
+    ],
+    "notes": "The answer entity is absent from all eligible chapters and appears in chapter 58. This probes disclosure isolation, not empty-result quality."
+  },
+  {
+    "id": "none-cross-book-meeting",
+    "kind": "unanswerable",
+    "query": "林冲第一次和孙悟空见面是在什么地方？",
+    "throughChapterId": "xiyou-100",
+    "expected": [],
+    "notes": "Cross-book false premise: neither book depicts a meeting. Returned candidates are recorded as no-answer over-retrieval; this is not itself a source-safety failure."
+  },
+  {
+    "id": "none-invented-agreement",
+    "kind": "unanswerable",
+    "query": "武松与唐僧签订的白鹤盟约规定了哪些条款？",
+    "throughChapterId": "xiyou-100",
+    "expected": [],
+    "notes": "Invented cross-book treaty, absent from the corpus. No expected answer. Track nonempty retrieval separately from safety assertions."
+  }
+]

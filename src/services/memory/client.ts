@@ -1,5 +1,5 @@
 import type {
-  MemoryIndexStats, MemoryProjectInput, MemoryQuery, MemorySearchResult,
+  MemoryIndexStats, MemoryProjectInput, MemoryQuery, MemoryRemoteOptions, MemorySearchResult,
   MemoryWorkerRequest, MemoryWorkerResponse,
 } from '../../types/memory'
 
@@ -67,8 +67,9 @@ export class MemoryClient {
     return await this.request({ id: ++this.sequence, type: 'sync', project }) as MemoryIndexStats
   }
 
-  async search(query: MemoryQuery): Promise<MemorySearchResult> {
-    return await this.request({ id: ++this.sequence, type: 'search', query }) as MemorySearchResult
+  async search(query: MemoryQuery, options?: MemoryRemoteOptions): Promise<MemorySearchResult> {
+    this.rejectPending('已开始新的检索，之前的请求已取消')
+    return await this.request({ id: ++this.sequence, type: 'search', query, options }) as MemorySearchResult
   }
 
   dispose(): void {

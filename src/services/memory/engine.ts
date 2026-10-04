@@ -7,9 +7,12 @@ import type {
   MemoryIndexStats,
   MemoryProjectInput,
   MemoryQuery,
+  MemoryRemoteOptions,
+  MemoryRetrievalDiagnostics,
   MemorySearchResult,
 } from '../../types/memory'
 import { chapterRevision } from './revision'
+import { embedMemoryTexts, normalizeEmbeddingConfig, normalizeRerankConfig, rerankMemoryTexts } from './providers'
 
 // Deliberately generous prototype limits, including novels well beyond 1M Chinese characters.
 const MAX_CHARS = 20_000_000
@@ -19,6 +22,11 @@ const MAX_CLUES = 50_000
 const MAX_DOCUMENTS = 100_000
 const CHUNK_CHARS = 1_200
 const LONG_PARAGRAPH_OVERLAP = 120
+const MAX_SEMANTIC_PASSAGES = 2_000
+const MAX_VECTOR_BYTES = 32 * 1024 * 1024
+const EMBEDDING_BATCH_SIZE = 32
+const MAX_RERANK_CANDIDATES = 60
+const REMOTE_BUDGET_MS = 65_000
 
 const schema = {
   projectId: 'enum',
@@ -113,6 +121,27 @@ function copyStats(stats: MemoryIndexStats): MemoryIndexStats {
   return { ...stats, chapters: stats.chapters.map(chapter => ({ ...chapter })) }
 }
 
+/** Compare the complete accepted source, never timestamps or only chapter lengths. */
+function sameProjectSource(left: MemoryProjectInput, right: MemoryProjectInput): boolean {
+  if (left.id !== right.id || left.title !== right.title
+    || left.chapters.length !== right.chapters.length || left.clues.length !== right.clues.length) return false
+  for (let i = 0; i < left.chapters.length; i++) {
+    const a = left.chapters[i]!
+    const b = right.chapters[i]!
+    if (a.id !== b.id || a.title !== b.title || a.text !== b.text) return false
+  }
+  for (let i = 0; i < left.clues.length; i++) {
+    const a = left.clues[i]!
+    const b = right.clues[i]!
+    if (!validClueShape(a) || !validClueShape(b)
+      || a.id !== b.id || a.chapterId !== b.chapterId || a.sourceRevision !== b.sourceRevision
+      || a.start !== b.start || a.end !== b.end || a.quote !== b.quote || a.label !== b.label
+      || !Array.isArray(a.aliases) || !Array.isArray(b.aliases) || a.aliases.length !== b.aliases.length
+      || a.aliases.some((alias, position) => alias !== b.aliases[position])) return false
+  }
+  return true
+}
+
 function safeBoundary(text: string, end: number): number {
   const previous = text.charCodeAt(end - 1)
   const next = text.charCodeAt(end)
@@ -151,27 +180,112 @@ function* chunkSpans(text: string): Generator<{ start: number; end: number }> {
   }
 }
 
-function validClue(clue: MemoryClue, chapter: MemoryChapterInput | undefined, revision: string | undefined): boolean {
-  return Boolean(chapter && validString(clue.id, 256)
-    && clue.sourceRevision === revision
+function validClueShape(clue: MemoryClue): boolean {
+  return Boolean(validString(clue.id, 256) && validString(clue.chapterId, 256)
+    && typeof clue.sourceRevision === 'string' && /^[a-f0-9]{64}$/u.test(clue.sourceRevision)
     && Number.isSafeInteger(clue.start) && Number.isSafeInteger(clue.end)
-    && clue.start >= 0 && clue.end > clue.start && clue.end <= chapter.text.length
-    && validString(clue.quote, 4_000) && chapter.text.slice(clue.start, clue.end) === clue.quote
+    && clue.start >= 0 && clue.end > clue.start && validString(clue.quote, 4_000)
     && validString(clue.label, 300) && Array.isArray(clue.aliases) && clue.aliases.length <= 20
     && clue.aliases.every(alias => validString(alias, 100)))
 }
 
-/** A rebuildable, memory-only index. It owns its snapshot and never sends manuscript text anywhere. */
+function validClue(clue: MemoryClue, chapter: MemoryChapterInput | undefined, revision: string | undefined): boolean {
+  return Boolean(chapter && validClueShape(clue) && clue.sourceRevision === revision
+    && clue.end <= chapter.text.length && chapter.text.slice(clue.start, clue.end) === clue.quote)
+}
+
+interface CachedVector {
+  projectId: string
+  chapterId: string
+  revision: string
+  start: number
+  end: number
+  vector: Float32Array
+}
+
+function sourceKey(record: EvidenceRecord): string {
+  return JSON.stringify([record.projectId, record.chapterId, record.revision, record.start, record.end])
+}
+
+/** Backend rankings never grant visibility, including before sending text to remote services. */
+function isAllowed(record: EvidenceRecord, ready: ReadyIndex, cutoff: number): boolean {
+  const chapter = ready.chapters.get(record.chapterId)
+  return Boolean(chapter && record.projectId === ready.project.id
+    && ready.ordinals.get(record.chapterId) === record.ordinal && record.ordinal <= cutoff
+    && ready.revisions.get(record.chapterId) === record.revision
+    && Number.isSafeInteger(record.start) && Number.isSafeInteger(record.end)
+    && record.start >= 0 && record.end > record.start && record.end <= chapter.text.length
+    && chapter.text.slice(record.start, record.end) === record.quote)
+}
+
+function cosine(left: Float32Array, right: Float32Array): number {
+  let dot = 0
+  let leftNorm = 0
+  let rightNorm = 0
+  for (let i = 0; i < left.length; i++) {
+    dot += left[i]! * right[i]!
+    leftNorm += left[i]! ** 2
+    rightNorm += right[i]! ** 2
+  }
+  return dot / Math.sqrt(leftNorm * rightNorm)
+}
+
+/** A rebuildable index with opt-in remote retrieval and a bounded, source-versioned vector cache. */
 export class MemoryIndex {
   private epoch = 0
   private ready: ReadyIndex | undefined
+  private searchSequence = 0
+  private searchController: AbortController | undefined
+  private vectorCache = new Map<string, CachedVector>()
+  private vectorBytes = 0
+  // This private identity includes the credential so changing accounts cannot reuse another account's cache.
+  // It is never returned, logged, or persisted. Individual cache keys contain source identities only.
+  private cacheConfig = ''
+  private cacheProjectId = ''
+
+  private clearVectors() {
+    this.vectorCache.clear()
+    this.vectorBytes = 0
+  }
+
+  private cacheVector(record: EvidenceRecord, vector: Float32Array) {
+    const key = sourceKey(record)
+    const previous = this.vectorCache.get(key)
+    if (previous) this.vectorBytes -= previous.vector.byteLength
+    this.vectorCache.delete(key)
+    if (vector.byteLength > MAX_VECTOR_BYTES) return
+    while (this.vectorCache.size >= MAX_SEMANTIC_PASSAGES || this.vectorBytes + vector.byteLength > MAX_VECTOR_BYTES) {
+      const oldest = this.vectorCache.entries().next().value
+      if (!oldest) break
+      this.vectorBytes -= oldest[1].vector.byteLength
+      this.vectorCache.delete(oldest[0])
+    }
+    this.vectorCache.set(key, {
+      projectId: record.projectId, chapterId: record.chapterId, revision: record.revision,
+      start: record.start, end: record.end, vector,
+    })
+    this.vectorBytes += vector.byteLength
+  }
 
   async sync(project: MemoryProjectInput): Promise<MemoryIndexStats> {
+    const previous = this.ready
     const epoch = ++this.epoch
+    this.searchController?.abort()
     // Invalidate BEFORE cloning/hashing: failed rebuilds must never resurrect old facts.
     this.ready = undefined
     const started = performance.now()
     const snapshot = snapshotProject(project)
+    // Fresh committed reads are still mandatory, but identical validated content needs no
+    // re-tokenization. Old asynchronous work remains invalidated by the epoch above.
+    // Well-formed stale annotations retain the same exclusion decision; malformed
+    // annotation shapes still take the normal validation path.
+    if (epoch === this.epoch && previous && sameProjectSource(previous.project, snapshot)) {
+      const stats = { ...previous.stats, buildMs: performance.now() - started }
+      this.ready = { ...previous, stats }
+      return copyStats(stats)
+    }
+    if (this.cacheProjectId !== snapshot.id) this.clearVectors()
+    this.cacheProjectId = snapshot.id
     const chapters = new Map(snapshot.chapters.map(chapter => [chapter.id, chapter]))
     const revisions = new Map<string, string>()
     const ordinals = new Map<string, number>()
@@ -266,11 +380,23 @@ export class MemoryIndex {
       projectId: snapshot.id, fingerprint, chapters: manifests,
       chunks, clues: acceptedClues.length, staleClues, chars, buildMs: performance.now() - started,
     }
+    // Reuse only unchanged source spans. Order and cutoff are checked afresh for each search.
+    const activeKeys = new Set([...evidence.values()].filter(record => record.kind === 'passage').map(sourceKey))
+    for (const [key, entry] of this.vectorCache) {
+      if (!activeKeys.has(key)) {
+        this.vectorBytes -= entry.vector.byteLength
+        this.vectorCache.delete(key)
+      }
+    }
     this.ready = { database, project: snapshot, chapters, revisions, ordinals, evidence, stats }
     return copyStats(stats)
   }
 
-  async search(query: MemoryQuery): Promise<MemorySearchResult> {
+  async search(query: MemoryQuery, options?: MemoryRemoteOptions): Promise<MemorySearchResult> {
+    this.searchController?.abort()
+    const sequence = ++this.searchSequence
+    const controller = new AbortController()
+    this.searchController = controller
     const ready = this.ready
     const epoch = this.epoch
     if (!ready) throw new Error('索引尚未就绪，请先根据当前稿件重建。')
@@ -281,54 +407,175 @@ export class MemoryIndex {
     }
     const cutoff = ready.ordinals.get(query.throughChapterId)
     if (cutoff === undefined) throw new Error('披露截止章节不存在；检索已阻止。')
+    // Snapshot primitive settings and query before the first await; callers may mutate UI objects.
+    const embeddingInput = options?.embedding ? { ...options.embedding } : undefined
+    const rerankInput = options?.rerank ? { ...options.rerank } : undefined
+    const throughChapterId = query.throughChapterId
     const started = performance.now()
     const text = query.text.trim()
     const limit = query.limit ?? 8
-    const scores = new Map<string, number>()
-    const reasons = new Map<string, string>()
-    if (text) {
-      // Each channel applies disclosure/project filters BEFORE ranking and top-k selection.
-      // This is keyword + curated-clue fusion, not semantic/vector retrieval.
-      for (const kind of ['passage', 'clue'] as const) {
-        const result = await search(ready.database, {
-          term: text,
-          properties: kind === 'clue' ? ['annotations', 'content', 'title'] : ['content', 'title'],
-          boost: kind === 'clue' ? { annotations: 2, content: 1, title: 0.3 } : { content: 1, title: 0.3 },
-          // Orama 3.1.18 exact=true adds ASCII \b checks, which reject normal Han text.
-          exact: false,
-          threshold: 0.7,
-          limit: Math.min(limit * 4, 200),
-          where: { projectId: { eq: ready.project.id }, ordinal: { lte: cutoff }, kind: { eq: kind } },
-        })
-        result.hits.forEach((hit, rank) => {
-          scores.set(hit.id, (scores.get(hit.id) ?? 0) + (kind === 'clue' ? 1.15 : 1) / (60 + rank + 1))
-          reasons.set(hit.id, kind === 'clue' ? '作者伏笔标记（含标签／别名）与原文关键词匹配' : '原文／章节标题 BM25 关键词匹配')
-        })
+    const diagnostics: MemoryRetrievalDiagnostics = {
+      semantic: embeddingInput ? 'fallback' : 'disabled',
+      rerank: rerankInput ? 'skipped' : 'disabled',
+      eligiblePassages: 0, embeddedPassages: 0, cachedPassages: 0, rerankedCandidates: 0,
+      warnings: [],
+    }
+    const assertCurrent = () => {
+      if (epoch !== this.epoch || this.ready !== ready || sequence !== this.searchSequence) {
+        throw new Error('稿件快照已变化，或检索已被新的请求替代，请重新检索。')
       }
     }
-    if (epoch !== this.epoch || this.ready !== ready) throw new Error('稿件快照已变化，请重新检索。')
-    const hits: MemoryEvidence[] = []
-    for (const [id, score] of [...scores].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
-      const record = ready.evidence.get(id)
-      if (!record) continue
-      const chapter = ready.chapters.get(record.chapterId)
-      // Independent final gate: a retrieval backend result alone never grants visibility.
-      if (record.projectId !== ready.project.id || !chapter
-        || ready.ordinals.get(chapter.id) !== record.ordinal || record.ordinal > cutoff
-        || ready.revisions.get(chapter.id) !== record.revision
-        || record.start < 0 || record.end > chapter.text.length
-        || chapter.text.slice(record.start, record.end) !== record.quote) continue
-      hits.push({ ...record, score, reason: reasons.get(id)! })
-      if (hits.length === limit) break
+    const assertRemoteReady = () => {
+      assertCurrent()
+      if (controller.signal.aborted) throw new Error('远程检索时间预算已用完。')
     }
-    return {
-      projectId: ready.project.id,
-      fingerprint: ready.stats.fingerprint,
-      query: text,
-      throughChapterId: query.throughChapterId,
-      hits,
-      searchMs: performance.now() - started,
-      method: 'bm25+clues',
+    const timer = embeddingInput || rerankInput
+      ? setTimeout(() => controller.abort(), REMOTE_BUDGET_MS) : undefined
+    const scores = new Map<string, number>()
+    const reasons = new Map<string, string[]>()
+    const addRank = (id: string, rank: number, weight: number, reason: string) => {
+      const record = ready.evidence.get(id)
+      if (!record || !isAllowed(record, ready, cutoff)) return
+      scores.set(id, (scores.get(id) ?? 0) + weight / (60 + rank + 1))
+      reasons.set(id, [...(reasons.get(id) ?? []), reason])
+    }
+    try {
+      if (text) {
+        // Each local channel filters disclosure/project BEFORE ranking and top-k selection.
+        for (const kind of ['passage', 'clue'] as const) {
+          const result = await search(ready.database, {
+            term: text,
+            properties: kind === 'clue' ? ['annotations', 'content', 'title'] : ['content', 'title'],
+            boost: kind === 'clue' ? { annotations: 2, content: 1, title: 0.3 } : { content: 1, title: 0.3 },
+            // Orama 3.1.18 exact=true adds ASCII \b checks, which reject normal Han text.
+            exact: false,
+            threshold: 0.7,
+            limit: Math.min(limit * 4, 200),
+            where: { projectId: { eq: ready.project.id }, ordinal: { lte: cutoff }, kind: { eq: kind } },
+          })
+          assertCurrent()
+          // Give the best result from each channel a comparable chance to survive fusion.
+          // A fixed clue bonus otherwise lets ten weak clue matches outrank the best passage;
+          // author labels/aliases already receive a boost within their own BM25 channel.
+          result.hits.forEach((hit, rank) => addRank(hit.id, rank, 1,
+            kind === 'clue' ? '作者伏笔标记（含标签／别名）与原文关键词匹配' : '原文／章节标题 BM25 关键词匹配'))
+        }
+      }
+      const eligible = [...ready.evidence.values()].filter(record => record.kind === 'passage' && isAllowed(record, ready, cutoff))
+      diagnostics.eligiblePassages = eligible.length
+      if (!embeddingInput) {
+        this.clearVectors()
+        this.cacheConfig = ''
+      } else {
+        let config: ReturnType<typeof normalizeEmbeddingConfig> | undefined
+        try {
+          config = normalizeEmbeddingConfig(embeddingInput)
+          const identity = JSON.stringify([config.protocol, config.endpoint, config.model, config.dimensions, config.apiKey])
+          if (identity !== this.cacheConfig) this.clearVectors()
+          this.cacheConfig = identity
+        } catch {
+          this.clearVectors()
+          this.cacheConfig = ''
+          diagnostics.warnings.push('嵌入设置无效，已保留本地关键词和伏笔结果。')
+        }
+        if (config && text && eligible.length) {
+          try {
+            if (eligible.length > MAX_SEMANTIC_PASSAGES) {
+              diagnostics.warnings.push('当前披露范围超过 2,000 个片段，语义检索已回退为本地检索；未发送部分章节建立不完整索引。')
+            } else {
+              const vectors = new Map<string, Float32Array>()
+              const missing: EvidenceRecord[] = []
+              for (const record of eligible) {
+                const cached = this.vectorCache.get(sourceKey(record))
+                if (cached) {
+                  vectors.set(record.id, cached.vector)
+                  diagnostics.cachedPassages++
+                } else missing.push(record)
+              }
+              for (let start = 0; start < missing.length; start += EMBEDDING_BATCH_SIZE) {
+                assertRemoteReady()
+                const batch = missing.slice(start, start + EMBEDDING_BATCH_SIZE)
+                // Recheck immediately before every outbound batch, never send undisclosed chapter text.
+                if (!batch.every(record => isAllowed(record, ready, cutoff))) throw new Error('稿件依据失效。')
+                const returned = await embedMemoryTexts(config, batch.map(record => record.quote), 'retrieval.passage', controller.signal)
+                assertCurrent()
+                assertRemoteReady()
+                for (const [position, raw] of returned.entries()) {
+                  const record = batch[position]!
+                  const vector = new Float32Array(raw)
+                  vectors.set(record.id, vector)
+                  this.cacheVector(record, vector)
+                  diagnostics.embeddedPassages++
+                }
+              }
+              assertRemoteReady()
+              const queryVectors = await embedMemoryTexts(config, [text], 'retrieval.query', controller.signal)
+              assertCurrent()
+              assertRemoteReady()
+              const queryVector = new Float32Array(queryVectors[0]!)
+              const ranked = eligible.map(record => ({ id: record.id, similarity: cosine(queryVector, vectors.get(record.id)!) }))
+                .filter(item => Number.isFinite(item.similarity) && item.similarity > 0)
+                .sort((a, b) => b.similarity - a.similarity || a.id.localeCompare(b.id))
+                .slice(0, Math.min(limit * 4, 200))
+              ranked.forEach((item, rank) => addRank(item.id, rank, 1, '原文片段语义相似度匹配'))
+              diagnostics.semantic = 'used'
+            }
+          } catch {
+            assertCurrent()
+            diagnostics.semantic = 'fallback'
+            diagnostics.warnings.push('语义检索不可用或超时，已保留本地关键词和伏笔结果。')
+          }
+        }
+      }
+      assertCurrent()
+      let ranked = [...scores].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      if (rerankInput && text && ranked.length) {
+        try {
+          const config = normalizeRerankConfig(rerankInput)
+          const candidates = ranked.slice(0, MAX_RERANK_CANDIDATES)
+            .map(([id]) => ready.evidence.get(id)!)
+            .filter(record => isAllowed(record, ready, cutoff))
+          assertRemoteReady()
+          const returned = await rerankMemoryTexts(config, text, candidates.map(record => record.quote), controller.signal)
+          assertCurrent()
+          assertRemoteReady()
+          const seen = new Set<number>()
+          for (const item of returned) {
+            if (!Number.isSafeInteger(item.index) || item.index < 0 || item.index >= candidates.length
+              || !Number.isFinite(item.score) || seen.has(item.index)) throw new Error('重排映射无效。')
+            seen.add(item.index)
+          }
+          if (!returned.length) throw new Error('重排映射为空。')
+          const reranked = returned.slice().sort((a, b) => b.score - a.score || a.index - b.index)
+            .map(item => [candidates[item.index]!.id, item.score] as [string, number])
+          const rerankedIds = new Set(reranked.map(([id]) => id))
+          for (const [id] of reranked) reasons.set(id, [...reasons.get(id)!, '远程重排'])
+          // Candidates outside the remote cap retain their original fusion order after the reranked candidates.
+          ranked = [...reranked, ...ranked.filter(([id]) => !rerankedIds.has(id))]
+          diagnostics.rerank = 'used'
+          diagnostics.rerankedCandidates = returned.length
+        } catch {
+          assertCurrent()
+          diagnostics.rerank = 'fallback'
+          diagnostics.warnings.push('重排不可用或超时，已保留融合检索顺序。')
+        }
+      }
+      assertCurrent()
+      const hits: MemoryEvidence[] = []
+      for (const [id, score] of ranked) {
+        const record = ready.evidence.get(id)
+        if (!record || !isAllowed(record, ready, cutoff)) continue
+        hits.push({ ...record, score, reason: reasons.get(id)!.join('；') })
+        if (hits.length === limit) break
+      }
+      return {
+        projectId: ready.project.id, fingerprint: ready.stats.fingerprint,
+        query: text, throughChapterId, hits, searchMs: performance.now() - started,
+        method: diagnostics.semantic === 'used' ? 'bm25+clues+semantic' : 'bm25+clues', diagnostics,
+      }
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+      if (this.searchController === controller) this.searchController = undefined
     }
   }
 }

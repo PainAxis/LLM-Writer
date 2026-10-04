@@ -1,0 +1,2647 @@
+{
+  "status": "passed",
+  "elapsedMs": 123055.694568,
+  "method": "Production MemoryIndex and provider adapters; real loopback HTTP; deterministic 512-dimensional feature-hash embedding and literal/bigram reranker.",
+  "limitations": [
+    "Synthetic mixed Chinese/English prose, not a human-authored production novel.",
+    "Hash vectors and lexical reranking cannot establish paid-model semantic recall or relevance quality.",
+    "Node execution excludes browser IndexedDB hydration, Worker messaging and rendering.",
+    "Warm timings include structuredClone and MemoryIndex.sync source validation before every query; an exactly unchanged source may reuse its keyword index.",
+    "The overall 65000ms budget control-flow test uses an explicitly accelerated 350ms timer.",
+    "More than 2000 eligible passages is reported as a capability fallback, never semantic success."
+  ],
+  "dimensions": 512,
+  "corpusManifest": {
+    "fixtureVersion": 2,
+    "seed": 1365799083,
+    "chapters": 600,
+    "charsPerChapter": 2200,
+    "totalChars": 1320000,
+    "volumes": 12,
+    "castSize": 72,
+    "locations": 36,
+    "usedCast": 72,
+    "usedLocations": 36,
+    "paragraphTemplates": 8,
+    "usedParagraphTemplates": 8,
+    "generatedParagraphs": 16932,
+    "uniqueParagraphRatio": 1,
+    "description": "Deterministic procedural Chinese fiction: varied cast, locations, events and similar clue aliases; planted exact identifiers test retrieval and provenance, not literary realism or semantic-model quality."
+  },
+  "warmQueries": 80,
+  "checks": [
+    {
+      "name": "full cold hybrid retrieval",
+      "details": {
+        "chars": 1320000,
+        "utf8Bytes": 3718384,
+        "chapters": 600,
+        "passages": 1200,
+        "dimensions": 512,
+        "latencyPerHttpRequestMs": 25
+      }
+    },
+    {
+      "name": "long interactive warm session and narrowing disclosure",
+      "details": {
+        "queries": 80,
+        "factAndCluePositiveChecks": 80,
+        "clueQueries": 20,
+        "allRequestsSourceValidated": true
+      }
+    },
+    {
+      "name": "previously cached future identities stay hidden until their own chapter",
+      "details": {
+        "secretPairs": 4
+      }
+    },
+    {
+      "name": "twenty edited old chapters invalidate source revisions",
+      "details": {
+        "editedChapters": 20,
+        "reembeddedPassages": 40,
+        "reusedPassages": 1160,
+        "staleClues": 20
+      }
+    },
+    {
+      "name": "chapter reorder/delete/growth and project isolation",
+      "details": {
+        "remainingChapters": 590,
+        "readdedChapters": 10,
+        "readdedPassages": 20,
+        "projectSwitchEmbedded": 120
+      }
+    },
+    {
+      "name": "HTTP failures and malformed responses recover without cache poisoning",
+      "details": {
+        "failures": [
+          "429",
+          "500",
+          "dimensions",
+          "truncated-json"
+        ],
+        "exactLocalEvidenceRetained": true
+      }
+    },
+    {
+      "name": "late batch failure resumes the validated partial cache",
+      "details": {
+        "failedBatch": 19,
+        "retainedPassages": 576,
+        "resumedPassages": 604
+      }
+    },
+    {
+      "name": "HTTP and index-mapping rerank failures retain verified hybrid evidence",
+      "details": {
+        "invalidResponses": [
+          "500",
+          "out-of-range indexes"
+        ],
+        "candidateCap": 60
+      }
+    },
+    {
+      "name": "source sync aborts an actual in-flight HTTP request",
+      "details": {
+        "delayedResponseCannotPopulateCache": true
+      }
+    },
+    {
+      "name": "overall budget stops later batches and resumes only valid vectors",
+      "details": {
+        "productionBudgetMs": 65000,
+        "acceleratedTimerMs": 350,
+        "completedBeforeAbort": 416,
+        "measuredLatencyBenchmark": false
+      }
+    },
+    {
+      "name": "capability boundary is explicit fallback, not semantic success",
+      "details": {
+        "chars": 2420000,
+        "passages": 2200,
+        "semanticSupported": false,
+        "outboundEmbeddingRequests": 0,
+        "rerank": "used"
+      }
+    }
+  ],
+  "timingsMs": {
+    "syncMs": {
+      "p50": 2.290660000000571,
+      "p95": 3.0240320000011707,
+      "max": 6.337716
+    },
+    "searchMs": {
+      "p50": 16.708420999999362,
+      "p95": 22.44522599999982,
+      "max": 29.036842000001343
+    },
+    "totalMs": {
+      "p50": 19.08197300000029,
+      "p95": 25.274634999999762,
+      "max": 31.324742000000697
+    }
+  },
+  "memory": {
+    "observedPeakHeapMiB": 1190.074562072754,
+    "observedPeakRssMiB": 1417.6328125,
+    "sampling": "after requests and queries; process-wide, not exact allocation tracing"
+  },
+  "http": {
+    "requests": 362,
+    "requestBytes": 28733177,
+    "responseBytes": 23602163,
+    "passagesSubmitted": 4564,
+    "violations": []
+  },
+  "measurements": [
+    {
+      "name": "cold-full-with-synthetic-latency",
+      "syncMs": 7763.452017,
+      "searchMs": 1698.0945360000005,
+      "totalMs": 9462.765442,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 219.9333953857422,
+      "rssMiB": 399.6015625,
+      "requests": 40,
+      "requestBytes": 3875008,
+      "responseBytes": 6261283,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 1200,
+        "cachedPassages": 0,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-1",
+      "syncMs": 6.337716,
+      "searchMs": 18.669337999999698,
+      "totalMs": 25.274634999999762,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 176.9456787109375,
+      "rssMiB": 399.9453125,
+      "requests": 2,
+      "requestBytes": 119773,
+      "responseBytes": 7545,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-2",
+      "syncMs": 2.81608899999992,
+      "searchMs": 17.124966999999742,
+      "totalMs": 20.10688999999911,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 184.35552215576172,
+      "rssMiB": 399.9453125,
+      "requests": 2,
+      "requestBytes": 130278,
+      "responseBytes": 8008,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-3",
+      "syncMs": 2.8969209999995655,
+      "searchMs": 21.28528499999993,
+      "totalMs": 24.392642999999225,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 192.40850067138672,
+      "rssMiB": 399.9453125,
+      "requests": 2,
+      "requestBytes": 127808,
+      "responseBytes": 8039,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-4",
+      "syncMs": 2.9635440000001836,
+      "searchMs": 20.67128799999955,
+      "totalMs": 23.795538000000306,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 201.49160766601562,
+      "rssMiB": 400.1953125,
+      "requests": 2,
+      "requestBytes": 127312,
+      "responseBytes": 7172,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-5",
+      "syncMs": 2.695985999998811,
+      "searchMs": 19.788948999999775,
+      "totalMs": 22.671503999999914,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 210.0707778930664,
+      "rssMiB": 400.1953125,
+      "requests": 2,
+      "requestBytes": 122466,
+      "responseBytes": 8125,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-6",
+      "syncMs": 2.2707900000004884,
+      "searchMs": 15.984360000000379,
+      "totalMs": 18.4699099999998,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 216.67140197753906,
+      "rssMiB": 400.1953125,
+      "requests": 2,
+      "requestBytes": 128741,
+      "responseBytes": 7278,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-7",
+      "syncMs": 3.414864000000307,
+      "searchMs": 17.651480000000447,
+      "totalMs": 21.24510100000043,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 178.30289459228516,
+      "rssMiB": 402.0703125,
+      "requests": 2,
+      "requestBytes": 127398,
+      "responseBytes": 8019,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-8",
+      "syncMs": 2.286109000000579,
+      "searchMs": 17.211198999999397,
+      "totalMs": 19.86733599999934,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 186.27407836914062,
+      "rssMiB": 402.0703125,
+      "requests": 2,
+      "requestBytes": 129980,
+      "responseBytes": 7183,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-9",
+      "syncMs": 2.861414999999397,
+      "searchMs": 13.993392000000313,
+      "totalMs": 17.063637999999628,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 194.06822967529297,
+      "rssMiB": 402.0703125,
+      "requests": 2,
+      "requestBytes": 123066,
+      "responseBytes": 8140,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-10",
+      "syncMs": 2.4125120000007882,
+      "searchMs": 20.158888999998453,
+      "totalMs": 22.761153999999806,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 203.20186614990234,
+      "rssMiB": 402.0703125,
+      "requests": 2,
+      "requestBytes": 122649,
+      "responseBytes": 7178,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-11",
+      "syncMs": 2.268703000001551,
+      "searchMs": 15.323263000000225,
+      "totalMs": 17.77521700000034,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 209.45167541503906,
+      "rssMiB": 402.1953125,
+      "requests": 2,
+      "requestBytes": 127818,
+      "responseBytes": 7990,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-12",
+      "syncMs": 2.254616000000169,
+      "searchMs": 16.695321999999578,
+      "totalMs": 19.08197300000029,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 216.32579040527344,
+      "rssMiB": 402.1953125,
+      "requests": 2,
+      "requestBytes": 129974,
+      "responseBytes": 7196,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-13",
+      "syncMs": 3.0240320000011707,
+      "searchMs": 12.473734000001059,
+      "totalMs": 15.68492200000037,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 223.68148040771484,
+      "rssMiB": 402.1953125,
+      "requests": 2,
+      "requestBytes": 126020,
+      "responseBytes": 8129,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-14",
+      "syncMs": 2.6597270000002027,
+      "searchMs": 18.049204999999347,
+      "totalMs": 20.912885000001552,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 180.59104919433594,
+      "rssMiB": 403.8203125,
+      "requests": 2,
+      "requestBytes": 122890,
+      "responseBytes": 7874,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-15",
+      "syncMs": 2.5680590000010852,
+      "searchMs": 19.269803999999567,
+      "totalMs": 22.06111299999975,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 189.60255432128906,
+      "rssMiB": 403.8203125,
+      "requests": 2,
+      "requestBytes": 126698,
+      "responseBytes": 7180,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-16",
+      "syncMs": 2.460719999999128,
+      "searchMs": 16.139485000001514,
+      "totalMs": 18.917304999999033,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 195.81220245361328,
+      "rssMiB": 403.9453125,
+      "requests": 2,
+      "requestBytes": 124242,
+      "responseBytes": 7921,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-17",
+      "syncMs": 2.3718619999999646,
+      "searchMs": 11.232618000000002,
+      "totalMs": 13.77451899999869,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 202.58350372314453,
+      "rssMiB": 403.9453125,
+      "requests": 2,
+      "requestBytes": 122128,
+      "responseBytes": 8130,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-18",
+      "syncMs": 2.5671199999997043,
+      "searchMs": 15.434277000000293,
+      "totalMs": 18.15838099999928,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 209.98472595214844,
+      "rssMiB": 404.0703125,
+      "requests": 2,
+      "requestBytes": 127417,
+      "responseBytes": 7993,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-19",
+      "syncMs": 2.214180999999371,
+      "searchMs": 17.067777000000206,
+      "totalMs": 19.499025999999503,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 218.5993881225586,
+      "rssMiB": 405.3203125,
+      "requests": 2,
+      "requestBytes": 125916,
+      "responseBytes": 7175,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-20",
+      "syncMs": 2.3577320000003965,
+      "searchMs": 21.09201099999882,
+      "totalMs": 23.59787800000049,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 186.3573760986328,
+      "rssMiB": 407.1953125,
+      "requests": 2,
+      "requestBytes": 122485,
+      "responseBytes": 7186,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-21",
+      "syncMs": 2.7125730000007025,
+      "searchMs": 9.303807000000234,
+      "totalMs": 12.310751000000892,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 192.615234375,
+      "rssMiB": 407.3203125,
+      "requests": 2,
+      "requestBytes": 120103,
+      "responseBytes": 8143,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-22",
+      "syncMs": 2.464749999999185,
+      "searchMs": 15.554952000000412,
+      "totalMs": 18.16448599999967,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 199.18719482421875,
+      "rssMiB": 407.3203125,
+      "requests": 2,
+      "requestBytes": 126629,
+      "responseBytes": 7973,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-23",
+      "syncMs": 2.165415999999823,
+      "searchMs": 16.42059700000027,
+      "totalMs": 18.7472570000009,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 206.45436096191406,
+      "rssMiB": 407.4453125,
+      "requests": 2,
+      "requestBytes": 125867,
+      "responseBytes": 7174,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-24",
+      "syncMs": 2.419424000001527,
+      "searchMs": 18.009014000001116,
+      "totalMs": 20.609637000001385,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 214.3688201904297,
+      "rssMiB": 407.4453125,
+      "requests": 2,
+      "requestBytes": 123940,
+      "responseBytes": 7185,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-25",
+      "syncMs": 2.254589999998643,
+      "searchMs": 13.130331000000297,
+      "totalMs": 15.59081199999855,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 222.31800842285156,
+      "rssMiB": 407.5703125,
+      "requests": 2,
+      "requestBytes": 123334,
+      "responseBytes": 8136,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-26",
+      "syncMs": 2.6680820000001404,
+      "searchMs": 18.32405800000015,
+      "totalMs": 21.130200999999943,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 203.907958984375,
+      "rssMiB": 416.9453125,
+      "requests": 2,
+      "requestBytes": 127536,
+      "responseBytes": 7987,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-27",
+      "syncMs": 2.4328929999992397,
+      "searchMs": 15.572704000000158,
+      "totalMs": 18.146856999999727,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 210.45906829833984,
+      "rssMiB": 416.9453125,
+      "requests": 2,
+      "requestBytes": 130905,
+      "responseBytes": 8078,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-28",
+      "syncMs": 2.3417700000009063,
+      "searchMs": 15.583660999998756,
+      "totalMs": 18.05601299999944,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 217.65773010253906,
+      "rssMiB": 417.0703125,
+      "requests": 2,
+      "requestBytes": 127115,
+      "responseBytes": 7829,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-29",
+      "syncMs": 2.061729999999443,
+      "searchMs": 11.60261200000059,
+      "totalMs": 13.816498000000138,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 225.33766174316406,
+      "rssMiB": 417.0703125,
+      "requests": 2,
+      "requestBytes": 122083,
+      "responseBytes": 8129,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-30",
+      "syncMs": 2.3309399999998277,
+      "searchMs": 18.433478999999352,
+      "totalMs": 20.946993000001385,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 233.6689682006836,
+      "rssMiB": 417.0703125,
+      "requests": 2,
+      "requestBytes": 123208,
+      "responseBytes": 7183,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-31",
+      "syncMs": 2.146220999999059,
+      "searchMs": 29.036842000001343,
+      "totalMs": 31.324742000000697,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 219.51410675048828,
+      "rssMiB": 434.4453125,
+      "requests": 2,
+      "requestBytes": 131124,
+      "responseBytes": 8061,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-32",
+      "syncMs": 2.187751000001299,
+      "searchMs": 15.911684000000605,
+      "totalMs": 18.240341000000626,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 226.0825653076172,
+      "rssMiB": 434.4453125,
+      "requests": 2,
+      "requestBytes": 126658,
+      "responseBytes": 8044,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-33",
+      "syncMs": 2.0235819999998057,
+      "searchMs": 9.957666000000245,
+      "totalMs": 12.14378299999953,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 233.2251968383789,
+      "rssMiB": 435.5703125,
+      "requests": 2,
+      "requestBytes": 124166,
+      "responseBytes": 8133,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-34",
+      "syncMs": 2.1671129999995173,
+      "searchMs": 17.97221499999978,
+      "totalMs": 20.299913999999262,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 241.04943084716797,
+      "rssMiB": 435.6953125,
+      "requests": 2,
+      "requestBytes": 122840,
+      "responseBytes": 7186,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-35",
+      "syncMs": 2.0724799999989045,
+      "searchMs": 18.9430169999996,
+      "totalMs": 21.267931999998837,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 249.40941619873047,
+      "rssMiB": 435.6953125,
+      "requests": 2,
+      "requestBytes": 126244,
+      "responseBytes": 7938,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-36",
+      "syncMs": 2.1269950000005338,
+      "searchMs": 20.978476999998747,
+      "totalMs": 23.239724999999453,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 232.71803283691406,
+      "rssMiB": 449.9453125,
+      "requests": 2,
+      "requestBytes": 127687,
+      "responseBytes": 8012,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-37",
+      "syncMs": 2.340063999999984,
+      "searchMs": 10.175017999999909,
+      "totalMs": 12.659170000000813,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 239.41395568847656,
+      "rssMiB": 449.9453125,
+      "requests": 2,
+      "requestBytes": 122141,
+      "responseBytes": 8135,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-38",
+      "syncMs": 2.2394050000002608,
+      "searchMs": 18.65006600000015,
+      "totalMs": 21.04298000000017,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 246.70978546142578,
+      "rssMiB": 450.0703125,
+      "requests": 2,
+      "requestBytes": 130921,
+      "responseBytes": 7192,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-39",
+      "syncMs": 2.0882740000015474,
+      "searchMs": 16.513607999999294,
+      "totalMs": 18.735513999999966,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 254.51061248779297,
+      "rssMiB": 450.0703125,
+      "requests": 2,
+      "requestBytes": 126111,
+      "responseBytes": 8073,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-40",
+      "syncMs": 2.0764990000006947,
+      "searchMs": 17.730555000000095,
+      "totalMs": 19.964766000000964,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 262.9213562011719,
+      "rssMiB": 450.1953125,
+      "requests": 2,
+      "requestBytes": 123262,
+      "responseBytes": 7188,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-41",
+      "syncMs": 2.5831319999997504,
+      "searchMs": 8.698269000000437,
+      "totalMs": 11.407312999999704,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 269.20618438720703,
+      "rssMiB": 450.1953125,
+      "requests": 2,
+      "requestBytes": 119275,
+      "responseBytes": 8138,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-42",
+      "syncMs": 2.2458329999990383,
+      "searchMs": 23.466764000000694,
+      "totalMs": 25.849700999999186,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 251.67974853515625,
+      "rssMiB": 464.5703125,
+      "requests": 2,
+      "requestBytes": 126638,
+      "responseBytes": 7908,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-43",
+      "syncMs": 2.259518000000753,
+      "searchMs": 15.625991000000795,
+      "totalMs": 18.068075000001045,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 258.89879608154297,
+      "rssMiB": 464.5703125,
+      "requests": 2,
+      "requestBytes": 129719,
+      "responseBytes": 8025,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-44",
+      "syncMs": 2.8778720000009343,
+      "searchMs": 18.298956999999064,
+      "totalMs": 21.332430000000386,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 266.76666259765625,
+      "rssMiB": 464.6953125,
+      "requests": 2,
+      "requestBytes": 123700,
+      "responseBytes": 7183,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-45",
+      "syncMs": 2.1955809999999474,
+      "searchMs": 12.87749999999869,
+      "totalMs": 15.235623999999007,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 274.70003509521484,
+      "rssMiB": 464.6953125,
+      "requests": 2,
+      "requestBytes": 124465,
+      "responseBytes": 8131,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-46",
+      "syncMs": 2.475378000001001,
+      "searchMs": 15.138205000001108,
+      "totalMs": 17.744266000001517,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 280.9007110595703,
+      "rssMiB": 464.8203125,
+      "requests": 2,
+      "requestBytes": 127672,
+      "responseBytes": 8010,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-47",
+      "syncMs": 2.2729400000007445,
+      "searchMs": 22.44522599999982,
+      "totalMs": 24.85747000000083,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 266.1840591430664,
+      "rssMiB": 481.9453125,
+      "requests": 2,
+      "requestBytes": 129299,
+      "responseBytes": 8027,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-48",
+      "syncMs": 2.330959000000803,
+      "searchMs": 17.091042000000016,
+      "totalMs": 19.581695000000764,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 273.41351318359375,
+      "rssMiB": 482.0703125,
+      "requests": 2,
+      "requestBytes": 128817,
+      "responseBytes": 7181,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-49",
+      "syncMs": 2.1255049999999756,
+      "searchMs": 12.328251000000819,
+      "totalMs": 14.65946299999996,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 280.9772186279297,
+      "rssMiB": 482.0703125,
+      "requests": 2,
+      "requestBytes": 121571,
+      "responseBytes": 8138,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-50",
+      "syncMs": 2.1513450000002194,
+      "searchMs": 18.123240999999325,
+      "totalMs": 20.517021999999997,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 289.362060546875,
+      "rssMiB": 482.0703125,
+      "requests": 2,
+      "requestBytes": 126272,
+      "responseBytes": 7873,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-51",
+      "syncMs": 2.132813999998689,
+      "searchMs": 14.32651000000078,
+      "totalMs": 16.59692399999949,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 295.54229736328125,
+      "rssMiB": 482.1953125,
+      "requests": 2,
+      "requestBytes": 124907,
+      "responseBytes": 8037,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-52",
+      "syncMs": 2.652131000000736,
+      "searchMs": 21.25681000000077,
+      "totalMs": 24.03968800000075,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 279.47113037109375,
+      "rssMiB": 496.3203125,
+      "requests": 2,
+      "requestBytes": 126697,
+      "responseBytes": 8023,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-53",
+      "syncMs": 2.6363409999994474,
+      "searchMs": 11.289220000000569,
+      "totalMs": 14.074443999999858,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 286.57108306884766,
+      "rssMiB": 496.4453125,
+      "requests": 2,
+      "requestBytes": 122185,
+      "responseBytes": 8133,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-54",
+      "syncMs": 2.176943000000392,
+      "searchMs": 17.455368000000817,
+      "totalMs": 19.840981999999713,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 294.4622039794922,
+      "rssMiB": 496.4453125,
+      "requests": 2,
+      "requestBytes": 122434,
+      "responseBytes": 7186,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-55",
+      "syncMs": 2.165240000000267,
+      "searchMs": 18.475900000001275,
+      "totalMs": 20.801391999999396,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 302.9598083496094,
+      "rssMiB": 496.5703125,
+      "requests": 2,
+      "requestBytes": 128574,
+      "responseBytes": 7188,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-56",
+      "syncMs": 2.3956149999994523,
+      "searchMs": 14.738660000000891,
+      "totalMs": 17.282004000000597,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 309.15557861328125,
+      "rssMiB": 496.6953125,
+      "requests": 2,
+      "requestBytes": 124349,
+      "responseBytes": 7988,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-57",
+      "syncMs": 2.7645310000007157,
+      "searchMs": 9.8539209999999,
+      "totalMs": 12.759110000000874,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 315.73001861572266,
+      "rssMiB": 496.8203125,
+      "requests": 2,
+      "requestBytes": 121432,
+      "responseBytes": 8137,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-58",
+      "syncMs": 2.290660000000571,
+      "searchMs": 23.511285999999018,
+      "totalMs": 25.976832000000286,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 298.6135559082031,
+      "rssMiB": 511.0703125,
+      "requests": 2,
+      "requestBytes": 127388,
+      "responseBytes": 7829,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-59",
+      "syncMs": 3.0971469999985857,
+      "searchMs": 18.694311000001107,
+      "totalMs": 22.004284999999072,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 306.36573028564453,
+      "rssMiB": 511.0703125,
+      "requests": 2,
+      "requestBytes": 122957,
+      "responseBytes": 7188,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-60",
+      "syncMs": 3.1009479999993346,
+      "searchMs": 23.580869999999777,
+      "totalMs": 26.952363999998852,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 159.4819564819336,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 123113,
+      "responseBytes": 7189,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-61",
+      "syncMs": 2.466727000000901,
+      "searchMs": 11.969788000000335,
+      "totalMs": 14.637848000000304,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 165.7327423095703,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 119773,
+      "responseBytes": 7545,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-62",
+      "syncMs": 2.3564120000010007,
+      "searchMs": 15.371537000000899,
+      "totalMs": 17.872415000001638,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 172.434814453125,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 126477,
+      "responseBytes": 7268,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-63",
+      "syncMs": 2.435412000000724,
+      "searchMs": 18.650101999999606,
+      "totalMs": 21.32061700000122,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 180.09695434570312,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 131360,
+      "responseBytes": 7192,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-64",
+      "syncMs": 2.0320649999994203,
+      "searchMs": 17.927365999999893,
+      "totalMs": 20.24581500000022,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 187.88921356201172,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 125801,
+      "responseBytes": 8043,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-65",
+      "syncMs": 2.7538129999993544,
+      "searchMs": 12.689731999998912,
+      "totalMs": 15.739285999999993,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 195.91639709472656,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 123531,
+      "responseBytes": 8136,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-66",
+      "syncMs": 2.1877109999986715,
+      "searchMs": 14.456866999998965,
+      "totalMs": 16.81304199999977,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 202.06969451904297,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 128741,
+      "responseBytes": 7278,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-67",
+      "syncMs": 2.471691999999166,
+      "searchMs": 15.660142000000633,
+      "totalMs": 18.29397699999936,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 208.62744140625,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 129617,
+      "responseBytes": 8059,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-68",
+      "syncMs": 2.1815370000003895,
+      "searchMs": 17.638106000000334,
+      "totalMs": 19.94946600000003,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 177.81439971923828,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 127008,
+      "responseBytes": 8024,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-69",
+      "syncMs": 2.160178000000087,
+      "searchMs": 10.696332999999868,
+      "totalMs": 13.022902999999133,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 185.37252044677734,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 124069,
+      "responseBytes": 8108,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-70",
+      "syncMs": 2.3527030000004743,
+      "searchMs": 19.653866000000562,
+      "totalMs": 22.163822000000437,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 193.85264587402344,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 122127,
+      "responseBytes": 7188,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-71",
+      "syncMs": 2.1588670000001002,
+      "searchMs": 13.935766999999032,
+      "totalMs": 16.277540999999474,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 200.0526351928711,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 127818,
+      "responseBytes": 7990,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-72",
+      "syncMs": 2.1282699999992474,
+      "searchMs": 15.340913,
+      "totalMs": 17.893251999999848,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 206.63075256347656,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 125329,
+      "responseBytes": 8026,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-73",
+      "syncMs": 2.2953080000006594,
+      "searchMs": 12.57698800000071,
+      "totalMs": 15.09759699999995,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 192.3340072631836,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 123808,
+      "responseBytes": 8130,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-74",
+      "syncMs": 2.2185650000010355,
+      "searchMs": 16.708420999999362,
+      "totalMs": 19.050562000000355,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 200.09298706054688,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 128601,
+      "responseBytes": 7233,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-75",
+      "syncMs": 2.097702000000936,
+      "searchMs": 18.79067799999939,
+      "totalMs": 21.053234000000884,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 208.4736785888672,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 123399,
+      "responseBytes": 7187,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-76",
+      "syncMs": 2.252653999999893,
+      "searchMs": 14.151249000000462,
+      "totalMs": 16.550524000000223,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 214.6681365966797,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 124242,
+      "responseBytes": 7921,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 120,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-77",
+      "syncMs": 2.2049779999997554,
+      "searchMs": 9.638616000000184,
+      "totalMs": 12.014027999999598,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 221.34461975097656,
+      "rssMiB": 511.3203125,
+      "requests": 2,
+      "requestBytes": 120936,
+      "responseBytes": 8145,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 300,
+        "embeddedPassages": 0,
+        "cachedPassages": 300,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-78",
+      "syncMs": 2.0204990000002,
+      "searchMs": 17.925224999999045,
+      "totalMs": 20.090253999998822,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 205.02001190185547,
+      "rssMiB": 511.4453125,
+      "requests": 2,
+      "requestBytes": 126298,
+      "responseBytes": 7192,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 600,
+        "embeddedPassages": 0,
+        "cachedPassages": 600,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-79",
+      "syncMs": 2.2003829999994196,
+      "searchMs": 17.612780999999814,
+      "totalMs": 19.944024000000354,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 212.94390869140625,
+      "rssMiB": 511.4453125,
+      "requests": 2,
+      "requestBytes": 126253,
+      "responseBytes": 7192,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 900,
+        "embeddedPassages": 0,
+        "cachedPassages": 900,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "warm-session-80",
+      "syncMs": 2.132562999999209,
+      "searchMs": 19.888591999999335,
+      "totalMs": 22.20196699999906,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 221.3714599609375,
+      "rssMiB": 511.5703125,
+      "requests": 2,
+      "requestBytes": 122916,
+      "responseBytes": 7177,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "future-secret-hidden-578",
+      "syncMs": 2.208381999998892,
+      "searchMs": 9.556026000000202,
+      "totalMs": 11.94967799999904,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 228.34554290771484,
+      "rssMiB": 511.5703125,
+      "requests": 2,
+      "requestBytes": 149441,
+      "responseBytes": 6839,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1154,
+        "embeddedPassages": 0,
+        "cachedPassages": 1154,
+        "rerankedCandidates": 48,
+        "warnings": []
+      }
+    },
+    {
+      "name": "future-secret-revealed-578",
+      "syncMs": 2.056360999999015,
+      "searchMs": 9.12624599999981,
+      "totalMs": 11.41289499999948,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 235.15264892578125,
+      "rssMiB": 511.5703125,
+      "requests": 2,
+      "requestBytes": 149407,
+      "responseBytes": 6833,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1156,
+        "embeddedPassages": 0,
+        "cachedPassages": 1156,
+        "rerankedCandidates": 48,
+        "warnings": []
+      }
+    },
+    {
+      "name": "future-secret-hidden-580",
+      "syncMs": 2.1142669999990176,
+      "searchMs": 10.00224000000162,
+      "totalMs": 12.310669000000416,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 241.9764862060547,
+      "rssMiB": 511.5703125,
+      "requests": 2,
+      "requestBytes": 148992,
+      "responseBytes": 6839,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1158,
+        "embeddedPassages": 0,
+        "cachedPassages": 1158,
+        "rerankedCandidates": 48,
+        "warnings": []
+      }
+    },
+    {
+      "name": "future-secret-revealed-580",
+      "syncMs": 2.3618989999995392,
+      "searchMs": 11.117059000000154,
+      "totalMs": 13.683513999998468,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 224.59758758544922,
+      "rssMiB": 511.8203125,
+      "requests": 2,
+      "requestBytes": 149267,
+      "responseBytes": 6834,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1160,
+        "embeddedPassages": 0,
+        "cachedPassages": 1160,
+        "rerankedCandidates": 48,
+        "warnings": []
+      }
+    },
+    {
+      "name": "future-secret-hidden-582",
+      "syncMs": 2.907742999999755,
+      "searchMs": 8.789221999999427,
+      "totalMs": 11.916948000000048,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 231.40792846679688,
+      "rssMiB": 511.8203125,
+      "requests": 2,
+      "requestBytes": 149509,
+      "responseBytes": 6833,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1162,
+        "embeddedPassages": 0,
+        "cachedPassages": 1162,
+        "rerankedCandidates": 48,
+        "warnings": []
+      }
+    },
+    {
+      "name": "future-secret-revealed-582",
+      "syncMs": 2.0334320000001753,
+      "searchMs": 8.085925999999745,
+      "totalMs": 10.295799999999872,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 238.22047424316406,
+      "rssMiB": 511.8203125,
+      "requests": 2,
+      "requestBytes": 149198,
+      "responseBytes": 6832,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1164,
+        "embeddedPassages": 0,
+        "cachedPassages": 1164,
+        "rerankedCandidates": 48,
+        "warnings": []
+      }
+    },
+    {
+      "name": "future-secret-hidden-584",
+      "syncMs": 1.9992920000004233,
+      "searchMs": 9.363443000000188,
+      "totalMs": 11.571131999999125,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 245.06240844726562,
+      "rssMiB": 511.8203125,
+      "requests": 2,
+      "requestBytes": 149138,
+      "responseBytes": 6840,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1166,
+        "embeddedPassages": 0,
+        "cachedPassages": 1166,
+        "rerankedCandidates": 48,
+        "warnings": []
+      }
+    },
+    {
+      "name": "future-secret-revealed-584",
+      "syncMs": 2.0839500000001863,
+      "searchMs": 8.885119000000486,
+      "totalMs": 11.142800999999963,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 251.8398666381836,
+      "rssMiB": 511.8203125,
+      "requests": 2,
+      "requestBytes": 149111,
+      "responseBytes": 6836,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1168,
+        "embeddedPassages": 0,
+        "cachedPassages": 1168,
+        "rerankedCandidates": 48,
+        "warnings": []
+      }
+    },
+    {
+      "name": "twenty-old-chapters-revised",
+      "syncMs": 7519.752951,
+      "searchMs": 47.20894000000044,
+      "totalMs": 7567.231688000002,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 421.99359130859375,
+      "rssMiB": 611.4453125,
+      "requests": 4,
+      "requestBytes": 256590,
+      "responseBytes": 215547,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 40,
+        "cachedPassages": 1160,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "old-fact-after-twenty-edits",
+      "syncMs": 3.0400970000009693,
+      "searchMs": 37.200935000000754,
+      "totalMs": 40.530446000000666,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 393.63961029052734,
+      "rssMiB": 618.5859375,
+      "requests": 2,
+      "requestBytes": 126312,
+      "responseBytes": 7257,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 0,
+        "cachedPassages": 1200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "reordered-narrative-cutoff",
+      "syncMs": 7412.924378,
+      "searchMs": 39.53234900000098,
+      "totalMs": 7452.619402,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 567.5421905517578,
+      "rssMiB": 763.9609375,
+      "requests": 2,
+      "requestBytes": 139807,
+      "responseBytes": 7807,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 200,
+        "embeddedPassages": 0,
+        "cachedPassages": 200,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "delete-ten-chapters",
+      "syncMs": 7463.045555999997,
+      "searchMs": 42.561312999998336,
+      "totalMs": 7505.881631999997,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 176.23025512695312,
+      "rssMiB": 868.5703125,
+      "requests": 2,
+      "requestBytes": 127999,
+      "responseBytes": 7961,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1180,
+        "embeddedPassages": 0,
+        "cachedPassages": 1180,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "append-ten-chapters",
+      "syncMs": 7521.277564999997,
+      "searchMs": 51.665571000005,
+      "totalMs": 7573.2434159999975,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 334.8325729370117,
+      "rssMiB": 868.82421875,
+      "requests": 3,
+      "requestBytes": 190346,
+      "responseBytes": 112147,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1200,
+        "embeddedPassages": 20,
+        "cachedPassages": 1180,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "same-manuscript-different-project",
+      "syncMs": 7330.394601,
+      "searchMs": 77.09133299999667,
+      "totalMs": 7407.727948,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 293.70899200439453,
+      "rssMiB": 870.2890625,
+      "requests": 6,
+      "requestBytes": 546783,
+      "responseBytes": 633286,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 120,
+        "cachedPassages": 0,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "provider-429",
+      "syncMs": 7418.616686000001,
+      "searchMs": 31.910552999994252,
+      "totalMs": 7450.938192000001,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 452.94390869140625,
+      "rssMiB": 870.3125,
+      "requests": 2,
+      "requestBytes": 255804,
+      "responseBytes": 2689,
+      "diagnostics": {
+        "semantic": "fallback",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 0,
+        "rerankedCandidates": 55,
+        "warnings": [
+          "语义检索不可用或超时，已保留本地关键词和伏笔结果。"
+        ]
+      }
+    },
+    {
+      "name": "provider-429-recovery",
+      "syncMs": 4.065293999999994,
+      "searchMs": 60.13287699999637,
+      "totalMs": 64.35070600000472,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 440.0301055908203,
+      "rssMiB": 871.38671875,
+      "requests": 6,
+      "requestBytes": 546783,
+      "responseBytes": 633286,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 120,
+        "cachedPassages": 0,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "provider-500",
+      "syncMs": 7505.753316000002,
+      "searchMs": 13.041754000005312,
+      "totalMs": 7518.972028999997,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 579.5896759033203,
+      "rssMiB": 870.890625,
+      "requests": 2,
+      "requestBytes": 255804,
+      "responseBytes": 2689,
+      "diagnostics": {
+        "semantic": "fallback",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 0,
+        "rerankedCandidates": 55,
+        "warnings": [
+          "语义检索不可用或超时，已保留本地关键词和伏笔结果。"
+        ]
+      }
+    },
+    {
+      "name": "provider-500-recovery",
+      "syncMs": 3.6575640000010026,
+      "searchMs": 42.273511999999755,
+      "totalMs": 46.23210899999685,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 603.2637710571289,
+      "rssMiB": 872.265625,
+      "requests": 6,
+      "requestBytes": 546783,
+      "responseBytes": 633286,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 120,
+        "cachedPassages": 0,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "provider-dimensions",
+      "syncMs": 7280.866130000002,
+      "searchMs": 19.658430000010412,
+      "totalMs": 7300.854474999993,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 741.9825592041016,
+      "rssMiB": 946.0703125,
+      "requests": 2,
+      "requestBytes": 255804,
+      "responseBytes": 169182,
+      "diagnostics": {
+        "semantic": "fallback",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 0,
+        "rerankedCandidates": 55,
+        "warnings": [
+          "语义检索不可用或超时，已保留本地关键词和伏笔结果。"
+        ]
+      }
+    },
+    {
+      "name": "provider-dimensions-recovery",
+      "syncMs": 2.996253000004799,
+      "searchMs": 55.66121199999179,
+      "totalMs": 58.85209700000996,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 725.2672348022461,
+      "rssMiB": 952.44140625,
+      "requests": 6,
+      "requestBytes": 546783,
+      "responseBytes": 633286,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 120,
+        "cachedPassages": 0,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "provider-truncated-json",
+      "syncMs": 7366.331342000005,
+      "searchMs": 15.756305999995675,
+      "totalMs": 7382.46289000001,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 878.2358703613281,
+      "rssMiB": 1096.671875,
+      "requests": 2,
+      "requestBytes": 255804,
+      "responseBytes": 2664,
+      "diagnostics": {
+        "semantic": "fallback",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 0,
+        "cachedPassages": 0,
+        "rerankedCandidates": 55,
+        "warnings": [
+          "语义检索不可用或超时，已保留本地关键词和伏笔结果。"
+        ]
+      }
+    },
+    {
+      "name": "provider-truncated-json-recovery",
+      "syncMs": 3.553289000003133,
+      "searchMs": 39.26160899999377,
+      "totalMs": 43.06158700000378,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 901.8684539794922,
+      "rssMiB": 1098.171875,
+      "requests": 6,
+      "requestBytes": 546783,
+      "responseBytes": 633286,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 120,
+        "cachedPassages": 0,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "late-batch-failure",
+      "syncMs": 7439.5029429999995,
+      "searchMs": 302.65542299998924,
+      "totalMs": 7742.444419000007,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 427.2827453613281,
+      "rssMiB": 1260.84375,
+      "requests": 20,
+      "requestBytes": 2002747,
+      "responseBytes": 3004467,
+      "diagnostics": {
+        "semantic": "fallback",
+        "rerank": "used",
+        "eligiblePassages": 1180,
+        "embeddedPassages": 576,
+        "cachedPassages": 0,
+        "rerankedCandidates": 60,
+        "warnings": [
+          "语义检索不可用或超时，已保留本地关键词和伏笔结果。"
+        ]
+      }
+    },
+    {
+      "name": "late-batch-resume",
+      "syncMs": 4.867596999989473,
+      "searchMs": 288.88150499999756,
+      "totalMs": 293.93201599999156,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 422.8628692626953,
+      "rssMiB": 1264.80078125,
+      "requests": 21,
+      "requestBytes": 2012208,
+      "responseBytes": 3155369,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1180,
+        "embeddedPassages": 604,
+        "cachedPassages": 576,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "rerank-500",
+      "syncMs": 2.7022520000027725,
+      "searchMs": 17.60257800000545,
+      "totalMs": 20.482054000007338,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 430.5251770019531,
+      "rssMiB": 1265.05078125,
+      "requests": 2,
+      "requestBytes": 127999,
+      "responseBytes": 5149,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "fallback",
+        "eligiblePassages": 1180,
+        "embeddedPassages": 0,
+        "cachedPassages": 1180,
+        "rerankedCandidates": 0,
+        "warnings": [
+          "重排不可用或超时，已保留融合检索顺序。"
+        ]
+      }
+    },
+    {
+      "name": "rerank-rerank-index",
+      "syncMs": 2.5141440000006696,
+      "searchMs": 21.112972000002628,
+      "totalMs": 24.015264999994542,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 439.52672576904297,
+      "rssMiB": 1265.05078125,
+      "requests": 2,
+      "requestBytes": 127999,
+      "responseBytes": 7971,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "fallback",
+        "eligiblePassages": 1180,
+        "embeddedPassages": 0,
+        "cachedPassages": 1180,
+        "rerankedCandidates": 0,
+        "warnings": [
+          "重排不可用或超时，已保留融合检索顺序。"
+        ]
+      }
+    },
+    {
+      "name": "rerank-recovery",
+      "syncMs": 2.9108280000073137,
+      "searchMs": 16.88080600000103,
+      "totalMs": 20.004240000009304,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 448.5037307739258,
+      "rssMiB": 1265.05078125,
+      "requests": 2,
+      "requestBytes": 127999,
+      "responseBytes": 7961,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1180,
+        "embeddedPassages": 0,
+        "cachedPassages": 1180,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "cancelled-request-new-snapshot",
+      "syncMs": 3.349858999994467,
+      "searchMs": 93.79111800000828,
+      "totalMs": 97.3395140000066,
+      "chars": 1320000,
+      "passages": 1200,
+      "heapMiB": 722.2030258178711,
+      "rssMiB": 1265.515625,
+      "requests": 6,
+      "requestBytes": 516065,
+      "responseBytes": 633407,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 120,
+        "embeddedPassages": 120,
+        "cachedPassages": 0,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "accelerated-total-budget-control-flow",
+      "syncMs": 7123.775464000006,
+      "searchMs": 350.33750500000315,
+      "totalMs": 7474.2880460000015,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 881.7714080810547,
+      "rssMiB": 1267.70703125,
+      "requests": 14,
+      "requestBytes": 1401746,
+      "responseBytes": 2167788,
+      "diagnostics": {
+        "semantic": "fallback",
+        "rerank": "fallback",
+        "eligiblePassages": 1180,
+        "embeddedPassages": 416,
+        "cachedPassages": 0,
+        "rerankedCandidates": 0,
+        "warnings": [
+          "语义检索不可用或超时，已保留本地关键词和伏笔结果。",
+          "重排不可用或超时，已保留融合检索顺序。"
+        ]
+      }
+    },
+    {
+      "name": "budget-partial-cache-resume",
+      "syncMs": 2.686110999988159,
+      "searchMs": 361.6388109999971,
+      "totalMs": 364.567063999988,
+      "chars": 1298000,
+      "passages": 1180,
+      "heapMiB": 909.1080322265625,
+      "rssMiB": 1269.85546875,
+      "requests": 26,
+      "requestBytes": 2511723,
+      "responseBytes": 3989154,
+      "diagnostics": {
+        "semantic": "used",
+        "rerank": "used",
+        "eligiblePassages": 1180,
+        "embeddedPassages": 764,
+        "cachedPassages": 416,
+        "rerankedCandidates": 60,
+        "warnings": []
+      }
+    },
+    {
+      "name": "over-semantic-capability-limit",
+      "syncMs": 13623.332741999999,
+      "searchMs": 95.90846500000043,
+      "totalMs": 13719.70799000001,
+      "chars": 2420000,
+      "passages": 2200,
+      "heapMiB": 1190.074562072754,
+      "rssMiB": 1417.6328125,
+      "requests": 1,
+      "requestBytes": 100301,
+      "responseBytes": 2769,
+      "diagnostics": {
+        "semantic": "fallback",
+        "rerank": "used",
+        "eligiblePassages": 2200,
+        "embeddedPassages": 0,
+        "cachedPassages": 0,
+        "rerankedCandidates": 60,
+        "warnings": [
+          "当前披露范围超过 2,000 个片段，语义检索已回退为本地检索；未发送部分章节建立不完整索引。"
+        ]
+      }
+    }
+  ]
+}

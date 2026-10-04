@@ -1,49 +1,91 @@
-# 记忆检索原型
+# Memory retrieval prototype
 
-入口：侧栏 **记忆检索 · 原型**（`#/memory`）。通过 `npm ci && npm run dev` 启动；生产版仍为静态网页，需 HTTPS 或 localhost 以计算内容 SHA-256。
+[English](memory-prototype.md) | [简体中文](memory-prototype.zh-CN.md)
 
-这是一轮第三阶段的技术原型，验证“修改旧章后排除旧事实、找回伏笔、避免未来剧情泄漏”。它尚不代表完整的长期记忆系统或第二阶段百万字编辑基础已经完成。
+Open **记忆检索 · 原型** in the sidebar (`#/memory`). Start development with `npm ci && npm run dev`. Production remains a static website; HTTPS or localhost is required for content SHA-256 hashes.
 
-## 本轮范围
+This stage-three prototype exercises three acceptance goals: exclude outdated facts after chapter edits, recover distant foreshadowing and prevent future plot disclosure. It is not a complete long-term memory system, and does not complete stage-two million-character editing foundations.
 
-- Orama 3.1.18 与官方中文 tokenizer，补充汉字 bigram 以改善陌生专名匹配；在页面专属 Web Worker 中建索引与检索。
-- 两路本地召回：正文／章节标题 BM25，以及作者标记伏笔的原文／标签／别名。按名次融合；**没有使用语义向量或模型重排**。
-- 以章节列表的当前顺序作为披露顺序，先按作品与截止章节过滤，再排名；结果返回前重新验证版本、原文范围和披露上界。
-- 章节修订号取标题与纯文本正文的 SHA-256。伏笔标记同时绑定修订号与精确原文范围，改稿后不自动搬到新版本。
-- 依据面板显示原文、章节、版本与 UTF-16 范围；界面使用文本插值，不把原文当 HTML 执行。
-- 内置 80 章合成示例，可在原型中编辑并保存；示例独立存于 IndexedDB。实际小说每次检索前重新读取已提交正文，原型不写回实际小说。
-- API 调用数为零；不需要模型或 Jina 密钥。
+## Scope
 
-## 三项验收操作
+- Orama 3.1.18 and its official Mandarin tokenizer, supplemented by Han-character bigrams for unfamiliar names. Local indexing and retrieval run in a page-owned Web Worker.
+- Local retrieval combines BM25 over chapter bodies/titles with author-marked clue text, labels and aliases. Optional embeddings add a semantic retrieval channel; reciprocal rank fusion combines the channels. Optional reranking reorders the resulting candidates.
+- The current chapter-list order defines disclosure order. Project and chapter-cutoff checks apply before ranking and before source text is sent to an external provider. Results pass revision, exact-source-span and disclosure checks again before display.
+- Chapter revisions are SHA-256 hashes of the title and plain-text body. Clues bind to a revision and an exact source span; edits do not silently transfer them to a new revision.
+- The evidence panel displays the source quote, chapter, revision and UTF-16 range. Text interpolation displays source content without executing it as HTML.
+- An editable 80-chapter synthetic demo is saved separately in IndexedDB. Searches of actual novels read the latest committed text each time; the prototype does not write to those novels.
+- External services are optional and disabled by default. Local retrieval needs no API key and makes no model calls.
 
-1. **改旧章**：点击“查旧章事实”；在示例第一章把“银钥匙”改为“铜钥匙”，保存并重建后再查。依据应改为新正文和新修订号。搜索旧词时允许召回含共同词的新正文，但不能继续返回旧事实。
-2. **找回伏笔**：点击“找回伏笔”，查询“接应信号”，披露范围设到第四十章。应找回第二章铜铃／西渡口的人工标记和对应原文。该别名是示例预先标记，不是模型自动识别出来的伏笔。
-3. **防止未来泄漏**：点击“检查未来身份”，截止第十章时不应返回玄衣客真名；把截止章节改为第八十章后才可检索到。将范围缩回前文时，旧结果和依据立即清空。
+## Try the acceptance cases
 
-实际小说按上述界面选取。需要修改正文时回到写作页保存，再回原型检索；尚未保存的编辑草稿不属于本轮检索来源。
+1. **Edit an old chapter:** choose “查旧章事实”. In the demo's first chapter, replace “银钥匙” with “铜钥匙”, save and rebuild, then search again. Evidence must show the new source and revision. A search for an old term may retrieve new text with shared words, but must not return the old fact.
+2. **Recover a clue:** choose “找回伏笔”, search for “接应信号” and set the cutoff to chapter 40. The author-marked clue in chapter 2 about the bell and west ferry should appear with its original source. This alias is part of the demo fixture; it is not automatically inferred foreshadowing.
+3. **Prevent future disclosure:** choose “检查未来身份”. A cutoff at chapter 10 must not reveal the masked character's true name. It becomes searchable at chapter 80. Moving the cutoff back immediately clears old results and evidence.
 
-## 版本与运行边界
+Select an actual novel in the same interface. To change its text, save the change in Writer and return to the prototype; unsaved Writer drafts are not retrieval sources.
 
-索引是内存中的派生数据，刷新后根据当前来源重建。本轮采用**整部作品重建**，未实现章级增量索引或索引快照持久化。同步开始即使旧索引不可用；若构建失败，检索会明确报错，不继续用上一次的事实。异步结果受构建版本和页面请求版本双重检查，切换作品、修改查询与披露范围时清空旧证据。
+## Optional embeddings and reranking
 
-所有依据均来自本次章节快照。当前不索引全书摘要、人物设定、世界观或外部资料，因它们尚未具有逐条的披露范围和来源版本。作者提供的伏笔标签／别名视为在来源章已知的信息；它们仍须由作者保证不提前填写后文秘密。本轮未提供自动伏笔抽取、回收状态推断或事实关系图。
+Use the Memory Lab's provider controls to enable embeddings, reranking, or both. These settings are separate from the generation model's API settings. Both services are disabled by default.
 
-原型接入并未改变已有 `writing_search` 工具或生成提示词；因此也不宣称已有生成流程已获得防剧透保障。后续应在统一的来源范围协议稳定后接入这些入口。
+| Setting | Default and supported configuration |
+| --- | --- |
+| Embedding protocol | Jina or OpenAI-compatible |
+| Embedding endpoint | `https://api.jina.ai/v1/embeddings`; enter a complete endpoint URL |
+| Embedding model and dimensions | `jina-embeddings-v3`, 512 dimensions; editable for the selected provider |
+| Reranking endpoint | `https://api.jina.ai/v1/rerank`; Jina-compatible request/response format |
+| Reranking model | `jina-reranker-v2-base-multilingual`; editable |
+| API credentials | Separate API keys for embedding and reranking |
 
-示例本地数据不属于小说备份，原型索引可随时重建。重置示例会明确覆盖这个独立测试副本，不修改作品正文。此版本不上传原文或生成向量。
+These are editable starting values, not a promise that a model is available to every account. Settings and credentials remain in the current route session, are excluded from local storage and backups, and are removed when you leave or reload the page. Changing a service endpoint or protocol clears its key.
 
-## 验证命令
+Enabling a service authorizes requests to the configured endpoint when searching. Embedding requests contain the query and eligible source passages; reranking requests contain the query and eligible candidates. Chapters beyond the selected cutoff are excluded before either request. The endpoint must allow the application's browser origin through CORS. Remote endpoints require HTTPS; loopback development endpoints may use HTTP. Enter the final endpoint without URL credentials, query parameters or fragments; redirects are rejected. OpenAI-compatible embedding services must accept the configured `dimensions` and return indexed float vectors of that exact size.
+
+Embedding processes at most 2,000 disclosed passages, in batches of 32. If the disclosed source exceeds this limit, semantic retrieval falls back explicitly to local retrieval rather than embedding a silent subset. Reranking receives at most 60 fused candidates. Provider requests have a 15-second per-request timeout and a 65-second total remote budget.
+
+The semantic channel ranks eligible vectors by an exact cosine-similarity scan. Source vectors use an in-memory cache bounded by 2,000 entries and 32 MiB of vector data, scoped to source revisions and provider/model/dimension settings. Identical eligible passages can reuse cached vectors; queries are embedded again. Changing the source or embedding configuration cannot reuse incompatible vectors. The cache is derived data, is not part of a novel backup and is discarded when the page lifecycle ends. For actual novels, the current page also disposes its Worker on window focus or novel-storage invalidation, so returning from Writer can clear the entire vector cache. Use the cache-clear control to discard it earlier.
+
+Provider errors leave local keyword and clue retrieval available with an explicit fallback message. The results identify which retrieval stages actually ran. Cancellation or changes to the source, query, cutoff or provider settings invalidate pending results; a late provider response cannot restore stale evidence.
+
+External retrieval is an experimental option, not a prerequisite for the three local acceptance cases above. Automated provider regressions use deterministic responses; they do not establish the semantic quality of a real model or the availability of a paid service.
+
+## Revision and runtime boundaries
+
+The keyword index is derived in-memory data. Every search reads and validates the current committed source. When the complete project identity/title, chapter order/IDs/titles/bodies and clue metadata exactly match the previously validated snapshot, synchronization can reuse its keyword index and revisions. Well-formed stale clues retain their previous exclusion; malformed clue data takes the normal validation path. Any source change still **rebuilds the entire project**; chapter-level incremental indexing and persisted index snapshots are not implemented. Starting synchronization invalidates old asynchronous work before checking for reuse. A failed build reports an error instead of continuing to serve previous facts. Index epochs and page request versions reject results from outdated requests.
+
+Every piece of evidence comes from the current chapter snapshot. Whole-book summaries, character settings, worldbuilding and external material are not indexed because they do not yet have item-level disclosure boundaries and source revisions. Author-provided clue labels and aliases are treated as information known at the source chapter; authors must ensure they do not contain later secrets. Automatic clue extraction, clue-resolution inference and fact relationship graphs remain future work.
+
+The prototype does not change the existing `writing_search` tool or generation prompts. The generation workflow therefore does not yet inherit these disclosure safeguards. Those entry points can adopt the same source-scope contract after it stabilizes.
+
+The private demo is outside novel backups. Resetting it overwrites only that independent test copy. Local-only mode does not upload source text; enabling an external retrieval service sends the eligible query and source text described above.
+
+## Validation commands
 
 ```bash
 npm run smoke:memory
+npm run smoke:memory-providers
+npm run smoke:memory-hybrid
 npm run build
 npm run test:browser-memory
+npm run test:browser-memory-hybrid
 ```
 
-核心回归覆盖章节修改与删除、排序变化、作品隔离、陈旧伏笔、构建失败与并发快照，以及百万字符合成稿件。浏览器回归针对真实构建产物，覆盖示例交互、保存恢复、依据面板和实际小说读取，并阻断外网请求。测量是合成数据的工程验证，不代表真实小说的语义召回率。
+Core regressions cover chapter edits/deletion, ordering changes, project isolation, stale clues, failed builds, concurrent snapshots and a million-character synthetic manuscript. Provider/hybrid regressions check wire formats, invalid responses, semantic fusion, cache reuse, cancellation and fallback. Browser regressions exercise the actual built application, demo editing/restoration, evidence, committed-novel reads and optional providers. The configured project has 67 smoke suites, 63 shorter browser scenarios and eight additional long-novel browser scenarios; validation status comes from the reviewed revision's CI results. Synthetic data and deterministic provider responses test engineering boundaries; they do not measure real-novel semantic recall.
 
-## 开源组件
+For larger workloads, see the [long-novel stress tests](memory-stress-tests.md), which separate local capacity, hybrid-provider behavior, browser workflows and real-novel recall, with explicit measurement and fallback boundaries.
 
-直接依赖 `@orama/orama` 与 `@orama/tokenizers` 3.1.18，均来自 [oramasearch/orama](https://github.com/oramasearch/orama)，Apache-2.0，Copyright 2023 OramaSearch Inc.。未修改上游源码；版权与许可证副本位于 `public/licenses/`，随静态构建分发。
+For an optional real-service check, set `JINA_API_KEY` in the process environment and run:
 
-未引入 Orama Cloud、Answer Engine 或持久化插件。后续可独立接入可选嵌入／重排提供方与关系图；这些功能必须继续遵守章节版本及披露范围约束。
+```bash
+npm run test:memory-live
+```
+
+This test is separate from CI and incurs the configured Jina account's usage charges. It exercises the production retrieval engine and provider adapters against three synthetic chapters, with four acceptance checks and a budget of 20 requests / 30,000 input characters. It does not use manuscripts saved in the application. The run writes a key-free result summary to `artifacts/memory-live/report.json`. A successful run establishes compatibility for that account and model at that time, not production recall quality or whole-novel capacity.
+
+On **2026-10-04**, the [recorded Jina run](testing/memory-jina-2026-10-04.json) passed all four checks with `jina-embeddings-v3` (512 dimensions) and `jina-reranker-v2-base-multilingual`: 11 requests and 632 input characters. It exercised the production engine and adapters through a temporary local curl fetch bridge to the environment proxy after native Node fetch timed out. Real Jina browser CORS was not tested; browser regressions use a local synthetic provider. This synthetic acceptance run is not a semantic-quality or production-capacity benchmark.
+
+## Open-source components
+
+Direct dependencies `@orama/orama` and `@orama/tokenizers` 3.1.18 come from [oramasearch/orama](https://github.com/oramasearch/orama), under Apache-2.0, Copyright 2023 OramaSearch Inc. Upstream source is unmodified. Copyright notices and license copies are in `public/licenses/` and ship with the static build.
+
+Orama Cloud, Answer Engine and persistence plugins are not included. Future graph and generation integrations must retain chapter-revision and disclosure constraints.

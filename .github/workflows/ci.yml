@@ -15,6 +15,55 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  memory-stress:
+    name: ci-memory-stress
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:memory-stress-local
+      - run: npm run test:memory-stress-hybrid
+      - name: Upload memory stress evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: memory-stress-evidence-${{ github.run_attempt }}
+          path: artifacts/memory-stress/*.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  memory-browser-stress:
+    name: ci-memory-browser-stress
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:browser-memory-stress
+      - name: Upload browser memory stress evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: memory-browser-stress-evidence-${{ github.run_attempt }}
+          path: artifacts/browser-memory-stress
+          if-no-files-found: warn
+          retention-days: 7
+
   quality:
     name: ci-quality
     runs-on: ubuntu-latest
@@ -48,6 +97,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - run: npm run test:browser-memory
+      - run: npm run test:browser-memory-hybrid
       - run: npm run test:browser-extensions
       - run: npm run test:browser
       - name: Upload browser evidence
@@ -59,5 +109,6 @@ jobs:
             artifacts/browser
             artifacts/browser-extensions
             artifacts/browser-memory
+            artifacts/browser-memory-hybrid
           if-no-files-found: warn
           retention-days: 7

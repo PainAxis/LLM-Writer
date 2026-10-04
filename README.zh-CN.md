@@ -19,7 +19,7 @@
 
 ## 🚀 主要功能
 
-- **记忆检索原型**：本地 Orama 关键词与人工伏笔召回、章节版本校验、披露范围过滤和依据面板。入口为侧栏“记忆检索 · 原型”；[试用与范围说明](docs/memory-prototype.md)。
+- **记忆检索原型**：Orama 关键词与人工伏笔召回、可选语义嵌入与重排、章节版本校验、外部请求前的披露范围过滤，以及依据面板。外部服务默认关闭，设置与密钥仅保留在页面会话中。入口为侧栏“记忆检索 · 原型”；[试用与范围说明](docs/memory-prototype.zh-CN.md)。
 
 ### 创作工作台
 - **小说管理**：多类型模板创建项目、元数据管理、章节三状态（草稿/完成/发表）、封面、导入导出；章节修改后正文计数、预览与导出保持一致
@@ -109,9 +109,12 @@ npm run smoke:virtual-messages        # 长会话窗口与消息高度边界
 npm run smoke:mindmap                 # 导图分支、挂载与截断兜底
 npm run smoke:eventline               # 章号迁移与兼容
 npm run smoke:prompts                 # 默认提示词与合并规则
+npm run smoke:memory                  # 本地记忆、章节版本、披露范围与容量
+npm run smoke:memory-providers        # 嵌入／重排请求格式与响应校验
+npm run smoke:memory-hybrid           # 混合检索、缓存、回退与过期响应
 ```
 
-CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、65 组冒烟测试与 53 个 Chromium 场景。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。本地浏览器测试配置见[浏览器测试说明](scripts/browser-testing.md)。
+CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、67 组冒烟测试与 71 个 Chromium 场景（已有 63 个，加 8 个超长篇压力场景）。独立的记忆压力任务还运行本地容量与受控服务测试。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
 
 ### 首次使用
 1. 点击右上角「API配置」，选择服务商并填入 API 地址与密钥（可选：同步模型列表、配置代理前缀）
