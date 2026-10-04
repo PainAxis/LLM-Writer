@@ -196,7 +196,7 @@ function graphStyles(): StylesheetJson {
     { selector: 'node[type="event"]', style: { shape: 'diamond', 'background-color': '#9c6ade' } },
     { selector: 'node[type="object"]', style: { shape: 'round-rectangle', 'background-color': '#e6a23c' } },
     { selector: 'node[type="place"]', style: { shape: 'hexagon', 'background-color': '#16a394' } },
-    { selector: 'edge', style: { label: 'data(label)', width: 2, 'line-color': '#8592a3', 'target-arrow-color': '#8592a3', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier', color: text, 'font-size': 11, 'text-wrap': 'wrap', 'text-max-width': '150px', 'text-background-color': canvas.value ? getComputedStyle(canvas.value).getPropertyValue('--el-bg-color').trim() || '#fff' : '#fff', 'text-background-opacity': 0.9, 'text-background-padding': '3px' } },
+    { selector: 'edge', style: { label: 'data(label)', 'text-events': 'yes', width: 2, 'line-color': '#8592a3', 'target-arrow-color': '#8592a3', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier', color: text, 'font-size': 11, 'text-wrap': 'wrap', 'text-max-width': '150px', 'text-background-color': canvas.value ? getComputedStyle(canvas.value).getPropertyValue('--el-bg-color').trim() || '#fff' : '#fff', 'text-background-opacity': 0.9, 'text-background-padding': '3px' } },
     { selector: 'edge[origin="inferred"]', style: { 'line-style': 'dashed' } },
     { selector: 'edge[confirmed="yes"]', style: { width: 4, 'line-color': '#3c9a53', 'target-arrow-color': '#3c9a53' } },
     { selector: 'edge:selected', style: { width: 5, 'line-color': '#409eff', 'target-arrow-color': '#409eff' } },

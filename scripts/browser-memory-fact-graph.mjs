@@ -245,18 +245,26 @@ try {
     await expect(relations()).toHaveCount(1)
     await expect(graph('canvas').locator('canvas').first()).toBeVisible()
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
-    // A graph with a single edge fits its two endpoints symmetrically. Clicking
-    // the rendered midpoint exercises Cytoscape's genuine tap handler.
-    await graph('canvas').scrollIntoViewIfNeeded()
-    const box = await graph('canvas').boundingBox()
-    assert.ok(box && box.width > 0 && box.height > 0)
-    // Node labels sit below their shapes; fitting their bounding boxes can move
-    // the edge slightly above the visual center. Try a small visible midpoint
-    // band, using actual pointer taps rather than reading Cytoscape internals.
-    for (const offsetY of [0, -8, -16, -24, 8, 16, 24]) {
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2 + offsetY)
-      if (await graph('canvas').getAttribute('data-selected-relation')) break
+    // A single horizontal edge lies near the fitted graph's center. Label
+    // bounds, font metrics, and device pixels can shift its thin hit area. Use
+    // locator-relative pointer taps in a bounded two-pixel midpoint band; each
+    // tap remeasures the current container and awaits the rendered UI update.
+    // This still exercises the actual canvas edge handler, never graph internals
+    // or the accessible list as a fallback. Locator clicks also wait for scroll
+    // and layout stability instead of retaining stale page coordinates.
+    report.canvasPointerAttempts = []
+    const offsets = [0, ...Array.from({ length: 20 }, (_, index) => -2 * (index + 1)), ...Array.from({ length: 20 }, (_, index) => 2 * (index + 1))]
+    for (const offsetY of offsets) {
+      await graph('canvas').scrollIntoViewIfNeeded()
+      const box = await graph('canvas').boundingBox()
+      assert.ok(box && box.width > 0 && box.height > 0)
+      await graph('canvas').click({ position: { x: box.width / 2, y: box.height / 2 + offsetY } })
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      const selected = await graph('canvas').getAttribute('data-selected-relation')
+      report.canvasPointerAttempts.push({ offsetY, width: box.width, height: box.height, selected: Boolean(selected) })
+      if (selected) break
     }
+    await expect(graph('canvas')).toHaveAttribute('data-selected-relation', 'demo-key-custody')
     await expect(graph('evidence')).toContainText('受托保管')
     await expect(graph('evidence')).toContainText('原文明示')
     await expect(graph('evidence')).toContainText('第 1 章')
