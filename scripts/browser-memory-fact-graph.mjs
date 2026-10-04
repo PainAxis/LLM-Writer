@@ -80,16 +80,25 @@ await context.route('**/*', async route => {
 
 const novelId = 39201
 const chapterId = 39202
+const middleChapterId = 39204
+const finalChapterId = 39205
 const initialNovelText = '青岚在旧仓库发现一张航海图，约定明日把航海图交给船长。'
 const revisedNovelText = '青岚在旧仓库发现一本潮汐册，约定明日把潮汐册交给船长。'
+const middleNovelText = '青岚在中途驿站歇脚，天亮后继续沿河赶路。'
+const finalNovelText = '终局才揭晓：船长将璇玑印封入北塔，此前无人知道藏处。'
+const initialNovelLength = initialNovelText.length + middleNovelText.length + finalNovelText.length
 const timestamp = '2026-10-04T00:00:00.000Z'
 const fixtureNovel = {
   id: novelId, title: '事实图谱业务验收作品', genre: 'fantasy',
   description: 'Synthetic author source for read-only memory acceptance.', tags: [], status: 'writing',
   createdAt: timestamp, updatedAt: timestamp,
-  chapters: 1, wordCount: initialNovelText.length, totalWords: initialNovelText.length,
+  chapters: 3, wordCount: initialNovelLength, totalWords: initialNovelLength,
   characters: [], worldSettings: [], events: [], corpusData: [],
-  chapterList: [{ id: chapterId, title: '第一章：仓库', content: `<p>${initialNovelText}</p>`, status: 'draft', tags: [], wordCount: initialNovelText.length, createdAt: timestamp, updatedAt: timestamp }],
+  chapterList: [
+    { id: chapterId, title: '第一章：仓库', content: `<p>${initialNovelText}</p>`, status: 'draft', tags: [], wordCount: initialNovelText.length, createdAt: timestamp, updatedAt: timestamp },
+    { id: middleChapterId, title: '第二章：中途驿站', content: `<p>${middleNovelText}</p>`, status: 'draft', tags: [], wordCount: middleNovelText.length, createdAt: timestamp, updatedAt: timestamp },
+    { id: finalChapterId, title: '第三章：终局', content: `<p>${finalNovelText}</p>`, status: 'draft', tags: [], wordCount: finalNovelText.length, createdAt: timestamp, updatedAt: timestamp },
+  ],
 }
 const emptyNovel = { ...fixtureNovel, id: 39203, title: '尚无章节的图谱作品', chapters: 0, wordCount: 0, totalWords: 0, chapterList: [] }
 await context.addInitScript(({ novels, fixtureOrigin }) => {
@@ -482,7 +491,65 @@ try {
     }
   })
 
-  await step('12 Selecting a novel without chapters leaves a usable, empty graph state', async () => {
+  await step('12 Deleting the selected cutoff never opens later facts on refresh or repeated refresh', async () => {
+    await selectCutoff(String(finalChapterId))
+    await prepareAnchors(String(finalChapterId), finalNovelText)
+    await fillRelation({ source: '璇玑印', sourceType: 'object', target: '北塔', targetType: 'place', predicate: '终局藏处' })
+    await graph('save').click()
+    await expect(graph('form')).toHaveCount(0)
+    await chooseRelation('终局藏处')
+    await graph('confirm').click()
+    await expect(graph('evidence')).toContainText('作者确认')
+    await selectCutoff(String(middleChapterId))
+    await expect(relations()).toHaveCount(0)
+    await expect(graph('evidence')).not.toContainText('璇玑印')
+
+    const management = await context.newPage()
+    try {
+      await management.goto(`${origin}/#/chapters`)
+      await dismissAnnouncement(management)
+      const chapter = management.locator('.chapter-item').filter({ has: management.locator('h4', { hasText: '第二章：中途驿站' }) })
+      await expect(chapter).toBeVisible()
+      await chapter.locator('.el-dropdown button').click()
+      await management.getByRole('menuitem', { name: '删除', exact: true }).click()
+      await management.getByRole('dialog', { name: '确认删除', exact: true }).getByRole('button', { name: '确定', exact: true }).click()
+      await expect.poll(() => page.evaluate(id => JSON.parse(localStorage.getItem('novels') || '[]')
+        .find(novel => novel.id === id)?.chapterList?.map(chapter => chapter.id), novelId)).toEqual([chapterId, finalChapterId])
+      await expect(chapter).toHaveCount(0)
+      await page.bringToFront()
+      await expect(graph('unavailable')).toBeVisible()
+      const committed = await readNovels()
+
+      for (let refresh = 0; refresh < 2; refresh++) {
+        await expect(memory('refresh')).toBeEnabled()
+        await memory('refresh').click()
+        await expect(memory('refresh')).toBeEnabled()
+        await expect(memory('cutoff')).toHaveValue('')
+        await expect(memory('cutoff-required')).toBeVisible()
+        await expect(memory('search')).toBeDisabled()
+        await expect(graph('canvas')).toHaveCount(0)
+        await expect(graph('create')).toBeDisabled()
+        await expect(relations()).toHaveCount(0)
+        await expect(graph('evidence')).toHaveCount(0)
+        assert.equal(await readNovels(), committed, 'Refreshing a deleted cutoff must not rewrite the committed chapter deletion')
+      }
+
+      await selectCutoff(String(chapterId))
+      await expect(memory('search')).toBeEnabled()
+      await graph('query').fill('终局藏处')
+      await expect(relations()).toHaveCount(0)
+      await selectCutoff(String(finalChapterId))
+      await chooseRelation('终局藏处')
+      await expect(graph('quote').first()).toHaveText(finalNovelText)
+      await expect(graph('evidence')).toContainText('第 2 章')
+      await expect(graph('evidence')).toContainText('作者确认')
+      report.deletedCutoff = { removedChapterId: middleChapterId, remainingChapterIds: [chapterId, finalChapterId], automaticCutoffAfterRefresh: '', refreshesChecked: 2, explicitDisclosureChapterId: finalChapterId }
+    } finally {
+      await management.close()
+    }
+  })
+
+  await step('13 Selecting a novel without chapters leaves a usable, empty graph state', async () => {
     await memory('source').selectOption(`novel:${emptyNovel.id}`)
     await expect(memory('refresh')).toBeEnabled()
     await expect(memory('cutoff').locator('option')).toHaveCount(0)
@@ -494,7 +561,7 @@ try {
     assert.deepEqual(errors, [], 'An empty saved novel must not throw during graph rendering')
   })
 
-  await step('13 Retain independent demo clues with usable dark and narrow-screen graph evidence', async () => {
+  await step('14 Retain independent demo clues with usable dark and narrow-screen graph evidence', async () => {
     await selectSource('memory-demo')
     await selectCutoff('c40')
     await chooseRelation('可能用于重逢时接应')

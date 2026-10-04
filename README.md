@@ -121,7 +121,7 @@ npm run smoke:memory-fact-store       # Graph storage, failed writes and concurr
 npm run smoke:memory-fact-extraction  # Bounded model proposals, source-only requests and invalid output
 ```
 
-CI is configured to run strict lint, the production build, 72 smoke suites and 87 Chromium scenarios (78 shorter scenarios plus nine long-novel stress scenarios) on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [incremental indexing and cache lifecycle](docs/memory-incremental-index.md), [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 72 smoke suites and 88 Chromium scenarios (79 shorter scenarios plus nine long-novel stress scenarios) on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [incremental indexing and cache lifecycle](docs/memory-incremental-index.md), [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

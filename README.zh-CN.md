@@ -121,7 +121,7 @@ npm run smoke:memory-fact-store       # 图谱存储、写入失败与并发标�
 npm run smoke:memory-fact-extraction  # 有限模型提议、仅原文请求与无效响应
 ```
 
-CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、72 组冒烟测试与 87 个 Chromium 场景（78 个较短场景，加 9 个超长篇压力场景）。独立的记忆压力任务还运行本地容量与受控服务测试。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
+CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、72 组冒烟测试与 88 个 Chromium 场景（79 个较短场景，加 9 个超长篇压力场景）。独立的记忆压力任务还运行本地容量与受控服务测试。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
 
 ### 首次使用
 1. 点击右上角「API配置」，选择服务商并填入 API 地址与密钥（可选：同步模型列表、配置代理前缀）

@@ -28,7 +28,7 @@ Exact quotation checks establish where the supporting words came from. They do n
 
 An evidence anchor records the project, stable chapter identity, SHA-256 revision of the title and plain-text body, UTF-16 start/end positions and exact quote. The chapter's current position in the chapter list defines its disclosure order.
 
-A relationship is eligible only when **all** its evidence anchors match the current committed project and chapter revisions, match the exact source ranges and fall within the selected chapter cutoff. A multi-premise inference cannot appear early merely because its first premise occurs in an early chapter. Reordering chapters changes the boundary immediately; deleting a chapter removes its relationships from the visible graph.
+A relationship is eligible only when **all** its evidence anchors match the current committed project and chapter revisions, match the exact source ranges and fall within the selected chapter cutoff. A multi-premise inference cannot appear early merely because its first premise occurs in an early chapter. Reordering chapters changes the boundary immediately; deleting a chapter removes its relationships from the visible graph. If the selected cutoff chapter is deleted from the same project, refreshing clears that selection. The graph and retrieval remain unavailable until the author explicitly selects a new cutoff; further refreshes cannot silently choose a later chapter.
 
 Changing a source chapter's title or body invalidates every relationship anchored to that chapter, including author-confirmed relationships. The prototype keeps the stored annotation but hides the whole relationship; it does not transplant old quotes to a new revision, partially retain an inference or silently re-extract it. Create a new relationship from the current source after reviewing the revision. Revisions are content hashes: restoring exactly the same title and body can make an existing anchor valid again. The evidence panel is a current-source view, not a historical chapter-version browser.
 
@@ -70,7 +70,7 @@ The display cap bounds canvas work; it is not evidence that arbitrary whole-book
 - **Find foreshadowing:** link an early object or event to its cited passage, then search for its name or relationship with a later cutoff. The result must retain the early chapter and exact quote. This is source-backed recall of an annotation, not automatic proof of foreshadowing.
 - **Prevent future disclosure:** save a later identity relation and an inference supported by both early and late passages. Before the later chapter, neither relationship nor its future-only node name may appear. Moving the cutoff backwards must also clear a selected future relationship and reject late model proposals.
 
-The core regression includes a 600-chapter synthetic novel with 1,411,959 UTF-16 characters and 5,400 relationships stored in reverse chapter order. Ten check groups include 241 exact-evidence checks, source edits, reordering, future-only nodes and finding a chapter-one clue after thousands of later relationships. The test makes no network requests and writes `artifacts/memory-fact-graph/core.json`; the [recorded core result](testing/memory-fact-graph-2026-10-04/core.json) and [source hashes](testing/memory-fact-graph-2026-10-04/provenance.json) preserve the local run. These are single-run measurements in a shared environment; its selector timings do not measure browser layout or model quality. The storage suite covers persistence failures and concurrent version checks, while extraction tests exercise the source-only request and invalid model outputs.
+The core regression uses a synthetic long novel with relationships stored in reverse chapter order. It checks exact evidence, source edits, reordering, future-only nodes and finding a chapter-one clue after thousands of later relationships, writing `artifacts/memory-fact-graph/core.json`. The storage suite covers persistence failures and concurrent version checks; extraction tests exercise source-only requests and invalid model outputs.
 
 The **2026-10-04** local [core record](testing/memory-fact-graph-2026-10-04/core.json) and [source/validation provenance](testing/memory-fact-graph-2026-10-04/provenance.json) retain this single synthetic run:
 
@@ -81,7 +81,7 @@ The **2026-10-04** local [core record](testing/memory-fact-graph-2026-10-04/core
 | Network requests | Zero |
 | Local validation | 72 smoke suites, strict lint and production build passed |
 
-This is one local run, not a comparative performance benchmark or external-model evaluation. Browser validation is reported separately by CI.
+This is one local run in a shared environment, not a comparative performance benchmark or external-model evaluation. Selector timings do not measure browser layout. Browser validation is reported separately by CI.
 
 Run these regressions, then build before the browser check:
 
@@ -93,7 +93,7 @@ npm run build
 npm run test:browser-memory-fact-graph
 ```
 
-Use the current revision's CI result for pass/fail status; prior retrieval benchmarks do not certify the graph. The 13 configured graph browser scenarios cover genuine canvas edge clicks and keyboard list selection, exact evidence, confirmation/reload, author editing, source and cutoff invalidation, multi-premise clues, model proposal review, malformed/late responses, empty novels and dark/mobile layouts. Six explicitly requested synthetic model calls test the provider boundary. Browser checks use the built application and a local synthetic provider, not a paid model. Screenshots, the request audit and results are written to `artifacts/browser-memory-fact-graph/`.
+Use the current revision's CI result for pass/fail status; prior retrieval benchmarks do not certify the graph. The 14 configured graph browser scenarios cover genuine canvas edge clicks and keyboard list selection, exact evidence, confirmation/reload, author editing, source and cutoff invalidation, deleted-cutoff recovery requiring an explicit selection, multi-premise clues, model proposal review, malformed/late responses, empty novels and dark/mobile layouts. Six explicitly requested synthetic model calls test the provider boundary. Browser checks use the built application and a local synthetic provider, not a paid model. Screenshots, the request audit and results are written to `artifacts/browser-memory-fact-graph/`.
 
 ## Open-source component
 
