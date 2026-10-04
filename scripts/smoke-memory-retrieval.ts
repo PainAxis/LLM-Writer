@@ -62,6 +62,26 @@ assert.ok(!JSON.stringify(crowded.hits).includes('未来专属暗号'))
 validateEvidence(crowded, crowdedInput, 'early')
 console.log('✓ 截止过滤发生在 top-k 之前，120 个未来章节不能挤走早期依据')
 
+// A busy author's clue catalogue must not evict an unannotated exact source match.
+// These clues share the subject words, but refer to different sealed objects.
+const exactFact = chapter('exact-fact', '沈砚把白银封蜡FS00001交给顾宁，由顾宁保管。')
+const similarClueChapters = Array.from({ length: 30 }, (_, i) => chapter(
+  `similar-${i}`, `沈砚把白银封蜡FS${String(i + 2).padStart(5, '0')}交给顾宁，作为另一段接应约定的信物。`,
+))
+const similarClues = await Promise.all(similarClueChapters.map((item, i) => clue(item, item.text, {
+  id: `similar-clue-${i}`, label: '封存信物', aliases: [`旧日接应约定PACT${i}`],
+})))
+const denseClueProject = project([exactFact, ...similarClueChapters], similarClues)
+await index.sync(denseClueProject)
+const exactAmongClues = await index.search({ text: '白银封蜡FS00001', throughChapterId: 'similar-29', limit: 8 })
+assert.ok(exactAmongClues.hits.slice(0, 2).some(hit => hit.chapterId === 'exact-fact' && hit.quote === exactFact.text),
+  'the top passage must remain visible beside the top clue instead of losing all eight slots to partial clue matches')
+validateEvidence(exactAmongClues, denseClueProject, 'similar-29')
+const aliasAmongClues = await index.search({ text: '旧日接应约定PACT0', throughChapterId: 'similar-29', limit: 8 })
+assert.equal(aliasAmongClues.hits[0]!.kind, 'clue')
+assert.equal(aliasAmongClues.hits[0]!.chapterId, 'similar-0')
+console.log('✓ 大量近似伏笔不会挤走精确原文事实，独有伏笔别名仍可优先找回')
+
 // Both the source revision and stale author annotations disappear after an edit, even on same chapter ID.
 const edited = structuredClone(input)
 edited.chapters[0]!.text = '姜暝珩打开木盒，里面只有一张白纸。她把白纸交给顾宁。'
@@ -121,6 +141,85 @@ snapshotStats.chapters[0]!.revision = 'caller tampered with returned stats'
 snapshotStats.chapters[0]!.ordinal = 999
 assert.equal((await index.search({ text: '铜钱', throughChapterId: 'c1' })).hits[0]!.quote, '铜钱藏在井底。')
 console.log('✓ 项目隔离，输入和返回统计的外部修改不能污染索引快照')
+
+// Re-reading an identical committed snapshot may reuse the index, but every source
+// mutation must take the full validation path. Count hashing work instead of timing a CPU.
+const originalDigest = crypto.subtle.digest
+const originalDigestDescriptor = Object.getOwnPropertyDescriptor(crypto.subtle, 'digest')
+let digestCalls = 0
+Object.defineProperty(crypto.subtle, 'digest', { configurable: true, value: (...args: Parameters<SubtleCrypto['digest']>) => {
+  digestCalls++
+  return Reflect.apply(originalDigest, crypto.subtle, args)
+} })
+try {
+  await index.sync(input)
+  digestCalls = 0
+  const unchangedStats = await index.sync(structuredClone(input))
+  assert.equal(digestCalls, 0, 'an identical validated snapshot must avoid rebuilding and rehashing every chapter')
+  assert.equal(unchangedStats.fingerprint, initialStats.fingerprint)
+  unchangedStats.chapters[0]!.revision = 'tampered-copy'
+  unchangedStats.chapters[0]!.ordinal = 999
+  assert.equal((await index.sync(structuredClone(input))).chapters[0]!.revision, initialStats.chapters[0]!.revision)
+  validateEvidence(await index.search({ text: '旧朝信物', throughChapterId: 'c79' }), input, 'c79')
+
+  const mutations: Array<{ name: string; apply: (value: MemoryProjectInput) => void }> = [
+    { name: 'project ID', apply: value => { value.id = 'new-project' } },
+    { name: 'project title', apply: value => { value.title += '（改名）' } },
+    { name: 'chapter ID', apply: value => { value.chapters[0]!.id = 'renamed-source' } },
+    { name: 'chapter title', apply: value => { value.chapters[0]!.title += '（改名）' } },
+    { name: 'same-length body edit', apply: value => { value.chapters[0]!.text = value.chapters[0]!.text.replace('铜钱', '银钱') } },
+    { name: 'chapter order', apply: value => { value.chapters.reverse() } },
+    { name: 'chapter deletion', apply: value => { value.chapters.pop() } },
+    { name: 'clue ID', apply: value => { value.clues[0]!.id += '-new' } },
+    { name: 'clue source', apply: value => { value.clues[0]!.chapterId = 'c2' } },
+    { name: 'clue revision', apply: value => { value.clues[0]!.sourceRevision = '0'.repeat(64) } },
+    { name: 'clue span', apply: value => { value.clues[0]!.start++ } },
+    { name: 'clue quote', apply: value => { value.clues[0]!.quote += '。' } },
+    { name: 'clue label', apply: value => { value.clues[0]!.label = '新标记' } },
+    { name: 'clue alias', apply: value => { value.clues[0]!.aliases[0] = '新的约定' } },
+    { name: 'clue deletion', apply: value => { value.clues.length = 0 } },
+  ]
+  for (const mutation of mutations) {
+    await index.sync(input)
+    const changedSource = structuredClone(input)
+    mutation.apply(changedSource)
+    digestCalls = 0
+    const fresh = await index.sync(changedSource)
+    assert.ok(digestCalls > 0, `${mutation.name} must rebuild instead of reusing an old source`)
+    assert.equal(fresh.projectId, changedSource.id)
+    assert.deepEqual(fresh.chapters.map(item => [item.id, item.title]), changedSource.chapters.map(item => [item.id, item.title]))
+    validateEvidence(await index.search({ text: '铜钱', throughChapterId: changedSource.chapters.at(-1)!.id }), changedSource, changedSource.chapters.at(-1)!.id)
+  }
+  const staleAnnotationSource = structuredClone(input)
+  staleAnnotationSource.clues[0]!.sourceRevision = '0'.repeat(64)
+  await index.sync(staleAnnotationSource)
+  digestCalls = 0
+  assert.equal((await index.sync(staleAnnotationSource)).staleClues, 1)
+  assert.equal(digestCalls, 0, 'unchanged well-formed stale annotations retain their exclusion without forcing another rebuild')
+  assert.equal((await index.search({ text: '旧朝信物', throughChapterId: 'c79' })).hits.length, 0)
+  staleAnnotationSource.clues[0]!.start = -1
+  await index.sync(staleAnnotationSource)
+  digestCalls = 0
+  assert.equal((await index.sync(staleAnnotationSource)).staleClues, 1)
+  assert.ok(digestCalls > 0, 'malformed annotation shapes must not take the unchanged shortcut')
+
+  await index.sync(input)
+  const pendingSearch = index.search({ text: '铜钱', throughChapterId: 'c79' })
+  const pendingFailure = assert.rejects(pendingSearch, /快照已变化|新的请求/)
+  await index.sync(structuredClone(input))
+  await pendingFailure
+  const malformed = structuredClone(input)
+  malformed.chapters[1]!.id = malformed.chapters[0]!.id
+  await assert.rejects(index.sync(malformed), /ID 重复/)
+  await assert.rejects(index.search({ text: '铜钱', throughChapterId: 'c79' }), /尚未就绪/)
+  digestCalls = 0
+  await index.sync(input)
+  assert.ok(digestCalls > 0, 'a failed sync must discard the reusable index too')
+} finally {
+  if (originalDigestDescriptor) Object.defineProperty(crypto.subtle, 'digest', originalDigestDescriptor)
+  else Reflect.deleteProperty(crypto.subtle, 'digest')
+}
+console.log('✓ 相同来源复用索引；正文、顺序和伏笔变化仍完整校验，旧请求和失败构建保持失效')
 
 const invalidProject = project([chapter('duplicate', '旧版本'), chapter('duplicate', '新版本')])
 await assert.rejects(index.sync(invalidProject), /ID 重复/)

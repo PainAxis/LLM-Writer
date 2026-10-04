@@ -87,7 +87,12 @@
     "smoke:memory-providers": "node --import tsx scripts/smoke-memory-providers.ts",
     "smoke:memory-hybrid": "node --import tsx scripts/smoke-memory-hybrid.ts",
     "test:browser-memory-hybrid": "node scripts/browser-memory-hybrid-regression.mjs",
-    "test:memory-live": "node --import tsx scripts/live-memory-jina.ts"
+    "test:memory-live": "node --import tsx scripts/live-memory-jina.ts",
+    "test:memory-stress-local": "node --expose-gc --import tsx scripts/stress-memory-local.ts",
+    "test:memory-stress-hybrid": "node --expose-gc --import tsx scripts/stress-memory-hybrid.ts",
+    "test:browser-memory-stress": "node --import tsx scripts/browser-memory-stress.mjs",
+    "test:memory-stress-live": "node --import tsx scripts/stress-memory-jina.ts",
+    "test:memory-corpus-fetch": "node --import tsx scripts/fetch-memory-corpus.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

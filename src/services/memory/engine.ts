@@ -121,6 +121,27 @@ function copyStats(stats: MemoryIndexStats): MemoryIndexStats {
   return { ...stats, chapters: stats.chapters.map(chapter => ({ ...chapter })) }
 }
 
+/** Compare the complete accepted source, never timestamps or only chapter lengths. */
+function sameProjectSource(left: MemoryProjectInput, right: MemoryProjectInput): boolean {
+  if (left.id !== right.id || left.title !== right.title
+    || left.chapters.length !== right.chapters.length || left.clues.length !== right.clues.length) return false
+  for (let i = 0; i < left.chapters.length; i++) {
+    const a = left.chapters[i]!
+    const b = right.chapters[i]!
+    if (a.id !== b.id || a.title !== b.title || a.text !== b.text) return false
+  }
+  for (let i = 0; i < left.clues.length; i++) {
+    const a = left.clues[i]!
+    const b = right.clues[i]!
+    if (!validClueShape(a) || !validClueShape(b)
+      || a.id !== b.id || a.chapterId !== b.chapterId || a.sourceRevision !== b.sourceRevision
+      || a.start !== b.start || a.end !== b.end || a.quote !== b.quote || a.label !== b.label
+      || !Array.isArray(a.aliases) || !Array.isArray(b.aliases) || a.aliases.length !== b.aliases.length
+      || a.aliases.some((alias, position) => alias !== b.aliases[position])) return false
+  }
+  return true
+}
+
 function safeBoundary(text: string, end: number): number {
   const previous = text.charCodeAt(end - 1)
   const next = text.charCodeAt(end)
@@ -159,14 +180,18 @@ function* chunkSpans(text: string): Generator<{ start: number; end: number }> {
   }
 }
 
-function validClue(clue: MemoryClue, chapter: MemoryChapterInput | undefined, revision: string | undefined): boolean {
-  return Boolean(chapter && validString(clue.id, 256)
-    && clue.sourceRevision === revision
+function validClueShape(clue: MemoryClue): boolean {
+  return Boolean(validString(clue.id, 256) && validString(clue.chapterId, 256)
+    && typeof clue.sourceRevision === 'string' && /^[a-f0-9]{64}$/u.test(clue.sourceRevision)
     && Number.isSafeInteger(clue.start) && Number.isSafeInteger(clue.end)
-    && clue.start >= 0 && clue.end > clue.start && clue.end <= chapter.text.length
-    && validString(clue.quote, 4_000) && chapter.text.slice(clue.start, clue.end) === clue.quote
+    && clue.start >= 0 && clue.end > clue.start && validString(clue.quote, 4_000)
     && validString(clue.label, 300) && Array.isArray(clue.aliases) && clue.aliases.length <= 20
     && clue.aliases.every(alias => validString(alias, 100)))
+}
+
+function validClue(clue: MemoryClue, chapter: MemoryChapterInput | undefined, revision: string | undefined): boolean {
+  return Boolean(chapter && validClueShape(clue) && clue.sourceRevision === revision
+    && clue.end <= chapter.text.length && chapter.text.slice(clue.start, clue.end) === clue.quote)
 }
 
 interface CachedVector {
@@ -243,12 +268,22 @@ export class MemoryIndex {
   }
 
   async sync(project: MemoryProjectInput): Promise<MemoryIndexStats> {
+    const previous = this.ready
     const epoch = ++this.epoch
     this.searchController?.abort()
     // Invalidate BEFORE cloning/hashing: failed rebuilds must never resurrect old facts.
     this.ready = undefined
     const started = performance.now()
     const snapshot = snapshotProject(project)
+    // Fresh committed reads are still mandatory, but identical validated content needs no
+    // re-tokenization. Old asynchronous work remains invalidated by the epoch above.
+    // Well-formed stale annotations retain the same exclusion decision; malformed
+    // annotation shapes still take the normal validation path.
+    if (epoch === this.epoch && previous && sameProjectSource(previous.project, snapshot)) {
+      const stats = { ...previous.stats, buildMs: performance.now() - started }
+      this.ready = { ...previous, stats }
+      return copyStats(stats)
+    }
     if (this.cacheProjectId !== snapshot.id) this.clearVectors()
     this.cacheProjectId = snapshot.id
     const chapters = new Map(snapshot.chapters.map(chapter => [chapter.id, chapter]))
@@ -419,7 +454,10 @@ export class MemoryIndex {
             where: { projectId: { eq: ready.project.id }, ordinal: { lte: cutoff }, kind: { eq: kind } },
           })
           assertCurrent()
-          result.hits.forEach((hit, rank) => addRank(hit.id, rank, kind === 'clue' ? 1.15 : 1,
+          // Give the best result from each channel a comparable chance to survive fusion.
+          // A fixed clue bonus otherwise lets ten weak clue matches outrank the best passage;
+          // author labels/aliases already receive a boost within their own BM25 channel.
+          result.hits.forEach((hit, rank) => addRank(hit.id, rank, 1,
             kind === 'clue' ? '作者伏笔标记（含标签／别名）与原文关键词匹配' : '原文／章节标题 BM25 关键词匹配'))
         }
       }
