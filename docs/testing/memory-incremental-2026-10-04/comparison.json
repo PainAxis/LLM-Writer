@@ -1,0 +1,291 @@
+{
+  "status": "passed",
+  "authoritativeReports": [
+    "before.json",
+    "after.json"
+  ],
+  "profiles": [
+    {
+      "profile": "million",
+      "chars": 1320000,
+      "sourceHashesAndFingerprintsMatch": true,
+      "beforeQueries": 114,
+      "afterQueries": 114,
+      "beforeSourceChecks": 861,
+      "afterSourceChecks": 861,
+      "beforePeakRssMiB": 485.172,
+      "afterPeakRssMiB": 345.238,
+      "operations": [
+        {
+          "operation": "cold",
+          "beforeMs": 10034.596,
+          "afterMs": 9576.828,
+          "speedup": 1.048,
+          "work": {
+            "mode": "full",
+            "rebuiltChapters": 600,
+            "reusedChapters": 0,
+            "insertedDocuments": 1500,
+            "removedDocuments": 0,
+            "reusedDocuments": 0
+          }
+        },
+        {
+          "operation": "unchanged",
+          "beforeMs": 1.633,
+          "afterMs": 2.79,
+          "speedup": 0.585,
+          "work": {
+            "mode": "unchanged",
+            "rebuiltChapters": 0,
+            "reusedChapters": 600,
+            "insertedDocuments": 0,
+            "removedDocuments": 0,
+            "reusedDocuments": 1500
+          }
+        },
+        {
+          "operation": "edit-one-chapter",
+          "beforeMs": 10559.005,
+          "afterMs": 23.012,
+          "speedup": 458.848,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 1,
+            "reusedChapters": 599,
+            "insertedDocuments": 1,
+            "removedDocuments": 1,
+            "reusedDocuments": 1499
+          }
+        },
+        {
+          "operation": "edit-30-chapters",
+          "beforeMs": 10572.512,
+          "afterMs": 590.615,
+          "speedup": 17.901,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 30,
+            "reusedChapters": 570,
+            "insertedDocuments": 60,
+            "removedDocuments": 90,
+            "reusedDocuments": 1410
+          }
+        },
+        {
+          "operation": "reorder-and-delete-10",
+          "beforeMs": 11081.478,
+          "afterMs": 54.417,
+          "speedup": 203.64,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 0,
+            "reusedChapters": 590,
+            "insertedDocuments": 0,
+            "removedDocuments": 25,
+            "reusedDocuments": 1445
+          }
+        },
+        {
+          "operation": "append-one-chapter",
+          "beforeMs": 9464.944,
+          "afterMs": 23.076,
+          "speedup": 410.164,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 1,
+            "reusedChapters": 590,
+            "insertedDocuments": 2,
+            "removedDocuments": 0,
+            "reusedDocuments": 1445
+          }
+        },
+        {
+          "operation": "edit-clue-only",
+          "beforeMs": 9174.572,
+          "afterMs": 9.575,
+          "speedup": 958.18,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 0,
+            "reusedChapters": 591,
+            "insertedDocuments": 1,
+            "removedDocuments": 1,
+            "reusedDocuments": 1446
+          }
+        },
+        {
+          "operation": "repeat-edit-1",
+          "beforeMs": 8636.818,
+          "afterMs": 18.035,
+          "speedup": 478.892,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 1,
+            "reusedChapters": 590,
+            "insertedDocuments": 1,
+            "removedDocuments": 1,
+            "reusedDocuments": 1446
+          }
+        },
+        {
+          "operation": "repeat-edit-2",
+          "beforeMs": 8793.313,
+          "afterMs": 17.189,
+          "speedup": 511.566,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 1,
+            "reusedChapters": 590,
+            "insertedDocuments": 1,
+            "removedDocuments": 1,
+            "reusedDocuments": 1446
+          }
+        }
+      ]
+    },
+    {
+      "profile": "three-million",
+      "chars": 3300000,
+      "sourceHashesAndFingerprintsMatch": true,
+      "beforeQueries": 87,
+      "afterQueries": 87,
+      "beforeSourceChecks": 689,
+      "afterSourceChecks": 689,
+      "beforePeakRssMiB": 930.047,
+      "afterPeakRssMiB": 593.758,
+      "operations": [
+        {
+          "operation": "cold",
+          "beforeMs": 25928.348,
+          "afterMs": 23035.557,
+          "speedup": 1.126,
+          "work": {
+            "mode": "full",
+            "rebuiltChapters": 1500,
+            "reusedChapters": 0,
+            "insertedDocuments": 3750,
+            "removedDocuments": 0,
+            "reusedDocuments": 0
+          }
+        },
+        {
+          "operation": "unchanged",
+          "beforeMs": 6.567,
+          "afterMs": 3.708,
+          "speedup": 1.771,
+          "work": {
+            "mode": "unchanged",
+            "rebuiltChapters": 0,
+            "reusedChapters": 1500,
+            "insertedDocuments": 0,
+            "removedDocuments": 0,
+            "reusedDocuments": 3750
+          }
+        },
+        {
+          "operation": "edit-30-chapters",
+          "beforeMs": 24794.198,
+          "afterMs": 614.428,
+          "speedup": 40.353,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 30,
+            "reusedChapters": 1470,
+            "insertedDocuments": 60,
+            "removedDocuments": 90,
+            "reusedDocuments": 3660
+          }
+        },
+        {
+          "operation": "reorder-and-delete-10",
+          "beforeMs": 24789.423,
+          "afterMs": 59.546,
+          "speedup": 416.307,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 0,
+            "reusedChapters": 1490,
+            "insertedDocuments": 0,
+            "removedDocuments": 25,
+            "reusedDocuments": 3695
+          }
+        }
+      ]
+    },
+    {
+      "profile": "ten-million",
+      "chars": 10500000,
+      "sourceHashesAndFingerprintsMatch": true,
+      "beforeQueries": 87,
+      "afterQueries": 87,
+      "beforeSourceChecks": 689,
+      "afterSourceChecks": 689,
+      "beforePeakRssMiB": 1972.469,
+      "afterPeakRssMiB": 1372.195,
+      "operations": [
+        {
+          "operation": "cold",
+          "beforeMs": 88709.786,
+          "afterMs": 75942.364,
+          "speedup": 1.168,
+          "work": {
+            "mode": "full",
+            "rebuiltChapters": 2500,
+            "reusedChapters": 0,
+            "insertedDocuments": 11250,
+            "removedDocuments": 0,
+            "reusedDocuments": 0
+          }
+        },
+        {
+          "operation": "unchanged",
+          "beforeMs": 12.66,
+          "afterMs": 8.814,
+          "speedup": 1.436,
+          "work": {
+            "mode": "unchanged",
+            "rebuiltChapters": 0,
+            "reusedChapters": 2500,
+            "insertedDocuments": 0,
+            "removedDocuments": 0,
+            "reusedDocuments": 11250
+          }
+        },
+        {
+          "operation": "edit-30-chapters",
+          "beforeMs": 77902.907,
+          "afterMs": 613.042,
+          "speedup": 127.076,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 30,
+            "reusedChapters": 2470,
+            "insertedDocuments": 60,
+            "removedDocuments": 90,
+            "reusedDocuments": 11160
+          }
+        },
+        {
+          "operation": "reorder-and-delete-10",
+          "beforeMs": 79015.547,
+          "afterMs": 129.944,
+          "speedup": 608.074,
+          "work": {
+            "mode": "incremental",
+            "rebuiltChapters": 0,
+            "reusedChapters": 2490,
+            "insertedDocuments": 0,
+            "removedDocuments": 45,
+            "reusedDocuments": 11175
+          }
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Completed parent aggregates are the authoritative record; every child exited successfully. Per-profile published copies are derived from those aggregates.",
+    "All before/after script, fixture, per-operation source hashes and fingerprints match; after timings were cross-checked with captured process stdout.",
+    "One sample per operation in a shared development environment. Explicit GC, cloning, verification and file IO are excluded from sync timing; these are not UI latency or percentile guarantees."
+  ]
+}

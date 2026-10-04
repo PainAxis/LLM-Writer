@@ -1,0 +1,63 @@
+{
+  "baselineCommit": "b77327a618051c2f7202e7930f0839703c59e048",
+  "implementationCommit": "758d15102ae3743b2b9e84c3ecccf5fa507669fc",
+  "engineSha256": "14fd14c14bba70c62b64b97cab36bae0c0f27530742ff7fbe5c6c576c496b3cb",
+  "benchmarkScriptSha256": "75bf5c893c95dac2e2881c8a41c28e1a9d0b93697fb33fe4c3b61e51f1edd55c",
+  "ciEvidence": {
+    "runUrl": "https://github.com/PainAxis/LLM-Writer/actions/runs/37184703769",
+    "runNumber": 78,
+    "headCommit": "758d15102ae3743b2b9e84c3ecccf5fa507669fc",
+    "integrationCommit": "7ebd8883c4de2c4654db323a9b334eb9c4614644",
+    "quality": {
+      "jobId": 111384107428,
+      "result": "success",
+      "smokeSuites": 69
+    },
+    "browser": {
+      "jobId": 111384107534,
+      "result": "success",
+      "scenarios": 65
+    },
+    "browserStress": {
+      "jobId": 111384107526,
+      "result": "success",
+      "scenarios": 9,
+      "artifactId": 11296497398,
+      "report": "browser.json"
+    },
+    "localStress": {
+      "jobId": 111384107530,
+      "step": "Run npm run test:memory-stress-local",
+      "result": "success",
+      "artifactId": 11296372494,
+      "report": "local.json"
+    },
+    "hybridFirstAttempt": {
+      "jobId": 111384107530,
+      "result": "failure",
+      "reason": "A late server-completed request from an aborted budget action was counted against the next action by a log-array offset. The test now correlates real loopback HTTP by the action ID at fetch invocation and preserves exact completed-response count assertions. No production engine change was required."
+    }
+  },
+  "reports": {
+    "local.json": {
+      "sha256": "67564a67a1c09bd94fcd2515e4260dd148ab36302dd43939a77f79f2323dc9d1",
+      "bytes": 91593
+    },
+    "comparison.json": {
+      "sha256": "4f1b185f9b4356bceef73ae296488e008178f5c4bf679c6947af164c7b4d316f",
+      "bytes": 8356
+    },
+    "after.json": {
+      "sha256": "bbed8b91b9967cd0f348a89730ac37e27ee5318f2c090c45629775a59b05ee4b",
+      "bytes": 23165
+    },
+    "before.json": {
+      "sha256": "ee83df2df4e0c3dc1abe657a0009f5f3aa226eae0a428a7fa43680872037b63c",
+      "bytes": 19458
+    },
+    "browser.json": {
+      "sha256": "b0261fee8a655be9e82369b8f3cf6e6d0cdaa61f83dc6a7f91d2675c4bbfde6f",
+      "bytes": 63544
+    }
+  }
+}
