@@ -8,19 +8,23 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
+import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { chromium, expect as playwrightExpect } from '@playwright/test'
 import { startPreviewServer } from './browser-preview.mjs'
 import { createStressNovel } from './fixtures/memory-stress-corpus.ts'
-import { stripWriterHtml } from '../src/utils/writerContent.ts'
+import { plainTextToWriterHtml, stripWriterHtml } from '../src/utils/writerContent.ts'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const artifacts = path.join(root, 'artifacts/browser-memory-stress')
 await mkdir(artifacts, { recursive: true })
 const corpus = await createStressNovel({ chapters: 600, charsPerChapter: 2600 })
-const expectedSources = new Map(corpus.project.chapters.map((chapter, index) => [index + 1, stripWriterHtml(chapter.text)]))
+// Generated Writer content is stored as HTML. Seeding legacy plain text would
+// exercise wangEditor's per-line migration (including empty paragraphs) instead
+// of a manuscript that has already been saved by the production writer flow.
+const expectedSources = new Map(corpus.project.chapters.map((chapter, index) => [index + 1, chapter.text.trim()]))
 const initialIndexedChars = [...expectedSources.values()].reduce((total, text) => total + text.length, 0)
 const novelId = 49001
 const idFor = ordinal => 490_000 + ordinal
@@ -37,11 +41,16 @@ const novel = {
   wordCount: corpus.manifest.totalChars, totalWords: corpus.manifest.totalChars,
   characters: [], worldSettings: [], events: [], corpusData: [],
   chapterList: corpus.project.chapters.map((chapter, index) => ({
-    id: idFor(index + 1), title: chapter.title, content: chapter.text,
+    id: idFor(index + 1), title: chapter.title, content: plainTextToWriterHtml(chapter.text),
     status: 'draft', tags: [], wordCount: chapter.text.length,
     createdAt: timestamp, updatedAt: timestamp,
   })),
 }
+for (const [index, chapter] of novel.chapterList.entries()) {
+  assert.equal(stripWriterHtml(chapter.content), expectedSources.get(index + 1), 'Canonical Writer HTML must preserve every chapter of the independently generated prose')
+}
+const storedHtmlChars = novel.chapterList.reduce((total, chapter) => total + chapter.content.length, 0)
+const storedHtmlUtf8Bytes = novel.chapterList.reduce((total, chapter) => total + Buffer.byteLength(chapter.content, 'utf8'), 0)
 const server = await startPreviewServer({ port: 0, sha: process.env.GITHUB_SHA || 'local' })
 const origin = `http://127.0.0.1:${server.address().port}`
 const remote = { hold: false, requests: [], held: new Set(), errors: [] }
@@ -88,15 +97,21 @@ const browser = await chromium.launch({ headless: true }).catch(error => {
   for (const service of [server, fixture]) { service.closeAllConnections(); service.close() }
   throw error
 })
-const context = await browser.newContext({ viewport: { width: 1440, height: 1080 }, locale: 'zh-CN' })
+const viewport = { width: 1440, height: 1080 }
+const context = await browser.newContext({ viewport, locale: 'zh-CN' })
 const expect = playwrightExpect.configure({ timeout: 60_000 })
 const errors = []
 const blockedRequests = []
 const report = {
   startedAt: new Date().toISOString(), commit: process.env.GITHUB_SHA || 'local',
   fixture: {
-    ...corpus.manifest, indexedChars: initialIndexedChars,
-    characterCounts: 'totalChars counts stored raw bodies; indexedChars sums the exact stripWriterHtml output for each chapter',
+    ...corpus.manifest, storedHtmlChars, storedHtmlUtf8Bytes, indexedChars: initialIndexedChars,
+    characterCounts: 'totalChars counts generated prose; storedHtmlChars counts canonical persisted Writer HTML; indexedChars sums the exact visible chapter texts',
+  },
+  environment: {
+    browser: browser.version(), node: process.version, platform: `${process.platform}/${process.arch}`,
+    cpuModel: os.cpus()[0]?.model ?? 'unknown', logicalCpus: os.cpus().length,
+    availableParallelism: os.availableParallelism(), viewport,
   },
   provider: 'Local synthetic vectors and reranking; no external service or quality benchmark',
   tests: [], queries: [], screenshots: [],
@@ -172,8 +187,8 @@ async function inspectEvidence(probe, expectedText = probe.quote) {
   return revision
 }
 
-async function storedSnapshot() {
-  return page.evaluate(async id => {
+async function storedSnapshot(verifySources = false) {
+  const { records, ...snapshot } = await page.evaluate(async id => {
     const raw = localStorage.getItem('novels')
     const novels = JSON.parse(raw || '[]')
     const current = novels.find(item => item.id === id)
@@ -194,9 +209,17 @@ async function storedSnapshot() {
       metadataHash: await hash(raw), bodyHash: await hash(JSON.stringify(records)),
       chunks: current.chapterList.filter(chapter => chapter.contentRef).length,
       chars: records.reduce((total, record) => total + record.content.length, 0),
-      chapters: records.length,
+      chapters: records.length, records,
     }
   }, novelId)
+  if (verifySources) {
+    assert.equal(records.length, expectedSources.size)
+    for (const record of records) {
+      const ordinal = record.id - 490_000
+      assert.equal(stripWriterHtml(record.content), expectedSources.get(ordinal), `Committed chapter ${ordinal} must preserve its independently expected visible text`)
+    }
+  }
+  return snapshot
 }
 
 async function committedChapter(id) {
@@ -252,8 +275,9 @@ try {
       db.close()
       localStorage.setItem('novels', JSON.stringify([novel]))
     }, novel)
-    baseline = await storedSnapshot()
-    assert.equal(baseline.chars, 1_560_000)
+    baseline = await storedSnapshot(true)
+    assert.equal(corpus.manifest.totalChars, 1_560_000)
+    assert.equal(baseline.chars, storedHtmlChars)
     assert.equal(baseline.chunks, 600)
     await page.goto(`${origin}/#/memory`)
     await dismissAnnouncement()
@@ -360,11 +384,12 @@ try {
       await expect(writer.locator('.saving-indicator')).toHaveCount(0)
     } finally { await writer.close() }
     await page.bringToFront()
-    expectedSources.set(fact.ordinal, stripWriterHtml(await committedChapter(firstChapterId)))
-    const committed = await storedSnapshot()
+    expectedSources.set(fact.ordinal, revisedBody.trim())
+    const committed = await storedSnapshot(true)
     assert.equal(committed.chapters, 600)
     assert.equal(committed.chunks, 600, 'A real Writer save must retain chunked persistence at this size')
     assert.notEqual(committed.bodyHash, baseline.bodyHash)
+    report.writerEditVerification = { verifiedChapters: 600, unchangedChapterTexts: 599, editedOrdinals: [fact.ordinal] }
     const before = remote.requests.length
     await search(newIdentifier, 400)
     const revision = await inspectEvidence(fact, fact.quote.replaceAll(fact.oldValue, fact.replacementValue))
@@ -399,7 +424,7 @@ try {
     await expect(control('retrieval-status')).toContainText('复用缓存 0 个')
     assert.ok(remote.requests.slice(before).filter(entry => entry.task === 'retrieval.passage').length >= 25)
     await inspectEvidence(fact, fact.quote.replaceAll(fact.oldValue, fact.replacementValue))
-    assert.deepEqual(await storedSnapshot(), baseline)
+    assert.deepEqual(await storedSnapshot(true), baseline)
   })
 
   await step('07 Reload the chunked novel and verify persisted revision with providers disabled', async () => {
@@ -445,7 +470,7 @@ try {
     assert.ok(remote.requests.every(entry => !entry.futureFact))
     assert.deepEqual(await storedSnapshot(), baseline)
     report.persistence = {
-      ...baseline, initialChars: corpus.manifest.totalChars, initialIndexedChars,
+      ...baseline, initialChars: storedHtmlChars, generatedProseChars: corpus.manifest.totalChars, initialIndexedChars,
       indexedChars: [...expectedSources.values()].reduce((total, text) => total + text.length, 0),
     }
   })

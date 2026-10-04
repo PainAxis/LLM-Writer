@@ -15,7 +15,7 @@ These tests extend the [memory prototype](memory-prototype.md) acceptance checks
 
 Procedural text varies characters, locations, dates, amounts, actions, dialogue and paragraph structure. Planted identifiers make expected sources unambiguous; clues include overlapping aliases and distant source chapters. This is more varied than repeating a filler paragraph, but remains generated test data. Exact-identifier accuracy and manual-clue retrieval must not be presented as natural-language semantic recall.
 
-All sizes use JavaScript UTF-16 code units, matching the engine's offsets and capacity checks. They are not Chinese word counts, tokens, file bytes or distinct literary words. The procedural corpus includes supplementary Unicode characters to exercise source ranges. The browser fixture stores 1,560,000 raw characters; normal Writer plain-text conversion trims one trailing newline, yielding 1,559,999 indexed characters. Its assertions independently convert every chapter and distinguish stored from indexed counts.
+All sizes use JavaScript UTF-16 code units, matching the engine's offsets and capacity checks. They are not Chinese word counts, tokens, file bytes or distinct literary words. The procedural corpus includes supplementary Unicode characters to exercise source ranges. The browser fixture generates 1,560,000 prose characters, then stores canonical Writer paragraph HTML: **1,670,912 UTF-16 code units / 4,504,280 UTF-8 bytes**. Its visible text contains **1,559,999 indexed characters** after normal outer-whitespace trimming. Every chapter's converted text is checked independently against the generated prose; generated, stored-HTML and indexed counts remain separate.
 
 ## Issues exposed and corrected
 
@@ -29,6 +29,8 @@ The expanded workload exposed two problems that the small acceptance fixture did
 The [ranking comparison](testing/memory-stress-2026-10-04/ranking-before.json) and [corrected results](testing/memory-stress-2026-10-04/ranking-after.json) use the same frozen v1 fixture: 600 chapters, 1,320,000 characters, 1,200 body passages and 300 clues. The final capacity fixture uses a revised random generator with broader template/location coverage; do not compare its timings or quality directly against this v1 ranking experiment. The ranking correction does not imply perfect rank-1 relevance: all 24 tested fact sources remained at rank 2.
 
 The [synchronization comparison](testing/memory-stress-2026-10-04/sync-before.json) and [reuse results](testing/memory-stress-2026-10-04/sync-after.json) measure `structuredClone` plus the production synchronization call over 1,178 public-corpus passages. They exclude browser storage, Worker messages, rendering, retrieval and provider calls. Reuse skips unnecessary tokenization; it does not accelerate the first build or a changed-source rebuild. Three repeated measurements are not a percentile benchmark.
+
+An additional legacy-format boundary remains. When an earlier fixture stored plain text directly, opening Writer and selecting chapter 2 saved the initially selected chapter 1 through wangEditor. Its blank-line conversion added 24 newline characters to that **otherwise unedited chapter**; the textual facts were unchanged. The final fixture uses canonical Writer HTML and checks all 600 visible-source hashes, allowing only the deliberately edited chapter to change. This corrects the test's storage-format assumption; it does not fix or certify whitespace-preserving round trips for legacy plain-text chapters.
 
 ## Recorded stress results — 2026-10-04
 
@@ -45,6 +47,8 @@ The [local report](testing/memory-stress-2026-10-04/local.json) passed **36 work
 Repeated-search percentiles each use 48 engine-only queries. All three sizes retrieved the expected quote in Top-5 for all 48 planted identifier/clue probes. The separate 12 natural multi-entity questions achieved Top-5 **11/12, 10/12 and 8/12**, and Top-8 **12/12, 11/12 and 11/12**, respectively. The successful workflow assertions must not be reported as 100% natural-query recall.
 
 The tests also retracted 30 edited chapters' stale facts/clues, hid and revealed 12 late identities at their boundaries, changed chapter order, deleted 20 chapters and switched projects reusing chapter IDs. A 20,000,001-character source was rejected before indexing; this does not demonstrate successful operation at the 20-million-character limit.
+
+The 3.3-million- and 10.5-million-character sources have 3,000 and 10,000 passages, exceeding the semantic channel's 2,000-passage limit. Their successful results are **local retrieval capacity**, not complete-source embedding/reranking capacity.
 
 These local measurements used Node 24.19.0 on Linux x64, an Intel Xeon Platinum 8573C environment exposing nine logical CPUs and 9.734 GiB total memory, with a 2,240 MiB Node heap limit per profile. Other test work ran in the shared environment. The ten-million-character result exposes a remaining practical cost: **editing still requires roughly a minute of rebuilding and the process reached about 2 GiB RSS**. Successful completion does not make this workload suitable for every desktop or mobile browser.
 
