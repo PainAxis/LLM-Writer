@@ -77,7 +77,8 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The configured CI validation set contains 67 sequential smoke suites and 63 Chromium scenarios with synthetic data and API responses. Use the reviewed revision’s CI results to confirm validation.
+- The configured CI validation set contains 67 sequential smoke suites and 71 Chromium scenarios with synthetic data and API responses, including eight long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
+- [Long-novel memory stress tests](docs/memory-stress-tests.md): `ci-memory-stress` runs local capacity and controlled HTTP providers; `ci-memory-browser-stress` separately runs persisted browser editing. Paid Jina workloads are optional. Reusable fixtures are under `scripts/fixtures/`, with reviewed reports under `docs/testing/`.
 - New suites: `smoke:generation-budget`, `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.

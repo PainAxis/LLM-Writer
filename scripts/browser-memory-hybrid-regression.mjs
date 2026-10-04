@@ -139,7 +139,12 @@ async function dismissAnnouncement() {
 }
 
 async function openSettings() {
-  if (await control('provider-settings').getAttribute('open') === null) await control('provider-settings').locator('summary').click()
+  const settings = control('provider-settings')
+  await expect(settings).toBeVisible()
+  if (await settings.getAttribute('open') === null) await settings.locator('summary').click()
+  await expect(settings).toHaveAttribute('open', '')
+  await expect(control('embedding-enabled')).toBeVisible()
+  await expect(control('rerank-enabled')).toBeVisible()
 }
 
 async function configureProviders() {
@@ -337,8 +342,14 @@ try {
     await assertNoStoredKeys()
     await page.evaluate(() => { location.hash = '/' })
     await page.waitForURL(/#\/$/)
+    // The hash changes before Dashboard's out-in transition unmounts MemoryLab.
+    // Observe the old view disappear and the home view mount before returning;
+    // otherwise openSettings can inspect the departing, still-open <details>.
+    await expect(control('provider-settings')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: '欢迎回来', exact: true })).toBeVisible()
     await page.getByRole('menuitem', { name: /记忆/ }).click()
     await page.waitForURL(/#\/memory$/)
+    await expect(page.getByRole('heading', { name: '记忆检索原型', exact: true })).toBeVisible()
     await expect(control('search')).toBeEnabled()
     await openSettings()
     await expect(control('embedding-enabled')).not.toBeChecked()

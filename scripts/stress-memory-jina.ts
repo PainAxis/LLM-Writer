@@ -40,6 +40,8 @@ let safetyPassed = true
 let setupError = ''
 let completeHybrid = false
 let firstColdComplete = false
+let runStatus: 'running' | 'completed' | 'failed' = 'running'
+let finishedAt: string | null = null
 
 function percentile(values: number[], fraction: number) {
   if (!values.length) return null
@@ -131,10 +133,11 @@ function rankExpected(result: MemorySearchResult, expected: Array<{ chapterId: s
 async function checkpoint() {
   const quality = actions.filter(row => row.category === 'quality' && row.remote === true && row.kind === 'recall')
   const available = quality.filter(row => (row.diagnostics as MemorySearchResult['diagnostics']).semantic === 'used')
-  const at5 = available.filter(row => typeof row.expectedRank === 'number' && row.expectedRank <= 5).length
+  const fullyHybrid = available.filter(row => (row.diagnostics as MemorySearchResult['diagnostics']).rerank === 'used')
+  const at5 = fullyHybrid.filter(row => typeof row.expectedRank === 'number' && row.expectedRank <= 5).length
   const warm = quality.map(row => Number(row.totalMs))
   const report = {
-    startedAt, updatedAt: new Date().toISOString(), elapsedMs: Math.round(performance.now() - started),
+    startedAt, updatedAt: new Date().toISOString(), runStatus, finishedAt, elapsedMs: Math.round(performance.now() - started),
     corpus: manifest, engineSha256, transport, browserCorsValidated: false,
     machine: { node: process.version, platform: process.platform, cpu: os.cpus()[0]?.model, logicalCpus: os.cpus().length, availableParallelism: os.availableParallelism(), totalMemoryBytes: os.totalmem() },
     provider: { embeddingModel: options.embedding!.model, dimensions: options.embedding!.dimensions, rerankModel: options.rerank!.model },
@@ -143,10 +146,11 @@ async function checkpoint() {
     maxRssBytes, safetyPassed, sourceViolations, setupError, budgetExhausted,
     readiness: { firstColdComplete, completeHybridAfterRetries: completeHybrid,
       plannedRecallQueries: probes.filter(probe => probe.kind === 'recall').length, evaluatedRecallQueries: quality.length, semanticAvailableRecallQueries: available.length,
-      recallAt1: available.length ? available.filter(row => row.expectedRank === 1).length / available.length : null,
-      recallAt5: available.length ? at5 / available.length : null,
+      fullyHybridAvailableRecallQueries: fullyHybrid.length,
+      recallAt1: fullyHybrid.length ? fullyHybrid.filter(row => row.expectedRank === 1).length / fullyHybrid.length : null,
+      recallAt5: fullyHybrid.length ? at5 / fullyHybrid.length : null,
       allPlannedRecallAt5: at5 / Math.max(1, probes.filter(probe => probe.kind === 'recall').length),
-      targetRecallAt5: 0.8, targetMet: quality.length === probes.filter(probe => probe.kind === 'recall').length && available.length === quality.length && at5 / Math.max(1, available.length) >= 0.8,
+      targetRecallAt5: 0.8, targetMet: quality.length === probes.filter(probe => probe.kind === 'recall').length && fullyHybrid.length === quality.length && at5 / Math.max(1, fullyHybrid.length) >= 0.8,
       warmWholeActionP50Ms: percentile(warm, 0.5), warmWholeActionP95Ms: percentile(warm, 0.95) },
     notes: ['Two different complete editions form an anthology workload, not one coherent million-character novel.',
       'Recall probes were registered before paid retrieval; failed and unavailable queries remain in the denominator.',
@@ -206,6 +210,8 @@ try {
 } finally {
   clearInterval(sample)
   globalThis.fetch = originalFetch
+  runStatus = safetyPassed ? 'completed' : 'failed'
+  finishedAt = new Date().toISOString()
   await checkpoint()
   console.log(JSON.stringify({ safetyPassed, firstColdComplete, completeHybrid, requests, sentChars, report: 'artifacts/memory-stress/jina.json' }))
 }

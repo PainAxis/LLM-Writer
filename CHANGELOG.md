@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add separately invoked long-novel memory stress workloads for local indexing, hybrid-provider failures, persisted browser editing and optional real Jina retrieval over pinned public-domain books. Document measurement boundaries and retained limitations in matching [English](docs/memory-stress-tests.md) and [Simplified Chinese](docs/memory-stress-tests.zh-CN.md) guides.
+- Keep keyword passages competitive with numerous partial clue matches by balancing local fusion channels. Reuse the keyword index only for a completely unchanged validated source, while preserving fresh committed reads, revision checks and invalidation of pending requests; changed sources still rebuild in full.
 - Extend Memory Lab with opt-in Jina/OpenAI-compatible embeddings and Jina-compatible reranking, reciprocal-rank fusion, a bounded revision/configuration-aware vector cache and explicit local fallback. Filter source disclosure before external requests, keep provider settings/keys in the current route session and invalidate stale asynchronous results.
 - Add provider/hybrid smoke regressions and ten additional built-app Chromium scenarios, bringing configured coverage to 67 smoke suites and 63 browser scenarios. Add an optional, separately invoked Jina live test using synthetic chapters.
 - Provide matching English and Simplified Chinese [memory prototype documentation](docs/memory-prototype.md), including provider setup, request/cache limits and remaining scope.

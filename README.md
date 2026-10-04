@@ -114,7 +114,7 @@ npm run smoke:memory-providers        # Embedding/reranking wire formats and res
 npm run smoke:memory-hybrid           # Hybrid retrieval, cache, fallback and stale results
 ```
 
-CI is configured to run strict lint, the production build, 67 smoke suites and 63 Chromium scenarios on pull requests and main updates. These counts describe the configured coverage; check the current revision’s CI results for validation status. For local browser setup, see [browser testing](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 67 smoke suites and 71 Chromium scenarios (63 existing plus eight long-novel stress scenarios) on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

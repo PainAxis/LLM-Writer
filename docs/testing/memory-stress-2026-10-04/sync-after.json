@@ -1,0 +1,80 @@
+{
+  "variant": "same-source-reuse",
+  "corpus": {
+    "formatVersion": 1,
+    "label": "Two-book public-domain anthology; not one continuous million-character novel",
+    "normalization": "Verify original UTF-8 bytes; remove BOM and Gutenberg wrapper/credits; normalize CRLF to LF; retain body line breaks and characters; trim chapter outer whitespace. Counts exclude titles and metadata.",
+    "sources": [
+      {
+        "title": "水滸傳（七十回本，含楔子）",
+        "url": "https://www.gutenberg.org/cache/epub/23863/pg23863.txt",
+        "catalogue": "https://www.gutenberg.org/ebooks/23863",
+        "file": "watermargin-23863.txt",
+        "sha256": "9d5b723b57f462545d412593870e7f48157829777b9329350a29bc44fd654789",
+        "bytes": 1632003,
+        "chapters": 71,
+        "utf16Chars": 542342,
+        "codePoints": 542342,
+        "hanChars": 435947
+      },
+      {
+        "title": "西遊記（一百回本）",
+        "url": "https://www.gutenberg.org/cache/epub/23962/pg23962.txt",
+        "catalogue": "https://www.gutenberg.org/ebooks/23962",
+        "file": "journeywest-23962.txt",
+        "sha256": "af3c9e408c0c58595b666ed9981b6fa1e9343f4bbc78309b1cb0818c32fc1f58",
+        "bytes": 2264069,
+        "chapters": 100,
+        "utf16Chars": 754284,
+        "codePoints": 754284,
+        "hanChars": 586968
+      }
+    ],
+    "totals": {
+      "bytes": 3896072,
+      "chapters": 171,
+      "utf16Chars": 1296626,
+      "codePoints": 1296626,
+      "hanChars": 1022915
+    },
+    "probesSha256": "0664415125c9b3940bc28e47052da3472fe55352100b52057f17ae6da2104331"
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "kind": "cold",
+      "wholeSyncMs": 9880.928077,
+      "buildMs": 9877.884861,
+      "chars": 1296626,
+      "chunks": 1178,
+      "fingerprint": "0b9924df95d2ebf71522c0b3304c08d28d7d81f74a6461d22a7c53d785187845"
+    },
+    {
+      "round": 2,
+      "kind": "unchanged",
+      "wholeSyncMs": 2.6890650000004825,
+      "buildMs": 0.6482880000003206,
+      "chars": 1296626,
+      "chunks": 1178,
+      "fingerprint": "0b9924df95d2ebf71522c0b3304c08d28d7d81f74a6461d22a7c53d785187845"
+    },
+    {
+      "round": 3,
+      "kind": "unchanged",
+      "wholeSyncMs": 1.5123079999993934,
+      "buildMs": 0.6241570000001957,
+      "chars": 1296626,
+      "chunks": 1178,
+      "fingerprint": "0b9924df95d2ebf71522c0b3304c08d28d7d81f74a6461d22a7c53d785187845"
+    },
+    {
+      "round": 4,
+      "kind": "unchanged",
+      "wholeSyncMs": 1.1522829999994428,
+      "buildMs": 0.3634600000004866,
+      "chars": 1296626,
+      "chunks": 1178,
+      "fingerprint": "0b9924df95d2ebf71522c0b3304c08d28d7d81f74a6461d22a7c53d785187845"
+    }
+  ]
+}

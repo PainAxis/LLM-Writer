@@ -114,7 +114,7 @@ npm run smoke:memory-providers        # 嵌入／重排请求格式与响应校�
 npm run smoke:memory-hybrid           # 混合检索、缓存、回退与过期响应
 ```
 
-CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、67 组冒烟测试与 63 个 Chromium 场景。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。本地浏览器测试配置见[浏览器测试说明](scripts/browser-testing.md)。
+CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、67 组冒烟测试与 71 个 Chromium 场景（已有 63 个，加 8 个超长篇压力场景）。独立的记忆压力任务还运行本地容量与受控服务测试。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
 
 ### 首次使用
 1. 点击右上角「API配置」，选择服务商并填入 API 地址与密钥（可选：同步模型列表、配置代理前缀）

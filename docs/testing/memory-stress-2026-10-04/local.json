@@ -1,0 +1,2399 @@
+{
+  "status": "passed",
+  "startedAt": "2026-10-04T01:56:18.232Z",
+  "finishedAt": "2026-10-04T02:01:10.931Z",
+  "isolatedProfileProcesses": true,
+  "results": [
+    {
+      "status": "passed",
+      "startedAt": "2026-10-04T01:56:18.436Z",
+      "finishedAt": "2026-10-04T01:56:42.365Z",
+      "profile": "million",
+      "source": {
+        "fixture": "scripts/fixtures/memory-stress-corpus.ts",
+        "engineSha256": "a53a94402f742dde4ecc20c1e6a0b3b64db70f3ec23e3a8f92fb74faf605e876"
+      },
+      "runtime": {
+        "node": "v24.19.0",
+        "platform": "linux",
+        "architecture": "x64",
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logicalCpus": 9,
+        "memoryGiB": 9.734,
+        "loadAverageAtStart": [
+          1.8,
+          1.56,
+          0.87
+        ]
+      },
+      "corpus": {
+        "fixtureVersion": 2,
+        "seed": 1365799083,
+        "chapters": 600,
+        "charsPerChapter": 2200,
+        "totalChars": 1320000,
+        "volumes": 12,
+        "castSize": 72,
+        "locations": 36,
+        "usedCast": 72,
+        "usedLocations": 36,
+        "paragraphTemplates": 8,
+        "usedParagraphTemplates": 8,
+        "generatedParagraphs": 16932,
+        "uniqueParagraphRatio": 1,
+        "description": "Deterministic procedural Chinese fiction: varied cast, locations, events and similar clue aliases; planted exact identifiers test retrieval and provenance, not literary realism or semantic-model quality."
+      },
+      "index": {
+        "characters": 1320000,
+        "chapters": 600,
+        "passages": 1200,
+        "clues": 300
+      },
+      "timings": {
+        "corpusGenerationMs": 121.247,
+        "coldFullRebuildMs": 7730.39,
+        "unchangedSyncMs": 1.924,
+        "editFullRebuildMs": 7321.27,
+        "reorderDeleteFullRebuildMs": 7163.587,
+        "firstPassSearchOnly": {
+          "count": 48,
+          "p50Ms": 8.514,
+          "p95Ms": 13.765,
+          "maximumMs": 16.197
+        },
+        "repeatedSearchOnly": {
+          "count": 48,
+          "p50Ms": 6.091,
+          "p95Ms": 10.441,
+          "maximumMs": 15.289
+        },
+        "totalWallMs": 23925.721
+      },
+      "memory": {
+        "heapLimitMiB": 2240,
+        "baselineHeapMiB": 12.003,
+        "finalHeapMiB": 261.623,
+        "observedHeapPeakMiB": 445.993,
+        "processPeakRssMiB": 621.629,
+        "measurement": "Each profile runs in a fresh child process. Peak RSS is the OS-reported high-water mark for the entire profile, including source, snapshots, index rebuild overlap and fixture creation. Heap peak is sampled at 25 ms and explicit checkpoints; brief synchronous peaks may be missed."
+      },
+      "summary": {
+        "cases": 12,
+        "searches": 259,
+        "evidenceItemsChecked": 1717,
+        "networkAttempts": 0,
+        "noExternalRequests": true
+      },
+      "compoundIdentifierAndClueRecall": {
+        "probes": 48,
+        "at1": 0.5,
+        "at5": 1,
+        "at8": 1
+      },
+      "naturalMultiEntityRecall": {
+        "probes": 12,
+        "at1": 0.417,
+        "at5": 0.917,
+        "at8": 1
+      },
+      "cases": [
+        {
+          "name": "Build the complete varied multivolume manuscript with all anchored clues",
+          "passed": true
+        },
+        {
+          "name": "48 fixed exact-source probes distributed across the whole book and narrative cutoffs",
+          "passed": true,
+          "details": {
+            "probes": 48,
+            "at1": 0.5,
+            "at5": 1,
+            "at8": 1
+          }
+        },
+        {
+          "name": "Repeat the same 48 searches against the already built index",
+          "passed": true
+        },
+        {
+          "name": "12 natural multi-entity queries, with oracle chapters defined by generated fact relationships",
+          "passed": true,
+          "details": {
+            "role": "Descriptive lexical retrieval quality; no semantic model is enabled and there is no claimed universal quality threshold.",
+            "probes": 12,
+            "at1": 0.417,
+            "at5": 0.917,
+            "at8": 1
+          }
+        },
+        {
+          "name": "8 no-answer queries return no source evidence",
+          "passed": true
+        },
+        {
+          "name": "12 late identities stay hidden, become visible at disclosure, and disappear again when the cutoff is restored",
+          "passed": true
+        },
+        {
+          "name": "Shared aliases in hundreds of future chapters cannot displace five disclosed early clues",
+          "passed": true,
+          "details": {
+            "visibleClues": 5,
+            "laterCompetingClues": 295
+          }
+        },
+        {
+          "name": "Repeat a fresh-source sync, reusing the index only for a completely unchanged snapshot",
+          "passed": true
+        },
+        {
+          "name": "Batch-edit 30 old chapters after warm searches; retract every stale fact and all 30 stale clues",
+          "passed": true,
+          "details": {
+            "editedChapters": 30,
+            "staleClues": 30
+          }
+        },
+        {
+          "name": "Reorder disclosure and delete 20 chapters: late-moved clues hide, early-moved secrets disclose, deleted cutoffs fail closed",
+          "passed": true
+        },
+        {
+          "name": "Switch to another project reusing 80 chapter IDs without cross-project facts",
+          "passed": true
+        },
+        {
+          "name": "20,000,001 characters fail before indexing and leave no stale usable index",
+          "passed": true
+        }
+      ],
+      "probes": [
+        {
+          "id": "fact-1",
+          "query": "白银封蜡FS00001",
+          "expectedChapter": "stress-chapter-1",
+          "rank": 2,
+          "searchMs": 16.197,
+          "visibleChapters": 201,
+          "visibleChars": 442200,
+          "visiblePassages": 402
+        },
+        {
+          "id": "fact-27",
+          "query": "白银封蜡FS00027",
+          "expectedChapter": "stress-chapter-27",
+          "rank": 2,
+          "searchMs": 11.367,
+          "visibleChapters": 227,
+          "visibleChars": 499400,
+          "visiblePassages": 454
+        },
+        {
+          "id": "fact-53",
+          "query": "白银封蜡FS00053",
+          "expectedChapter": "stress-chapter-53",
+          "rank": 2,
+          "searchMs": 11.666,
+          "visibleChapters": 253,
+          "visibleChars": 556600,
+          "visiblePassages": 506
+        },
+        {
+          "id": "fact-79",
+          "query": "白银封蜡FS00079",
+          "expectedChapter": "stress-chapter-79",
+          "rank": 2,
+          "searchMs": 9.959,
+          "visibleChapters": 279,
+          "visibleChars": 613800,
+          "visiblePassages": 558
+        },
+        {
+          "id": "fact-105",
+          "query": "白银封蜡FS00105",
+          "expectedChapter": "stress-chapter-105",
+          "rank": 2,
+          "searchMs": 10.419,
+          "visibleChapters": 305,
+          "visibleChars": 671000,
+          "visiblePassages": 610
+        },
+        {
+          "id": "fact-131",
+          "query": "白银封蜡FS00131",
+          "expectedChapter": "stress-chapter-131",
+          "rank": 2,
+          "searchMs": 9.628,
+          "visibleChapters": 331,
+          "visibleChars": 728200,
+          "visiblePassages": 662
+        },
+        {
+          "id": "fact-157",
+          "query": "白银封蜡FS00157",
+          "expectedChapter": "stress-chapter-157",
+          "rank": 2,
+          "searchMs": 9.763,
+          "visibleChapters": 357,
+          "visibleChars": 785400,
+          "visiblePassages": 714
+        },
+        {
+          "id": "fact-183",
+          "query": "白银封蜡FS00183",
+          "expectedChapter": "stress-chapter-183",
+          "rank": 2,
+          "searchMs": 9.966,
+          "visibleChapters": 383,
+          "visibleChars": 842600,
+          "visiblePassages": 766
+        },
+        {
+          "id": "fact-209",
+          "query": "白银封蜡FS00209",
+          "expectedChapter": "stress-chapter-209",
+          "rank": 2,
+          "searchMs": 10.243,
+          "visibleChapters": 409,
+          "visibleChars": 899800,
+          "visiblePassages": 818
+        },
+        {
+          "id": "fact-235",
+          "query": "白银封蜡FS00235",
+          "expectedChapter": "stress-chapter-235",
+          "rank": 2,
+          "searchMs": 10.839,
+          "visibleChapters": 435,
+          "visibleChars": 957000,
+          "visiblePassages": 870
+        },
+        {
+          "id": "fact-261",
+          "query": "白银封蜡FS00261",
+          "expectedChapter": "stress-chapter-261",
+          "rank": 2,
+          "searchMs": 10.436,
+          "visibleChapters": 461,
+          "visibleChars": 1014200,
+          "visiblePassages": 922
+        },
+        {
+          "id": "fact-287",
+          "query": "白银封蜡FS00287",
+          "expectedChapter": "stress-chapter-287",
+          "rank": 2,
+          "searchMs": 10.428,
+          "visibleChapters": 487,
+          "visibleChars": 1071400,
+          "visiblePassages": 974
+        },
+        {
+          "id": "fact-313",
+          "query": "白银封蜡FS00313",
+          "expectedChapter": "stress-chapter-313",
+          "rank": 2,
+          "searchMs": 9.872,
+          "visibleChapters": 513,
+          "visibleChars": 1128600,
+          "visiblePassages": 1026
+        },
+        {
+          "id": "fact-339",
+          "query": "白银封蜡FS00339",
+          "expectedChapter": "stress-chapter-339",
+          "rank": 2,
+          "searchMs": 10.42,
+          "visibleChapters": 539,
+          "visibleChars": 1185800,
+          "visiblePassages": 1078
+        },
+        {
+          "id": "fact-365",
+          "query": "白银封蜡FS00365",
+          "expectedChapter": "stress-chapter-365",
+          "rank": 2,
+          "searchMs": 13.891,
+          "visibleChapters": 565,
+          "visibleChars": 1243000,
+          "visiblePassages": 1130
+        },
+        {
+          "id": "fact-391",
+          "query": "白银封蜡FS00391",
+          "expectedChapter": "stress-chapter-391",
+          "rank": 2,
+          "searchMs": 10.623,
+          "visibleChapters": 591,
+          "visibleChars": 1300200,
+          "visiblePassages": 1182
+        },
+        {
+          "id": "fact-417",
+          "query": "白银封蜡FS00417",
+          "expectedChapter": "stress-chapter-417",
+          "rank": 2,
+          "searchMs": 13.765,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "fact-443",
+          "query": "白银封蜡FS00443",
+          "expectedChapter": "stress-chapter-443",
+          "rank": 2,
+          "searchMs": 11.127,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "fact-469",
+          "query": "白银封蜡FS00469",
+          "expectedChapter": "stress-chapter-469",
+          "rank": 2,
+          "searchMs": 10.751,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "fact-495",
+          "query": "白银封蜡FS00495",
+          "expectedChapter": "stress-chapter-495",
+          "rank": 2,
+          "searchMs": 10.619,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "fact-521",
+          "query": "白银封蜡FS00521",
+          "expectedChapter": "stress-chapter-521",
+          "rank": 2,
+          "searchMs": 10.237,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "fact-547",
+          "query": "白银封蜡FS00547",
+          "expectedChapter": "stress-chapter-547",
+          "rank": 2,
+          "searchMs": 9.985,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "fact-573",
+          "query": "白银封蜡FS00573",
+          "expectedChapter": "stress-chapter-573",
+          "rank": 2,
+          "searchMs": 10.081,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "fact-600",
+          "query": "白银封蜡FS00600",
+          "expectedChapter": "stress-chapter-600",
+          "rank": 4,
+          "searchMs": 10.163,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "clue-2",
+          "query": "旧日接应约定PACT00002",
+          "expectedChapter": "stress-chapter-2",
+          "rank": 1,
+          "searchMs": 2.997,
+          "visibleChapters": 202,
+          "visibleChars": 444400,
+          "visiblePassages": 404
+        },
+        {
+          "id": "clue-28",
+          "query": "旧日接应约定PACT00028",
+          "expectedChapter": "stress-chapter-28",
+          "rank": 1,
+          "searchMs": 2.899,
+          "visibleChapters": 228,
+          "visibleChars": 501600,
+          "visiblePassages": 456
+        },
+        {
+          "id": "clue-54",
+          "query": "旧日接应约定PACT00054",
+          "expectedChapter": "stress-chapter-54",
+          "rank": 1,
+          "searchMs": 2.943,
+          "visibleChapters": 254,
+          "visibleChars": 558800,
+          "visiblePassages": 508
+        },
+        {
+          "id": "clue-80",
+          "query": "旧日接应约定PACT00080",
+          "expectedChapter": "stress-chapter-80",
+          "rank": 1,
+          "searchMs": 3.007,
+          "visibleChapters": 280,
+          "visibleChars": 616000,
+          "visiblePassages": 560
+        },
+        {
+          "id": "clue-106",
+          "query": "旧日接应约定PACT00106",
+          "expectedChapter": "stress-chapter-106",
+          "rank": 1,
+          "searchMs": 2.82,
+          "visibleChapters": 306,
+          "visibleChars": 673200,
+          "visiblePassages": 612
+        },
+        {
+          "id": "clue-132",
+          "query": "旧日接应约定PACT00132",
+          "expectedChapter": "stress-chapter-132",
+          "rank": 1,
+          "searchMs": 8.514,
+          "visibleChapters": 332,
+          "visibleChars": 730400,
+          "visiblePassages": 664
+        },
+        {
+          "id": "clue-158",
+          "query": "旧日接应约定PACT00158",
+          "expectedChapter": "stress-chapter-158",
+          "rank": 1,
+          "searchMs": 3.495,
+          "visibleChapters": 358,
+          "visibleChars": 787600,
+          "visiblePassages": 716
+        },
+        {
+          "id": "clue-184",
+          "query": "旧日接应约定PACT00184",
+          "expectedChapter": "stress-chapter-184",
+          "rank": 1,
+          "searchMs": 3.349,
+          "visibleChapters": 384,
+          "visibleChars": 844800,
+          "visiblePassages": 768
+        },
+        {
+          "id": "clue-210",
+          "query": "旧日接应约定PACT00210",
+          "expectedChapter": "stress-chapter-210",
+          "rank": 1,
+          "searchMs": 3.38,
+          "visibleChapters": 410,
+          "visibleChars": 902000,
+          "visiblePassages": 820
+        },
+        {
+          "id": "clue-236",
+          "query": "旧日接应约定PACT00236",
+          "expectedChapter": "stress-chapter-236",
+          "rank": 1,
+          "searchMs": 3.334,
+          "visibleChapters": 436,
+          "visibleChars": 959200,
+          "visiblePassages": 872
+        },
+        {
+          "id": "clue-262",
+          "query": "旧日接应约定PACT00262",
+          "expectedChapter": "stress-chapter-262",
+          "rank": 1,
+          "searchMs": 3.503,
+          "visibleChapters": 462,
+          "visibleChars": 1016400,
+          "visiblePassages": 924
+        },
+        {
+          "id": "clue-288",
+          "query": "旧日接应约定PACT00288",
+          "expectedChapter": "stress-chapter-288",
+          "rank": 1,
+          "searchMs": 3.385,
+          "visibleChapters": 488,
+          "visibleChars": 1073600,
+          "visiblePassages": 976
+        },
+        {
+          "id": "clue-314",
+          "query": "旧日接应约定PACT00314",
+          "expectedChapter": "stress-chapter-314",
+          "rank": 1,
+          "searchMs": 3.335,
+          "visibleChapters": 514,
+          "visibleChars": 1130800,
+          "visiblePassages": 1028
+        },
+        {
+          "id": "clue-340",
+          "query": "旧日接应约定PACT00340",
+          "expectedChapter": "stress-chapter-340",
+          "rank": 1,
+          "searchMs": 3.484,
+          "visibleChapters": 540,
+          "visibleChars": 1188000,
+          "visiblePassages": 1080
+        },
+        {
+          "id": "clue-366",
+          "query": "旧日接应约定PACT00366",
+          "expectedChapter": "stress-chapter-366",
+          "rank": 1,
+          "searchMs": 3.505,
+          "visibleChapters": 566,
+          "visibleChars": 1245200,
+          "visiblePassages": 1132
+        },
+        {
+          "id": "clue-392",
+          "query": "旧日接应约定PACT00392",
+          "expectedChapter": "stress-chapter-392",
+          "rank": 1,
+          "searchMs": 3.796,
+          "visibleChapters": 592,
+          "visibleChars": 1302400,
+          "visiblePassages": 1184
+        },
+        {
+          "id": "clue-418",
+          "query": "旧日接应约定PACT00418",
+          "expectedChapter": "stress-chapter-418",
+          "rank": 1,
+          "searchMs": 3.609,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "clue-444",
+          "query": "旧日接应约定PACT00444",
+          "expectedChapter": "stress-chapter-444",
+          "rank": 1,
+          "searchMs": 3.61,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "clue-470",
+          "query": "旧日接应约定PACT00470",
+          "expectedChapter": "stress-chapter-470",
+          "rank": 1,
+          "searchMs": 3.614,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "clue-496",
+          "query": "旧日接应约定PACT00496",
+          "expectedChapter": "stress-chapter-496",
+          "rank": 1,
+          "searchMs": 5.073,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "clue-522",
+          "query": "旧日接应约定PACT00522",
+          "expectedChapter": "stress-chapter-522",
+          "rank": 1,
+          "searchMs": 3.678,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "clue-548",
+          "query": "旧日接应约定PACT00548",
+          "expectedChapter": "stress-chapter-548",
+          "rank": 1,
+          "searchMs": 3.875,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "clue-574",
+          "query": "旧日接应约定PACT00574",
+          "expectedChapter": "stress-chapter-574",
+          "rank": 1,
+          "searchMs": 3.567,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        },
+        {
+          "id": "clue-600",
+          "query": "旧日接应约定PACT00600",
+          "expectedChapter": "stress-chapter-600",
+          "rank": 1,
+          "searchMs": 3.416,
+          "visibleChapters": 600,
+          "visibleChars": 1320000,
+          "visiblePassages": 1200
+        }
+      ],
+      "naturalQueries": [
+        {
+          "id": "natural-1",
+          "query": "裴照川 秦云岚 乌桐书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1"
+          ],
+          "rank": 2,
+          "searchMs": 12.454
+        },
+        {
+          "id": "natural-2",
+          "query": "苏怀瑾 顾云岚 望川书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-55"
+          ],
+          "rank": 2,
+          "searchMs": 12.557
+        },
+        {
+          "id": "natural-3",
+          "query": "陆知微 江知微 望川书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-109"
+          ],
+          "rank": 2,
+          "searchMs": 11.616
+        },
+        {
+          "id": "natural-4",
+          "query": "裴砚舟 许听雪 青岚渡口 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-164"
+          ],
+          "rank": 1,
+          "searchMs": 13.555
+        },
+        {
+          "id": "natural-5",
+          "query": "江照川 秦怀瑾 赤岭渡口 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-218"
+          ],
+          "rank": 1,
+          "searchMs": 14.36
+        },
+        {
+          "id": "natural-6",
+          "query": "顾砚舟 温怀瑾 寒汀书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-273"
+          ],
+          "rank": 2,
+          "searchMs": 13.118
+        },
+        {
+          "id": "natural-7",
+          "query": "温云岚 宁听雪 青岚书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-327"
+          ],
+          "rank": 2,
+          "searchMs": 14.075
+        },
+        {
+          "id": "natural-8",
+          "query": "秦知微 江云岚 鹿鸣书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-382"
+          ],
+          "rank": 1,
+          "searchMs": 15.131
+        },
+        {
+          "id": "natural-9",
+          "query": "谢听雪 秦云岚 白沙药铺 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-436"
+          ],
+          "rank": 1,
+          "searchMs": 13.906
+        },
+        {
+          "id": "natural-10",
+          "query": "顾砚舟 谢照川 望川药铺 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-491"
+          ],
+          "rank": 6,
+          "searchMs": 13.313
+        },
+        {
+          "id": "natural-11",
+          "query": "顾砚舟 叶砚舟 青岚药铺 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-545"
+          ],
+          "rank": 2,
+          "searchMs": 11.307
+        },
+        {
+          "id": "natural-12",
+          "query": "谢云岚 苏照川 青岚渡口 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-600"
+          ],
+          "rank": 1,
+          "searchMs": 15.95
+        }
+      ],
+      "noAnswerQueries": [
+        {
+          "query": "超导量子比特",
+          "hits": 0
+        },
+        {
+          "query": "裂变反应堆",
+          "hits": 0
+        },
+        {
+          "query": "轨道跃迁引擎",
+          "hits": 0
+        },
+        {
+          "query": "纳米晶体芯片",
+          "hits": 0
+        },
+        {
+          "query": "氘氚聚变",
+          "hits": 0
+        },
+        {
+          "query": "光子纠缠态",
+          "hits": 0
+        },
+        {
+          "query": "磁约束装置",
+          "hits": 0
+        },
+        {
+          "query": "STRESSNOANSWERXYZ",
+          "hits": 0
+        }
+      ],
+      "limitations": [
+        "This corpus uses eight procedural paragraph templates and per-event numbers; unique paragraph strings do not imply natural literary diversity.",
+        "The 48 planted compound-identifier/author-alias queries test exact-source retrieval. They are not an embedding-model semantic-quality benchmark.",
+        "Natural multi-entity query quality is descriptive and includes the generated fact relation as its oracle; no external model is used.",
+        "Search-only timings exclude the fresh-source sync the UI performs before searching; unchanged sync and changed-source full rebuilds are reported separately.",
+        "Node memory and timing do not substitute for browser measurements. The 20,000,001-character test covers rejection, not successful operation at the limit."
+      ]
+    },
+    {
+      "status": "passed",
+      "startedAt": "2026-10-04T01:56:42.573Z",
+      "finishedAt": "2026-10-04T01:57:46.296Z",
+      "profile": "three-million",
+      "source": {
+        "fixture": "scripts/fixtures/memory-stress-corpus.ts",
+        "engineSha256": "a53a94402f742dde4ecc20c1e6a0b3b64db70f3ec23e3a8f92fb74faf605e876"
+      },
+      "runtime": {
+        "node": "v24.19.0",
+        "platform": "linux",
+        "architecture": "x64",
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logicalCpus": 9,
+        "memoryGiB": 9.734,
+        "loadAverageAtStart": [
+          1.71,
+          1.57,
+          0.89
+        ]
+      },
+      "corpus": {
+        "fixtureVersion": 2,
+        "seed": 1365799083,
+        "chapters": 1500,
+        "charsPerChapter": 2200,
+        "totalChars": 3300000,
+        "volumes": 30,
+        "castSize": 72,
+        "locations": 36,
+        "usedCast": 72,
+        "usedLocations": 36,
+        "paragraphTemplates": 8,
+        "usedParagraphTemplates": 8,
+        "generatedParagraphs": 42172,
+        "uniqueParagraphRatio": 1,
+        "description": "Deterministic procedural Chinese fiction: varied cast, locations, events and similar clue aliases; planted exact identifiers test retrieval and provenance, not literary realism or semantic-model quality."
+      },
+      "index": {
+        "characters": 3300000,
+        "chapters": 1500,
+        "passages": 3000,
+        "clues": 750
+      },
+      "timings": {
+        "corpusGenerationMs": 246.616,
+        "coldFullRebuildMs": 18923.274,
+        "unchangedSyncMs": 3.158,
+        "editFullRebuildMs": 19197.127,
+        "reorderDeleteFullRebuildMs": 18261.976,
+        "firstPassSearchOnly": {
+          "count": 48,
+          "p50Ms": 22.841,
+          "p95Ms": 56.69,
+          "maximumMs": 60.119
+        },
+        "repeatedSearchOnly": {
+          "count": 48,
+          "p50Ms": 16.349,
+          "p95Ms": 54.029,
+          "maximumMs": 56.845
+        },
+        "totalWallMs": 63720.653
+      },
+      "memory": {
+        "heapLimitMiB": 2240,
+        "baselineHeapMiB": 12.046,
+        "finalHeapMiB": 1106.927,
+        "observedHeapPeakMiB": 1151.264,
+        "processPeakRssMiB": 1311.512,
+        "measurement": "Each profile runs in a fresh child process. Peak RSS is the OS-reported high-water mark for the entire profile, including source, snapshots, index rebuild overlap and fixture creation. Heap peak is sampled at 25 ms and explicit checkpoints; brief synchronous peaks may be missed."
+      },
+      "summary": {
+        "cases": 12,
+        "searches": 259,
+        "evidenceItemsChecked": 1717,
+        "networkAttempts": 0,
+        "noExternalRequests": true
+      },
+      "compoundIdentifierAndClueRecall": {
+        "probes": 48,
+        "at1": 0.5,
+        "at5": 1,
+        "at8": 1
+      },
+      "naturalMultiEntityRecall": {
+        "probes": 12,
+        "at1": 0.417,
+        "at5": 0.833,
+        "at8": 0.917
+      },
+      "cases": [
+        {
+          "name": "Build the complete varied multivolume manuscript with all anchored clues",
+          "passed": true
+        },
+        {
+          "name": "48 fixed exact-source probes distributed across the whole book and narrative cutoffs",
+          "passed": true,
+          "details": {
+            "probes": 48,
+            "at1": 0.5,
+            "at5": 1,
+            "at8": 1
+          }
+        },
+        {
+          "name": "Repeat the same 48 searches against the already built index",
+          "passed": true
+        },
+        {
+          "name": "12 natural multi-entity queries, with oracle chapters defined by generated fact relationships",
+          "passed": true,
+          "details": {
+            "role": "Descriptive lexical retrieval quality; no semantic model is enabled and there is no claimed universal quality threshold.",
+            "probes": 12,
+            "at1": 0.417,
+            "at5": 0.833,
+            "at8": 0.917
+          }
+        },
+        {
+          "name": "8 no-answer queries return no source evidence",
+          "passed": true
+        },
+        {
+          "name": "12 late identities stay hidden, become visible at disclosure, and disappear again when the cutoff is restored",
+          "passed": true
+        },
+        {
+          "name": "Shared aliases in hundreds of future chapters cannot displace five disclosed early clues",
+          "passed": true,
+          "details": {
+            "visibleClues": 5,
+            "laterCompetingClues": 745
+          }
+        },
+        {
+          "name": "Repeat a fresh-source sync, reusing the index only for a completely unchanged snapshot",
+          "passed": true
+        },
+        {
+          "name": "Batch-edit 30 old chapters after warm searches; retract every stale fact and all 30 stale clues",
+          "passed": true,
+          "details": {
+            "editedChapters": 30,
+            "staleClues": 30
+          }
+        },
+        {
+          "name": "Reorder disclosure and delete 20 chapters: late-moved clues hide, early-moved secrets disclose, deleted cutoffs fail closed",
+          "passed": true
+        },
+        {
+          "name": "Switch to another project reusing 80 chapter IDs without cross-project facts",
+          "passed": true
+        },
+        {
+          "name": "20,000,001 characters fail before indexing and leave no stale usable index",
+          "passed": true
+        }
+      ],
+      "probes": [
+        {
+          "id": "fact-1",
+          "query": "白银封蜡FS00001",
+          "expectedChapter": "stress-chapter-1",
+          "rank": 2,
+          "searchMs": 59.115,
+          "visibleChapters": 501,
+          "visibleChars": 1102200,
+          "visiblePassages": 1002
+        },
+        {
+          "id": "fact-66",
+          "query": "白银封蜡FS00066",
+          "expectedChapter": "stress-chapter-66",
+          "rank": 4,
+          "searchMs": 49.317,
+          "visibleChapters": 566,
+          "visibleChars": 1245200,
+          "visiblePassages": 1132
+        },
+        {
+          "id": "fact-131",
+          "query": "白银封蜡FS00131",
+          "expectedChapter": "stress-chapter-131",
+          "rank": 2,
+          "searchMs": 52.195,
+          "visibleChapters": 631,
+          "visibleChars": 1388200,
+          "visiblePassages": 1262
+        },
+        {
+          "id": "fact-196",
+          "query": "白银封蜡FS00196",
+          "expectedChapter": "stress-chapter-196",
+          "rank": 2,
+          "searchMs": 60.119,
+          "visibleChapters": 696,
+          "visibleChars": 1531200,
+          "visiblePassages": 1392
+        },
+        {
+          "id": "fact-261",
+          "query": "白银封蜡FS00261",
+          "expectedChapter": "stress-chapter-261",
+          "rank": 2,
+          "searchMs": 51.713,
+          "visibleChapters": 761,
+          "visibleChars": 1674200,
+          "visiblePassages": 1522
+        },
+        {
+          "id": "fact-326",
+          "query": "白银封蜡FS00326",
+          "expectedChapter": "stress-chapter-326",
+          "rank": 4,
+          "searchMs": 51.311,
+          "visibleChapters": 826,
+          "visibleChars": 1817200,
+          "visiblePassages": 1652
+        },
+        {
+          "id": "fact-392",
+          "query": "白银封蜡FS00392",
+          "expectedChapter": "stress-chapter-392",
+          "rank": 2,
+          "searchMs": 51.995,
+          "visibleChapters": 892,
+          "visibleChars": 1962400,
+          "visiblePassages": 1784
+        },
+        {
+          "id": "fact-457",
+          "query": "白银封蜡FS00457",
+          "expectedChapter": "stress-chapter-457",
+          "rank": 2,
+          "searchMs": 49.922,
+          "visibleChapters": 957,
+          "visibleChars": 2105400,
+          "visiblePassages": 1914
+        },
+        {
+          "id": "fact-522",
+          "query": "白银封蜡FS00522",
+          "expectedChapter": "stress-chapter-522",
+          "rank": 4,
+          "searchMs": 50.257,
+          "visibleChapters": 1022,
+          "visibleChars": 2248400,
+          "visiblePassages": 2044
+        },
+        {
+          "id": "fact-587",
+          "query": "白银封蜡FS00587",
+          "expectedChapter": "stress-chapter-587",
+          "rank": 2,
+          "searchMs": 52.917,
+          "visibleChapters": 1087,
+          "visibleChars": 2391400,
+          "visiblePassages": 2174
+        },
+        {
+          "id": "fact-652",
+          "query": "白银封蜡FS00652",
+          "expectedChapter": "stress-chapter-652",
+          "rank": 4,
+          "searchMs": 50.521,
+          "visibleChapters": 1152,
+          "visibleChars": 2534400,
+          "visiblePassages": 2304
+        },
+        {
+          "id": "fact-717",
+          "query": "白银封蜡FS00717",
+          "expectedChapter": "stress-chapter-717",
+          "rank": 2,
+          "searchMs": 51.345,
+          "visibleChapters": 1217,
+          "visibleChars": 2677400,
+          "visiblePassages": 2434
+        },
+        {
+          "id": "fact-783",
+          "query": "白银封蜡FS00783",
+          "expectedChapter": "stress-chapter-783",
+          "rank": 2,
+          "searchMs": 56.69,
+          "visibleChapters": 1283,
+          "visibleChars": 2822600,
+          "visiblePassages": 2566
+        },
+        {
+          "id": "fact-848",
+          "query": "白银封蜡FS00848",
+          "expectedChapter": "stress-chapter-848",
+          "rank": 4,
+          "searchMs": 54.271,
+          "visibleChapters": 1348,
+          "visibleChars": 2965600,
+          "visiblePassages": 2696
+        },
+        {
+          "id": "fact-913",
+          "query": "白银封蜡FS00913",
+          "expectedChapter": "stress-chapter-913",
+          "rank": 2,
+          "searchMs": 54.945,
+          "visibleChapters": 1413,
+          "visibleChars": 3108600,
+          "visiblePassages": 2826
+        },
+        {
+          "id": "fact-978",
+          "query": "白银封蜡FS00978",
+          "expectedChapter": "stress-chapter-978",
+          "rank": 4,
+          "searchMs": 54.759,
+          "visibleChapters": 1478,
+          "visibleChars": 3251600,
+          "visiblePassages": 2956
+        },
+        {
+          "id": "fact-1043",
+          "query": "白银封蜡FS01043",
+          "expectedChapter": "stress-chapter-1043",
+          "rank": 2,
+          "searchMs": 51.898,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "fact-1108",
+          "query": "白银封蜡FS01108",
+          "expectedChapter": "stress-chapter-1108",
+          "rank": 4,
+          "searchMs": 53.067,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "fact-1174",
+          "query": "白银封蜡FS01174",
+          "expectedChapter": "stress-chapter-1174",
+          "rank": 4,
+          "searchMs": 53.175,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "fact-1239",
+          "query": "白银封蜡FS01239",
+          "expectedChapter": "stress-chapter-1239",
+          "rank": 2,
+          "searchMs": 52.274,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "fact-1304",
+          "query": "白银封蜡FS01304",
+          "expectedChapter": "stress-chapter-1304",
+          "rank": 4,
+          "searchMs": 50.856,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "fact-1369",
+          "query": "白银封蜡FS01369",
+          "expectedChapter": "stress-chapter-1369",
+          "rank": 2,
+          "searchMs": 56.224,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "fact-1434",
+          "query": "白银封蜡FS01434",
+          "expectedChapter": "stress-chapter-1434",
+          "rank": 2,
+          "searchMs": 52.355,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "fact-1500",
+          "query": "白银封蜡FS01500",
+          "expectedChapter": "stress-chapter-1500",
+          "rank": 4,
+          "searchMs": 52.748,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "clue-2",
+          "query": "旧日接应约定PACT00002",
+          "expectedChapter": "stress-chapter-2",
+          "rank": 1,
+          "searchMs": 11.842,
+          "visibleChapters": 502,
+          "visibleChars": 1104400,
+          "visiblePassages": 1004
+        },
+        {
+          "id": "clue-66",
+          "query": "旧日接应约定PACT00066",
+          "expectedChapter": "stress-chapter-66",
+          "rank": 1,
+          "searchMs": 12.803,
+          "visibleChapters": 566,
+          "visibleChars": 1245200,
+          "visiblePassages": 1132
+        },
+        {
+          "id": "clue-132",
+          "query": "旧日接应约定PACT00132",
+          "expectedChapter": "stress-chapter-132",
+          "rank": 1,
+          "searchMs": 12.093,
+          "visibleChapters": 632,
+          "visibleChars": 1390400,
+          "visiblePassages": 1264
+        },
+        {
+          "id": "clue-196",
+          "query": "旧日接应约定PACT00196",
+          "expectedChapter": "stress-chapter-196",
+          "rank": 1,
+          "searchMs": 11.93,
+          "visibleChapters": 696,
+          "visibleChars": 1531200,
+          "visiblePassages": 1392
+        },
+        {
+          "id": "clue-262",
+          "query": "旧日接应约定PACT00262",
+          "expectedChapter": "stress-chapter-262",
+          "rank": 1,
+          "searchMs": 11.964,
+          "visibleChapters": 762,
+          "visibleChars": 1676400,
+          "visiblePassages": 1524
+        },
+        {
+          "id": "clue-326",
+          "query": "旧日接应约定PACT00326",
+          "expectedChapter": "stress-chapter-326",
+          "rank": 1,
+          "searchMs": 13.628,
+          "visibleChapters": 826,
+          "visibleChars": 1817200,
+          "visiblePassages": 1652
+        },
+        {
+          "id": "clue-392",
+          "query": "旧日接应约定PACT00392",
+          "expectedChapter": "stress-chapter-392",
+          "rank": 1,
+          "searchMs": 12.597,
+          "visibleChapters": 892,
+          "visibleChars": 1962400,
+          "visiblePassages": 1784
+        },
+        {
+          "id": "clue-456",
+          "query": "旧日接应约定PACT00456",
+          "expectedChapter": "stress-chapter-456",
+          "rank": 1,
+          "searchMs": 12.903,
+          "visibleChapters": 956,
+          "visibleChars": 2103200,
+          "visiblePassages": 1912
+        },
+        {
+          "id": "clue-522",
+          "query": "旧日接应约定PACT00522",
+          "expectedChapter": "stress-chapter-522",
+          "rank": 1,
+          "searchMs": 12.527,
+          "visibleChapters": 1022,
+          "visibleChars": 2248400,
+          "visiblePassages": 2044
+        },
+        {
+          "id": "clue-588",
+          "query": "旧日接应约定PACT00588",
+          "expectedChapter": "stress-chapter-588",
+          "rank": 1,
+          "searchMs": 12.734,
+          "visibleChapters": 1088,
+          "visibleChars": 2393600,
+          "visiblePassages": 2176
+        },
+        {
+          "id": "clue-652",
+          "query": "旧日接应约定PACT00652",
+          "expectedChapter": "stress-chapter-652",
+          "rank": 1,
+          "searchMs": 12.91,
+          "visibleChapters": 1152,
+          "visibleChars": 2534400,
+          "visiblePassages": 2304
+        },
+        {
+          "id": "clue-718",
+          "query": "旧日接应约定PACT00718",
+          "expectedChapter": "stress-chapter-718",
+          "rank": 1,
+          "searchMs": 13.978,
+          "visibleChapters": 1218,
+          "visibleChars": 2679600,
+          "visiblePassages": 2436
+        },
+        {
+          "id": "clue-782",
+          "query": "旧日接应约定PACT00782",
+          "expectedChapter": "stress-chapter-782",
+          "rank": 1,
+          "searchMs": 12.669,
+          "visibleChapters": 1282,
+          "visibleChars": 2820400,
+          "visiblePassages": 2564
+        },
+        {
+          "id": "clue-848",
+          "query": "旧日接应约定PACT00848",
+          "expectedChapter": "stress-chapter-848",
+          "rank": 1,
+          "searchMs": 13.31,
+          "visibleChapters": 1348,
+          "visibleChars": 2965600,
+          "visiblePassages": 2696
+        },
+        {
+          "id": "clue-912",
+          "query": "旧日接应约定PACT00912",
+          "expectedChapter": "stress-chapter-912",
+          "rank": 1,
+          "searchMs": 14.498,
+          "visibleChapters": 1412,
+          "visibleChars": 3106400,
+          "visiblePassages": 2824
+        },
+        {
+          "id": "clue-978",
+          "query": "旧日接应约定PACT00978",
+          "expectedChapter": "stress-chapter-978",
+          "rank": 1,
+          "searchMs": 14.125,
+          "visibleChapters": 1478,
+          "visibleChars": 3251600,
+          "visiblePassages": 2956
+        },
+        {
+          "id": "clue-1044",
+          "query": "旧日接应约定PACT01044",
+          "expectedChapter": "stress-chapter-1044",
+          "rank": 1,
+          "searchMs": 14.228,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "clue-1108",
+          "query": "旧日接应约定PACT01108",
+          "expectedChapter": "stress-chapter-1108",
+          "rank": 1,
+          "searchMs": 15.703,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "clue-1174",
+          "query": "旧日接应约定PACT01174",
+          "expectedChapter": "stress-chapter-1174",
+          "rank": 1,
+          "searchMs": 14.341,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "clue-1238",
+          "query": "旧日接应约定PACT01238",
+          "expectedChapter": "stress-chapter-1238",
+          "rank": 1,
+          "searchMs": 15.323,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "clue-1304",
+          "query": "旧日接应约定PACT01304",
+          "expectedChapter": "stress-chapter-1304",
+          "rank": 1,
+          "searchMs": 22.841,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "clue-1368",
+          "query": "旧日接应约定PACT01368",
+          "expectedChapter": "stress-chapter-1368",
+          "rank": 1,
+          "searchMs": 13.629,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "clue-1434",
+          "query": "旧日接应约定PACT01434",
+          "expectedChapter": "stress-chapter-1434",
+          "rank": 1,
+          "searchMs": 13.833,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        },
+        {
+          "id": "clue-1500",
+          "query": "旧日接应约定PACT01500",
+          "expectedChapter": "stress-chapter-1500",
+          "rank": 1,
+          "searchMs": 14.643,
+          "visibleChapters": 1500,
+          "visibleChars": 3300000,
+          "visiblePassages": 3000
+        }
+      ],
+      "naturalQueries": [
+        {
+          "id": "natural-1",
+          "query": "裴照川 秦云岚 乌桐书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1"
+          ],
+          "rank": 2,
+          "searchMs": 69.542
+        },
+        {
+          "id": "natural-2",
+          "query": "温怀瑾 顾云岚 望川驿站 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-137"
+          ],
+          "rank": 2,
+          "searchMs": 68.898
+        },
+        {
+          "id": "natural-3",
+          "query": "顾砚舟 温怀瑾 寒汀书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-273"
+          ],
+          "rank": 2,
+          "searchMs": 67.049
+        },
+        {
+          "id": "natural-4",
+          "query": "江砚舟 温怀瑾 寒汀驿站 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-409"
+          ],
+          "rank": 4,
+          "searchMs": 68.077
+        },
+        {
+          "id": "natural-5",
+          "query": "秦云岚 秦照川 赤岭驿站 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-546"
+          ],
+          "rank": 1,
+          "searchMs": 75.412
+        },
+        {
+          "id": "natural-6",
+          "query": "顾怀瑾 苏砚舟 兰泽药铺 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-682"
+          ],
+          "rank": 1,
+          "searchMs": 61.617
+        },
+        {
+          "id": "natural-7",
+          "query": "苏听雪 沈照川 东篱驿站 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-818"
+          ],
+          "rank": 1,
+          "searchMs": 76.318
+        },
+        {
+          "id": "natural-8",
+          "query": "江照川 许知微 鹿鸣药铺 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-954"
+          ],
+          "rank": 1,
+          "searchMs": 68.062
+        },
+        {
+          "id": "natural-9",
+          "query": "叶照川 许照川 东篱驿站 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1091"
+          ],
+          "rank": 0,
+          "searchMs": 71.63
+        },
+        {
+          "id": "natural-10",
+          "query": "顾知微 陆砚舟 赤岭书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1227"
+          ],
+          "rank": 6,
+          "searchMs": 75.729
+        },
+        {
+          "id": "natural-11",
+          "query": "谢云岚 裴照川 赤岭药铺 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1363"
+          ],
+          "rank": 2,
+          "searchMs": 63.754
+        },
+        {
+          "id": "natural-12",
+          "query": "温砚舟 谢砚舟 兰泽书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1500"
+          ],
+          "rank": 1,
+          "searchMs": 66.731
+        }
+      ],
+      "noAnswerQueries": [
+        {
+          "query": "超导量子比特",
+          "hits": 0
+        },
+        {
+          "query": "裂变反应堆",
+          "hits": 0
+        },
+        {
+          "query": "轨道跃迁引擎",
+          "hits": 0
+        },
+        {
+          "query": "纳米晶体芯片",
+          "hits": 0
+        },
+        {
+          "query": "氘氚聚变",
+          "hits": 0
+        },
+        {
+          "query": "光子纠缠态",
+          "hits": 0
+        },
+        {
+          "query": "磁约束装置",
+          "hits": 0
+        },
+        {
+          "query": "STRESSNOANSWERXYZ",
+          "hits": 0
+        }
+      ],
+      "limitations": [
+        "This corpus uses eight procedural paragraph templates and per-event numbers; unique paragraph strings do not imply natural literary diversity.",
+        "The 48 planted compound-identifier/author-alias queries test exact-source retrieval. They are not an embedding-model semantic-quality benchmark.",
+        "Natural multi-entity query quality is descriptive and includes the generated fact relation as its oracle; no external model is used.",
+        "Search-only timings exclude the fresh-source sync the UI performs before searching; unchanged sync and changed-source full rebuilds are reported separately.",
+        "Node memory and timing do not substitute for browser measurements. The 20,000,001-character test covers rejection, not successful operation at the limit."
+      ]
+    },
+    {
+      "status": "passed",
+      "startedAt": "2026-10-04T01:57:46.673Z",
+      "finishedAt": "2026-10-04T02:01:10.702Z",
+      "profile": "ten-million",
+      "source": {
+        "fixture": "scripts/fixtures/memory-stress-corpus.ts",
+        "engineSha256": "a53a94402f742dde4ecc20c1e6a0b3b64db70f3ec23e3a8f92fb74faf605e876"
+      },
+      "runtime": {
+        "node": "v24.19.0",
+        "platform": "linux",
+        "architecture": "x64",
+        "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "logicalCpus": 9,
+        "memoryGiB": 9.734,
+        "loadAverageAtStart": [
+          1.92,
+          1.65,
+          0.97
+        ]
+      },
+      "corpus": {
+        "fixtureVersion": 2,
+        "seed": 1365799083,
+        "chapters": 2500,
+        "charsPerChapter": 4200,
+        "totalChars": 10500000,
+        "volumes": 50,
+        "castSize": 72,
+        "locations": 36,
+        "usedCast": 72,
+        "usedLocations": 36,
+        "paragraphTemplates": 8,
+        "usedParagraphTemplates": 8,
+        "generatedParagraphs": 114622,
+        "uniqueParagraphRatio": 1,
+        "description": "Deterministic procedural Chinese fiction: varied cast, locations, events and similar clue aliases; planted exact identifiers test retrieval and provenance, not literary realism or semantic-model quality."
+      },
+      "index": {
+        "characters": 10500000,
+        "chapters": 2500,
+        "passages": 10000,
+        "clues": 1250
+      },
+      "timings": {
+        "corpusGenerationMs": 593.738,
+        "coldFullRebuildMs": 60693.888,
+        "unchangedSyncMs": 6.76,
+        "editFullRebuildMs": 59417.161,
+        "reorderDeleteFullRebuildMs": 58617.413,
+        "firstPassSearchOnly": {
+          "count": 48,
+          "p50Ms": 44.562,
+          "p95Ms": 147.218,
+          "maximumMs": 150.271
+        },
+        "repeatedSearchOnly": {
+          "count": 48,
+          "p50Ms": 42.342,
+          "p95Ms": 145.416,
+          "maximumMs": 145.727
+        },
+        "totalWallMs": 204026.75
+      },
+      "memory": {
+        "heapLimitMiB": 2240,
+        "baselineHeapMiB": 12.03,
+        "finalHeapMiB": 1147.972,
+        "observedHeapPeakMiB": 1777.435,
+        "processPeakRssMiB": 2005.57,
+        "measurement": "Each profile runs in a fresh child process. Peak RSS is the OS-reported high-water mark for the entire profile, including source, snapshots, index rebuild overlap and fixture creation. Heap peak is sampled at 25 ms and explicit checkpoints; brief synchronous peaks may be missed."
+      },
+      "summary": {
+        "cases": 12,
+        "searches": 259,
+        "evidenceItemsChecked": 1717,
+        "networkAttempts": 0,
+        "noExternalRequests": true
+      },
+      "compoundIdentifierAndClueRecall": {
+        "probes": 48,
+        "at1": 0.5,
+        "at5": 1,
+        "at8": 1
+      },
+      "naturalMultiEntityRecall": {
+        "probes": 12,
+        "at1": 0.583,
+        "at5": 0.667,
+        "at8": 0.917
+      },
+      "cases": [
+        {
+          "name": "Build the complete varied multivolume manuscript with all anchored clues",
+          "passed": true
+        },
+        {
+          "name": "48 fixed exact-source probes distributed across the whole book and narrative cutoffs",
+          "passed": true,
+          "details": {
+            "probes": 48,
+            "at1": 0.5,
+            "at5": 1,
+            "at8": 1
+          }
+        },
+        {
+          "name": "Repeat the same 48 searches against the already built index",
+          "passed": true
+        },
+        {
+          "name": "12 natural multi-entity queries, with oracle chapters defined by generated fact relationships",
+          "passed": true,
+          "details": {
+            "role": "Descriptive lexical retrieval quality; no semantic model is enabled and there is no claimed universal quality threshold.",
+            "probes": 12,
+            "at1": 0.583,
+            "at5": 0.667,
+            "at8": 0.917
+          }
+        },
+        {
+          "name": "8 no-answer queries return no source evidence",
+          "passed": true
+        },
+        {
+          "name": "12 late identities stay hidden, become visible at disclosure, and disappear again when the cutoff is restored",
+          "passed": true
+        },
+        {
+          "name": "Shared aliases in hundreds of future chapters cannot displace five disclosed early clues",
+          "passed": true,
+          "details": {
+            "visibleClues": 5,
+            "laterCompetingClues": 1245
+          }
+        },
+        {
+          "name": "Repeat a fresh-source sync, reusing the index only for a completely unchanged snapshot",
+          "passed": true
+        },
+        {
+          "name": "Batch-edit 30 old chapters after warm searches; retract every stale fact and all 30 stale clues",
+          "passed": true,
+          "details": {
+            "editedChapters": 30,
+            "staleClues": 30
+          }
+        },
+        {
+          "name": "Reorder disclosure and delete 20 chapters: late-moved clues hide, early-moved secrets disclose, deleted cutoffs fail closed",
+          "passed": true
+        },
+        {
+          "name": "Switch to another project reusing 80 chapter IDs without cross-project facts",
+          "passed": true
+        },
+        {
+          "name": "20,000,001 characters fail before indexing and leave no stale usable index",
+          "passed": true
+        }
+      ],
+      "probes": [
+        {
+          "id": "fact-1",
+          "query": "白银封蜡FS00001",
+          "expectedChapter": "stress-chapter-1",
+          "rank": 2,
+          "searchMs": 149.467,
+          "visibleChapters": 834,
+          "visibleChars": 3502800,
+          "visiblePassages": 3336
+        },
+        {
+          "id": "fact-109",
+          "query": "白银封蜡FS00109",
+          "expectedChapter": "stress-chapter-109",
+          "rank": 2,
+          "searchMs": 138.138,
+          "visibleChapters": 942,
+          "visibleChars": 3956400,
+          "visiblePassages": 3768
+        },
+        {
+          "id": "fact-218",
+          "query": "白银封蜡FS00218",
+          "expectedChapter": "stress-chapter-218",
+          "rank": 2,
+          "searchMs": 137.58,
+          "visibleChapters": 1051,
+          "visibleChars": 4414200,
+          "visiblePassages": 4204
+        },
+        {
+          "id": "fact-326",
+          "query": "白银封蜡FS00326",
+          "expectedChapter": "stress-chapter-326",
+          "rank": 4,
+          "searchMs": 137.968,
+          "visibleChapters": 1159,
+          "visibleChars": 4867800,
+          "visiblePassages": 4636
+        },
+        {
+          "id": "fact-435",
+          "query": "白银封蜡FS00435",
+          "expectedChapter": "stress-chapter-435",
+          "rank": 2,
+          "searchMs": 137.997,
+          "visibleChapters": 1268,
+          "visibleChars": 5325600,
+          "visiblePassages": 5072
+        },
+        {
+          "id": "fact-544",
+          "query": "白银封蜡FS00544",
+          "expectedChapter": "stress-chapter-544",
+          "rank": 4,
+          "searchMs": 137.981,
+          "visibleChapters": 1377,
+          "visibleChars": 5783400,
+          "visiblePassages": 5508
+        },
+        {
+          "id": "fact-652",
+          "query": "白银封蜡FS00652",
+          "expectedChapter": "stress-chapter-652",
+          "rank": 4,
+          "searchMs": 138.517,
+          "visibleChapters": 1485,
+          "visibleChars": 6237000,
+          "visiblePassages": 5940
+        },
+        {
+          "id": "fact-761",
+          "query": "白银封蜡FS00761",
+          "expectedChapter": "stress-chapter-761",
+          "rank": 2,
+          "searchMs": 139.192,
+          "visibleChapters": 1594,
+          "visibleChars": 6694800,
+          "visiblePassages": 6376
+        },
+        {
+          "id": "fact-870",
+          "query": "白银封蜡FS00870",
+          "expectedChapter": "stress-chapter-870",
+          "rank": 4,
+          "searchMs": 139.151,
+          "visibleChapters": 1703,
+          "visibleChars": 7152600,
+          "visiblePassages": 6812
+        },
+        {
+          "id": "fact-978",
+          "query": "白银封蜡FS00978",
+          "expectedChapter": "stress-chapter-978",
+          "rank": 4,
+          "searchMs": 143.563,
+          "visibleChapters": 1811,
+          "visibleChars": 7606200,
+          "visiblePassages": 7244
+        },
+        {
+          "id": "fact-1087",
+          "query": "白银封蜡FS01087",
+          "expectedChapter": "stress-chapter-1087",
+          "rank": 2,
+          "searchMs": 142.313,
+          "visibleChapters": 1920,
+          "visibleChars": 8064000,
+          "visiblePassages": 7680
+        },
+        {
+          "id": "fact-1196",
+          "query": "白银封蜡FS01196",
+          "expectedChapter": "stress-chapter-1196",
+          "rank": 4,
+          "searchMs": 145.472,
+          "visibleChapters": 2029,
+          "visibleChars": 8521800,
+          "visiblePassages": 8116
+        },
+        {
+          "id": "fact-1304",
+          "query": "白银封蜡FS01304",
+          "expectedChapter": "stress-chapter-1304",
+          "rank": 4,
+          "searchMs": 145.221,
+          "visibleChapters": 2137,
+          "visibleChars": 8975400,
+          "visiblePassages": 8548
+        },
+        {
+          "id": "fact-1413",
+          "query": "白银封蜡FS01413",
+          "expectedChapter": "stress-chapter-1413",
+          "rank": 2,
+          "searchMs": 146.443,
+          "visibleChapters": 2246,
+          "visibleChars": 9433200,
+          "visiblePassages": 8984
+        },
+        {
+          "id": "fact-1522",
+          "query": "白银封蜡FS01522",
+          "expectedChapter": "stress-chapter-1522",
+          "rank": 4,
+          "searchMs": 146.064,
+          "visibleChapters": 2355,
+          "visibleChars": 9891000,
+          "visiblePassages": 9420
+        },
+        {
+          "id": "fact-1630",
+          "query": "白银封蜡FS01630",
+          "expectedChapter": "stress-chapter-1630",
+          "rank": 4,
+          "searchMs": 143.135,
+          "visibleChapters": 2463,
+          "visibleChars": 10344600,
+          "visiblePassages": 9852
+        },
+        {
+          "id": "fact-1739",
+          "query": "白银封蜡FS01739",
+          "expectedChapter": "stress-chapter-1739",
+          "rank": 2,
+          "searchMs": 147.218,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "fact-1848",
+          "query": "白银封蜡FS01848",
+          "expectedChapter": "stress-chapter-1848",
+          "rank": 4,
+          "searchMs": 150.271,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "fact-1956",
+          "query": "白银封蜡FS01956",
+          "expectedChapter": "stress-chapter-1956",
+          "rank": 4,
+          "searchMs": 146.5,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "fact-2065",
+          "query": "白银封蜡FS02065",
+          "expectedChapter": "stress-chapter-2065",
+          "rank": 2,
+          "searchMs": 145.508,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "fact-2174",
+          "query": "白银封蜡FS02174",
+          "expectedChapter": "stress-chapter-2174",
+          "rank": 4,
+          "searchMs": 142.622,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "fact-2282",
+          "query": "白银封蜡FS02282",
+          "expectedChapter": "stress-chapter-2282",
+          "rank": 2,
+          "searchMs": 144.935,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "fact-2391",
+          "query": "白银封蜡FS02391",
+          "expectedChapter": "stress-chapter-2391",
+          "rank": 2,
+          "searchMs": 146.723,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "fact-2500",
+          "query": "白银封蜡FS02500",
+          "expectedChapter": "stress-chapter-2500",
+          "rank": 2,
+          "searchMs": 146.513,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "clue-2",
+          "query": "旧日接应约定PACT00002",
+          "expectedChapter": "stress-chapter-2",
+          "rank": 1,
+          "searchMs": 32.567,
+          "visibleChapters": 835,
+          "visibleChars": 3507000,
+          "visiblePassages": 3340
+        },
+        {
+          "id": "clue-110",
+          "query": "旧日接应约定PACT00110",
+          "expectedChapter": "stress-chapter-110",
+          "rank": 1,
+          "searchMs": 33.13,
+          "visibleChapters": 943,
+          "visibleChars": 3960600,
+          "visiblePassages": 3772
+        },
+        {
+          "id": "clue-218",
+          "query": "旧日接应约定PACT00218",
+          "expectedChapter": "stress-chapter-218",
+          "rank": 1,
+          "searchMs": 35.783,
+          "visibleChapters": 1051,
+          "visibleChars": 4414200,
+          "visiblePassages": 4204
+        },
+        {
+          "id": "clue-326",
+          "query": "旧日接应约定PACT00326",
+          "expectedChapter": "stress-chapter-326",
+          "rank": 1,
+          "searchMs": 32.832,
+          "visibleChapters": 1159,
+          "visibleChars": 4867800,
+          "visiblePassages": 4636
+        },
+        {
+          "id": "clue-436",
+          "query": "旧日接应约定PACT00436",
+          "expectedChapter": "stress-chapter-436",
+          "rank": 1,
+          "searchMs": 32.154,
+          "visibleChapters": 1269,
+          "visibleChars": 5329800,
+          "visiblePassages": 5076
+        },
+        {
+          "id": "clue-544",
+          "query": "旧日接应约定PACT00544",
+          "expectedChapter": "stress-chapter-544",
+          "rank": 1,
+          "searchMs": 34.18,
+          "visibleChapters": 1377,
+          "visibleChars": 5783400,
+          "visiblePassages": 5508
+        },
+        {
+          "id": "clue-652",
+          "query": "旧日接应约定PACT00652",
+          "expectedChapter": "stress-chapter-652",
+          "rank": 1,
+          "searchMs": 36.587,
+          "visibleChapters": 1485,
+          "visibleChars": 6237000,
+          "visiblePassages": 5940
+        },
+        {
+          "id": "clue-762",
+          "query": "旧日接应约定PACT00762",
+          "expectedChapter": "stress-chapter-762",
+          "rank": 1,
+          "searchMs": 33.719,
+          "visibleChapters": 1595,
+          "visibleChars": 6699000,
+          "visiblePassages": 6380
+        },
+        {
+          "id": "clue-870",
+          "query": "旧日接应约定PACT00870",
+          "expectedChapter": "stress-chapter-870",
+          "rank": 1,
+          "searchMs": 35.659,
+          "visibleChapters": 1703,
+          "visibleChars": 7152600,
+          "visiblePassages": 6812
+        },
+        {
+          "id": "clue-978",
+          "query": "旧日接应约定PACT00978",
+          "expectedChapter": "stress-chapter-978",
+          "rank": 1,
+          "searchMs": 37.47,
+          "visibleChapters": 1811,
+          "visibleChars": 7606200,
+          "visiblePassages": 7244
+        },
+        {
+          "id": "clue-1088",
+          "query": "旧日接应约定PACT01088",
+          "expectedChapter": "stress-chapter-1088",
+          "rank": 1,
+          "searchMs": 36.12,
+          "visibleChapters": 1921,
+          "visibleChars": 8068200,
+          "visiblePassages": 7684
+        },
+        {
+          "id": "clue-1196",
+          "query": "旧日接应约定PACT01196",
+          "expectedChapter": "stress-chapter-1196",
+          "rank": 1,
+          "searchMs": 39.86,
+          "visibleChapters": 2029,
+          "visibleChars": 8521800,
+          "visiblePassages": 8116
+        },
+        {
+          "id": "clue-1304",
+          "query": "旧日接应约定PACT01304",
+          "expectedChapter": "stress-chapter-1304",
+          "rank": 1,
+          "searchMs": 36.601,
+          "visibleChapters": 2137,
+          "visibleChars": 8975400,
+          "visiblePassages": 8548
+        },
+        {
+          "id": "clue-1412",
+          "query": "旧日接应约定PACT01412",
+          "expectedChapter": "stress-chapter-1412",
+          "rank": 1,
+          "searchMs": 38.381,
+          "visibleChapters": 2245,
+          "visibleChars": 9429000,
+          "visiblePassages": 8980
+        },
+        {
+          "id": "clue-1522",
+          "query": "旧日接应约定PACT01522",
+          "expectedChapter": "stress-chapter-1522",
+          "rank": 1,
+          "searchMs": 37.172,
+          "visibleChapters": 2355,
+          "visibleChars": 9891000,
+          "visiblePassages": 9420
+        },
+        {
+          "id": "clue-1630",
+          "query": "旧日接应约定PACT01630",
+          "expectedChapter": "stress-chapter-1630",
+          "rank": 1,
+          "searchMs": 38.147,
+          "visibleChapters": 2463,
+          "visibleChars": 10344600,
+          "visiblePassages": 9852
+        },
+        {
+          "id": "clue-1738",
+          "query": "旧日接应约定PACT01738",
+          "expectedChapter": "stress-chapter-1738",
+          "rank": 1,
+          "searchMs": 39.245,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "clue-1848",
+          "query": "旧日接应约定PACT01848",
+          "expectedChapter": "stress-chapter-1848",
+          "rank": 1,
+          "searchMs": 38.796,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "clue-1956",
+          "query": "旧日接应约定PACT01956",
+          "expectedChapter": "stress-chapter-1956",
+          "rank": 1,
+          "searchMs": 44.562,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "clue-2064",
+          "query": "旧日接应约定PACT02064",
+          "expectedChapter": "stress-chapter-2064",
+          "rank": 1,
+          "searchMs": 39.015,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "clue-2174",
+          "query": "旧日接应约定PACT02174",
+          "expectedChapter": "stress-chapter-2174",
+          "rank": 1,
+          "searchMs": 36.425,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "clue-2282",
+          "query": "旧日接应约定PACT02282",
+          "expectedChapter": "stress-chapter-2282",
+          "rank": 1,
+          "searchMs": 44.383,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "clue-2390",
+          "query": "旧日接应约定PACT02390",
+          "expectedChapter": "stress-chapter-2390",
+          "rank": 1,
+          "searchMs": 43.209,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        },
+        {
+          "id": "clue-2500",
+          "query": "旧日接应约定PACT02500",
+          "expectedChapter": "stress-chapter-2500",
+          "rank": 1,
+          "searchMs": 37.16,
+          "visibleChapters": 2500,
+          "visibleChars": 10500000,
+          "visiblePassages": 10000
+        }
+      ],
+      "naturalQueries": [
+        {
+          "id": "natural-1",
+          "query": "裴照川 秦云岚 乌桐书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1"
+          ],
+          "rank": 4,
+          "searchMs": 582.823
+        },
+        {
+          "id": "natural-2",
+          "query": "秦云岚 许怀瑾 乌桐渡口 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-228"
+          ],
+          "rank": 1,
+          "searchMs": 614.384
+        },
+        {
+          "id": "natural-3",
+          "query": "苏知微 沈知微 乌桐渡口 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-455"
+          ],
+          "rank": 8,
+          "searchMs": 487.04
+        },
+        {
+          "id": "natural-4",
+          "query": "叶听雪 秦云岚 兰泽书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-682"
+          ],
+          "rank": 1,
+          "searchMs": 593.693
+        },
+        {
+          "id": "natural-5",
+          "query": "秦砚舟 温听雪 兰泽驿站 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-909"
+          ],
+          "rank": 8,
+          "searchMs": 594.296
+        },
+        {
+          "id": "natural-6",
+          "query": "宁听雪 许照川 乌桐驿站 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1136"
+          ],
+          "rank": 1,
+          "searchMs": 622.002
+        },
+        {
+          "id": "natural-7",
+          "query": "苏听雪 谢砚舟 白沙药铺 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1364"
+          ],
+          "rank": 1,
+          "searchMs": 551.499
+        },
+        {
+          "id": "natural-8",
+          "query": "宁照川 秦云岚 鹿鸣药铺 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1591"
+          ],
+          "rank": 6,
+          "searchMs": 514.655
+        },
+        {
+          "id": "natural-9",
+          "query": "秦云岚 许知微 鹿鸣驿站 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-1818"
+          ],
+          "rank": 1,
+          "searchMs": 606.248
+        },
+        {
+          "id": "natural-10",
+          "query": "沈听雪 温砚舟 东篱书院 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-2045"
+          ],
+          "rank": 0,
+          "searchMs": 607.891
+        },
+        {
+          "id": "natural-11",
+          "query": "陆云岚 秦听雪 乌桐药铺 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-2272"
+          ],
+          "rank": 1,
+          "searchMs": 506.506
+        },
+        {
+          "id": "natural-12",
+          "query": "叶砚舟 温照川 望川驿站 封存 交给",
+          "relevantChapters": [
+            "stress-chapter-2500"
+          ],
+          "rank": 1,
+          "searchMs": 607.437
+        }
+      ],
+      "noAnswerQueries": [
+        {
+          "query": "超导量子比特",
+          "hits": 0
+        },
+        {
+          "query": "裂变反应堆",
+          "hits": 0
+        },
+        {
+          "query": "轨道跃迁引擎",
+          "hits": 0
+        },
+        {
+          "query": "纳米晶体芯片",
+          "hits": 0
+        },
+        {
+          "query": "氘氚聚变",
+          "hits": 0
+        },
+        {
+          "query": "光子纠缠态",
+          "hits": 0
+        },
+        {
+          "query": "磁约束装置",
+          "hits": 0
+        },
+        {
+          "query": "STRESSNOANSWERXYZ",
+          "hits": 0
+        }
+      ],
+      "limitations": [
+        "This corpus uses eight procedural paragraph templates and per-event numbers; unique paragraph strings do not imply natural literary diversity.",
+        "The 48 planted compound-identifier/author-alias queries test exact-source retrieval. They are not an embedding-model semantic-quality benchmark.",
+        "Natural multi-entity query quality is descriptive and includes the generated fact relation as its oracle; no external model is used.",
+        "Search-only timings exclude the fresh-source sync the UI performs before searching; unchanged sync and changed-source full rebuilds are reported separately.",
+        "Node memory and timing do not substitute for browser measurements. The 20,000,001-character test covers rejection, not successful operation at the limit."
+      ]
+    }
+  ]
+}

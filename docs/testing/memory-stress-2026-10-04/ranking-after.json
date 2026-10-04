@@ -1,0 +1,397 @@
+{
+  "variant": "after equal channel weights",
+  "chars": 1320000,
+  "chunks": 1200,
+  "clues": 300,
+  "queries": 48,
+  "factsTop8": 24,
+  "cluesTop8": 24,
+  "factsTop2": 24,
+  "cluesTop1": 24,
+  "probes": [
+    {
+      "id": "fact-1",
+      "query": "白银封蜡FS00001",
+      "chapter": "stress-chapter-1",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-27",
+      "query": "白银封蜡FS00027",
+      "chapter": "stress-chapter-27",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-53",
+      "query": "白银封蜡FS00053",
+      "chapter": "stress-chapter-53",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-79",
+      "query": "白银封蜡FS00079",
+      "chapter": "stress-chapter-79",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-105",
+      "query": "白银封蜡FS00105",
+      "chapter": "stress-chapter-105",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-131",
+      "query": "白银封蜡FS00131",
+      "chapter": "stress-chapter-131",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-157",
+      "query": "白银封蜡FS00157",
+      "chapter": "stress-chapter-157",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-183",
+      "query": "白银封蜡FS00183",
+      "chapter": "stress-chapter-183",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-209",
+      "query": "白银封蜡FS00209",
+      "chapter": "stress-chapter-209",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-235",
+      "query": "白银封蜡FS00235",
+      "chapter": "stress-chapter-235",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-261",
+      "query": "白银封蜡FS00261",
+      "chapter": "stress-chapter-261",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-287",
+      "query": "白银封蜡FS00287",
+      "chapter": "stress-chapter-287",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-313",
+      "query": "白银封蜡FS00313",
+      "chapter": "stress-chapter-313",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-339",
+      "query": "白银封蜡FS00339",
+      "chapter": "stress-chapter-339",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-365",
+      "query": "白银封蜡FS00365",
+      "chapter": "stress-chapter-365",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-391",
+      "query": "白银封蜡FS00391",
+      "chapter": "stress-chapter-391",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-417",
+      "query": "白银封蜡FS00417",
+      "chapter": "stress-chapter-417",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-443",
+      "query": "白银封蜡FS00443",
+      "chapter": "stress-chapter-443",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-469",
+      "query": "白银封蜡FS00469",
+      "chapter": "stress-chapter-469",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-495",
+      "query": "白银封蜡FS00495",
+      "chapter": "stress-chapter-495",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-521",
+      "query": "白银封蜡FS00521",
+      "chapter": "stress-chapter-521",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-547",
+      "query": "白银封蜡FS00547",
+      "chapter": "stress-chapter-547",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-573",
+      "query": "白银封蜡FS00573",
+      "chapter": "stress-chapter-573",
+      "rank": 2,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "fact-600",
+      "query": "白银封蜡FS00600",
+      "chapter": "stress-chapter-600",
+      "rank": 2,
+      "firstChapter": "stress-chapter-600",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-2",
+      "query": "旧日接应约定PACT00002",
+      "chapter": "stress-chapter-2",
+      "rank": 1,
+      "firstChapter": "stress-chapter-2",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-28",
+      "query": "旧日接应约定PACT00028",
+      "chapter": "stress-chapter-28",
+      "rank": 1,
+      "firstChapter": "stress-chapter-28",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-54",
+      "query": "旧日接应约定PACT00054",
+      "chapter": "stress-chapter-54",
+      "rank": 1,
+      "firstChapter": "stress-chapter-54",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-80",
+      "query": "旧日接应约定PACT00080",
+      "chapter": "stress-chapter-80",
+      "rank": 1,
+      "firstChapter": "stress-chapter-80",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-106",
+      "query": "旧日接应约定PACT00106",
+      "chapter": "stress-chapter-106",
+      "rank": 1,
+      "firstChapter": "stress-chapter-106",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-132",
+      "query": "旧日接应约定PACT00132",
+      "chapter": "stress-chapter-132",
+      "rank": 1,
+      "firstChapter": "stress-chapter-132",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-158",
+      "query": "旧日接应约定PACT00158",
+      "chapter": "stress-chapter-158",
+      "rank": 1,
+      "firstChapter": "stress-chapter-158",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-184",
+      "query": "旧日接应约定PACT00184",
+      "chapter": "stress-chapter-184",
+      "rank": 1,
+      "firstChapter": "stress-chapter-184",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-210",
+      "query": "旧日接应约定PACT00210",
+      "chapter": "stress-chapter-210",
+      "rank": 1,
+      "firstChapter": "stress-chapter-210",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-236",
+      "query": "旧日接应约定PACT00236",
+      "chapter": "stress-chapter-236",
+      "rank": 1,
+      "firstChapter": "stress-chapter-236",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-262",
+      "query": "旧日接应约定PACT00262",
+      "chapter": "stress-chapter-262",
+      "rank": 1,
+      "firstChapter": "stress-chapter-262",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-288",
+      "query": "旧日接应约定PACT00288",
+      "chapter": "stress-chapter-288",
+      "rank": 1,
+      "firstChapter": "stress-chapter-288",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-314",
+      "query": "旧日接应约定PACT00314",
+      "chapter": "stress-chapter-314",
+      "rank": 1,
+      "firstChapter": "stress-chapter-314",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-340",
+      "query": "旧日接应约定PACT00340",
+      "chapter": "stress-chapter-340",
+      "rank": 1,
+      "firstChapter": "stress-chapter-340",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-366",
+      "query": "旧日接应约定PACT00366",
+      "chapter": "stress-chapter-366",
+      "rank": 1,
+      "firstChapter": "stress-chapter-366",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-392",
+      "query": "旧日接应约定PACT00392",
+      "chapter": "stress-chapter-392",
+      "rank": 1,
+      "firstChapter": "stress-chapter-392",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-418",
+      "query": "旧日接应约定PACT00418",
+      "chapter": "stress-chapter-418",
+      "rank": 1,
+      "firstChapter": "stress-chapter-418",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-444",
+      "query": "旧日接应约定PACT00444",
+      "chapter": "stress-chapter-444",
+      "rank": 1,
+      "firstChapter": "stress-chapter-444",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-470",
+      "query": "旧日接应约定PACT00470",
+      "chapter": "stress-chapter-470",
+      "rank": 1,
+      "firstChapter": "stress-chapter-470",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-496",
+      "query": "旧日接应约定PACT00496",
+      "chapter": "stress-chapter-496",
+      "rank": 1,
+      "firstChapter": "stress-chapter-496",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-522",
+      "query": "旧日接应约定PACT00522",
+      "chapter": "stress-chapter-522",
+      "rank": 1,
+      "firstChapter": "stress-chapter-522",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-548",
+      "query": "旧日接应约定PACT00548",
+      "chapter": "stress-chapter-548",
+      "rank": 1,
+      "firstChapter": "stress-chapter-548",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-574",
+      "query": "旧日接应约定PACT00574",
+      "chapter": "stress-chapter-574",
+      "rank": 1,
+      "firstChapter": "stress-chapter-574",
+      "firstKind": "clue"
+    },
+    {
+      "id": "clue-600",
+      "query": "旧日接应约定PACT00600",
+      "chapter": "stress-chapter-600",
+      "rank": 1,
+      "firstChapter": "stress-chapter-600",
+      "firstKind": "clue"
+    }
+  ]
+}

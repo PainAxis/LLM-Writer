@@ -21,6 +21,7 @@ const artifacts = path.join(root, 'artifacts/browser-memory-stress')
 await mkdir(artifacts, { recursive: true })
 const corpus = await createStressNovel({ chapters: 600, charsPerChapter: 2600 })
 const expectedSources = new Map(corpus.project.chapters.map((chapter, index) => [index + 1, stripWriterHtml(chapter.text)]))
+const initialIndexedChars = [...expectedSources.values()].reduce((total, text) => total + text.length, 0)
 const novelId = 49001
 const idFor = ordinal => 490_000 + ordinal
 const idMap = new Map(corpus.project.chapters.map((chapter, index) => [chapter.id, idFor(index + 1)]))
@@ -93,7 +94,11 @@ const errors = []
 const blockedRequests = []
 const report = {
   startedAt: new Date().toISOString(), commit: process.env.GITHUB_SHA || 'local',
-  fixture: corpus.manifest, provider: 'Local synthetic vectors and reranking; no external service or quality benchmark',
+  fixture: {
+    ...corpus.manifest, indexedChars: initialIndexedChars,
+    characterCounts: 'totalChars counts stored raw bodies; indexedChars sums the exact stripWriterHtml output for each chapter',
+  },
+  provider: 'Local synthetic vectors and reranking; no external service or quality benchmark',
   tests: [], queries: [], screenshots: [],
 }
 context.on('page', target => {
@@ -214,6 +219,7 @@ async function committedChapter(id) {
 
 async function screenshot(name) {
   const file = `${name}.png`
+  await control('evidence-quote').scrollIntoViewIfNeeded()
   await page.screenshot({ path: path.join(artifacts, file) })
   report.screenshots.push(file)
 }
@@ -276,7 +282,7 @@ try {
     await expect(control('search')).toBeEnabled()
     report.initialLoadMs = Math.round(performance.now() - started)
     await expect(control('cutoff').locator('option')).toHaveCount(600)
-    await expect(control('stats')).toContainText('1,560,000')
+    await expect(control('stats').locator('strong').nth(1)).toHaveText(initialIndexedChars.toLocaleString('zh-CN'))
     await expect(control('chapter-editor')).toHaveCount(0)
     assert.deepEqual(await storedSnapshot(), baseline, 'Indexing must preserve metadata and all 600 immutable source bodies')
   })
@@ -418,7 +424,9 @@ try {
     await expect(control('results')).not.toContainText(fact.oldValue)
     assert.equal(remote.requests.length, before)
     assert.deepEqual(await storedSnapshot(), baseline)
-    await expect(control('stats')).toContainText('600')
+    await expect(control('stats').locator('strong').nth(0)).toHaveText('600')
+    const indexedChars = [...expectedSources.values()].reduce((total, text) => total + text.length, 0)
+    await expect(control('stats').locator('strong').nth(1)).toHaveText(indexedChars.toLocaleString('zh-CN'))
     await screenshot('reloaded-persisted-revision')
   })
 
@@ -427,7 +435,7 @@ try {
     report.queryLatency = {
       count: durations.length, p50Ms: durations[Math.ceil(durations.length * 0.5) - 1],
       p95Ms: durations[Math.ceil(durations.length * 0.95) - 1], maxMs: durations.at(-1),
-      scope: 'UI click through committed source read, Worker rebuild, retrieval and rendered results; includes synthetic cold/warm provider cases',
+      scope: 'UI click through committed source read, Worker synchronization (reuse or rebuild), retrieval and rendered results; includes synthetic cold/warm provider cases',
     }
     assert.ok(report.responsiveness.visibleFrames >= 30, 'Animation-frame heartbeat must continue while the corpus is processed')
     assert.ok(report.responsiveness.longTaskMaxMs < 2000, 'No individual main-thread task may block this stress run for two seconds')
@@ -436,7 +444,10 @@ try {
     assert.deepEqual(remote.errors, [])
     assert.ok(remote.requests.every(entry => !entry.futureFact))
     assert.deepEqual(await storedSnapshot(), baseline)
-    report.persistence = { ...baseline, initialChars: corpus.manifest.totalChars }
+    report.persistence = {
+      ...baseline, initialChars: corpus.manifest.totalChars, initialIndexedChars,
+      indexedChars: [...expectedSources.values()].reduce((total, text) => total + text.length, 0),
+    }
   })
   console.log(`PASS ${report.tests.length} million-character browser stress scenarios; ${report.queries.length} searches`)
 } catch (error) {

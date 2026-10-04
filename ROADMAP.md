@@ -6,7 +6,7 @@ See [Project Structure](PROJECT_STRUCTURE.md) for the current implementation lay
 
 Completed foundations:
 
-- PR/main CI enforces zero lint warnings, type checking, production builds, 67 smoke suites and 63 real Chromium scenarios with a synthetic API.
+- PR/main CI enforces zero lint warnings, type checking, production builds, 67 smoke suites and 71 real Chromium scenarios with synthetic data/providers, including eight long-novel stress scenarios.
 - The main ruleset requires GitHub Actions `ci-quality` and `ci-browser` checks and an up-to-date branch before merging.
 - ShortStory uses isolated generation scopes for articles, stories, continuation and optimization, with cancellation/restart/clear/dialog-close/unmount coverage.
 - BookAnalysis, NovelManagement and ToolsLibrary generation use isolated scopes covering stop, source changes, dialog closure and unmount; tool progress no longer uses simulated timers.
@@ -39,7 +39,7 @@ The second batch is implemented:
 
 API settings now include persisted output ceilings and model-aware thinking controls, with actual SDK wire coverage and a settings-to-generation browser scenario. See [generation budgets](docs/generation-budgets.md).
 
-The configured regression set now contains 67 smoke suites and 63 browser scenarios. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
+The configured regression set now contains 67 smoke suites and 71 browser scenarios, with separately invoked local/hybrid memory stress workloads. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
 
 ## Feature roadmap
 
@@ -47,4 +47,4 @@ Stage 1 is implemented: opt-in assistant project tools, remote MCP connections a
 
 Stage 2 remains planned: incremental chapter persistence, million-character editing and shared chapter/volume summaries. Stage 3 is being developed independently through a bounded retrieval prototype. A bounded writing Agent follows once project tools and memory are stable. Local stdio MCP, script Skills and unattended tasks require an optional companion runtime.
 
-The isolated [stage-three retrieval prototype](docs/memory-prototype.md) combines keyword and author-clue retrieval with optional semantic embeddings and reranking. It checks chapter revisions and disclosure boundaries before external requests and evidence display, with session-only provider credentials and explicit local fallback. The local index still rebuilds each project in memory. Automatic fact relationship graphs, generation-context integration and stage-two chapter persistence remain future work.
+The isolated [stage-three retrieval prototype](docs/memory-prototype.md) combines keyword and author-clue retrieval with optional semantic embeddings and reranking. It checks chapter revisions and disclosure boundaries before external requests and evidence display, with session-only provider credentials and explicit local fallback. Unchanged validated sources can reuse their keyword index; changed sources still rebuild the project in memory. [Long-novel stress tests](docs/memory-stress-tests.md) cover up to 10.5 million characters and a separate real Jina workload, while documenting cold-start, rebuild, memory and no-answer limits. Automatic fact relationship graphs, generation-context integration and stage-two chapter persistence remain future work.
