@@ -217,7 +217,9 @@ async function renderGraph() {
       ...graph.nodes.map(node => ({ data: { id: node.id, label: node.label, type: node.type } })),
       ...graph.relations.map(relation => ({ data: { id: edgeId(relation.id), relationId: relation.id, source: factEntityId(relation.source), target: factEntityId(relation.target), label: relation.predicate, origin: relation.origin, confirmed: relation.authorConfirmed ? 'yes' : 'no' } })),
     ]
-    cy = cytoscape({ container: element, elements, style: graphStyles(), layout: { name: 'grid', padding: 40, avoidOverlap: true, condense: false }, minZoom: 0.15, maxZoom: 2.5, wheelSensitivity: 0.25 })
+    // The canvas is wide: automatic grid dimensions otherwise collapse several
+    // distinct relationships onto one row, hiding long-edge labels under nodes.
+    cy = cytoscape({ container: element, elements, style: graphStyles(), layout: { name: 'grid', cols: Math.max(1, Math.ceil(Math.sqrt(graph.nodes.length))), padding: 40, avoidOverlap: true, condense: false }, minZoom: 0.15, maxZoom: 2.5, wheelSensitivity: 0.25 })
     cy.on('tap', 'edge', event => { selectRelation(event.target.data('relationId')) })
     cy.on('tap', event => { if (event.target === cy) selectedId.value = '' })
     if (selectedId.value) cy.getElementById(edgeId(selectedId.value)).select()
