@@ -314,17 +314,22 @@ try {
       await expect(checkbox).toBeChecked()
       await reachable(options.getByRole('button', { name: '确定', exact: true }))
       await tap(options.getByRole('button', { name: '取消', exact: true }))
-      const downloaded = page.waitForEvent('download')
-      await tap(page.getByRole('button', { name: '导出所有数据', exact: true }))
-      const download = await downloaded
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        tap(page.getByRole('button', { name: '导出所有数据', exact: true })),
+      ])
       const filename = path.join(artifacts, `mobile-backup-${width}.json`)
       await download.saveAs(filename)
       const exported = JSON.parse(await readFile(filename, 'utf8'))
       assert.equal(exported.format, 'llm-writer-backup')
       const chooseBackup = async () => {
-        const chosen = page.waitForEvent('filechooser')
-        await tap(page.getByRole('button', { name: '选择备份文件', exact: true }))
-        await (await chosen).setFiles(filename)
+        // ElUpload exposes both a role=button wrapper and its native button.
+        // Exercise the actual labelled button, keeping the selector unique.
+        const [chosen] = await Promise.all([
+          page.waitForEvent('filechooser'),
+          tap(page.getByRole('button', { name: '选择备份文件', exact: true }).and(page.locator('button'))),
+        ])
+        await chosen.setFiles(filename)
       }
       await chooseBackup()
       const confirmation = page.getByRole('dialog', { name: '确认导入', exact: true })
@@ -338,9 +343,10 @@ try {
       await tap(confirmation.getByRole('button', { name: '确定', exact: true }))
       const completed = page.getByRole('dialog', { name: '导入完成', exact: true })
       await expect(completed).toBeVisible()
-      const reloaded = page.waitForEvent('load')
-      await tap(completed.getByRole('button', { name: '确定', exact: true }))
-      await reloaded
+      await Promise.all([
+        page.waitForEvent('load'),
+        tap(completed.getByRole('button', { name: '确定', exact: true })),
+      ])
       await expect(page.getByRole('tab', { name: '数据管理', exact: true })).toBeVisible()
       await navigate('记忆检索 · 原型', '/memory')
       await expect(memory('search')).toBeEnabled()
