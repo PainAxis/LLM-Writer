@@ -9,7 +9,7 @@ export const originalOldFact = '青岚把银钥匙交给沈砚，嘱咐沈砚保
 export const revisedOldFact = '青岚把铜钥匙交给沈砚，嘱咐沈砚保管到天亮，再用它打开旧仓库。'
 export const distantClue = '沈砚把一枚缺角的铜铃系在窗边，嘱咐阿宁听见三声铃响就去西渡口。'
 export const laterPremise = '沈砚多年后重回河畔，仍记得铜铃和阿宁留下的接应约定。'
-export const currentWritingText = '雨点落在桥头，沈砚望着两岸的灯火，思索如何与旧友重新取得联系。'
+export const currentWritingText = '雨点落在桥头，沈砚望着两岸的灯火，思索如何与旧友重新取得联系。街边的茶棚还亮着一盏灯，他收好湿透的行囊，慢慢走过积水的石阶，准备向店主打听附近的住处。'
 export const futureIdentity = '终局才揭晓：玄衣客的真名是顾行。密藏暗号是FUTURE-SECRET-59480，此前无人知晓。'
 export const stamp = '2026-10-09T00:00:00.000Z'
 export const fixtureTexts = new Map(Array.from({ length: 80 }, (_, index) => {

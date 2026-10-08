@@ -17,6 +17,13 @@ import {
   futureIdentity, fixtureTexts, fixtureRevision, makeWriterMemoryBackup, makeLongWriterMemoryFixture,
 } from './fixtures/writer-memory-corpus.mjs'
 
+const syntheticCompletion = '沈砚抬头望向河岸，决定先寻找一处避雨之所，再细细回想旧日的约定。远处的茶棚传来人声，他整理好行囊，沿着铺满石板的小路继续前行，直到一扇亮着灯光的木门出现在雨幕之中。'
+// Writer intentionally requires at least 50 visible characters to continue.
+// Validate both the initial body and the body committed by chapter generation.
+for (const [name, text] of [['initial current chapter', currentWritingText], ['generated current chapter', syntheticCompletion]]) {
+  assert.ok([...text.replace(/\s/g, '')].length >= 50, `${name} must meet Writer's continuation precondition`)
+}
+
 const root = fileURLToPath(new URL('../', import.meta.url))
 const artifacts = path.join(root, 'artifacts/browser-writer-memory')
 await mkdir(artifacts, { recursive: true })
@@ -32,7 +39,7 @@ const requests = []
 const requestSources = new WeakMap()
 const heldResponses = new Set()
 const fixtureErrors = []
-const providerState = { embeddings: 'ok', rerank: 'ok', model: 'ok', completion: '沈砚抬头望向河岸，决定先寻找一处避雨之所，再细细回想旧日的约定。' }
+const providerState = { embeddings: 'ok', rerank: 'ok', model: 'ok', completion: syntheticCompletion }
 let disclosedThrough = 40
 let page
 let dialog
