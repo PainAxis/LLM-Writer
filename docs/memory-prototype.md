@@ -58,7 +58,7 @@ Starting synchronization invalidates old asynchronous work before checking for r
 
 Every piece of evidence comes from the current chapter snapshot. Whole-book summaries, character settings, worldbuilding and external material are not indexed because they do not yet have item-level disclosure boundaries and source revisions. Author-provided clue labels and aliases are treated as information known at the source chapter; authors must ensure they do not contain later secrets. Automatic whole-novel clue extraction and clue-resolution inference remain future work. The separate [fact graph](memory-fact-graph.md) now provides manually created relationships and optional model proposals with its own exact-source checks and review provenance; it does not automatically add relationships to retrieval ranking.
 
-The prototype does not change the existing `writing_search` tool or generation prompts. The generation workflow therefore does not yet inherit these disclosure safeguards. Those entry points can adopt the same source-scope contract after it stabilizes.
+The standalone prototype does not change `writing_search`. The separate opt-in [Writer integration](writer-memory-context.md) now applies current-revision and disclosure gates to retrieved evidence for chapter-body generation, continuation and polishing. Manually supplied materials, outlines and other generation paths are not automatically filtered.
 
 The private demo is outside novel backups. Resetting it overwrites only that independent test copy. Local-only mode does not upload source text; enabling an external retrieval service sends the eligible query and source text described above.
 

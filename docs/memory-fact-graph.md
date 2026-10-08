@@ -34,7 +34,7 @@ Changing a source chapter's title or body invalidates every relationship anchore
 
 Project/source/cutoff changes clear outdated visible selections and pending proposals. Before a model request, only selected, validated, disclosed source excerpts are eligible. Late responses cannot restore facts from a superseded source or disclosure boundary. Future relationships, their node labels and their stored counts are not exposed through the visible graph.
 
-These checks apply to the fact graph and its extraction requests. Existing Writer generation prompts, `writing_search`, character settings and whole-book summaries do not automatically inherit this contract.
+These checks apply to the fact graph and its extraction requests. The opt-in [Writer evidence attachment](writer-memory-context.md) also validates every included premise. Existing manual prompts/materials, `writing_search`, character settings and whole-book summaries do not automatically inherit this contract.
 
 ## Optional model proposals
 

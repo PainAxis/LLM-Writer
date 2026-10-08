@@ -186,7 +186,7 @@ function resolveBaseURL(config: ApiConfig, preset: ProviderPreset): string {
  * 根据配置解析出 AI SDK 的 LanguageModel 实例。
  * custom / anthropic 使用用户自填地址，其余预设使用固定地址。
  */
-export async function resolveLanguageModel(config: ApiConfig): Promise<LanguageModel> {
+export async function resolveLanguageModel(config: ApiConfig, beforeRequest?: () => Promise<void>): Promise<LanguageModel> {
   const preset = getPreset(config.provider)
   const baseURL = resolveBaseURL(config, preset)
   const proxiedBaseURL = applyProxyPrefix(baseURL, config.proxyUrl)
@@ -196,14 +196,34 @@ export async function resolveLanguageModel(config: ApiConfig): Promise<LanguageM
   }
 
   const { createOpenAICompatible, createAnthropic, createGoogleGenerativeAI } = await loadAISDK()
+  // The SDK can retry or defer dispatch after model resolution. Revalidate at
+  // the transport boundary on every attempt, not just before lazy imports.
+  const guardedFetch: typeof fetch | undefined = beforeRequest ? async (input, init) => {
+    const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
+    signal?.throwIfAborted()
+    if (signal) {
+      let abort!: () => void
+      const aborted = new Promise<never>((_resolve, reject) => {
+        abort = () => reject(signal.reason ?? new DOMException('请求已取消', 'AbortError'))
+        signal.addEventListener('abort', abort, { once: true })
+      })
+      try {
+        // Promise.race observes a late guard rejection after cancellation, while
+        // allowing the request to stop even if its local storage read stalls.
+        await Promise.race([Promise.resolve().then(beforeRequest), aborted])
+      } finally { signal.removeEventListener('abort', abort) }
+    } else await beforeRequest()
+    signal?.throwIfAborted()
+    return globalThis.fetch(input, init)
+  } : undefined
 
   switch (preset.kind) {
     case 'anthropic': {
-      const provider = createAnthropic({ apiKey: config.apiKey, baseURL: proxiedBaseURL, headers })
+      const provider = createAnthropic({ apiKey: config.apiKey, baseURL: proxiedBaseURL, headers, fetch: guardedFetch })
       return provider.languageModel(config.selectedModel)
     }
     case 'google': {
-      const provider = createGoogleGenerativeAI({ apiKey: config.apiKey, baseURL: proxiedBaseURL, headers })
+      const provider = createGoogleGenerativeAI({ apiKey: config.apiKey, baseURL: proxiedBaseURL, headers, fetch: guardedFetch })
       return provider.languageModel(config.selectedModel)
     }
     default: {
@@ -212,6 +232,7 @@ export async function resolveLanguageModel(config: ApiConfig): Promise<LanguageM
         baseURL: proxiedBaseURL,
         apiKey: config.apiKey,
         headers,
+        fetch: guardedFetch,
         includeUsage: true,
         transformRequestBody: usesCompletionTokenLimit(config) ? ({ max_tokens, ...body }) => ({
           ...body, ...(max_tokens !== undefined ? { max_completion_tokens: max_tokens } : {}),

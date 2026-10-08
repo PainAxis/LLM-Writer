@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Add opt-in retrieval evidence to Writer chapter-body generation, continuation and polishing. Preview and approve bounded exact excerpts and graph provenance; revalidate committed revisions/disclosure before each optional provider request, model transport, completion and application. Keep semantic/rerank services off by default with route-session credentials.
+- Add cancellation/application lifecycle, provider-handshake and source/budget regressions, 13 actual Writer browser scenarios including 320px/390px touch operation, and 1.44M/10.5M-character context workloads. Synchronize [English](docs/writer-memory-context.md) and [Simplified Chinese](docs/writer-memory-context.zh-CN.md) documentation; stage-four Agent work remains deferred.
+
 - Include actual-novel fact graphs in full and novels-only backups, retaining review provenance and exact chapter/revision/quote anchors. Validate before restoration, replace paired graphs with atomic version checks, preserve legacy backups and avoid rebasing stale evidence.
 - Replace the covering mobile sidebar with a closed-by-default modal drawer, with touch dismissal, focus containment and accessible navigation. Fit Memory Lab, evidence forms and backup controls to 320px/390px screens. Add dedicated backup round-trip and actionable mobile browser acceptance; see the matching [English](docs/graph-backup-mobile.md) and [Simplified Chinese](docs/graph-backup-mobile.zh-CN.md) notes.
 

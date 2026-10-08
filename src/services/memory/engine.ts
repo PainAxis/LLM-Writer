@@ -456,7 +456,7 @@ export class MemoryIndex {
     return copyStats(stats)
   }
 
-  async search(query: MemoryQuery, options?: MemoryRemoteOptions): Promise<MemorySearchResult> {
+  async search(query: MemoryQuery, options?: MemoryRemoteOptions, beforeRemote?: () => Promise<void>): Promise<MemorySearchResult> {
     this.searchController?.abort()
     const sequence = ++this.searchSequence
     const controller = new AbortController()
@@ -493,6 +493,18 @@ export class MemoryIndex {
     const assertRemoteReady = () => {
       assertCurrent()
       if (controller.signal.aborted) throw new Error('远程检索时间预算已用完。')
+    }
+    let sourceGuardFailed = false
+    const beforeRemoteRequest = async () => {
+      assertRemoteReady()
+      try {
+        await beforeRemote?.()
+        assertRemoteReady()
+      } catch {
+        sourceGuardFailed = true
+        controller.abort()
+        throw new Error('已保存稿件或关系标注已改变，已阻止远程检索，请重新预览。')
+      }
     }
     const timer = embeddingInput || rerankInput
       ? setTimeout(() => controller.abort(), REMOTE_BUDGET_MS) : undefined
@@ -558,7 +570,7 @@ export class MemoryIndex {
                 } else missing.push(record)
               }
               for (let start = 0; start < missing.length; start += EMBEDDING_BATCH_SIZE) {
-                assertRemoteReady()
+                await beforeRemoteRequest()
                 const batch = missing.slice(start, start + EMBEDDING_BATCH_SIZE)
                 // Recheck immediately before every outbound batch, never send undisclosed chapter text.
                 if (!batch.every(record => isAllowed(record, ready, cutoff))) throw new Error('稿件依据失效。')
@@ -573,7 +585,7 @@ export class MemoryIndex {
                   diagnostics.embeddedPassages++
                 }
               }
-              assertRemoteReady()
+              await beforeRemoteRequest()
               const queryVectors = await embedMemoryTexts(config, [text], 'retrieval.query', controller.signal)
               assertCurrent()
               assertRemoteReady()
@@ -586,6 +598,7 @@ export class MemoryIndex {
               diagnostics.semantic = 'used'
             }
           } catch {
+            if (sourceGuardFailed) throw new Error('稿件依据校验失败，已阻止远程检索，请重新预览。')
             assertCurrent()
             diagnostics.semantic = 'fallback'
             diagnostics.warnings.push('语义检索不可用或超时，已保留本地关键词和伏笔结果。')
@@ -600,7 +613,7 @@ export class MemoryIndex {
           const candidates = ranked.slice(0, MAX_RERANK_CANDIDATES)
             .map(([id]) => ready.evidence.get(id)!)
             .filter(record => isAllowed(record, ready, cutoff))
-          assertRemoteReady()
+          await beforeRemoteRequest()
           const returned = await rerankMemoryTexts(config, text, candidates.map(record => record.quote), controller.signal)
           assertCurrent()
           assertRemoteReady()
@@ -620,6 +633,7 @@ export class MemoryIndex {
           diagnostics.rerank = 'used'
           diagnostics.rerankedCandidates = returned.length
         } catch {
+          if (sourceGuardFailed) throw new Error('稿件依据校验失败，已阻止远程检索，请重新预览。')
           assertCurrent()
           diagnostics.rerank = 'fallback'
           diagnostics.warnings.push('重排不可用或超时，已保留融合检索顺序。')

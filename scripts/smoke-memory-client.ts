@@ -102,6 +102,44 @@ try {
   assert.deepEqual(await replacementSync, stats, 'late error events from disposed workers must not reject the replacement request')
   assert.equal(replacement.terminated, false)
 
+  let releaseGuard!: () => void
+  let guardCalls = 0
+  const guarded = client.search(query, undefined, async () => {
+    guardCalls++
+    await new Promise<void>(resolve => { releaseGuard = resolve })
+  })
+  const guardedId = replacement.last().id
+  assert.equal((replacement.last() as { guardRemote?: boolean }).guardRemote, true)
+  replacement.deliver({ id: guardedId, ok: true, type: 'remote-check', guardId: 101 })
+  assert.equal(guardCalls, 1)
+  assert.equal(replacement.last().type, 'search', 'Provider approval waits for committed-source verification')
+  releaseGuard()
+  await new Promise<void>(resolve => queueMicrotask(resolve))
+  assert.deepEqual(replacement.last(), { id: guardedId, type: 'remote-ack', guardId: 101, ok: true })
+  replacement.deliver({ id: guardedId, ok: true, type: 'search', result })
+  await guarded
+
+  const denied = client.search(query, undefined, async () => { throw new Error('PRIVATE_SOURCE_OR_CREDENTIAL') })
+  const deniedId = replacement.last().id
+  replacement.deliver({ id: deniedId, ok: true, type: 'remote-check', guardId: 102 })
+  await new Promise<void>(resolve => queueMicrotask(resolve))
+  assert.deepEqual(replacement.last(), { id: deniedId, type: 'remote-ack', guardId: 102, ok: false })
+  assert.ok(!JSON.stringify(replacement.messages).includes('PRIVATE_SOURCE_OR_CREDENTIAL'))
+  replacement.deliver({ id: deniedId, ok: false, error: 'source guard denied' })
+  await assert.rejects(denied, /source guard denied/)
+
+  const superseded = client.search(query, undefined, async () => { await new Promise<void>(resolve => { releaseGuard = resolve }) })
+  const supersededId = replacement.last().id
+  replacement.deliver({ id: supersededId, ok: true, type: 'remote-check', guardId: 103 })
+  const supersededRejection = assert.rejects(superseded, /来源已改变/)
+  client.invalidateSource()
+  const messageCount = replacement.messages.length
+  releaseGuard()
+  await new Promise<void>(resolve => queueMicrotask(resolve))
+  await supersededRejection
+  assert.equal(replacement.messages.length, messageCount, 'A stale approval cannot acknowledge an invalidated request')
+  console.log('✓ Every remote dispatch awaits a live source guard; denials carry no private payload and superseded approvals are discarded')
+
   const pendingAtDispose = client.search(query)
   const disposalRejection = assert.rejects(pendingAtDispose, /已关闭/)
   client.dispose()

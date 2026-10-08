@@ -2,9 +2,10 @@
   <el-dialog
     v-model="visible"
     title="AI生成章节内容"
-    width="1200px"
+    width="min(1200px, calc(100vw - 24px))"
     @close="visible = false"
   >
+    <slot name="memory-context" />
     <div class="chapter-generate-content">
       <div class="generate-config-section">
         <el-card shadow="hover" class="config-card-modern">
@@ -1153,5 +1154,18 @@ const cleanHtmlForPreview = cleanChapterContentPreview
   word-wrap: break-word;
   background-color: var(--el-fill-color-light);
   border-radius: 6px;
+}
+
+@media (max-width: 760px) {
+  .chapter-generate-content { max-height: none; overflow: visible; }
+  .chapter-generate-content :deep(.el-col) { flex: 0 0 100%; max-width: 100%; margin-bottom: 14px; }
+  .chapter-generate-content :deep(.el-card__body), .chapter-generate-content :deep(.el-card__header) { padding: 12px; }
+  .chapter-generate-content :deep(.el-form-item) { display: flex; flex-direction: column; align-items: stretch; }
+  .chapter-generate-content :deep(.el-form-item__label) { justify-content: flex-start; }
+  .chapter-generate-content :deep(.el-form-item__content) { min-width: 0; margin-left: 0 !important; }
+  .config-header, .config-left, .section-header, .tab-header, .dialog-footer, .action-buttons { flex-wrap: wrap; gap: 8px; }
+  .materials-section, .prompt-section { height: auto; }
+  .materials-grid, .category-grid { grid-template-columns: minmax(0, 1fr); }
+  .dialog-footer .el-button, .action-buttons .el-button { min-height: 44px; margin-left: 0; }
 }
 </style>

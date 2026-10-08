@@ -1,5 +1,6 @@
 <template>
-  <el-dialog v-model="visible" title="AI文本润色" width="1200px" @close="emit('close')">
+  <el-dialog v-model="visible" title="AI文本润色" width="min(1200px, calc(100vw - 24px))" @close="emit('close')">
+    <slot name="memory-context" />
     <div class="new-optimize-container">
       <el-row :gutter="20">
         <!-- 左侧：配置区域 -->
@@ -401,5 +402,14 @@ const emit = defineEmits<{
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .new-optimize-container { max-height: none; overflow: visible; }
+  .new-optimize-container :deep(.el-col) { flex: 0 0 100%; max-width: 100%; margin-bottom: 14px; }
+  .optimize-config-card, .optimize-result-card { height: auto; }
+  .optimize-config-card :deep(.el-card__body), .optimize-result-card :deep(.el-card__body) { padding: 12px; }
+  .card-header, .result-stats, .streaming-header, .dialog-footer { flex-wrap: wrap; gap: 8px; }
+  .dialog-footer .el-button { min-height: 44px; margin-left: 0; }
 }
 </style>

@@ -134,6 +134,7 @@ class APIService {
   // ============ 非流式请求 ============
 
   async generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
+    const beforeRequest = options.beforeRequest
     this.assertConfigReady()
     const config = this.getConfig()
     let promptForEstimate = [options.system ?? '', ...(options.messages?.length
@@ -159,6 +160,7 @@ class APIService {
       }
       const model = await resolveLanguageModel(
         effectiveModel === config.selectedModel ? config : { ...config, selectedModel: effectiveModel },
+        beforeRequest,
       )
       this.throwIfAborted(signal)
       const result = await generateText({
@@ -203,6 +205,7 @@ class APIService {
   // ============ 流式请求 ============
 
   async generateTextStream(prompt: string, options: GenerateOptions = {}, onChunk: StreamCallback | null = null): Promise<string> {
+    const beforeRequest = options.beforeRequest
     this.assertConfigReady()
     const config = this.getConfig()
 
@@ -241,6 +244,7 @@ class APIService {
       }
       const model = await resolveLanguageModel(
         effectiveModel === config.selectedModel ? config : { ...config, selectedModel: effectiveModel },
+        beforeRequest,
       )
       this.throwIfAborted(abortSignal)
 

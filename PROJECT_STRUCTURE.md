@@ -57,6 +57,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/components/writer/dialogs/` | Generation, editing and prompt-selection dialogs |
 | `src/composables/useWriterProject.ts` | Project loading, chapter switching, autosave and persistence retry |
 | `src/composables/useWriterGenerationArbiter.ts` | Coordinate AI operation ownership and persistence barriers |
+| `src/composables/useWriterMemoryContext.ts`, `src/composables/writerMemoryStream.ts`, `src/components/writer/WriterMemoryContext.vue`, `src/services/memory/writerContext.ts` | Opt-in evidence preview/approval, generation/application guards and bounded source context; [contract and tests](docs/writer-memory-context.md) |
 | `src/composables/useChapterContentWorkspace.ts` | Chapter-content dialog state, selected materials and generation context |
 | `src/composables/` | Separate Writer controllers for CRUD, continuation, polishing, generation and prompt orchestration |
 | `src/utils/writer/`, `src/types/writer.ts` | Prompt/parsing helpers and shared Writer contracts |
@@ -78,11 +79,12 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The configured CI validation set contains 72 sequential smoke suites and 88 Chromium scenarios with synthetic data and API responses, including nine long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
+- The configured CI validation set contains 76 sequential smoke suites and 127 Chromium scenarios with synthetic data and API responses, including nine long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
 - [Long-novel memory stress tests](docs/memory-stress-tests.md): `ci-memory-stress` runs local capacity and controlled HTTP providers; `ci-memory-browser-stress` separately runs persisted browser editing. Paid Jina workloads are optional. Reusable fixtures are under `scripts/fixtures/`, with reviewed reports under `docs/testing/`.
 - Memory increment regressions: `smoke:memory-incremental` and `smoke:memory-client`; repeated-edit/focus-return checks extend the existing stress scripts.
 - Fact graph regressions: `smoke:memory-fact-graph`, `smoke:memory-fact-store`, `smoke:memory-fact-extraction` and `test:browser-memory-fact-graph`; [source contract and limits](docs/memory-fact-graph.md).
 - Graph backup and mobile regressions: `smoke:graph-backup`, `test:browser-graph-backup` and `test:browser-mobile`; [portable source evidence and narrow-screen behavior](docs/graph-backup-mobile.md).
+- Writer memory regressions: `smoke:writer-memory`, `smoke:memory-remote-guard`, `smoke:writer-memory-lifecycle`; `ci-writer-memory` runs 14 browser flows plus 1.44M/10.5M-character stress profiles.
 - Other suites: `smoke:generation-budget`, `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.

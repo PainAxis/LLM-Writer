@@ -1,0 +1,48 @@
+{
+  "measuredAt": "2026-10-08",
+  "method": "Single local run per isolated Node process; warm timings use the 24 exact-identifier preparations immediately after cold preparation.",
+  "profiles": [
+    {
+      "profile": "million",
+      "chars": 1440000,
+      "chapters": 600,
+      "relations": 1801,
+      "cases": 11,
+      "preparations": 68,
+      "evidenceChecks": 384,
+      "coldMs": 8546.342,
+      "warmP50Ms": 94.965,
+      "warmP95Ms": 110.795,
+      "defaultBudgetMaximumChars": 5930,
+      "processMaxRssMiB": 878.074,
+      "mixedQuerySummary": {
+        "questions": 24,
+        "passageHits": 0,
+        "graphEvidenceHits": 24
+      },
+      "externalRequests": 0,
+      "mockedProviderRequests": 1
+    },
+    {
+      "profile": "ten-million",
+      "chars": 10500000,
+      "chapters": 2500,
+      "relations": 7501,
+      "cases": 11,
+      "preparations": 68,
+      "evidenceChecks": 394,
+      "coldMs": 61011.686,
+      "warmP50Ms": 614.038,
+      "warmP95Ms": 701.064,
+      "defaultBudgetMaximumChars": 5996,
+      "processMaxRssMiB": 2052.527,
+      "mixedQuerySummary": {
+        "questions": 24,
+        "passageHits": 24,
+        "graphEvidenceHits": 24
+      },
+      "externalRequests": 0,
+      "mockedProviderRequests": 1
+    }
+  ]
+}
