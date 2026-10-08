@@ -95,3 +95,48 @@ export function makeLongWriterMemoryFixture(apiBaseURL) {
     disclosedChapters: 599, disclosedChars: [...texts.values()].slice(0, 599).reduce((total, text) => total + text.length, 0),
   } }
 }
+
+export const mixedMemoryProbe = {
+  chapterNumber: 3,
+  query: '白银封蜡wx-314_a',
+  revisedQuery: '赤铜封蜡rv-827_b',
+  identifier: 'WX-314_A',
+  revisedIdentifier: 'RV-827_B',
+  quote: '旧账只记了一句：青岚交出编号为WX-314_A的封印，沈砚在西渡口签收。',
+  revisedQuote: '旧账只记了一句：青岚交出编号为RV-827_B的封印，沈砚在西渡口签收。',
+  futureQuote: '直到终局才公开：白银封蜡WX-314_A，赤铜封蜡RV-827_B，真正的接应人在南塔密室等候。',
+}
+
+/** Unannotated source plus lexical decoys: graph lookup cannot rescue this fact. */
+export function makeMixedWriterMemoryFixture(apiBaseURL, { long = false } = {}) {
+  const initial = long ? makeLongWriterMemoryFixture(apiBaseURL) : { backup: makeWriterMemoryBackup(apiBaseURL), texts: new Map(fixtureTexts) }
+  const texts = new Map(initial.texts)
+  texts.set(mixedMemoryProbe.chapterNumber, mixedMemoryProbe.quote)
+  for (let number = 4; number <= 38; number++) {
+    // These share query words and identifier prefixes, but never the complete ID.
+    const decoy = `白银封蜡WX-314_A${number}，赤铜封蜡RV-827_B${number}。白银封蜡和赤铜封蜡是商队反复提起的物件，这些封蜡属于另一座仓库，不能代替旧账里的登记。`
+    texts.set(number, long ? (decoy + texts.get(number)).slice(0, 2400) : decoy)
+  }
+  texts.set(79, mixedMemoryProbe.futureQuote)
+  // A strong future match must not crowd out the disclosed source. Keep the
+  // original chapter80 and all four graph anchors entirely unchanged.
+  const order = long ? [...texts.keys()].filter(number => number !== 79 && number !== 80).concat(79, 80) : [...texts.keys()]
+  const orderedTexts = new Map(order.map(number => [number, texts.get(number)]))
+  const novel = initial.backup.data.novels[0]
+  const originals = new Map(novel.chapterList.map(chapter => [chapter.id, chapter]))
+  novel.chapterList = [...orderedTexts].map(([number, text]) => ({
+    ...originals.get(chapterIdAt(number)), content: `<p>${text}</p>`, wordCount: text.length,
+  }))
+  novel.wordCount = novel.totalWords = [...orderedTexts.values()].reduce((total, text) => total + text.length, 0)
+  const targetSourceChapterNumber = long ? 600 : 40
+  const disclosedChapters = order.indexOf(targetSourceChapterNumber) + 1
+  return { backup: initial.backup, texts: orderedTexts, manifest: {
+    chapters: novel.chapterList.length, sourceChars: novel.wordCount,
+    serializedNovelChars: JSON.stringify(initial.backup.data.novels).length,
+    expectedSplitChapters: novel.chapterList.filter(chapter => chapter.content.length > 2000).length,
+    targetSourceChapterNumber, targetChapterId: chapterIdAt(targetSourceChapterNumber),
+    futureChapterId: chapterIdAt(80), futureNarrativeOrdinal: order.indexOf(80) + 1,
+    mixedFutureChapterId: chapterIdAt(79), mixedFutureNarrativeOrdinal: order.indexOf(79) + 1,
+    disclosedChapters, disclosedChars: [...orderedTexts.values()].slice(0, disclosedChapters).reduce((total, text) => total + text.length, 0),
+  } }
+}
