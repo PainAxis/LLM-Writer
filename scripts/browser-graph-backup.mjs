@@ -222,6 +222,10 @@ try {
     await graph('extract').click()
     await expect(graph('accept-0')).toBeVisible()
     await graph('accept-0').click()
+    // Saving is asynchronous and resets the query before selecting the saved
+    // relation. Wait for that completed UI transition before starting a search.
+    await expect(graph('accept-0')).toHaveCount(0)
+    await expect(graph('evidence')).toContainText(predicates.inference)
     await choose(predicates.inference)
     await expect(graph('provenance')).toContainText('模型推断')
     await graph('confirm').click()
