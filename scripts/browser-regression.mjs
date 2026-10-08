@@ -1057,6 +1057,9 @@ try {
       chapterList: [{ id: id + 1, title: '第一章', content: '初始正文', status: 'draft', tags: [], wordCount: 4, createdAt: timestamp, updatedAt: timestamp }],
     })
     fixture.data.novels = [makeNovel(23001, '跨页作品甲'), makeNovel(23011, '跨页作品乙')]
+    // These are new projects, so the exported old project's graph sidecar
+    // cannot accompany them. An explicit empty bundle pairs the new novels.
+    fixture.data.factGraphs = []
     await importBackup({ name: 'multitab-novels.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fixture)) })
     const first = await context.newPage()
     const second = await context.newPage()
