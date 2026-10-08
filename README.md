@@ -20,6 +20,7 @@
 ## 🚀 Features
 
 - **Fact relationship graph**: Cytoscape.js displays people, events, objects and places, with clickable chapter/revision/quote evidence. Create and review source-anchored relationships, distinguish explicit statements, model inference and author confirmation, and optionally request model proposals from selected disclosed excerpts. Old revisions and future evidence are excluded from the visible graph. See [graph scope and walkthrough](docs/memory-fact-graph.md).
+- **Writer memory evidence**: Opt in for chapter-body generation, continuation or polishing, select a disclosure cutoff, then preview and approve exact excerpts before generation. Sources are rechecked before transport, completion and application. Embeddings and reranking require separate explicit enablement with route-session credentials. See [Writer retrieval context](docs/writer-memory-context.md).
 - **Memory retrieval prototype**: Orama keyword and author-marked clue retrieval, optional semantic embeddings and reranking, chapter revision checks, disclosure cutoffs before external requests, and source evidence. Changed chapters update incrementally; returning from a Writer tab can reuse compatible cached vectors after fresh source validation. External services are off by default; their settings and keys stay in the page session. Open **记忆检索 · 原型** in the sidebar; see [scope and walkthrough](docs/memory-prototype.md).
 
 ### Writing Workbench
@@ -105,6 +106,11 @@ npm run smoke:tools-workspace         # Actual tool handlers, selected IDs and t
 npm run smoke:book-import             # TXT/DOCX parsing, encodings and local chapter splitting
 npm run smoke:backup                  # v2/legacy backups, validation, restore and rollback
 npm run smoke:graph-backup            # Graph round-trip, disclosure and conditional restore failures
+npm run smoke:writer-memory          # Source, budget and optional-provider boundaries
+npm run smoke:memory-remote-guard     # Per-request Worker freshness handshake
+npm run smoke:writer-memory-lifecycle # Preparation, cancellation and application
+npm run test:browser-writer-memory   # Three Writer paths and narrow-screen requests
+npm run test:writer-memory-stress    # 1.44M/10.5M-character context workloads
 npm run smoke:bundle                  # In-memory production build: home and feature dependency graphs
 npm run smoke:corpus                  # Keyword retrieval, scoring and injection budgets
 npm run smoke:corpus-transfer         # Legacy/portable files, validation and collision preservation

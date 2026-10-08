@@ -122,9 +122,11 @@ export interface MemorySearchResult {
 export type MemoryWorkerRequest =
   | { id: number; type: 'invalidate' }
   | { id: number; type: 'sync'; project: MemoryProjectInput }
-  | { id: number; type: 'search'; query: MemoryQuery; options?: MemoryRemoteOptions }
+  | { id: number; type: 'search'; query: MemoryQuery; options?: MemoryRemoteOptions; guardRemote?: boolean }
+  | { id: number; type: 'remote-ack'; guardId: number; ok: boolean }
 
 export type MemoryWorkerResponse =
+  | { id: number; ok: true; type: 'remote-check'; guardId: number }
   | { id: number; ok: true; type: 'sync'; result: MemoryIndexStats }
   | { id: number; ok: true; type: 'search'; result: MemorySearchResult }
   | { id: number; ok: false; error: string }

@@ -11,6 +11,7 @@ export class MemoryClient {
     resolve: (value: MemoryIndexStats | MemorySearchResult) => void
     reject: (error: Error) => void
     timeout: ReturnType<typeof setTimeout>
+    beforeRemote?: () => Promise<void>
   }>()
 
   private rejectPending(message: string): void {
@@ -29,6 +30,16 @@ export class MemoryClient {
       const message = event.data
       const pending = this.pending.get(message.id)
       if (!pending) return
+      if (message.ok && message.type === 'remote-check') {
+        void (async () => {
+          let ok = false
+          try { if (pending.beforeRemote) { await pending.beforeRemote(); ok = true } } catch { /* Deny without sending source/error payloads. */ }
+          if (this.worker !== worker || this.pending.get(message.id) !== pending) return
+          try { worker.postMessage({ id: message.id, type: 'remote-ack', guardId: message.guardId, ok } satisfies MemoryWorkerRequest) }
+          catch { this.invalidateSource() }
+        })()
+        return
+      }
       clearTimeout(pending.timeout)
       this.pending.delete(message.id)
       if (message.ok) pending.resolve(message.result)
@@ -44,7 +55,9 @@ export class MemoryClient {
     return worker
   }
 
-  private request(message: Exclude<MemoryWorkerRequest, { type: 'invalidate' }>): Promise<MemoryIndexStats | MemorySearchResult> {
+  private request(
+    message: Extract<MemoryWorkerRequest, { type: 'sync' | 'search' }>, beforeRemote?: () => Promise<void>,
+  ): Promise<MemoryIndexStats | MemorySearchResult> {
     return new Promise((resolve, reject) => {
       const worker = this.ensureWorker()
       const timeout = setTimeout(() => {
@@ -52,7 +65,7 @@ export class MemoryClient {
         worker.terminate()
         if (this.worker === worker) this.worker = null
       }, 90_000)
-      this.pending.set(message.id, { resolve, reject, timeout })
+      this.pending.set(message.id, { resolve, reject, timeout, beforeRemote })
       try {
         // Vue reactive proxies cannot be passed to structuredClone/postMessage.
         worker.postMessage(JSON.parse(JSON.stringify(message)))
@@ -85,9 +98,9 @@ export class MemoryClient {
     }
   }
 
-  async search(query: MemoryQuery, options?: MemoryRemoteOptions): Promise<MemorySearchResult> {
+  async search(query: MemoryQuery, options?: MemoryRemoteOptions, beforeRemote?: () => Promise<void>): Promise<MemorySearchResult> {
     this.rejectPending('已开始新的检索，之前的请求已取消')
-    return await this.request({ id: ++this.sequence, type: 'search', query, options }) as MemorySearchResult
+    return await this.request({ id: ++this.sequence, type: 'search', query, options, ...(beforeRemote ? { guardRemote: true } : {}) }, beforeRemote) as MemorySearchResult
   }
 
   dispose(): void {

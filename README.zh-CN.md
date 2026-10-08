@@ -20,6 +20,7 @@
 ## 🚀 主要功能
 
 - **事实关系图**：用 Cytoscape.js 展示人物、事件、物件和地点，点击关系查看章节、修订版本与原文片段；可创建、审阅有原文依据的关系，区分原文明示、模型推断与作者确认，并可选从已选且已披露的片段请求模型提议。过期修订与未来依据不会进入可见图谱。见[图谱范围与试用说明](docs/memory-fact-graph.zh-CN.md)。
+- **写作记忆依据**：章节正文生成、续写与润色可主动启用检索，选择披露截止章，预览并核对精确原文后加入生成上下文；发送、生成完成及应用前重新校验修订。嵌入与重排分别主动启用，凭据仅留当前页面。见[写作检索上下文](docs/writer-memory-context.zh-CN.md)。
 - **记忆检索原型**：Orama 关键词与人工伏笔召回、可选语义嵌入与重排、章节版本校验、外部请求前的披露范围过滤，以及依据面板。修改章节可增量更新，从 Writer 标签页返回后经重新验证来源，可复用兼容缓存向量。外部服务默认关闭，设置与密钥仅保留在页面会话中。入口为侧栏“记忆检索 · 原型”；[试用与范围说明](docs/memory-prototype.zh-CN.md)。
 
 ### 创作工作台
@@ -105,6 +106,11 @@ npm run smoke:tools-workspace         # 实际工具流程、所选身份与模�
 npm run smoke:book-import             # TXT/DOCX 解析、编码与本地分章
 npm run smoke:backup                  # v2/旧版备份、校验、恢复与回滚
 npm run smoke:graph-backup            # 图谱往返、披露隔离与条件恢复失败
+npm run smoke:writer-memory          # 来源、预算与可选服务边界
+npm run smoke:memory-remote-guard     # Worker 外部请求逐次核验
+npm run smoke:writer-memory-lifecycle # 准备、取消与应用生命周期
+npm run test:browser-writer-memory   # 三个写作入口和窄屏真实请求
+npm run test:writer-memory-stress    # 144万／1050万字符上下文压力
 npm run smoke:bundle                  # 内存生产构建，检查首页与功能依赖图
 npm run smoke:corpus                  # 关键词检索、评分与注入预算
 npm run smoke:corpus-transfer         # 旧版/独立语料文件、校验与冲突保留

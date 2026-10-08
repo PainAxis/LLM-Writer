@@ -2,10 +2,11 @@
   <el-dialog
     v-model="visible"
     title="AI智能续写"
-    width="1000px"
+    width="min(1000px, calc(100vw - 24px))"
     top="5vh"
     @close="emit('close')"
   >
+    <slot name="memory-context" />
     <div class="new-continue-container">
       <el-row :gutter="20" style="height: 100%">
         <!-- 左侧：配置区域 -->
@@ -314,5 +315,16 @@ const emit = defineEmits<{
   100% {
     opacity: 0;
   }
+}
+
+@media (max-width: 760px) {
+  .new-continue-container { height: auto; max-height: none; }
+  .new-continue-container :deep(.el-row), .new-continue-container :deep(.el-col) { height: auto !important; }
+  .new-continue-container :deep(.el-col) { flex: 0 0 100%; max-width: 100%; margin-bottom: 14px; }
+  .continue-config-card, .continue-result-card { height: auto; }
+  .card-header, .result-stats, .streaming-header { flex-wrap: wrap; gap: 8px; }
+  .dialog-footer { flex-wrap: wrap; gap: 8px; }
+  .dialog-footer .el-button { min-height: 44px; margin-left: 0; }
+  .continue-config-card :deep(.el-card__body), .continue-result-card :deep(.el-card__body) { padding: 12px; }
 }
 </style>

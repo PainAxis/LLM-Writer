@@ -101,7 +101,12 @@
     "smoke:memory-fact-store": "node --import tsx scripts/smoke-memory-fact-store.ts",
     "test:browser-graph-backup": "node scripts/browser-graph-backup.mjs",
     "test:browser-mobile": "node scripts/browser-mobile-regression.mjs",
-    "smoke:graph-backup": "node --import tsx scripts/smoke-graph-backup.ts"
+    "smoke:graph-backup": "node --import tsx scripts/smoke-graph-backup.ts",
+    "smoke:writer-memory": "node --import tsx scripts/smoke-writer-memory.ts",
+    "smoke:memory-remote-guard": "node --import tsx scripts/smoke-memory-remote-guard.ts",
+    "smoke:writer-memory-lifecycle": "node --import tsx scripts/smoke-writer-memory-lifecycle.ts",
+    "test:browser-writer-memory": "node scripts/browser-writer-memory.mjs",
+    "test:writer-memory-stress": "node --expose-gc --import tsx scripts/stress-writer-memory.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

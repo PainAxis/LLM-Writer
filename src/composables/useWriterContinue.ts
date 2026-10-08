@@ -26,6 +26,8 @@ interface WriterContinueOptions {
   hasUnsavedChanges: Ref<boolean>
   ensureApiReady: () => boolean
   saveCurrentChapter: () => Promise<boolean>
+  /** Revalidate optional source evidence immediately before the first editor mutation. */
+  beforeApply?: () => Promise<void>
   describeGenre: (genre: string | undefined) => string
   notify: ContinueNotifications
   writeText: (text: string) => Promise<void>
@@ -241,13 +243,19 @@ ${options.characters.value.map(character => `- ${character.name}：${character.p
     }
 
     const operation = lifecycle
-    if (!contentApplied) {
+    const applyContent = () => {
       options.content.value += `\n${formatGeneratedBody(stream.streamingContent.value)}`
       options.hasUnsavedChanges.value = true
       contentApplied = true
     }
+    if (!contentApplied && !options.beforeApply) applyContent()
 
     return trackCommit(async () => {
+      if (!contentApplied) {
+        await options.beforeApply?.()
+        if (operation !== lifecycle || !sourceIsCurrent()) return false
+        applyContent()
+      }
       if (!(await options.saveCurrentChapter())) return false
       if (operation !== lifecycle || !sourceIsCurrent()) return false
       options.notify.success('续写内容已追加到文章')

@@ -33,6 +33,8 @@ interface WriterOptimizeOptions {
   availablePrompts: Readonly<Ref<PromptTemplate[]>>
   ensureApiReady: () => boolean
   saveCurrentChapter: () => Promise<boolean>
+  /** Runs after any replace-confirmation dialog and before the first mutation. */
+  beforeApply?: () => Promise<void>
   confirmFullReplace: () => Promise<unknown>
   notify: OptimizeNotifications
   writeText: (text: string) => Promise<void>
@@ -258,6 +260,8 @@ export function useWriterOptimize(options: WriterOptimizeOptions) {
     return trackCommit(async () => {
       try {
         if (!contentApplied) {
+          if (options.beforeApply) await options.beforeApply()
+          if (operation !== lifecycle || !sourceIsCurrent()) return false
           const currentSelection = options.editor.readSelection().trim()
           if (!currentSelection || currentSelection !== form.value.originalContent.trim()) {
             options.notify.warning('原选择内容已变化，请重新选择要替换的文本')
@@ -301,6 +305,8 @@ export function useWriterOptimize(options: WriterOptimizeOptions) {
           fullReplaceConfirmed = true
         }
         if (!contentApplied) {
+          if (options.beforeApply) await options.beforeApply()
+          if (operation !== lifecycle || !sourceIsCurrent()) return false
           const chapter = options.currentChapter.value
           if (!chapter) return false
           options.content.value = formatGeneratedContent(form.value.optimizedContent, chapter.title)

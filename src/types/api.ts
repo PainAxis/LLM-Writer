@@ -45,6 +45,8 @@ export interface GenerateOptions {
   temperature?: number
   type?: string
   signal?: AbortSignal
+  /** Internal request-local source guard, run at every HTTP dispatch including SDK retries. */
+  beforeRequest?: () => Promise<void>
   /** 系统提示词（人设）；提供时作为顶层 system 参数发送 */
   system?: string
   /** 多轮消息；提供时优先于 prompt 作为对话载荷 */

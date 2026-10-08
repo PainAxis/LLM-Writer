@@ -242,7 +242,23 @@
       @auto-fill-variables="autoFillVariables"
       @copy-prompt="copyPrompt"
       @create-prompt="createPromptForCategory"
-    />
+    >
+      <template #memory-context>
+        <WriterMemoryContext
+          v-if="showChapterGenerateDialog"
+          v-bind="writerMemoryState"
+          v-model:enabled="writerMemoryState.enabled"
+          v-model:query="writerMemoryState.query"
+          v-model:cutoff-id="writerMemoryState.cutoffId"
+          v-model:providers="writerMemoryState.providers"
+          :chapters="writerMemoryChapters"
+          :disabled="isGeneratingContent"
+          @search="writerMemory.search"
+          @cancel="writerMemory.cancel"
+          @approve="writerMemory.approve"
+        />
+      </template>
+    </ChapterGenerateDialog>
 
     <!-- 批量生成角色对话框 -->
     <BatchCharacterGenerateDialog
@@ -337,7 +353,23 @@
       @start="startNewOptimize"
       @apply-selection="replaceSelectedContent"
       @apply-full="replaceFullContent"
-    />
+    >
+      <template #memory-context>
+        <WriterMemoryContext
+          v-if="showNewOptimizeDialog"
+          v-bind="writerMemoryState"
+          v-model:enabled="writerMemoryState.enabled"
+          v-model:query="writerMemoryState.query"
+          v-model:cutoff-id="writerMemoryState.cutoffId"
+          v-model:providers="writerMemoryState.providers"
+          :chapters="writerMemoryChapters"
+          :disabled="isOptimizeStreaming || isApplyingOptimize"
+          @search="writerMemory.search"
+          @cancel="writerMemory.cancel"
+          @approve="writerMemory.approve"
+        />
+      </template>
+    </OptimizeDialog>
 
     <!-- 新的AI续写对话框 -->
     <ContinueDialog
@@ -354,7 +386,23 @@
       @stop="stopContinueStreaming"
       @start="startNewContinue"
       @append="appendContinueContent"
-    />
+    >
+      <template #memory-context>
+        <WriterMemoryContext
+          v-if="showNewContinueDialog"
+          v-bind="writerMemoryState"
+          v-model:enabled="writerMemoryState.enabled"
+          v-model:query="writerMemoryState.query"
+          v-model:cutoff-id="writerMemoryState.cutoffId"
+          v-model:providers="writerMemoryState.providers"
+          :chapters="writerMemoryChapters"
+          :disabled="isContinueStreaming || isAppendingContinue"
+          @search="writerMemory.search"
+          @cancel="writerMemory.cancel"
+          @approve="writerMemory.approve"
+        />
+      </template>
+    </ContinueDialog>
   </div>
 </template>
 
@@ -404,6 +452,9 @@ import EventPanel from '@/components/writer/panels/EventPanel.vue'
 import WorldviewPanel from '@/components/writer/panels/WorldviewPanel.vue'
 const WriterEditor = defineAsyncComponent(() => import('@/components/writer/WriterEditor.vue'))
 import { useAIStream } from '@/composables/useAIStream'
+import { useWriterMemoryContext } from '@/composables/useWriterMemoryContext'
+import { createWriterMemoryStream } from '@/composables/writerMemoryStream'
+import WriterMemoryContext from '@/components/writer/WriterMemoryContext.vue'
 import { useApiConfig } from '../services/apiConfig'
 import { useNovelStore } from '../stores/novel'
 import { parseChapterResponse } from '../utils/chapterParser'
@@ -429,6 +480,15 @@ const {
 } = useWriterProject({ novelStore, notifyError: message => ElMessage.error(message) })
 const { activeConfig } = useApiConfig()
 const generatedMaterialImport = { owner: '' }
+const memoryTargetChapter = shallowRef<WriterChapter | null>(null)
+const writerMemory = useWriterMemoryContext({
+  currentNovel, chapters, currentChapter, targetChapter: memoryTargetChapter, content, saveCurrentChapter,
+})
+const writerMemoryState = writerMemory.state
+const writerMemoryChapters = writerMemory.chapters
+const chapterMemoryStream = createWriterMemoryStream(useAIStream(), writerMemory)
+const continueMemoryStream = createWriterMemoryStream(useAIStream(), writerMemory)
+const optimizeMemoryStream = createWriterMemoryStream(useAIStream(), writerMemory)
 
 // 检查API配置
 const checkApiConfig = () => {
@@ -495,7 +555,7 @@ const chapterContentGeneration = useWriterChapterContentGeneration({
     warning: message => ElMessage.warning(message),
     error: message => ElMessage.error(message),
   },
-  stream: useAIStream(),
+  stream: chapterMemoryStream,
 })
 const chapterContentWorkspace = chapterContentGeneration.workspace
 const showChapterGenerateDialog = chapterContentWorkspace.visible
@@ -556,7 +616,8 @@ const {
     insertText: text => editorRef.value?.insertText(text),
     getHtml: () => editorRef.value?.getHtml() || content.value,
   },
-  stream: useAIStream(),
+  stream: optimizeMemoryStream,
+  beforeApply: optimizeMemoryStream.assertApplicationFresh,
 })
 
 // 新的续写对话框相关数据
@@ -591,9 +652,15 @@ const {
     error: message => ElMessage.error(message),
   },
   writeText: text => navigator.clipboard.writeText(text),
-  stream: useAIStream(),
+  stream: continueMemoryStream,
+  beforeApply: continueMemoryStream.assertApplicationFresh,
 })
-
+watch([showChapterGenerateDialog, targetChapter, currentChapter], () => {
+  memoryTargetChapter.value = showChapterGenerateDialog.value ? targetChapter.value : currentChapter.value
+}, { immediate: true })
+watch([showChapterGenerateDialog, showNewContinueDialog, showNewOptimizeDialog], opened => {
+  if (!opened.some(Boolean) && writerMemoryState.busy) writerMemory.cancel()
+})
 
 const materialCrud = useWriterMaterialCrud({
   currentNovel,
@@ -1049,12 +1116,14 @@ watch(() => currentChapter.value?.id, (id, previousId) => {
 
 // 页面离开前等待真实保存完成，失败时保留当前编辑上下文。
 onBeforeRouteLeave(async () => {
+  writerMemory.revoke()
   if (!(await waitForWorkspaceCommits())) return false
   stopWriterStreams()
   return saveCurrentChapter()
 })
 onBeforeRouteUpdate(async (to, from) => {
   if (to.query.novelId === from.query.novelId) return true
+  writerMemory.revoke()
   if (!(await waitForWorkspaceCommits())) return false
   stopWriterStreams()
   return saveCurrentChapter()
@@ -1075,6 +1144,10 @@ watch(() => route.query.novelId, async (id, previousId) => {
 })
 watch(() => route.query.chapterId, openRequestedChapter)
 onUnmounted(() => {
+  writerMemory.dispose()
+  chapterMemoryStream.dispose()
+  continueMemoryStream.dispose()
+  optimizeMemoryStream.dispose()
   stopWriterStreams()
   chapterContentGeneration.dispose()
   generationArbiter.dispose()
@@ -1238,5 +1311,20 @@ onUnmounted(() => {
   margin-bottom: 16px;
   font-size: 48px;
   opacity: 0.5;
+}
+@media (max-width: 760px) {
+  .writer-container { height: auto; min-height: 100vh; }
+  .title-bar { height: auto; min-height: 50px; padding: 8px 12px; flex-wrap: wrap; gap: 8px; }
+  .title-left { min-width: 0; flex-wrap: wrap; gap: 8px; }
+  .novel-title { overflow-wrap: anywhere; }
+  .main-content { flex-direction: column; overflow: visible; padding: 12px; }
+  .left-panel { width: 100%; }
+  .panel-content { height: 240px; overflow: auto; }
+  .editor-panel { width: 100%; }
+  .editor-header { flex-wrap: wrap; gap: 12px; }
+  .editor-header-left { flex-basis: 100%; }
+  .editor-header-right { margin-left: 0; max-width: 100%; }
+  .editor-header-right :deep(.el-button-group) { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chapter-title { overflow-wrap: anywhere; }
 }
 </style>

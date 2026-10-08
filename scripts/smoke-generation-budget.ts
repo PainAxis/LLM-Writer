@@ -20,6 +20,7 @@ type Body = Record<string, any>
 interface CapturedRequest { url: string; body: Body; headers: http.IncomingHttpHeaders }
 const captured: CapturedRequest[] = []
 const reply = '预算测试正文'
+let retryResponsesRemaining = 0
 
 async function startServer(): Promise<http.Server> {
   const server = http.createServer(async (req, res) => {
@@ -35,6 +36,12 @@ async function startServer(): Promise<http.Server> {
       for await (const chunk of req) chunks.push(Buffer.from(chunk))
       const body = JSON.parse(Buffer.concat(chunks).toString()) as Body
       captured.push({ url, body, headers: req.headers })
+      if (retryResponsesRemaining > 0) {
+        retryResponsesRemaining--
+        res.writeHead(503, { 'content-type': 'application/json', 'retry-after': '0' })
+        res.end(JSON.stringify({ error: { message: 'Temporary local retry fixture', type: 'server_error' } }))
+        return
+      }
       if (url.endsWith('/chat/completions')) {
         const common = { id: 'budget-test', created: 1, model: body.model }
         const usage = { prompt_tokens: 12, completion_tokens: 8, total_tokens: 20 }
@@ -72,12 +79,18 @@ async function startServer(): Promise<http.Server> {
           res.writeHead(200, { 'content-type': 'application/json' })
           res.end(JSON.stringify(message))
         }
-      } else if (url.includes(':generateContent')) {
-        res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({
+      } else if (url.includes(':generateContent') || url.includes(':streamGenerateContent')) {
+        const response = {
           candidates: [{ content: { role: 'model', parts: [{ text: reply }] }, finishReason: 'STOP' }],
           usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 8, totalTokenCount: 20 },
-        }))
+        }
+        if (url.includes(':streamGenerateContent')) {
+          res.writeHead(200, { 'content-type': 'text/event-stream' })
+          res.end(`data: ${JSON.stringify(response)}\n\n`)
+        } else {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(response))
+        }
       } else {
         res.writeHead(404)
         res.end(JSON.stringify({ error: `Unexpected endpoint: ${url}` }))
@@ -309,6 +322,86 @@ async function main() {
       assert.equal(override.body.max_tokens, 2048, 'per-request total caps also include native gateway thinking')
     }
     console.log('✓ Custom native Anthropic gateways support direct model probes and both SDK generation paths with exact thinking/output budgets')
+
+    const guardedProviders: Array<Partial<ApiConfig>> = [
+      { provider: 'custom', selectedModel: 'plain-chat-model' },
+      { provider: 'anthropic', selectedModel: 'claude-sonnet-4-5' },
+      { provider: 'google', selectedModel: 'gemini-2.5-flash' },
+    ]
+    for (const stream of [false, true]) {
+      for (const provider of guardedProviders) {
+        state.updateConfig({ ...base, ...provider })
+        const invoke = (options: GenerateOptions) => stream
+          ? apiService.generateTextStream('来源门控测试', options)
+          : apiService.generateText('来源门控测试', options)
+        let guardCalls = 0
+        let before = fetches
+        assert.equal(await invoke({ beforeRequest: async () => { guardCalls++ } }), reply)
+        assert.equal(guardCalls, 1, `${provider.provider}: successful HTTP dispatch checks source once`)
+        assert.equal(fetches - before, 1)
+        before = fetches
+        await assert.rejects(invoke({ beforeRequest: async () => { throw new Error('stale source guard fixture') } }))
+        assert.equal(fetches, before, `${provider.provider}: denied guard must prevent the actual SDK fetch`)
+
+        let release!: () => void
+        let entered!: () => void
+        const started = new Promise<void>(resolve => { entered = resolve })
+        const hold = new Promise<void>(resolve => { release = resolve })
+        let sourceChanged = false
+        const delayed = invoke({ beforeRequest: async () => {
+          entered()
+          await hold
+          if (sourceChanged) throw new Error('source changed while final dispatch awaited')
+        } })
+        await started
+        assert.equal(fetches, before, 'No payload leaves while the final source check is pending')
+        sourceChanged = true
+        release()
+        await assert.rejects(delayed)
+        assert.equal(fetches, before, `${provider.provider}: delayed guard rejects changed source before wire transport`)
+
+        const cancelled = new AbortController()
+        const abortStarted = new Promise<void>(resolve => { entered = resolve })
+        const abortHold = new Promise<void>(resolve => { release = resolve })
+        const aborting = invoke({ signal: cancelled.signal, beforeRequest: async () => {
+          entered()
+          await abortHold
+          throw new Error('late source-guard rejection after cancellation')
+        } })
+        await abortStarted
+        cancelled.abort()
+        await assert.rejects(aborting)
+        // Cancellation must finish while source validation is still stalled.
+        release()
+        await new Promise<void>(resolve => setImmediate(resolve))
+        assert.equal(fetches, before, `${provider.provider}: cancellation during guard prevents dispatch after it resolves`)
+      }
+    }
+    console.log('✓ All three real SDK providers guard both generation paths at actual dispatch, reject stale sources, and recheck cancellation after awaited guards')
+
+    for (const stream of [false, true]) {
+      state.updateConfig(base)
+      const invoke = (options: GenerateOptions) => stream
+        ? apiService.generateTextStream('重试来源门控测试', options)
+        : apiService.generateText('重试来源门控测试', options)
+      let guardCalls = 0
+      let before = fetches
+      retryResponsesRemaining = 1
+      assert.equal(await invoke({ beforeRequest: async () => { guardCalls++ } }), reply)
+      assert.equal(fetches - before, 2, 'Local 503 fixture must cause an actual SDK retry')
+      assert.equal(guardCalls, 2, 'Every retry must recheck the saved-source boundary')
+      before = fetches
+      guardCalls = 0
+      retryResponsesRemaining = 1
+      await assert.rejects(invoke({ beforeRequest: async () => {
+        guardCalls++
+        if (guardCalls > 1) throw new Error('source changed between SDK retry attempts')
+      } }))
+      assert.equal(fetches - before, 1, 'A changed source blocks the retry payload, even after the first HTTP call failed')
+      assert.ok(guardCalls >= 2)
+      assert.equal(retryResponsesRemaining, 0)
+    }
+    console.log('✓ Actual SDK retry attempts revalidate source independently; edits between attempts stop subsequent payloads')
 
     const invalid: Array<{ name: string; config: Partial<ApiConfig>; options?: GenerateOptions }> = [
       ...[-1, 0, 1.5, NaN, Infinity, 10_000_001].map(maxTokens => ({ name: `invalid total ${maxTokens}`, config: { maxTokens } })),
