@@ -20,7 +20,7 @@
 ## 🚀 Features
 
 - **Fact relationship graph**: Cytoscape.js displays people, events, objects and places, with clickable chapter/revision/quote evidence. Create and review source-anchored relationships, distinguish explicit statements, model inference and author confirmation, and optionally request model proposals from selected disclosed excerpts. Old revisions and future evidence are excluded from the visible graph. See [graph scope and walkthrough](docs/memory-fact-graph.md).
-- **Writer memory evidence**: Opt in for chapter-body generation, continuation or polishing, select a disclosure cutoff, then preview and approve exact excerpts before generation. Sources are rechecked before transport, completion and application. Embeddings and reranking require separate explicit enablement with route-session credentials. See [Writer retrieval context](docs/writer-memory-context.md).
+- **Writer memory evidence**: Opt in for chapter-body generation, continuation or polishing, select a disclosure cutoff, then preview, individually select and approve exact excerpts or complete relationships before generation. Match indicators remain unverified for answerability; see [evidence review](docs/memory-evidence-review.md). Sources are rechecked before transport, completion and application. Embeddings and reranking require separate explicit enablement with route-session credentials. See [Writer retrieval context](docs/writer-memory-context.md).
 - **Memory retrieval prototype**: Orama keyword and author-marked clue retrieval, optional semantic embeddings and reranking, chapter revision checks, disclosure cutoffs before external requests, and source evidence. Changed chapters update incrementally; returning from a Writer tab can reuse compatible cached vectors after fresh source validation. External services are off by default; their settings and keys stay in the page session. Mixed Chinese/code queries also use [exact local code candidates](docs/memory-mixed-query-recall.md). Open **记忆检索 · 原型** in the sidebar; see [scope and walkthrough](docs/memory-prototype.md).
 
 ### Writing Workbench
@@ -120,6 +120,8 @@ npm run smoke:eventline               # Chapter-number migration and compatibili
 npm run smoke:prompts                 # Default prompts and merge rules
 npm run smoke:memory                  # Local memory, revisions, disclosure and capacity
 npm run smoke:memory-mixed-query      # Full Chinese/code query recall and identifier boundaries
+npm run smoke:memory-match-signals    # Unverified literal/code signals and missing identifiers
+npm run smoke:writer-memory-selection # Selected-only evidence, approval and source freshness
 npm run smoke:memory-incremental      # Changed chapters, index reuse and recovery
 npm run smoke:memory-client           # Worker invalidation and cache lifecycle
 npm run smoke:memory-providers        # Embedding/reranking wire formats and response validation
@@ -129,7 +131,7 @@ npm run smoke:memory-fact-store       # Graph storage, failed writes and concurr
 npm run smoke:memory-fact-extraction  # Bounded model proposals, source-only requests and invalid output
 ```
 
-CI is configured to run strict lint, the production build, 77 smoke suites and 129 Chromium scenarios, including nine long-novel stress scenarios on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [incremental indexing and cache lifecycle](docs/memory-incremental-index.md), [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 79 smoke suites and 133 Chromium scenarios, including nine long-novel stress scenarios on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [incremental indexing and cache lifecycle](docs/memory-incremental-index.md), [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

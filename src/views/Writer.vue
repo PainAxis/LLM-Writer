@@ -255,6 +255,7 @@
           :disabled="isGeneratingContent"
           @search="writerMemory.search"
           @cancel="writerMemory.cancel"
+          @update:selection="writerMemory.select"
           @approve="writerMemory.approve"
         />
       </template>
@@ -366,6 +367,7 @@
           :disabled="isOptimizeStreaming || isApplyingOptimize"
           @search="writerMemory.search"
           @cancel="writerMemory.cancel"
+          @update:selection="writerMemory.select"
           @approve="writerMemory.approve"
         />
       </template>
@@ -399,6 +401,7 @@
           :disabled="isContinueStreaming || isAppendingContinue"
           @search="writerMemory.search"
           @cancel="writerMemory.cancel"
+          @update:selection="writerMemory.select"
           @approve="writerMemory.approve"
         />
       </template>

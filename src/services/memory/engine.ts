@@ -13,6 +13,7 @@ import type {
 } from '../../types/memory'
 import { chapterRevision } from './revision'
 import { identifierEdges, memoryIdentifiers } from './identifiers'
+import { buildMemoryMatch, summarizeMemoryMatches } from './matchSignals'
 import { embedMemoryTexts, normalizeEmbeddingConfig, normalizeRerankConfig, rerankMemoryTexts } from './providers'
 
 // Deliberately generous prototype limits, including novels well beyond 1M Chinese characters.
@@ -70,7 +71,7 @@ function createDatabase() {
   return create({ schema, sort: { enabled: false }, components: { tokenizer: createMemoryTokenizer() } })
 }
 
-type EvidenceRecord = Omit<MemoryEvidence, 'score' | 'reason'>
+type EvidenceRecord = Omit<MemoryEvidence, 'score' | 'reason' | 'match'>
 interface IndexDocument {
   id: string
   projectId: string
@@ -81,12 +82,15 @@ interface IndexDocument {
   annotations: string
   identifiers: string[]
   identifierEdges: number
+  annotationItems: readonly string[]
 }
 
 function sameDocument(left: IndexDocument, right: IndexDocument): boolean {
   return left.id === right.id && left.projectId === right.projectId && left.chapterId === right.chapterId
     && left.kind === right.kind && left.content === right.content && left.title === right.title
     && left.annotations === right.annotations && left.identifierEdges === right.identifierEdges
+    && left.annotationItems.length === right.annotationItems.length
+    && left.annotationItems.every((value, position) => value === right.annotationItems[position])
 }
 interface ReadyIndex {
   database: ReturnType<typeof createDatabase>
@@ -339,20 +343,20 @@ export class MemoryIndex {
       mode: previous ? 'incremental' : 'full', rebuiltChapters: 0, reusedChapters: 0,
       insertedDocuments: 0, removedDocuments: 0, reusedDocuments: 0,
     }
-    const add = (record: EvidenceRecord, annotations = '') => {
+    const add = (record: EvidenceRecord, annotationItems: readonly string[] = []) => {
       if (evidence.size >= MAX_DOCUMENTS) throw new Error('索引条目超过原型的 100,000 条上限。')
       evidence.set(record.id, record)
       const old = previous?.documents.get(record.id)
       const document: IndexDocument = {
         id: record.id, projectId: snapshot.id, chapterId: record.chapterId, kind: record.kind,
-        content: record.quote, title: record.chapterTitle, annotations,
+        content: record.quote, title: record.chapterTitle, annotations: annotationItems.join('\n'), annotationItems,
         identifiers: [], identifierEdges: identifierEdges(chapters.get(record.chapterId)!.text, record.start, record.end),
       }
       if (old && sameDocument(old, document)) documents.set(record.id, old)
       else {
         document.identifiers = [...new Set([
           ...memoryIdentifiers(document.content, document.identifierEdges),
-          ...memoryIdentifiers(document.title), ...memoryIdentifiers(annotations),
+          ...memoryIdentifiers(document.title), ...memoryIdentifiers(document.annotations),
         ])]
         documents.set(record.id, document)
       }
@@ -408,7 +412,7 @@ export class MemoryIndex {
         projectId: snapshot.id, chapterId: chapter!.id, chapterTitle: chapter!.title,
         ordinal: ordinals.get(chapter!.id)!, revision: revisions.get(chapter!.id)!,
         start: clue.start, end: clue.end, quote: clue.quote, kind: 'clue', label: clue.label,
-      }, [clue.label, ...clue.aliases].join('\n'))
+      }, [clue.label, ...clue.aliases])
     }
     const fingerprintBytes = new TextEncoder().encode(JSON.stringify([snapshot.id, manifests, acceptedClues]))
     const digest = await crypto.subtle.digest('SHA-256', fingerprintBytes)
@@ -690,12 +694,17 @@ export class MemoryIndex {
       for (const [id, score] of ranked) {
         const record = ready.evidence.get(id)
         if (!record || !isAllowed(record, ready, cutoff)) continue
-        hits.push({ ...record, score, reason: reasons.get(id)!.join('；') })
+        const document = ready.documents.get(id)!
+        hits.push({ ...record, score, reason: reasons.get(id)!.join('；'), match: buildMemoryMatch(text, {
+          quote: record.quote, chapterTitle: record.chapterTitle,
+          quoteEdges: document.identifierEdges, annotations: document.annotationItems,
+        }) })
         if (hits.length === limit) break
       }
       return {
         projectId: ready.project.id, fingerprint: ready.stats.fingerprint,
-        query: text, throughChapterId, hits, searchMs: performance.now() - started,
+        query: text, throughChapterId, hits, assessment: summarizeMemoryMatches(text, hits.map(hit => hit.match!)),
+        searchMs: performance.now() - started,
         method: diagnostics.semantic === 'used' ? 'bm25+clues+semantic' : 'bm25+clues', diagnostics,
       }
     } finally {

@@ -20,7 +20,7 @@
 ## 🚀 主要功能
 
 - **事实关系图**：用 Cytoscape.js 展示人物、事件、物件和地点，点击关系查看章节、修订版本与原文片段；可创建、审阅有原文依据的关系，区分原文明示、模型推断与作者确认，并可选从已选且已披露的片段请求模型提议。过期修订与未来依据不会进入可见图谱。见[图谱范围与试用说明](docs/memory-fact-graph.zh-CN.md)。
-- **写作记忆依据**：章节正文生成、续写与润色可主动启用检索，选择披露截止章，预览并核对精确原文后加入生成上下文；发送、生成完成及应用前重新校验修订。嵌入与重排分别主动启用，凭据仅留当前页面。见[写作检索上下文](docs/writer-memory-context.zh-CN.md)。
+- **写作记忆依据**：章节正文生成、续写与润色可主动启用检索，选择披露截止章，预览后逐项选择原文或完整关系，再核对加入生成上下文；匹配提示不验证是否有答案，见[依据审阅](docs/memory-evidence-review.zh-CN.md)。发送、生成完成及应用前重新校验修订。嵌入与重排分别主动启用，凭据仅留当前页面。见[写作检索上下文](docs/writer-memory-context.zh-CN.md)。
 - **记忆检索原型**：Orama 关键词与人工伏笔召回、可选语义嵌入与重排、章节版本校验、外部请求前的披露范围过滤，以及依据面板。修改章节可增量更新，从 Writer 标签页返回后经重新验证来源，可复用兼容缓存向量。外部服务默认关闭，设置与密钥仅保留在页面会话中。中文／代码混合查询也使用[本地精确代码候选](docs/memory-mixed-query-recall.zh-CN.md)。入口为侧栏“记忆检索 · 原型”；[试用与范围说明](docs/memory-prototype.zh-CN.md)。
 
 ### 创作工作台
@@ -120,6 +120,8 @@ npm run smoke:eventline               # 章号迁移与兼容
 npm run smoke:prompts                 # 默认提示词与合并规则
 npm run smoke:memory                  # 本地记忆、章节版本、披露范围与容量
 npm run smoke:memory-mixed-query      # 完整中文／代码查询召回与标识符边界
+npm run smoke:memory-match-signals    # 未验证答案的文字／编号匹配与缺失编号
+npm run smoke:writer-memory-selection # 仅所选依据、批准与来源新鲜度
 npm run smoke:memory-incremental      # 章节变更、索引复用与恢复
 npm run smoke:memory-client           # Worker 失效与缓存生命周期
 npm run smoke:memory-providers        # 嵌入／重排请求格式与响应校验
@@ -129,7 +131,7 @@ npm run smoke:memory-fact-store       # 图谱存储、写入失败与并发标�
 npm run smoke:memory-fact-extraction  # 有限模型提议、仅原文请求与无效响应
 ```
 
-CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、77 组冒烟测试与 129 个 Chromium 场景，其中包括 9 个超长篇压力场景。独立的记忆压力任务还运行本地容量与受控服务测试。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
+CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、79 组冒烟测试与 133 个 Chromium 场景，其中包括 9 个超长篇压力场景。独立的记忆压力任务还运行本地容量与受控服务测试。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
 
 ### 首次使用
 1. 点击右上角「API配置」，选择服务商并填入 API 地址与密钥（可选：同步模型列表、配置代理前缀）

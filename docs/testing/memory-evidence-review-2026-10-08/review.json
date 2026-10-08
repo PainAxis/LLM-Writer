@@ -1,0 +1,1335 @@
+{
+  "purpose": "Reviewed synthetic source-integrity, unverified match-summary and explicit-selection acceptance. This does not measure answerability accuracy or model writing quality.",
+  "baseCommit": "b79377f",
+  "snapshot": "Measured production/helper/script SHA-256 values identify the working tree based on merged PR #35; each child checks hashes before and after the run.",
+  "command": "node --expose-gc --import tsx scripts/stress-writer-memory.ts --output=/tmp/llm-evidence-review-results",
+  "execution": "Million then ten-million run sequentially in separate Node child processes; no live or paid provider calls.",
+  "preservedWorkload": "Both original 12 scenario names and all92 query/cutoff/budget tuples match the prior PR #35 raw run. Historical checked-in reports are unchanged. Current serialization includes assessments, so byte counts and timings are not an isolated performance experiment.",
+  "measurementNotes": [
+    "Character counts are UTF-16 code units. The unanswered-question fixture is appended only after the original92 checkpoint.",
+    "Selections are separately timed/counts; they are not counted as retrieval preparations. Empty selection is counted as a successful inert selection.",
+    "Warm p50/p95 are nearest-rank percentiles of preparation indices1..24, excluding the first cold preparation.",
+    "Sampled heap may miss synchronous peaks; process maximum RSS is separate. Node excludes browser hydration, Worker transfer, layout, physical-device performance and real-provider latency.",
+    "All summary states remain answerability unverified, including literal unanswered questions, partial-code matched-with-missing and selected low-relevance candidates."
+  ],
+  "profiles": [
+    {
+      "profile": "million",
+      "status": "passed",
+      "startedAt": "2026-10-08T10:35:13.009Z",
+      "finishedAt": "2026-10-08T10:35:59.249Z",
+      "environment": {
+        "node": "v24.19.0",
+        "platform": "linux x64",
+        "cpus": 9
+      },
+      "sourceHashes": {
+        "src/services/memory/writerContext.ts": "e00a069380fff9e7f2e651a6240f0e33d8a7f84ceefd2d059278fb41129360e2",
+        "src/services/memory/engine.ts": "c4e61b43ce3583b6f296d7f0fdd913d5d02f75d1239cf590499e2cc1e3a3a5c8",
+        "src/services/memory/identifiers.ts": "0e0fe01aa82a8cb0e991e38c0cd4d3a7117951cb37524559b4f0403fa68d8f45",
+        "src/services/memory/matchSignals.ts": "e0bf6a7e60a24545363a0237815b0f447e4e12bdc920b483c41543c2ccc5cd9d",
+        "scripts/fixtures/memory-stress-corpus.ts": "76128bf392086f29c4852342e138c58e80f81b036252efcb45acb0aefa92b9d5",
+        "scripts/stress-writer-memory.ts": "984978a75de5ba7a6cadeab1292360f1af7fbf5f2d882a2dd2c71fa70b3de6f1"
+      },
+      "fixture": {
+        "fixtureVersion": 2,
+        "seed": 1365799083,
+        "chapters": 600,
+        "charsPerChapter": 2400,
+        "totalChars": 1440000,
+        "volumes": 12,
+        "castSize": 72,
+        "locations": 36,
+        "usedCast": 72,
+        "usedLocations": 36,
+        "paragraphTemplates": 8,
+        "usedParagraphTemplates": 8,
+        "generatedParagraphs": 18017,
+        "uniqueParagraphRatio": 1,
+        "description": "Deterministic procedural Chinese fiction: varied cast, locations, events and similar clue aliases; planted exact identifiers test retrieval and provenance, not literary realism or semantic-model quality."
+      },
+      "relationCount": 1801,
+      "reviewFixtureAddedChars": 43,
+      "original68Checkpoint": {
+        "cases": 11,
+        "preparations": 68,
+        "evidenceChecks": 383,
+        "elapsedMs": 34928.89,
+        "memory": {
+          "sampledHeapPeakMiB": 719.355,
+          "sampledRssPeakMiB": 887.203,
+          "processMaxRssMiB": 887.203
+        }
+      },
+      "pr35Original92Checkpoint": {
+        "cases": 12,
+        "preparations": 92,
+        "evidenceChecks": 527,
+        "elapsedMs": 45227.178,
+        "memory": {
+          "sampledHeapPeakMiB": 719.355,
+          "sampledRssPeakMiB": 887.203,
+          "processMaxRssMiB": 887.203
+        }
+      },
+      "preserved92QueryCutoffBudgetSha256": "5e065d8a444f9c906dff3086e3f5d19a97fc98ca7f2aa077dfeb765438aaf6c6",
+      "preserved92MatchesPreviousRawRun": true,
+      "fullRun": {
+        "groups": 13,
+        "successfulPreparations": 103,
+        "successfulSelections": 7,
+        "staleSelectionsRejected": 1,
+        "sourceChecks": 578,
+        "externalRequests": 0,
+        "mockedProviderRequests": 1,
+        "elapsedMs": 46240.028,
+        "memory": {
+          "sampledHeapPeakMiB": 719.355,
+          "sampledRssPeakMiB": 887.203,
+          "processMaxRssMiB": 887.203
+        },
+        "coldPreparationMs": 10317.12,
+        "warmP50Ms": 105.816,
+        "warmP95Ms": 124.698,
+        "warmSampleCount": 24,
+        "largest6000BudgetPreviewChars": 5684,
+        "largestSelectedPromptChars": 1995
+      },
+      "mixedQuerySummary": {
+        "questions": 24,
+        "passageHits": 24,
+        "graphEvidenceHits": 24
+      },
+      "preservedMixedRecall": [
+        {
+          "query": "白银封蜡FS00001",
+          "expectedChapter": "stress-chapter-1",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3482
+        },
+        {
+          "query": "白银封蜡FS00027",
+          "expectedChapter": "stress-chapter-27",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3482
+        },
+        {
+          "query": "白银封蜡FS00053",
+          "expectedChapter": "stress-chapter-53",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3376
+        },
+        {
+          "query": "白银封蜡FS00079",
+          "expectedChapter": "stress-chapter-79",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3476
+        },
+        {
+          "query": "白银封蜡FS00105",
+          "expectedChapter": "stress-chapter-105",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3388
+        },
+        {
+          "query": "白银封蜡FS00131",
+          "expectedChapter": "stress-chapter-131",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3391
+        },
+        {
+          "query": "白银封蜡FS00157",
+          "expectedChapter": "stress-chapter-157",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3375
+        },
+        {
+          "query": "白银封蜡FS00183",
+          "expectedChapter": "stress-chapter-183",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3377
+        },
+        {
+          "query": "白银封蜡FS00209",
+          "expectedChapter": "stress-chapter-209",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3460
+        },
+        {
+          "query": "白银封蜡FS00235",
+          "expectedChapter": "stress-chapter-235",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3384
+        },
+        {
+          "query": "白银封蜡FS00261",
+          "expectedChapter": "stress-chapter-261",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3393
+        },
+        {
+          "query": "白银封蜡FS00287",
+          "expectedChapter": "stress-chapter-287",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3392
+        },
+        {
+          "query": "白银封蜡FS00313",
+          "expectedChapter": "stress-chapter-313",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3395
+        },
+        {
+          "query": "白银封蜡FS00339",
+          "expectedChapter": "stress-chapter-339",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3409
+        },
+        {
+          "query": "白银封蜡FS00365",
+          "expectedChapter": "stress-chapter-365",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3427
+        },
+        {
+          "query": "白银封蜡FS00391",
+          "expectedChapter": "stress-chapter-391",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3399
+        },
+        {
+          "query": "白银封蜡FS00417",
+          "expectedChapter": "stress-chapter-417",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3388
+        },
+        {
+          "query": "白银封蜡FS00443",
+          "expectedChapter": "stress-chapter-443",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3408
+        },
+        {
+          "query": "白银封蜡FS00469",
+          "expectedChapter": "stress-chapter-469",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3390
+        },
+        {
+          "query": "白银封蜡FS00495",
+          "expectedChapter": "stress-chapter-495",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3428
+        },
+        {
+          "query": "白银封蜡FS00521",
+          "expectedChapter": "stress-chapter-521",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3398
+        },
+        {
+          "query": "白银封蜡FS00547",
+          "expectedChapter": "stress-chapter-547",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3406
+        },
+        {
+          "query": "白银封蜡FS00573",
+          "expectedChapter": "stress-chapter-573",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 3387
+        },
+        {
+          "query": "白银封蜡FS00600",
+          "expectedChapter": "stress-chapter-600",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 3544
+        }
+      ],
+      "reviewCases": [
+        {
+          "name": "ordinary-Chinese-partial-candidates",
+          "query": "封蜡为什么会飞到月亮上",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "candidates",
+            "requestedIdentifiers": [],
+            "missingIdentifiers": []
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "absent-code-empty",
+          "query": "ABSENT999999",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "none",
+            "requestedIdentifiers": [
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "absent999999"
+            ]
+          },
+          "hits": 0,
+          "relations": 0
+        },
+        {
+          "name": "absent-code-keyword-fallback",
+          "query": "白银封蜡ABSENT999999",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "candidates",
+            "requestedIdentifiers": [
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "absent999999"
+            ]
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "partial-identifiers-are-not-an-answer",
+          "query": "白银封蜡FS00001 ABSENT999999",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "absent999999"
+            ]
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "existing-topic-without-event-answer",
+          "query": "白银封蜡FS00001何时登上月亮？",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "fs00001"
+            ],
+            "missingIdentifiers": []
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "literal-question-is-still-unanswered",
+          "query": "谁把渡口的铜铃藏进了月亮？",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [],
+            "missingIdentifiers": []
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "removed-old-code",
+          "query": "FS00001",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "none",
+            "requestedIdentifiers": [
+              "fs00001"
+            ],
+            "missingIdentifiers": [
+              "fs00001"
+            ]
+          },
+          "hits": 0,
+          "relations": 0
+        },
+        {
+          "name": "replacement-current-code",
+          "query": "赤铜封蜡RN00001",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "rn00001"
+            ],
+            "missingIdentifiers": []
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "future-only-code",
+          "query": "MASK00600",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "none",
+            "requestedIdentifiers": [
+              "mask00600"
+            ],
+            "missingIdentifiers": [
+              "mask00600"
+            ]
+          },
+          "hits": 0,
+          "relations": 0
+        }
+      ],
+      "selections": [
+        {
+          "name": "one-exact-passage",
+          "hitIds": [
+            "passage:[\"stress-chapter-1\",0]"
+          ],
+          "relationIds": [],
+          "promptChars": 1995,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "absent999999"
+            ]
+          },
+          "durationMs": 19.334
+        },
+        {
+          "name": "only-partial-candidate",
+          "hitIds": [
+            "clue:\"clue-2\""
+          ],
+          "relationIds": [],
+          "promptChars": 823,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "candidates",
+            "requestedIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ]
+          },
+          "durationMs": 17.762
+        },
+        {
+          "name": "empty-selection",
+          "hitIds": [],
+          "relationIds": [],
+          "promptChars": 0,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "none",
+            "requestedIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ]
+          },
+          "durationMs": 18.043
+        },
+        {
+          "name": "unanswered-literal-question",
+          "hitIds": [
+            "passage:[\"stress-chapter-3\",2]"
+          ],
+          "relationIds": [],
+          "promptChars": 976,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [],
+            "missingIdentifiers": []
+          },
+          "durationMs": 18.153
+        },
+        {
+          "name": "current-source-before-edit",
+          "hitIds": [
+            "passage:[\"stress-chapter-1\",0]"
+          ],
+          "relationIds": [],
+          "promptChars": 1966,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "fs00001"
+            ],
+            "missingIdentifiers": []
+          },
+          "durationMs": 22.021
+        },
+        {
+          "name": "current-source-after-edit",
+          "hitIds": [
+            "passage:[\"stress-chapter-1\",0]"
+          ],
+          "relationIds": [],
+          "promptChars": 1966,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "rn00001"
+            ],
+            "missingIdentifiers": []
+          },
+          "durationMs": 22.182
+        },
+        {
+          "name": "complete-two-premise-relation",
+          "hitIds": [],
+          "relationIds": [
+            "confirmed-multiple-premises"
+          ],
+          "promptChars": 1201,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "candidates",
+            "requestedIdentifiers": [],
+            "missingIdentifiers": []
+          },
+          "durationMs": 37.912
+        }
+      ],
+      "reviewPreparations": [
+        {
+          "query": "封蜡为什么会飞到月亮上",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 2309,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 76.083
+        },
+        {
+          "query": "ABSENT999999",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 0,
+          "hits": 0,
+          "relations": 0,
+          "durationMs": 59.818
+        },
+        {
+          "query": "白银封蜡ABSENT999999",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 2337,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 70.555
+        },
+        {
+          "query": "白银封蜡FS00001 ABSENT999999",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 3511,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 73.827
+        },
+        {
+          "query": "白银封蜡FS00001何时登上月亮？",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 3482,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 69.967
+        },
+        {
+          "query": "谁把渡口的铜铃藏进了月亮？",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 2652,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 77.996
+        },
+        {
+          "query": "白银封蜡FS00001",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 3482,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 69.52
+        },
+        {
+          "query": "FS00001",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 0,
+          "hits": 0,
+          "relations": 0,
+          "durationMs": 77.015
+        },
+        {
+          "query": "赤铜封蜡RN00001",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 3482,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 63.699
+        },
+        {
+          "query": "MASK00600",
+          "cutoff": 599,
+          "budget": 6000,
+          "promptChars": 0,
+          "hits": 0,
+          "relations": 0,
+          "durationMs": 66.637
+        },
+        {
+          "query": "终卷多前提关联验收",
+          "cutoff": 600,
+          "budget": 6000,
+          "promptChars": 1201,
+          "hits": 0,
+          "relations": 1,
+          "durationMs": 130.944
+        }
+      ],
+      "scenarioNames": [
+        "Cold preparation of the full manuscript and thousands of source-anchored relations",
+        "Twenty-four distributed exact-source queries reuse the full disclosed index",
+        "Record mixed Chinese/code query recall without misrepresenting lexical misses as source failures",
+        "Distant author-marked clue alias recovers its original early-volume evidence",
+        "Small and large evidence budgets include metadata without splitting source quotations",
+        "Future identity and every confirmed inference premise remain behind the disclosure cutoff",
+        "Editing an old chapter invalidates prepared context and its author-confirmed graph anchors",
+        "Thirty-chapter revision invalidates old clue marks while unrelated distant evidence survives",
+        "Chapter reorder and deletion recompute disclosure from the latest narrative order",
+        "Changed graph state and unavailable committed source block previously prepared context",
+        "Controlled rerank receives current disclosed passages; changed source blocks the next outbound request",
+        "All twenty-four full Chinese/identifier queries retrieve the exact passage with graph and remote providers disabled",
+        "No-answer boundaries stay unverified and only explicitly selected current evidence enters the bounded attachment"
+      ]
+    },
+    {
+      "profile": "ten-million",
+      "status": "passed",
+      "startedAt": "2026-10-08T10:35:59.511Z",
+      "finishedAt": "2026-10-08T10:41:39.957Z",
+      "environment": {
+        "node": "v24.19.0",
+        "platform": "linux x64",
+        "cpus": 9
+      },
+      "sourceHashes": {
+        "src/services/memory/writerContext.ts": "e00a069380fff9e7f2e651a6240f0e33d8a7f84ceefd2d059278fb41129360e2",
+        "src/services/memory/engine.ts": "c4e61b43ce3583b6f296d7f0fdd913d5d02f75d1239cf590499e2cc1e3a3a5c8",
+        "src/services/memory/identifiers.ts": "0e0fe01aa82a8cb0e991e38c0cd4d3a7117951cb37524559b4f0403fa68d8f45",
+        "src/services/memory/matchSignals.ts": "e0bf6a7e60a24545363a0237815b0f447e4e12bdc920b483c41543c2ccc5cd9d",
+        "scripts/fixtures/memory-stress-corpus.ts": "76128bf392086f29c4852342e138c58e80f81b036252efcb45acb0aefa92b9d5",
+        "scripts/stress-writer-memory.ts": "984978a75de5ba7a6cadeab1292360f1af7fbf5f2d882a2dd2c71fa70b3de6f1"
+      },
+      "fixture": {
+        "fixtureVersion": 2,
+        "seed": 1365799083,
+        "chapters": 2500,
+        "charsPerChapter": 4200,
+        "totalChars": 10500000,
+        "volumes": 50,
+        "castSize": 72,
+        "locations": 36,
+        "usedCast": 72,
+        "usedLocations": 36,
+        "paragraphTemplates": 8,
+        "usedParagraphTemplates": 8,
+        "generatedParagraphs": 114622,
+        "uniqueParagraphRatio": 1,
+        "description": "Deterministic procedural Chinese fiction: varied cast, locations, events and similar clue aliases; planted exact identifiers test retrieval and provenance, not literary realism or semantic-model quality."
+      },
+      "relationCount": 7501,
+      "reviewFixtureAddedChars": 43,
+      "original68Checkpoint": {
+        "cases": 11,
+        "preparations": 68,
+        "evidenceChecks": 386,
+        "elapsedMs": 247504.08,
+        "memory": {
+          "sampledHeapPeakMiB": 1720.772,
+          "sampledRssPeakMiB": 1969.93,
+          "processMaxRssMiB": 2009.293
+        }
+      },
+      "pr35Original92Checkpoint": {
+        "cases": 12,
+        "preparations": 92,
+        "evidenceChecks": 530,
+        "elapsedMs": 330966.908,
+        "memory": {
+          "sampledHeapPeakMiB": 1720.772,
+          "sampledRssPeakMiB": 2166.141,
+          "processMaxRssMiB": 2251.758
+        }
+      },
+      "preserved92QueryCutoffBudgetSha256": "dde39fe7ed63ec401f790b47990d8c966e53723d2d25b18d2535b43cca6cadd3",
+      "preserved92MatchesPreviousRawRun": true,
+      "fullRun": {
+        "groups": 13,
+        "successfulPreparations": 103,
+        "successfulSelections": 7,
+        "staleSelectionsRejected": 1,
+        "sourceChecks": 581,
+        "externalRequests": 0,
+        "mockedProviderRequests": 1,
+        "elapsedMs": 340445.647,
+        "memory": {
+          "sampledHeapPeakMiB": 1721.534,
+          "sampledRssPeakMiB": 2187.164,
+          "processMaxRssMiB": 2251.758
+        },
+        "coldPreparationMs": 64838.107,
+        "warmP50Ms": 621.586,
+        "warmP95Ms": 689.947,
+        "warmSampleCount": 24,
+        "largest6000BudgetPreviewChars": 5881,
+        "largestSelectedPromptChars": 2000
+      },
+      "mixedQuerySummary": {
+        "questions": 24,
+        "passageHits": 24,
+        "graphEvidenceHits": 24
+      },
+      "preservedMixedRecall": [
+        {
+          "query": "白银封蜡FS00001",
+          "expectedChapter": "stress-chapter-1",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 4824
+        },
+        {
+          "query": "白银封蜡FS00109",
+          "expectedChapter": "stress-chapter-109",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 4748
+        },
+        {
+          "query": "白银封蜡FS00218",
+          "expectedChapter": "stress-chapter-218",
+          "mixedPassageRank": 2,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 2,
+          "graphDisabledPromptChars": 4809
+        },
+        {
+          "query": "白银封蜡FS00326",
+          "expectedChapter": "stress-chapter-326",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4822
+        },
+        {
+          "query": "白银封蜡FS00435",
+          "expectedChapter": "stress-chapter-435",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 4732
+        },
+        {
+          "query": "白银封蜡FS00544",
+          "expectedChapter": "stress-chapter-544",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4813
+        },
+        {
+          "query": "白银封蜡FS00652",
+          "expectedChapter": "stress-chapter-652",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4832
+        },
+        {
+          "query": "白银封蜡FS00761",
+          "expectedChapter": "stress-chapter-761",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 4718
+        },
+        {
+          "query": "白银封蜡FS00870",
+          "expectedChapter": "stress-chapter-870",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4824
+        },
+        {
+          "query": "白银封蜡FS00978",
+          "expectedChapter": "stress-chapter-978",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4783
+        },
+        {
+          "query": "白银封蜡FS01087",
+          "expectedChapter": "stress-chapter-1087",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 4835
+        },
+        {
+          "query": "白银封蜡FS01196",
+          "expectedChapter": "stress-chapter-1196",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4871
+        },
+        {
+          "query": "白银封蜡FS01304",
+          "expectedChapter": "stress-chapter-1304",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4832
+        },
+        {
+          "query": "白银封蜡FS01413",
+          "expectedChapter": "stress-chapter-1413",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 4745
+        },
+        {
+          "query": "白银封蜡FS01522",
+          "expectedChapter": "stress-chapter-1522",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4819
+        },
+        {
+          "query": "白银封蜡FS01630",
+          "expectedChapter": "stress-chapter-1630",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4858
+        },
+        {
+          "query": "白银封蜡FS01739",
+          "expectedChapter": "stress-chapter-1739",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 4817
+        },
+        {
+          "query": "白银封蜡FS01848",
+          "expectedChapter": "stress-chapter-1848",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4683
+        },
+        {
+          "query": "白银封蜡FS01956",
+          "expectedChapter": "stress-chapter-1956",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4809
+        },
+        {
+          "query": "白银封蜡FS02065",
+          "expectedChapter": "stress-chapter-2065",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 4738
+        },
+        {
+          "query": "白银封蜡FS02174",
+          "expectedChapter": "stress-chapter-2174",
+          "mixedPassageRank": 3,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 3,
+          "graphDisabledPromptChars": 4845
+        },
+        {
+          "query": "白银封蜡FS02282",
+          "expectedChapter": "stress-chapter-2282",
+          "mixedPassageRank": 2,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 2,
+          "graphDisabledPromptChars": 4828
+        },
+        {
+          "query": "白银封蜡FS02391",
+          "expectedChapter": "stress-chapter-2391",
+          "mixedPassageRank": 1,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 1,
+          "graphDisabledPromptChars": 4735
+        },
+        {
+          "query": "白银封蜡FS02500",
+          "expectedChapter": "stress-chapter-2500",
+          "mixedPassageRank": 2,
+          "graphEvidence": true,
+          "graphDisabledPassageRank": 2,
+          "graphDisabledPromptChars": 4836
+        }
+      ],
+      "reviewCases": [
+        {
+          "name": "ordinary-Chinese-partial-candidates",
+          "query": "封蜡为什么会飞到月亮上",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "candidates",
+            "requestedIdentifiers": [],
+            "missingIdentifiers": []
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "absent-code-empty",
+          "query": "ABSENT999999",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "none",
+            "requestedIdentifiers": [
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "absent999999"
+            ]
+          },
+          "hits": 0,
+          "relations": 0
+        },
+        {
+          "name": "absent-code-keyword-fallback",
+          "query": "白银封蜡ABSENT999999",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "candidates",
+            "requestedIdentifiers": [
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "absent999999"
+            ]
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "partial-identifiers-are-not-an-answer",
+          "query": "白银封蜡FS00001 ABSENT999999",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "absent999999"
+            ]
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "existing-topic-without-event-answer",
+          "query": "白银封蜡FS00001何时登上月亮？",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "fs00001"
+            ],
+            "missingIdentifiers": []
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "literal-question-is-still-unanswered",
+          "query": "谁把渡口的铜铃藏进了月亮？",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [],
+            "missingIdentifiers": []
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "removed-old-code",
+          "query": "FS00001",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "none",
+            "requestedIdentifiers": [
+              "fs00001"
+            ],
+            "missingIdentifiers": [
+              "fs00001"
+            ]
+          },
+          "hits": 0,
+          "relations": 0
+        },
+        {
+          "name": "replacement-current-code",
+          "query": "赤铜封蜡RN00001",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "rn00001"
+            ],
+            "missingIdentifiers": []
+          },
+          "hits": 6,
+          "relations": 0
+        },
+        {
+          "name": "future-only-code",
+          "query": "MASK02500",
+          "assessment": {
+            "answerability": "unverified",
+            "state": "none",
+            "requestedIdentifiers": [
+              "mask02500"
+            ],
+            "missingIdentifiers": [
+              "mask02500"
+            ]
+          },
+          "hits": 0,
+          "relations": 0
+        }
+      ],
+      "selections": [
+        {
+          "name": "one-exact-passage",
+          "hitIds": [
+            "passage:[\"stress-chapter-1\",0]"
+          ],
+          "relationIds": [],
+          "promptChars": 2000,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "absent999999"
+            ]
+          },
+          "durationMs": 172.363
+        },
+        {
+          "name": "only-partial-candidate",
+          "hitIds": [
+            "clue:\"clue-2\""
+          ],
+          "relationIds": [],
+          "promptChars": 828,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "candidates",
+            "requestedIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ]
+          },
+          "durationMs": 173.805
+        },
+        {
+          "name": "empty-selection",
+          "hitIds": [],
+          "relationIds": [],
+          "promptChars": 0,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "none",
+            "requestedIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ],
+            "missingIdentifiers": [
+              "fs00001",
+              "absent999999"
+            ]
+          },
+          "durationMs": 168.953
+        },
+        {
+          "name": "unanswered-literal-question",
+          "hitIds": [
+            "passage:[\"stress-chapter-3\",3]"
+          ],
+          "relationIds": [],
+          "promptChars": 1668,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [],
+            "missingIdentifiers": []
+          },
+          "durationMs": 174.732
+        },
+        {
+          "name": "current-source-before-edit",
+          "hitIds": [
+            "passage:[\"stress-chapter-1\",0]"
+          ],
+          "relationIds": [],
+          "promptChars": 1971,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "fs00001"
+            ],
+            "missingIdentifiers": []
+          },
+          "durationMs": 172.761
+        },
+        {
+          "name": "current-source-after-edit",
+          "hitIds": [
+            "passage:[\"stress-chapter-1\",0]"
+          ],
+          "relationIds": [],
+          "promptChars": 1971,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "matched",
+            "requestedIdentifiers": [
+              "rn00001"
+            ],
+            "missingIdentifiers": []
+          },
+          "durationMs": 227.883
+        },
+        {
+          "name": "complete-two-premise-relation",
+          "hitIds": [],
+          "relationIds": [
+            "confirmed-multiple-premises"
+          ],
+          "promptChars": 1209,
+          "assessment": {
+            "answerability": "unverified",
+            "state": "candidates",
+            "requestedIdentifiers": [],
+            "missingIdentifiers": []
+          },
+          "durationMs": 308.06
+        }
+      ],
+      "reviewPreparations": [
+        {
+          "query": "封蜡为什么会飞到月亮上",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 4458,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 588.671
+        },
+        {
+          "query": "ABSENT999999",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 0,
+          "hits": 0,
+          "relations": 0,
+          "durationMs": 624.874
+        },
+        {
+          "query": "白银封蜡ABSENT999999",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 4486,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 750.416
+        },
+        {
+          "query": "白银封蜡FS00001 ABSENT999999",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 4853,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 733.332
+        },
+        {
+          "query": "白银封蜡FS00001何时登上月亮？",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 4824,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 734.543
+        },
+        {
+          "query": "谁把渡口的铜铃藏进了月亮？",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 4822,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 920.401
+        },
+        {
+          "query": "白银封蜡FS00001",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 4824,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 817.034
+        },
+        {
+          "query": "FS00001",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 0,
+          "hits": 0,
+          "relations": 0,
+          "durationMs": 579.196
+        },
+        {
+          "query": "赤铜封蜡RN00001",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 4824,
+          "hits": 6,
+          "relations": 0,
+          "durationMs": 631.731
+        },
+        {
+          "query": "MASK02500",
+          "cutoff": 2499,
+          "budget": 6000,
+          "promptChars": 0,
+          "hits": 0,
+          "relations": 0,
+          "durationMs": 607.066
+        },
+        {
+          "query": "终卷多前提关联验收",
+          "cutoff": 2500,
+          "budget": 6000,
+          "promptChars": 1209,
+          "hits": 0,
+          "relations": 1,
+          "durationMs": 926.665
+        }
+      ],
+      "scenarioNames": [
+        "Cold preparation of the full manuscript and thousands of source-anchored relations",
+        "Twenty-four distributed exact-source queries reuse the full disclosed index",
+        "Record mixed Chinese/code query recall without misrepresenting lexical misses as source failures",
+        "Distant author-marked clue alias recovers its original early-volume evidence",
+        "Small and large evidence budgets include metadata without splitting source quotations",
+        "Future identity and every confirmed inference premise remain behind the disclosure cutoff",
+        "Editing an old chapter invalidates prepared context and its author-confirmed graph anchors",
+        "Thirty-chapter revision invalidates old clue marks while unrelated distant evidence survives",
+        "Chapter reorder and deletion recompute disclosure from the latest narrative order",
+        "Changed graph state and unavailable committed source block previously prepared context",
+        "Controlled rerank receives current disclosed passages; changed source blocks the next outbound request",
+        "All twenty-four full Chinese/identifier queries retrieve the exact passage with graph and remote providers disabled",
+        "No-answer boundaries stay unverified and only explicitly selected current evidence enters the bounded attachment"
+      ]
+    }
+  ]
+}
