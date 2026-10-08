@@ -100,7 +100,7 @@
     <div class="results-layout">
       <section class="lab-card results-card" aria-labelledby="results-title" data-testid="memory-results" aria-live="polite">
         <div class="section-heading">
-          <h2 id="results-title">检索结果</h2>
+          <h2 id="results-title">检索候选</h2>
           <span v-if="result" class="muted">{{ result.hits.length }} 条 · {{ result.searchMs.toFixed(1) }} ms</span>
         </div>
         <div v-if="result" class="retrieval-status" data-testid="memory-retrieval-status" role="status">
@@ -108,16 +108,22 @@
           <p class="muted">披露范围内 {{ result.diagnostics.eligiblePassages }} 个原文块 · 本次新嵌入 {{ result.diagnostics.embeddedPassages }} 个 · 复用缓存 {{ result.diagnostics.cachedPassages }} 个 · 已重排 {{ result.diagnostics.rerankedCandidates }} 条候选</p>
           <p v-for="(warning, index) in result.diagnostics.warnings" :key="index" class="warning" data-testid="memory-retrieval-warning">{{ warning }}</p>
         </div>
+        <div v-if="result" class="assessment" data-testid="memory-assessment" :data-state="result.assessment?.state ?? (result.hits.length ? 'candidates' : 'none')" data-answerability="unverified" role="status">
+          <p>{{ assessmentText }}</p>
+          <p v-if="result.assessment?.missingIdentifiers.length" class="warning" data-testid="memory-missing-identifiers">当前候选未匹配的完整编号：{{ result.assessment.missingIdentifiers.join('、') }}。这不表示全书不存在这些编号。</p>
+          <p class="muted">字面或编号匹配不代表已回答问题；标题或作者标注的匹配也不代表引用原文直接陈述了相关事实。</p>
+        </div>
         <p v-if="busy" class="empty-state">{{ operation === 'search' ? '正在读取最新正文并检索…' : '正在构建本地索引…' }}</p>
         <p v-else-if="dirty" class="empty-state">示例有未保存修改。保存并重建后再检索，旧结果已清除。</p>
         <p v-else-if="!result" class="empty-state">输入内容并检索，或使用上方的验收示例。</p>
-        <p v-else-if="!result.hits.length" class="empty-state" data-testid="memory-no-results">当前披露范围内没有匹配依据。可调整关键词或截止章节。</p>
+        <p v-else-if="!result.hits.length" class="empty-state" data-testid="memory-no-results">本次未返回候选。可调整关键词或截止章节；这不表示全书不存在相关内容。</p>
         <button v-for="(hit, index) in result?.hits ?? []" :key="hit.id" class="result-item" :class="{ selected: selectedId === hit.id }" :data-testid="`memory-result-${index}`" :aria-pressed="selectedId === hit.id" @click="selectedId = hit.id">
           <span class="result-meta"><el-tag size="small" :type="hit.kind === 'clue' ? 'warning' : 'info'">{{ hit.kind === 'clue' ? '人工标记伏笔' : '原文片段' }}</el-tag><span>第 {{ hit.ordinal }} 章</span><code>{{ hit.revision.slice(0, 10) }}</code></span>
           <strong>{{ hit.chapterTitle }}</strong>
           <span v-if="hit.label" class="hit-label">{{ hit.label }}</span>
           <span class="quote">{{ hit.quote }}</span>
           <span class="muted hit-reason">{{ hit.reason }}</span>
+          <span class="muted hit-match" :data-testid="`memory-match-${index}`">{{ matchDescription(hit.match) }}</span>
         </button>
       </section>
 
@@ -129,7 +135,8 @@
           <dl class="evidence-details">
             <dt>依据类型</dt><dd>{{ evidence.hit.kind === 'clue' ? '作者标记，引用来自原文' : '原文明示片段' }}</dd>
             <dt>匹配原因</dt><dd>{{ evidence.hit.reason }}</dd>
-            <dt>原文位置</dt><dd>{{ evidence.hit.start }}–{{ evidence.hit.end }}（UTF-16，左闭右开）</dd>
+            <dt>匹配方式</dt><dd>{{ matchDescription(evidence.hit.match) }}</dd>
+            <dt>原文位置</dt><dd data-testid="memory-evidence-range">{{ evidence.hit.start }}–{{ evidence.hit.end }}（UTF-16，左闭右开）</dd>
             <dt>章节版本</dt><dd><code data-testid="memory-evidence-revision">{{ evidence.hit.revision }}</code></dd>
           </dl>
           <h3>精确引用</h3>
@@ -171,7 +178,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } fr
 import FactGraphPanel from '@/components/memory/FactGraphPanel.vue'
 import { MemoryClient } from '@/services/memory/client'
 import { createMemoryDemo, readMemoryDemo, readMemoryNovel, readMemoryNovelChoices, saveMemoryDemo } from '@/services/memory/labData'
-import type { MemoryIndexStats, MemoryProjectInput, MemoryRemoteOptions, MemorySearchResult } from '@/types/memory'
+import type { MemoryIndexStats, MemoryMatchSignals, MemoryProjectInput, MemoryRemoteOptions, MemorySearchResult } from '@/types/memory'
 
 const sourceId = ref('memory-demo')
 const novelChoices = ref<{ id: string; title: string }[]>([])
@@ -216,6 +223,22 @@ let disclosureSourceId: string | null = null
 
 const semanticStatus = computed(() => ({ disabled: '未启用（本地检索）', used: '已参与混合检索', fallback: '不可用，已回退至本地检索' })[result.value?.diagnostics.semantic ?? 'disabled'])
 const rerankStatus = computed(() => ({ disabled: '未启用', used: '已完成', fallback: '不可用，保留召回顺序', skipped: '无需重排，未调用服务' })[result.value?.diagnostics.rerank ?? 'disabled'])
+const assessmentText = computed(() => {
+  if (!result.value?.assessment) return '以下是检索候选，尚未判断是否回答本次问题。请核对原文。'
+  if (result.value.assessment.state === 'none') return '本次检索未返回原文候选。可调整关键词或披露范围；这不表示全书不存在相关内容。'
+  if (result.value.assessment.state === 'candidates') return '返回了相关性候选，尚未确认查询字面或完整编号匹配。请核对原文，候选不代表已经回答问题。'
+  return '当前候选中存在字面或完整编号匹配；仍须核对原文是否回答本次问题。'
+})
+
+function matchDescription(match?: MemoryMatchSignals) {
+  if (!match) return '匹配方式尚未核验，请核对引用原文。'
+  const parts: string[] = []
+  for (const [field, label] of [['quote', '引用原文'], ['title', '章节标题'], ['annotation', '作者标注']] as const) {
+    if (match.literal[field]) parts.push(`${label}包含查询字面`)
+    if (match.identifiers[field].length) parts.push(`${label}匹配完整编号：${match.identifiers[field].join('、')}`)
+  }
+  return parts.length ? parts.join('；') : '相关性候选：未确认查询字面或完整编号匹配，请核对原文。'
+}
 
 function remoteOptions(): MemoryRemoteOptions {
   return {
@@ -533,6 +556,7 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.65; }
 .cache-actions { margin-top: 16px; align-items: center; }
 .retrieval-status { border-bottom: 1px solid var(--el-border-color-lighter); padding: 8px 0; font-size: 13px; line-height: 1.7; }
 .retrieval-status p { margin: 8px 0; }
+.assessment { margin: 14px 0; padding: 1px 12px; border-left: 3px solid var(--el-color-info); background: var(--el-fill-color-light); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
 .stats { display: flex; gap: 10px 24px; flex-wrap: wrap; border-top: 1px solid var(--el-border-color-lighter); padding-top: 14px; margin-top: 16px; font-size: 13px; color: var(--el-text-color-secondary); }
 .stats strong { color: var(--el-text-color-primary); }
 .warning { color: var(--el-color-warning-dark-2); font-size: 13px; line-height: 1.7; }
@@ -550,7 +574,7 @@ input:disabled, select:disabled, textarea:disabled { opacity: 0.65; }
 .result-item strong { font-size: 14px; }
 .hit-label { font-size: 13px; color: var(--el-text-color-regular); }
 .quote { font-size: 14px; white-space: pre-wrap; line-height: 1.8; overflow-wrap: anywhere; }
-.hit-reason { font-size: 12px; }
+.hit-reason, .hit-match { font-size: 12px; overflow-wrap: anywhere; }
 .evidence-heading { font-weight: 600; font-size: 14px; }
 .evidence-details { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px 14px; font-size: 12px; line-height: 1.6; }
 .evidence-details dt { color: var(--el-text-color-secondary); }

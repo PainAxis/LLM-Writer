@@ -37,6 +37,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/services/mcp.ts`, `src/services/skills.ts`, `src/services/writingTools.ts`, `src/services/extensionsRuntime.ts` | Request-scoped MCP, Skills, project tools and bounded model execution; [extension semantics](docs/extensions.md) |
 | `src/stores/extensions.ts`, `src/components/extensions/` | Strictly persisted extension settings, in-memory credentials and assistant opt-in controls |
 | `src/views/MemoryLab.vue`, `src/services/memory/`, `src/types/memory.ts` | Isolated memory retrieval, Worker-owned incremental index, optional embedding/reranking providers, bounded vector cache and revision/disclosure-checked evidence; [scope](docs/memory-prototype.md) and [incremental lifecycle](docs/memory-incremental-index.md) |
+| `src/services/memory/matchSignals.ts` | Deterministic full-query/code signals and selected-evidence summaries, always leaving answerability unverified; [review contract](docs/memory-evidence-review.md) |
 | `src/services/memory/identifiers.ts` | Maximal ASCII letter/digit code parsing and chunk-edge checks for local mixed-query recall; [grammar and acceptance](docs/memory-mixed-query-recall.md) |
 | `src/components/memory/`, `src/services/memory/factGraph.ts`, `src/services/memory/factGraphStore.ts`, `src/services/memory/factExtraction.ts`, `src/types/factGraph.ts` | Source-anchored fact relationships, Cytoscape.js presentation, independent project-scoped persistence and bounded optional model proposals; [graph contract](docs/memory-fact-graph.md) |
 | `src/utils/storage.ts`, `src/utils/aiRequestScope.ts` | Central storage access and isolated, cancellable AI requests |
@@ -80,13 +81,14 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The configured CI validation set contains 77 sequential smoke suites and 129 Chromium scenarios with synthetic data and API responses, including nine long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
+- The configured CI validation set contains 79 sequential smoke suites and 133 Chromium scenarios with synthetic data and API responses, including nine long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
 - [Long-novel memory stress tests](docs/memory-stress-tests.md): `ci-memory-stress` runs local capacity and controlled HTTP providers; `ci-memory-browser-stress` separately runs persisted browser editing. Paid Jina workloads are optional. Reusable fixtures are under `scripts/fixtures/`, with reviewed reports under `docs/testing/`.
 - Memory increment regressions: `smoke:memory-incremental` and `smoke:memory-client`; repeated-edit/focus-return checks extend the existing stress scripts.
 - Fact graph regressions: `smoke:memory-fact-graph`, `smoke:memory-fact-store`, `smoke:memory-fact-extraction` and `test:browser-memory-fact-graph`; [source contract and limits](docs/memory-fact-graph.md).
 - Graph backup and mobile regressions: `smoke:graph-backup`, `test:browser-graph-backup` and `test:browser-mobile`; [portable source evidence and narrow-screen behavior](docs/graph-backup-mobile.md).
 - Mixed-query regression: `smoke:memory-mixed-query`; the Writer stress suite retains its original 68-preparation workload and adds 24 full-query, graph-disabled assertions per size. See [comparison and remaining limits](docs/memory-mixed-query-recall.md).
-- Writer memory regressions: `smoke:writer-memory`, `smoke:memory-remote-guard`, `smoke:writer-memory-lifecycle`; `ci-writer-memory` runs 16 browser flows plus 1.44M/10.5M-character stress profiles.
+- Evidence review regressions: `smoke:memory-match-signals` and `smoke:writer-memory-selection`, with explicit-selection and known unanswered-question cases in Writer/browser stress; [contract and measurements](docs/memory-evidence-review.md).
+- Writer memory regressions: `smoke:writer-memory`, `smoke:memory-remote-guard`, `smoke:writer-memory-lifecycle`; `ci-writer-memory` runs 20 browser flows plus 1.44M/10.5M-character stress profiles.
 - Other suites: `smoke:generation-budget`, `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.

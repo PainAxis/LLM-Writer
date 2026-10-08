@@ -54,9 +54,17 @@ function fixture() {
   const prepared = (): PreparedWriterMemoryContext => ({
     projectId: 'novel:1', query: '铜铃', throughChapterId: '11', fingerprint: 'preview',
     prompt: 'WRITER_MEMORY_CONTEXT_JSON\n{"quote":"阿宁保管铜铃。"}',
-    hits: [], relations: [], maxChars: 6000, truncated: false,
+    hits: [{ id: 'fixture-source', projectId: 'novel:1', chapterId: '11', chapterTitle: '旧章', ordinal: 1,
+      revision: 'a'.repeat(64), start: 0, end: 7, quote: '阿宁保管铜铃。', kind: 'passage', label: '原文片段', score: 1, reason: 'fixture' }],
+    relations: [], maxChars: 6000, truncated: false,
+    assessment: { answerability: 'unverified', state: 'matched', requestedIdentifiers: [], missingIdentifiers: [] },
+    relationMatches: {},
     diagnostics: { semantic: 'disabled', rerank: 'disabled', eligiblePassages: 1, embeddedPassages: 0, cachedPassages: 0, rerankedCandidates: 0, warnings: [] },
     assertFresh: () => { freshCalls++; return fresh() },
+    selectEvidence: async selection => {
+      assert.deepEqual(selection, { hitIds: ['fixture-source'], relationIds: [] })
+      return prepared()
+    },
   })
   const client = {
     async sync(): Promise<never> { throw new Error('Injected preparation should own the test client') },
@@ -79,6 +87,8 @@ function fixture() {
     memory.state.cutoffId = '11'
     await nextTick()
     assert.equal(await memory.search(), true)
+    assert.equal(await memory.approve(), false, 'A nonempty preview cannot approve an empty selection')
+    memory.select({ hitIds: ['fixture-source'], relationIds: [] })
     assert.equal(await memory.approve(), true)
   }
   return {

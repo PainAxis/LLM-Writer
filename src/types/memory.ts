@@ -92,6 +92,23 @@ export interface MemoryRetrievalDiagnostics {
   warnings: string[]
 }
 
+/** Reproducible query contact only. Neither literal contact nor a model score proves an answer. */
+export interface MemoryMatchSignals {
+  version: 1
+  answerability: 'unverified'
+  literal: { quote: boolean; title: boolean; annotation: boolean }
+  /** Intersections with the requested identifiers; never arbitrary annotation text. */
+  identifiers: { quote: string[]; title: string[]; annotation: string[] }
+}
+
+/** Describes only the supplied candidates/selection, never absence from the whole manuscript. */
+export interface MemoryMatchSummary {
+  answerability: 'unverified'
+  state: 'none' | 'candidates' | 'matched'
+  requestedIdentifiers: string[]
+  missingIdentifiers: string[]
+}
+
 export interface MemoryEvidence {
   id: string
   projectId: string
@@ -106,6 +123,8 @@ export interface MemoryEvidence {
   label: string
   score: number
   reason: string
+  /** Optional for legacy callers; production retrieval always supplies structured signals. */
+  match?: MemoryMatchSignals
 }
 
 export interface MemorySearchResult {
@@ -117,6 +136,7 @@ export interface MemorySearchResult {
   searchMs: number
   method: 'bm25+clues' | 'bm25+clues+semantic'
   diagnostics: MemoryRetrievalDiagnostics
+  assessment?: MemoryMatchSummary
 }
 
 export type MemoryWorkerRequest =

@@ -7,7 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { MemoryIndex } from '../src/services/memory/engine'
 import { chapterRevision } from '../src/services/memory/revision'
-import { prepareWriterMemoryContext } from '../src/services/memory/writerContext'
+import { prepareWriterMemoryContext, WRITER_MEMORY_MARKER } from '../src/services/memory/writerContext'
 import type { FactAnchor, FactGraphDocument, FactRelation } from '../src/types/factGraph'
 import type { MemoryProjectInput, MemoryRemoteOptions } from '../src/types/memory'
 import { createStressNovel } from './fixtures/memory-stress-corpus'
@@ -19,6 +19,7 @@ const profiles = {
 } as const
 type Profile = keyof typeof profiles
 type Prepared = Awaited<ReturnType<typeof prepareWriterMemoryContext>>
+type WorkloadSnapshot = { cases: number; preparations: number; evidenceChecks: number; elapsedMs: number; memory: { sampledHeapPeakMiB: number; sampledRssPeakMiB: number; processMaxRssMiB: number } }
 const output = path.resolve(process.argv.find(arg => arg.startsWith('--output='))?.slice(9) ?? 'artifacts/writer-memory-stress')
 const selected = process.argv.find(arg => arg.startsWith('--profile='))?.slice(10) ?? 'all'
 const child = process.argv.includes('--child')
@@ -30,13 +31,18 @@ const identifier = (query: string) => query.match(/(?:FS|RN|PACT|MASK)\d+/)?.[0]
 async function runProfile(profile: Profile) {
   const started = performance.now()
   const startedAt = new Date().toISOString()
-  const sourcePaths = ['src/services/memory/writerContext.ts', 'src/services/memory/engine.ts', 'src/services/memory/identifiers.ts', 'scripts/fixtures/memory-stress-corpus.ts', 'scripts/stress-writer-memory.ts']
+  const sourcePaths = ['src/services/memory/writerContext.ts', 'src/services/memory/engine.ts', 'src/services/memory/identifiers.ts', 'src/services/memory/matchSignals.ts', 'scripts/fixtures/memory-stress-corpus.ts', 'scripts/stress-writer-memory.ts']
   const sourceHashes = Object.fromEntries(await Promise.all(sourcePaths.map(async filename => [filename, createHash('sha256').update(await readFile(filename)).digest('hex')])))
   const cases: Array<{ name: string; durationMs: number }> = []
   const preparations: Array<{ query: string; cutoff: number; budget: number; promptChars: number; hits: number; relations: number; durationMs: number; sync: unknown }> = []
   const mixedQueryRecall: Array<{ query: string; expectedChapter: string; passageRank: number; exactGraphEvidence: boolean }> = []
   const graphDisabledMixedQueries: Array<{ query: string; expectedChapter: string; passageRank: number; promptChars: number }> = []
-  let originalWorkload: { cases: number; preparations: number; evidenceChecks: number; elapsedMs: number; memory: { sampledHeapPeakMiB: number; sampledRssPeakMiB: number; processMaxRssMiB: number } } | undefined
+  let originalWorkload: WorkloadSnapshot | undefined
+  let mixedQueryWorkload: WorkloadSnapshot | undefined
+  const reviewCases: Array<{ name: string; query: string; assessment: Prepared['assessment']; hits: number; relations: number }> = []
+  const selections: Array<{ name: string; hitIds: string[]; relationIds: string[]; promptChars: number; assessment: Prepared['assessment']; durationMs: number }> = []
+  let rejectedSelections = 0
+  let reviewFixtureAddedChars = 0
   let evidenceChecks = 0
   let externalRequests = 0
   let mockedProviderRequests = 0
@@ -61,7 +67,7 @@ async function runProfile(profile: Profile) {
       environment: { node: process.version, platform: `${os.platform()} ${os.arch()}`, cpus: os.cpus().length }, sourceHashes,
       fixture: manifest, fixtureMs: rounded(fixtureMs), relationCount, cases, preparations, mixedQueryRecall,
       mixedQuerySummary: { questions: mixedQueryRecall.length, passageHits: mixedQueryRecall.filter(row => row.passageRank > 0).length, graphEvidenceHits: mixedQueryRecall.filter(row => row.exactGraphEvidence).length },
-      graphDisabledMixedQueries, originalWorkload,
+      graphDisabledMixedQueries, originalWorkload, mixedQueryWorkload, reviewCases, selections, rejectedSelections, reviewFixtureAddedChars,
       evidenceChecks, externalRequests, mockedProviderRequests,
       memory: { sampledHeapPeakMiB: mib(heapPeak), sampledRssPeakMiB: mib(rssPeak), processMaxRssMiB: rounded(process.resourceUsage().maxRSS / 1024) },
       limitations: ['Deterministic synthetic Chinese fiction; this is not a language-model retrieval or writing-quality evaluation.', 'Node service execution excludes browser Worker serialization, editor layout and real provider latency.', 'Single-run wall times depend on this machine. Sampled heap can miss synchronous peaks; process max RSS is separately reported.'],
@@ -141,6 +147,7 @@ async function runProfile(profile: Profile) {
     const dependencies = { client, readProject: async () => { if (readFailure) throw new Error('Synthetic committed-source read failed'); return project }, readGraph: async () => graph }
     function verify(result: Prepared, cutoff: string, maxChars: number) {
       assert.ok(result.prompt.length <= maxChars, 'the entire appended evidence block, including metadata, fits its budget')
+      assert.equal(result.assessment.answerability, 'unverified', 'literal evidence matching never establishes an answer')
       const cutoffOrdinal = project.chapters.findIndex(chapter => chapter.id === cutoff)
       const sources = new Map(project.chapters.map((chapter, ordinal) => [chapter.id, { chapter, ordinal }]))
       for (const hit of result.hits) {
@@ -307,6 +314,119 @@ async function runProfile(profile: Profile) {
         assert.equal(result.diagnostics.rerank, 'disabled')
       }
       assert.equal(graphDisabledMixedQueries.length, 24)
+    })
+    // Keep the PR #35 12-group / 92-preparation workload separately measurable.
+    sample()
+    mixedQueryWorkload = { cases: cases.length, preparations: preparations.length, evidenceChecks, elapsedMs: rounded(performance.now() - started),
+      memory: { sampledHeapPeakMiB: mib(heapPeak), sampledRssPeakMiB: mib(rssPeak), processMaxRssMiB: rounded(process.resourceUsage().maxRSS / 1024) } }
+    assert.equal(mixedQueryWorkload.cases, 12)
+    assert.equal(mixedQueryWorkload.preparations, 92)
+    await step('No-answer boundaries stay unverified and only explicitly selected current evidence enters the bounded attachment', async () => {
+      const absentId = 'ABSENT999999'
+      const firstId = identifier(first.query).toLowerCase()
+      const remember = (name: string, result: Prepared, state: Prepared['assessment']['state']) => {
+        assert.equal(result.assessment.state, state)
+        assert.equal(result.assessment.answerability, 'unverified')
+        reviewCases.push({ name, query: result.query, assessment: result.assessment, hits: result.hits.length, relations: result.relations.length })
+      }
+      const choose = async (name: string, result: Prepared, hitIds: string[], relationIds: string[] = []) => {
+        const started = performance.now()
+        const selected = await result.selectEvidence({ hitIds, relationIds })
+        verify(selected, result.throughChapterId, result.maxChars)
+        await selected.assertFresh()
+        assert.deepEqual(selected.hits.map(hit => hit.id).sort(), [...hitIds].sort())
+        assert.deepEqual(selected.relations.map(relation => relation.id).sort(), [...relationIds].sort())
+        if (selected.prompt) {
+          const envelope = JSON.parse(selected.prompt.split(`${WRITER_MEMORY_MARKER}\n`)[1]!) as { sources: Array<{ id: string }>; relations: Array<{ id: string }> }
+          assert.deepEqual(envelope.sources.map(hit => hit.id).sort(), [...hitIds].sort(), 'only individually selected source IDs enter the attachment')
+          assert.deepEqual(envelope.relations.map(relation => relation.id).sort(), [...relationIds].sort())
+        } else assert.equal(hitIds.length + relationIds.length, 0)
+        selections.push({ name, hitIds, relationIds, promptChars: selected.prompt.length, assessment: selected.assessment, durationMs: rounded(performance.now() - started) })
+        return selected
+      }
+      assert.ok(project.chapters.every(chapter => !chapter.text.includes('月亮')), 'the synthetic source supplies no moon-event answer')
+      const ordinary = await prepare('封蜡为什么会飞到月亮上', last, 6_000, false)
+      assert.ok(ordinary.hits.length > 0)
+      remember('ordinary-Chinese-partial-candidates', ordinary, 'candidates')
+      const absent = await prepare(absentId, last, 6_000, false)
+      remember('absent-code-empty', absent, 'none')
+      assert.deepEqual(absent.assessment.missingIdentifiers, [absentId.toLowerCase()])
+      const fallback = await prepare(`白银封蜡${absentId}`, last, 6_000, false)
+      assert.ok(fallback.hits.length > 0)
+      remember('absent-code-keyword-fallback', fallback, 'candidates')
+      assert.deepEqual(fallback.assessment.missingIdentifiers, [absentId.toLowerCase()])
+      const partial = await prepare(`${first.query} ${absentId}`, last, 6_000, false)
+      remember('partial-identifiers-are-not-an-answer', partial, 'matched')
+      assert.deepEqual(new Set(partial.assessment.requestedIdentifiers), new Set([firstId, absentId.toLowerCase()]))
+      assert.deepEqual(partial.assessment.missingIdentifiers, [absentId.toLowerCase()])
+      const exact = partial.hits.find(hit => hit.kind === 'passage' && hit.chapterId === first.chapterId && hit.quote.includes(first.quote))!
+      assert.ok(exact)
+      const selected = await choose('one-exact-passage', partial, [exact.id])
+      assert.deepEqual(selected.assessment.missingIdentifiers, [absentId.toLowerCase()])
+      const unrelated = partial.hits.find(hit => hit.chapterId !== first.chapterId)!
+      assert.ok(unrelated, 'the mixed-query preview includes a fallback candidate for selected-only assessment')
+      const onlyFallback = await choose('only-partial-candidate', partial, [unrelated.id])
+      assert.equal(onlyFallback.assessment.state, 'candidates')
+      assert.deepEqual(new Set(onlyFallback.assessment.missingIdentifiers), new Set([firstId, absentId.toLowerCase()]))
+      const empty = await choose('empty-selection', partial, [])
+      assert.equal(empty.prompt, '')
+      assert.equal(empty.assessment.state, 'none')
+      assert.deepEqual(new Set(empty.assessment.missingIdentifiers), new Set([firstId, absentId.toLowerCase()]))
+
+      const topic = await prepare(`${first.query}何时登上月亮？`, last, 6_000, false)
+      remember('existing-topic-without-event-answer', topic, 'matched')
+      assert.ok(topic.hits.some(hit => hit.quote.includes(first.quote)))
+      assert.ok(topic.hits.every(hit => !hit.quote.includes('月亮')))
+      const unansweredQuestion = '谁把渡口的铜铃藏进了月亮？'
+      const questionOnly = `\n\n村民只写下一个未解的问题：“${unansweredQuestion}”这份记录没有给出任何答案。`
+      reviewFixtureAddedChars = questionOnly.length
+      project = { ...project, chapters: project.chapters.map((chapter, ordinal) => ordinal === 2 ? { ...chapter, text: `${chapter.text}${questionOnly}` } : chapter) }
+      revisions.set(project.chapters[2]!.id, await chapterRevision(project.chapters[2]!))
+      const literal = await prepare(unansweredQuestion, last, 6_000, false)
+      remember('literal-question-is-still-unanswered', literal, 'matched')
+      const literalHit = literal.hits.find(hit => hit.quote.includes(unansweredQuestion))!
+      assert.ok(literalHit?.match?.literal.quote)
+      const literalSelected = await choose('unanswered-literal-question', literal, [literalHit.id])
+      assert.equal(literalSelected.assessment.answerability, 'unverified')
+
+      const beforeEdit = await prepare(first.query, last, 6_000, false)
+      const oldHit = beforeEdit.hits.find(hit => hit.kind === 'passage' && hit.quote.includes(first.quote))!
+      assert.ok(oldHit)
+      const oldSelected = await choose('current-source-before-edit', beforeEdit, [oldHit.id])
+      project = { ...project, chapters: project.chapters.map(chapter => chapter.id === first.chapterId ? { ...chapter, text: chapter.text.replaceAll(first.oldValue, first.replacementValue) } : chapter) }
+      revisions.set(first.chapterId, await chapterRevision(project.chapters[0]!))
+      await assert.rejects(oldSelected.assertFresh())
+      await assert.rejects(beforeEdit.selectEvidence({ hitIds: [oldHit.id], relationIds: [] }))
+      rejectedSelections++
+      const removed = await prepare(identifier(first.query), last, 6_000, false)
+      remember('removed-old-code', removed, 'none')
+      assert.deepEqual(removed.assessment.missingIdentifiers, [firstId])
+      const revised = await prepare(first.replacementValue, last, 6_000, false)
+      remember('replacement-current-code', revised, 'matched')
+      assert.deepEqual(revised.assessment.missingIdentifiers, [])
+      assert.ok(revised.hits.every(hit => !hit.quote.includes(first.oldValue)))
+      const revisedHit = revised.hits.find(hit => hit.kind === 'passage' && hit.quote.includes(first.replacementValue))!
+      assert.ok(revisedHit)
+      await choose('current-source-after-edit', revised, [revisedHit.id])
+      const future = await prepare(secret.query, penultimate, 6_000, false)
+      remember('future-only-code', future, 'none')
+      assert.deepEqual(future.assessment.missingIdentifiers, [identifier(secret.query).toLowerCase()])
+
+      project = { ...project, chapters: project.chapters.map(chapter => chapter.id === first.chapterId ? corpus.project.chapters[0]! : chapter) }
+      revisions.set(first.chapterId, await chapterRevision(project.chapters[0]!))
+      graph = { version: 1, projectId: project.id, revision: 'writer-stress-graph-review', relations: [inference, ...relations] }
+      const graphPreview = await prepare(inference.predicate)
+      const graphSelected = await choose('complete-two-premise-relation', graphPreview, [], [inference.id])
+      assert.deepEqual(graphSelected.relations[0]!.evidence.map(({ chapterId, sourceRevision, start, end, quote }) => ({ chapterId, sourceRevision, start, end, quote })), inference.evidence)
+      for (const premise of graphSelected.relations[0]!.evidence) {
+        const ordinal = project.chapters.findIndex(chapter => chapter.id === premise.chapterId)
+        assert.equal(premise.ordinal, ordinal + 1)
+        assert.equal(premise.chapterTitle, project.chapters[ordinal]!.title)
+      }
+      assert.equal(graphSelected.relations[0]!.origin, 'inferred')
+      assert.equal(graphSelected.relations[0]!.authorConfirmed, true)
+      assert.equal(graphSelected.assessment.answerability, 'unverified')
+      assert.equal(mockedProviderRequests, 1, 'evidence review and selection make no additional provider requests')
     })
     for (const filename of sourcePaths) assert.equal(createHash('sha256').update(await readFile(filename)).digest('hex'), sourceHashes[filename], `Measured production source changed during ${profile}: ${filename}`)
     await checkpoint('passed')

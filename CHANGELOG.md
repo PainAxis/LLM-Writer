@@ -2,8 +2,12 @@
 
 ## [Unreleased]
 
+- Current configured coverage is 79 smoke suites and 133 browser scenarios, including 20 Writer memory scenarios; validation status is established by the reviewed revision’s CI.
+- Distinguish empty results, candidates and literal/code matches without score thresholds or answerability claims. Expose missing requested codes and quotation/title/author-annotation provenance; optional retrieval providers remain opt-in.
+- Require individual Writer passage or complete-relationship selection before approval. Serialize only selected current/disclosed evidence, recompute its assessment and revoke approval when selection changes. Add ordinary unanswered-question and selected-context acceptance; see matching [English](docs/memory-evidence-review.md) and [Simplified Chinese](docs/memory-evidence-review.zh-CN.md) guides.
+
 - Repair local mixed Chinese/ASCII-code recall using bounded, disclosure-filtered exact-identifier candidates and code-coverage priority in local ranking. Preserve current-source checks and ordinary keyword/clue search; optional semantic/rerank services remain separately enabled. Document the recognized code grammar and remaining no-answer/capacity limits in [English](docs/memory-mixed-query-recall.md) and [Simplified Chinese](docs/memory-mixed-query-recall.zh-CN.md).
-- Add a focused identifier regression suite, graph-disabled full-query assertions at 1.44M/10.5M characters, and two built-app Writer cases. Current configured coverage is 77 smoke suites and 129 browser scenarios; the reviewed revision’s CI establishes the validation result.
+- Add a focused identifier regression suite, graph-disabled full-query assertions at 1.44M/10.5M characters, and two built-app Writer cases. That validation set contained 77 smoke suites and 129 browser scenarios; the reviewed revision’s CI establishes the validation result.
 
 - Add opt-in retrieval evidence to Writer chapter-body generation, continuation and polishing. Preview and approve bounded exact excerpts and graph provenance; revalidate committed revisions/disclosure before each optional provider request, model transport, completion and application. Keep semantic/rerank services off by default with route-session credentials.
 - Add cancellation/application lifecycle, provider-handshake and source/budget regressions, 14 actual Writer browser scenarios including 320px/390px touch operation, and 1.44M/10.5M-character context workloads. Synchronize [English](docs/writer-memory-context.md) and [Simplified Chinese](docs/writer-memory-context.zh-CN.md) documentation; stage-four Agent work remains deferred.

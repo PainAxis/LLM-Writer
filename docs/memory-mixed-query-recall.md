@@ -14,7 +14,7 @@ Optional embeddings and reranking still run only when enabled, and can change th
 
 The extra code channel does not add another whole-manuscript text scan at query time. Existing source reads, eligibility traversal and exact-source validation still inspect committed snapshots/evidence. This is not a sublinear end-to-end search claim, nor a solution to cold indexing or peak memory.
 
-## Verification
+## PR #35 verification
 
 ```bash
 npm run smoke:memory-mixed-query
@@ -26,9 +26,9 @@ The focused smoke suite checks the former candidate-window miss, code grammar an
 
 The stress runner preserves the original **11 groups / 68 preparations** per size and their mixed-query-plus-graph rows. It records an `originalWorkload` checkpoint before appending **24 full original mixed-query assertions with graph, embeddings and reranking disabled**. Each profile therefore has **12 groups / 92 preparations**. Every accepted source still passes current chapter, revision, exact range/quotation and disclosure checks. Distant clues, old-chapter and batch edits, future identities and confirmed multi-premise relationships retain their original cases. No paid or live provider calls are made; one controlled mock rerank call per profile is followed by a stale-source rejection.
 
-The built-app Writer suite retrieves an unannotated exact passage with the full query, then checks preview and the actual generation request payload, old-chapter editing and future-code cutoffs. The derived persisted fixture has 600 chapters / 1,423,494 source characters; its Writer cutoff discloses 598 chapters / 1,423,398 characters, with later exact-code and identity revelations at narrative positions 599 and 600. Its 1,539,531-character serialized novel crosses the persistence split threshold (593 split chapter bodies). All four original graph anchors remain intact, but none covers the tested passage. These browser measurements are separate from the Node workload. Current configured coverage is **77 smoke suites / 129 browser scenarios**, including **16 Writer memory scenarios**. Validation status is established by the reviewed revision's CI.
+The built-app Writer suite retrieves an unannotated exact passage with the full query, then checks preview and the actual generation request payload, old-chapter editing and future-code cutoffs. The derived persisted fixture has 600 chapters / 1,423,494 source characters; its Writer cutoff discloses 598 chapters / 1,423,398 characters, with later exact-code and identity revelations at narrative positions 599 and 600. Its 1,539,531-character serialized novel crosses the persistence split threshold (593 split chapter bodies). All four original graph anchors remain intact, but none covers the tested passage. These browser measurements are separate from the Node workload. The PR #35 configured coverage was **77 smoke suites / 129 browser scenarios**, including **16 Writer memory scenarios**. Current coverage is tracked in [Project Structure](../PROJECT_STRUCTURE.md), with validation established by the reviewed revision's CI.
 
-## Comparable local measurements
+## Historical PR #35 comparable local measurements
 
 Character counts are JavaScript UTF-16 code units, matching the source ranges and attachment budget; they are not word, token or byte counts.
 
@@ -55,6 +55,8 @@ The full 92-preparation after runs peaked at **846 MiB / 2,062 MiB RSS**. Their 
 Compare cold preparation, the original 24 exact-identifier warm preparations and process peak RSS at the original 68-preparation checkpoint. Final after-run RSS includes the added graph-disabled work and is reported separately. These are single runs, not a claimed speedup or a browser/device responsiveness guarantee. The synthetic passages test exact source retrieval and provenance, not literary realism or general Chinese semantic recall.
 
 ## Remaining stage-three work
+
+The subsequent [evidence-review increment](memory-evidence-review.md) adds deterministic match/missing-code indicators and individual Writer selection. It preserves the measurements above and does not claim semantic answerability.
 
 1. **No-answer and low-relevance handling:** retrieval may still return partial matches for absent codes or questions without disclosed evidence. Source validity and non-empty results are insufficient evidence of an answer; define and test abstention separately.
 2. **Indexing and semantic capacity:** cold builds, full committed-source reads/validation, recovery/compaction and bounded semantic caches remain expensive or capacity-limited. Node measurements exclude IndexedDB hydration, Worker transfer, editor rendering and real-provider latency.

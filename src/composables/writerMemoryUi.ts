@@ -1,6 +1,6 @@
 import type {
   MemoryEmbeddingConfig, MemoryEvidence, MemoryRemoteOptions,
-  MemoryRerankConfig, MemoryRetrievalDiagnostics,
+  MemoryRerankConfig, MemoryRetrievalDiagnostics, MemoryMatchSummary, MemoryMatchSignals,
 } from '@/types/memory'
 import type { VisibleFactRelation } from '@/types/factGraph'
 
@@ -24,6 +24,8 @@ export interface WriterMemoryPreview {
   relations: VisibleFactRelation[]
   diagnostics?: MemoryRetrievalDiagnostics
   prompt?: string
+  assessment?: MemoryMatchSummary
+  relationMatches?: Record<string, MemoryMatchSignals[]>
 }
 
 export function createWriterMemoryProviders(): WriterMemoryProviders {

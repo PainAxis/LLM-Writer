@@ -2,7 +2,7 @@ import { computed, markRaw, reactive, watch, type Ref } from 'vue'
 import type { WriterChapter, WriterNovel } from '@/types/writer'
 import type { MemoryChapterInput } from '@/types/memory'
 import { MemoryClient } from '@/services/memory/client'
-import { prepareWriterMemoryContext, type PreparedWriterMemoryContext, type WriterMemoryClient } from '@/services/memory/writerContext'
+import { prepareWriterMemoryContext, type PreparedWriterMemoryContext, type WriterMemoryClient, type WriterMemorySelection } from '@/services/memory/writerContext'
 import { stripWriterHtml } from '@/utils/writerContent'
 import { StorageKeys } from '@/utils/storage'
 import { createWriterMemoryProviders, writerMemoryRemoteOptions, type WriterMemoryPreview } from './writerMemoryUi'
@@ -29,12 +29,17 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
   const prepare = options.prepare ?? prepareWriterMemoryContext
   const state = reactive({
     enabled: false, query: '', cutoffId: '', busy: false, error: '', notice: '', approved: false,
+    selection: { hitIds: [], relationIds: [] } as WriterMemorySelection,
     providers: createWriterMemoryProviders(), result: null as WriterMemoryPreview | null,
   })
   let revision = 0
   let acquisition = 0
   let disposed = false
   let prepared: PreparedWriterMemoryContext | null = null
+  let approvedSelection: PreparedWriterMemoryContext | null = null
+  let selectionRevision = 0
+  let approvalAttempt = 0
+  let approvalBusy = false
   let previewAbort: AbortController | null = null
   let preparedTarget = ''
   const invalidators = new Set<() => void>()
@@ -56,10 +61,14 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
 
   const revoke = (notice = '') => {
     revision += 1
+    approvalAttempt += 1
+    approvalBusy = false
     previewAbort?.abort()
     previewAbort = null
     client.invalidateSource()
     prepared = null
+    approvedSelection = null
+    state.selection = { hitIds: [], relationIds: [] }
     state.result = null
     state.approved = false
     state.busy = false
@@ -71,6 +80,20 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
     if (state.enabled || prepared || state.busy) revoke('稿件、目标章节或检索设置已改变，请重新检索并核对依据。')
   }
   const cancel = () => revoke('已取消检索。')
+  const selectionChanged = () => {
+    selectionRevision += 1
+    approvalAttempt += 1
+    if (approvalBusy) { approvalBusy = false; state.busy = false }
+    approvedSelection = null
+    state.approved = false
+    state.error = ''
+    if (prepared) state.notice = '依据选择已改变，请核对所选原文后重新确认；未选项不会发送。'
+    for (const invalidate of invalidators) invalidate()
+  }
+  const select = (selection: WriterMemorySelection) => {
+    if (!prepared || disposed) return
+    state.selection = { hitIds: [...selection.hitIds], relationIds: [...selection.relationIds] }
+  }
   const ensureCurrent = (operation: number, identity: string) => {
     if (disposed || operation !== revision || !state.enabled || identity !== targetIdentity()) {
       throw new Error('写作记忆准备已失效，请重新检索并核对依据。')
@@ -105,10 +128,12 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
       ensureCurrent(operation, identity)
       prepared = result
       preparedTarget = identity
-      state.result = markRaw(result)
+      // Do not expose the private preparation methods to the presentation layer.
+      state.result = markRaw({ hits: result.hits, relations: result.relations, diagnostics: result.diagnostics,
+        assessment: result.assessment, relationMatches: result.relationMatches, prompt: result.prompt })
       state.notice = result.prompt
-        ? (result.truncated ? '已按上下文预算保留完整依据；部分结果未纳入。请核对后确认。' : '请核对原文、章节版本与推断标识，再确认使用。')
-        : '没有找到可用依据。请调整查询或范围；也可关闭记忆依据后继续写作。'
+        ? (result.truncated ? '已按上下文预算保留完整候选；部分结果未纳入。请逐项选择并核对。' : '候选默认未选。请逐项核对原文、章节版本与推断标识，选择有帮助的参考后确认。')
+        : '本次检索未找到可纳入的候选依据，不代表原文没有答案。可调整查询或关闭记忆依据后继续写作。'
       return true
     } catch (error) {
       if (operation === revision && !disposed) state.error = error instanceof Error ? error.message : '写作记忆检索失败，请重试。'
@@ -128,39 +153,59 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
 
   async function approve(): Promise<boolean> {
     const candidate = prepared
-    if (!candidate?.prompt || state.busy) return false
+    if (!candidate?.prompt || state.busy || !state.selection.hitIds.length && !state.selection.relationIds.length) return false
     const operation = revision
+    const chosenRevision = selectionRevision
+    const attempt = ++approvalAttempt
+    const selection = { hitIds: [...state.selection.hitIds], relationIds: [...state.selection.relationIds] }
+    approvalBusy = true
     state.busy = true
     try {
       await assertPrepared(candidate, operation)
+      const chosen = await candidate.selectEvidence(selection)
+      ensureCurrent(operation, preparedTarget)
+      if (candidate !== prepared || chosenRevision !== selectionRevision || attempt !== approvalAttempt) throw new Error('依据选择已改变，请重新核对所选原文。')
+      if (!chosen.prompt) throw new Error('请至少选择一项完整依据，再确认用于生成。')
+      approvedSelection = chosen
       state.approved = true
       state.error = ''
-      state.notice = '已核对。本次生成只会附加这里列出的依据；发送前仍会重新检查修订和披露范围。'
+      state.notice = '已核对。本次仅发送勾选的完整依据，答案仍须核对；发送前会重新检查修订和披露范围。'
       return true
     } catch (error) {
-      if (operation === revision) {
+      if (operation === revision && chosenRevision === selectionRevision && attempt === approvalAttempt) {
         revoke()
         state.error = error instanceof Error ? error.message : '依据已失效，请重新检索。'
       }
       return false
     } finally {
-      if (operation === revision) state.busy = false
+      if (operation === revision && attempt === approvalAttempt) { approvalBusy = false; state.busy = false }
     }
   }
 
   /** Null keeps the existing no-memory generation path synchronous. */
   function acquire(): Promise<WriterMemoryLease> | null {
     if (!state.enabled) return null
-    const candidate = prepared
+    const candidate = approvedSelection
     const operation = revision
+    const chosenRevision = selectionRevision
     const request = ++acquisition
     if (!candidate?.prompt || !state.approved) {
       return Promise.reject(new Error('请先检索并核对写作记忆依据，或关闭记忆依据后生成。'))
     }
     const assertFresh = async () => {
-      try { await assertPrepared(candidate, operation) }
+      const ensureSelection = () => {
+        ensureCurrent(operation, preparedTarget)
+        if (candidate !== approvedSelection || chosenRevision !== selectionRevision || !state.approved) {
+          throw new Error('依据选择已改变，请重新核对所选原文。')
+        }
+      }
+      try {
+        ensureSelection()
+        await candidate.assertFresh()
+        ensureSelection()
+      }
       catch (error) {
-        if (operation === revision && request === acquisition) {
+        if (operation === revision && request === acquisition && chosenRevision === selectionRevision) {
           revoke()
           state.error = error instanceof Error ? error.message : '依据已失效，请重新检索。'
         }
@@ -171,6 +216,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
   }
 
   const stops = [
+    watch(() => state.selection, selectionChanged, { deep: true, flush: 'sync' }),
     watch(() => [state.enabled, state.query, state.cutoffId, state.providers], changed, { deep: true, flush: 'sync' }),
     watch(targetIdentity, changed),
     // Reading the live editor for its chapter prevents the save operation's own
@@ -217,7 +263,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
     invalidators.clear()
   }
   return {
-    state, chapters, search, approve, cancel, acquire, revoke, dispose,
+    state, chapters, search, select, approve, cancel, acquire, revoke, dispose,
     onInvalidate(callback: () => void) { invalidators.add(callback); return () => invalidators.delete(callback) },
   }
 }
