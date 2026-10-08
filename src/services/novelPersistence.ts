@@ -3,7 +3,7 @@
  * localStorage 元数据是提交点；它写入成功前，上一版引用的正文绝不修改或删除。
  */
 import { StorageKeys, registerChunkedKey, writeSerializedWithRetry, type ChunkedKeyBackend, type StorageCommitReceipt } from '@/utils/storage'
-import { idbDeleteMany, idbGet, idbSetMany, isBlobStoreAvailable } from './blobStore'
+import { idbDeleteMany, idbGetMany, idbSetMany, isBlobStoreAvailable } from './blobStore'
 import { withStorageCommit } from './storageCoordination'
 import { createNovelChangeTracker, type NovelChange } from '@/utils/novelConcurrency'
 
@@ -114,14 +114,19 @@ export function splitContents(novels: NovelLike[]): { metadata: NovelLike[]; blo
 /** 全部分片成功读取后才回填；失败保留原始指针，不以空正文冒充成功。 */
 export async function hydrateContents(novels: NovelLike[]): Promise<void> {
   const chapters = novels.flatMap((novel) => novel.chapterList ?? [])
-  const loaded = await Promise.all(chapters.map(async (chapter) => {
-    if (typeof chapter.contentRef !== 'string' || typeof chapter.content === 'string') return null
-    const content = await idbGet(chapter.contentRef)
-    if (content === null) throw new Error(`章节「${String(chapter.title ?? chapter.id)}」正文分片缺失（${chapter.contentRef}）`)
+  const pending = chapters.flatMap((chapter) =>
+    typeof chapter.contentRef === 'string' && typeof chapter.content !== 'string'
+      ? [{ chapter, key: chapter.contentRef }] : [])
+  // One committed read transaction, with every referenced body still read afresh.
+  // Validate the whole result before mutating any chapter or removing its pointer.
+  const contents = await idbGetMany(pending.map(item => item.key))
+  const loaded = pending.map(({ chapter, key }) => {
+    const content = contents.get(key) ?? null
+    if (content === null) throw new Error(`章节「${String(chapter.title ?? chapter.id)}」正文分片缺失（${key}）`)
     return { chapter, content }
-  }))
+  })
   for (const item of loaded) {
-    if (item) item.chapter.content = item.content
+    item.chapter.content = item.content
   }
   for (const chapter of chapters) delete chapter.contentRef
 }

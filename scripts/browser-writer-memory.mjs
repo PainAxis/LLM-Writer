@@ -15,7 +15,7 @@ import {
   writerMemoryNovelId, writerMemoryProjectId, chapterIdAt, chapterTitleAt,
   originalOldFact, revisedOldFact, distantClue, laterPremise, currentWritingText,
   futureIdentity, fixtureTexts, fixtureRevision, makeWriterMemoryBackup,
-  makeMixedWriterMemoryFixture, mixedMemoryProbe,
+  makeMixedWriterMemoryFixture, mixedMemoryProbe, makeCapacityWriterMemoryFixture, capacityMemoryProbe,
 } from './fixtures/writer-memory-corpus.mjs'
 
 const syntheticCompletion = '沈砚抬头望向河岸，决定先寻找一处避雨之所，再细细回想旧日的约定。远处的茶棚传来人声，他整理好行囊，沿着铺满石板的小路继续前行，直到一扇亮着灯光的木门出现在雨幕之中。'
@@ -1102,6 +1102,135 @@ try {
     report.remoteCandidateReview = { selectedSources: envelope.sources.length, assessment: envelope.assessment, retrievalRequests: remoteRequests().length - beforeRemote }
     await wm('embedding-enabled').uncheck()
     await expectNoApprovedEvidence()
+    await closeDialog()
+  })
+  await step('21 Over-capacity committed sources explicitly fall back without partial embedding while late identifiers, distant clues and revised evidence reach Writer by author selection', async () => {
+    const large = makeCapacityWriterMemoryFixture(`${fixtureOrigin}/v1`)
+    assert.ok(large.manifest.minimumPassagesBeforeProbe > 2000, 'The late exact-ID source must be beyond even a non-overlapping first-2,000-passage prefix')
+    useFixtureSources(large)
+    page = await newPage()
+    await importFixture(large.backup)
+    const beforeRemote = remoteRequests().length
+    const beforeModel = modelRequests().length
+    const memory = id => page.getByTestId(`memory-${id}`)
+    const fallbackWarning = '当前披露范围超过 2,000 个片段，语义检索已回退为本地检索；未发送部分章节建立不完整索引。'
+    const timeout = 90_000
+    const cutoff = large.manifest.targetSourceChapterNumber
+    const observedCounts = []
+    const configureCapacityEmbedding = async (owner, prefix, detailsId) => {
+      const control = id => owner.getByTestId(`${prefix}-${id}`)
+      const details = control(detailsId)
+      await details.locator('summary').click()
+      await expect(control('embedding-enabled')).not.toBeChecked()
+      await expect(control('rerank-enabled')).not.toBeChecked()
+      await control('embedding-enabled').check()
+      await control('embedding-protocol').selectOption('jina')
+      await control('embedding-endpoint').fill(`${fixtureOrigin}/capacity/embeddings`)
+      await control('embedding-model').fill('synthetic-writer-capacity')
+      await control('embedding-dimensions').fill('3')
+      await control('embedding-key').fill(embeddingKey)
+      assert.equal(remoteRequests().length, beforeRemote, 'Provider opt-in must not send anything before a search')
+    }
+    const searchCapacityLab = async query => {
+      await searchLabMemory(query, timeout)
+      await expect(memory('retrieval-status')).toContainText(fallbackWarning)
+      await expect(memory('retrieval-status')).toContainText('本次新嵌入 0 个 · 复用缓存 0 个')
+      const count = Number((await memory('retrieval-status').innerText()).match(/披露范围内 (\d+) 个原文块/)?.[1])
+      assert.ok(count > 2000, 'The browser must observe a genuinely over-capacity disclosed corpus')
+      observedCounts.push(count)
+      assert.equal(remoteRequests().length, beforeRemote, 'Fallback must not embed a partial first-2,000 index or even send a query embedding')
+    }
+    const inspectCapacitySource = async (number, quote) => {
+      const result = page.locator('[data-testid^="memory-result-"]').filter({ hasText: quote })
+      await expect(result).toHaveCount(1)
+      await result.click()
+      await expect(memory('evidence-quote')).toHaveText(quote)
+      await expect(memory('evidence-revision')).toHaveText(fixtureRevision(number, liveTexts.get(number)))
+      await expect(memory('evidence-source').locator('mark')).toHaveText(quote)
+      await expect(memory('evidence-source')).toHaveText(liveTexts.get(number))
+      await expect(memory('results')).not.toContainText('南塔密室')
+      await expect(memory('results')).not.toContainText('FUTURE-SECRET-59480')
+    }
+    const searchCapacityWriter = async query => {
+      await searchMemory(query, cutoff, { timeout })
+      await expect(wm('diagnostics')).toContainText(fallbackWarning)
+      await expectNothingSelected()
+      await assertNoGeneration('continue', modelRequests().length)
+      assert.equal(remoteRequests().length, beforeRemote)
+    }
+    const generateSelectedCapacitySource = async (query, quote) => {
+      await searchCapacityWriter(query)
+      await expectAssessment('writer-memory', 'matched')
+      await selectSourceQuote(quote)
+      await wm('approve').click()
+      await expect(wm('approved')).toBeVisible()
+      const entry = await generateAndCapture('continue')
+      const envelope = assertCurrentDisclosedPayload(entry, { expectedQuote: quote, absent: ['南塔密室'] })
+      assertOnlySource(envelope, quote)
+      assertUnverifiedEnvelope(envelope, 'matched')
+      assert.equal(remoteRequests().length, beforeRemote)
+      return entry
+    }
+    await openLabMemory(cutoff, timeout)
+    await configureCapacityEmbedding(page, 'memory', 'provider-settings')
+    await searchCapacityLab(capacityMemoryProbe.query)
+    await expectAssessment('memory', 'matched')
+    await inspectCapacitySource(capacityMemoryProbe.chapterNumber, capacityMemoryProbe.quote)
+    await memory('evidence-quote').scrollIntoViewIfNeeded()
+    await screenshot('capacity-fallback-late-source-memory-lab', false)
+    await searchCapacityLab('铜铃')
+    await inspectCapacitySource(2, distantClue)
+    await expectAssessment('memory', 'matched')
+    assert.equal(modelRequests().length, beforeModel)
+    await openWriter(page, cutoff)
+    await openDialog('continue')
+    await expect(wm('enabled')).not.toBeChecked()
+    await wm('enabled').check()
+    await expect(wm('cutoff').locator(`option[value="${large.manifest.futureChapterId}"]`)).toHaveCount(0)
+    await configureCapacityEmbedding(dialog, 'writer-memory', 'providers')
+    await generateSelectedCapacitySource(capacityMemoryProbe.query, capacityMemoryProbe.quote)
+    await generateSelectedCapacitySource('铜铃', distantClue)
+    await searchCapacityWriter(weakIdentifierQuery)
+    await expectAssessment('writer-memory', 'candidates', ['missing-926_z'])
+    await searchCapacityWriter(emptyQuery)
+    await expectAssessment('writer-memory', 'none', ['unrecorded-926_z'])
+    await expect(wm('empty')).toBeVisible()
+    await closeDialog()
+
+    const previousRevision = fixtureRevision(mixedMemoryProbe.chapterNumber, mixedMemoryProbe.quote)
+    await editChapter(page, mixedMemoryProbe.chapterNumber, mixedMemoryProbe.revisedQuote)
+    const committed = await committedChapter(mixedMemoryProbe.chapterNumber)
+    assert.equal(committed.text, mixedMemoryProbe.revisedQuote)
+    await openLabMemory(cutoff, timeout)
+    await configureCapacityEmbedding(page, 'memory', 'provider-settings')
+    await searchCapacityLab(mixedMemoryProbe.query)
+    await expectAssessment('memory', 'candidates', ['wx-314_a'])
+    const oldResults = (await page.locator('[data-testid^="memory-result-"]').allTextContents()).join('\n')
+    assert.ok(!oldResults.includes(mixedMemoryProbe.quote) && !oldResults.includes('南塔密室'))
+    const exactTokens = oldResults.match(/[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*/g) || []
+    assert.ok(exactTokens.every(token => token.toLowerCase() !== mixedMemoryProbe.identifier.toLowerCase()))
+    await searchCapacityLab(mixedMemoryProbe.revisedQuery)
+    await inspectCapacitySource(mixedMemoryProbe.chapterNumber, mixedMemoryProbe.revisedQuote)
+    await openWriter(page, cutoff)
+    await openDialog('continue')
+    await wm('enabled').check()
+    await configureCapacityEmbedding(dialog, 'writer-memory', 'providers')
+    const entry = await generateSelectedCapacitySource(mixedMemoryProbe.revisedQuery, mixedMemoryProbe.revisedQuote)
+    const envelope = assertMixedSourcePayload(entry, mixedMemoryProbe.revisedQuote)
+    assert.ok(!JSON.stringify(entry.body.messages).includes(mixedMemoryProbe.quote))
+    assert.ok(envelope.sources.every(source => source.revision !== previousRevision))
+    assert.equal((await committedChapter(mixedMemoryProbe.chapterNumber)).html, committed.html)
+    await wm('approved').scrollIntoViewIfNeeded()
+    await screenshot('capacity-fallback-revised-writer', false)
+    report.capacityJourney = {
+      ...large.manifest, eligiblePassages: observedCounts, semanticLimit: 2000,
+      retrievalRequests: remoteRequests().length - beforeRemote,
+      writingRequests: modelRequests().length - beforeModel,
+      lateSourceRevision: fixtureRevision(capacityMemoryProbe.chapterNumber, capacityMemoryProbe.quote),
+      revisedSourceRevision: envelope.sources[0].revision,
+      selectedSourcesPerRequest: 1, selectedRelationsPerRequest: 0,
+      answerability: envelope.assessment.answerability,
+    }
     await closeDialog()
   })
   assert.deepEqual(fixtureErrors, [], 'Every observed provider request must obey the independent source oracle')
