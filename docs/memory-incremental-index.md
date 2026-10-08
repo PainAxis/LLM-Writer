@@ -109,3 +109,5 @@ UI timings include the committed-source read, Worker synchronization, retrieval 
 ## Remaining boundaries
 
 Cold indexing, whole-source reads, snapshot copies and validation still scale with manuscript size. Periodic compaction and recovery remain full-build paths, and the in-memory index can consume substantial memory. Semantic capacity and real-provider cold-start limits have not increased. This change does not improve the measured no-answer behavior, provide durable background indexing, complete chapter-level persistence, or implement fact graphs and generation-context integration.
+
+Subsequent stage-three work adds a [fact relationship graph and source evidence](memory-fact-graph.md). Its separate contract and tests do not change the historical indexing measurements above.

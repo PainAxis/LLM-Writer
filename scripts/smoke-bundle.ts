@@ -56,6 +56,7 @@ const features = [
   { label: 'AI SDK', pattern: /\/node_modules\/(?:ai\/|@ai-sdk\/)/ },
   { label: '导图库', pattern: /\/node_modules\/(?:mind-elixir\/|@mind-elixir\/)/ },
   { label: 'Mammoth DOCX 解析器', pattern: /\/node_modules\/mammoth\// },
+  { label: 'Cytoscape 事实关系图', pattern: /\/node_modules\/cytoscape\// },
 ]
 const entry = findEntry('index.html')
 const initial = reachable([entry])

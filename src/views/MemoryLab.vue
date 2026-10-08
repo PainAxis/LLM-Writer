@@ -79,6 +79,7 @@
         <label class="field cutoff-field">
           <span>已披露至（含本章）</span>
           <select v-model="cutoffId" data-testid="memory-cutoff" :disabled="busy || !project" @change="invalidateResults">
+            <option v-if="project?.chapters.length && !cutoffId" disabled value="">请选择已披露截止章节</option>
             <option v-for="(chapter, index) in project?.chapters ?? []" :key="chapter.id" :value="chapter.id">{{ index + 1 }} · {{ chapter.title }}</option>
           </select>
         </label>
@@ -86,6 +87,7 @@
         <el-button v-if="busy && operation === 'search'" data-testid="memory-cancel" @click="cancelSearch">取消检索</el-button>
       </div>
       <p class="muted">截止章节按正文排列顺序判断。后续章节不会进入候选结果或依据面板。</p>
+      <p v-if="project?.chapters.length && !cutoffId" class="warning" data-testid="memory-cutoff-required" role="status">原截止章节已不存在，请重新选择已披露范围。系统不会自动开放后续章节。</p>
       <div v-if="isDemo" class="shortcuts" aria-label="三项验收快捷检索">
         <span class="muted">试一试</span>
         <el-button size="small" data-testid="memory-shortcut-old" :disabled="busy || dirty || !project" @click="runShortcut('钥匙', 'c10')">查旧章事实</el-button>
@@ -138,6 +140,8 @@
       </aside>
     </div>
 
+    <FactGraphPanel :project="project" :stats="stats" :through-chapter-id="cutoffId" :disabled="busy || dirty || !stats" :selected-evidence="evidence?.hit" @refresh-required="invalidateGraphSource" />
+
     <section v-if="isDemo" class="lab-card demo-editor" aria-labelledby="editor-title">
       <div class="section-heading">
         <h2 id="editor-title">示例素材编辑</h2>
@@ -164,6 +168,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
+import FactGraphPanel from '@/components/memory/FactGraphPanel.vue'
 import { MemoryClient } from '@/services/memory/client'
 import { createMemoryDemo, readMemoryDemo, readMemoryNovel, readMemoryNovelChoices, saveMemoryDemo } from '@/services/memory/labData'
 import type { MemoryIndexStats, MemoryProjectInput, MemoryRemoteOptions, MemorySearchResult } from '@/types/memory'
@@ -207,6 +212,7 @@ const canSearch = computed(() => Boolean(project.value && cutoffId.value && quer
 let client: MemoryClient | undefined
 let generation = 0
 let disposed = false
+let disclosureSourceId: string | null = null
 
 const semanticStatus = computed(() => ({ disabled: '未启用（本地检索）', used: '已参与混合检索', fallback: '不可用，已回退至本地检索' })[result.value?.diagnostics.semantic ?? 'disabled'])
 const rerankStatus = computed(() => ({ disabled: '未启用', used: '已完成', fallback: '不可用，保留召回顺序', skipped: '无需重排，未调用服务' })[result.value?.diagnostics.rerank ?? 'disabled'])
@@ -316,10 +322,14 @@ function finishOperation(token: number) {
 }
 
 function acceptSnapshot(snapshot: MemoryProjectInput, index: MemoryIndexStats) {
+  const initialDisclosure = disclosureSourceId !== snapshot.id
+  disclosureSourceId = snapshot.id
   project.value = snapshot
   stats.value = index
   sourceRefreshNeeded.value = false
-  if (!snapshot.chapters.some(chapter => chapter.id === cutoffId.value)) cutoffId.value = snapshot.chapters[Math.min(9, snapshot.chapters.length - 1)]?.id ?? ''
+  // Only a newly selected source gets a default. Losing an established boundary
+  // must not silently disclose later chapters, including on repeated refreshes.
+  if (!snapshot.chapters.some(chapter => chapter.id === cutoffId.value)) cutoffId.value = initialDisclosure ? snapshot.chapters[Math.min(9, snapshot.chapters.length - 1)]?.id ?? '' : ''
   if (!snapshot.chapters.some(chapter => chapter.id === editChapterId.value)) editChapterId.value = snapshot.chapters[0]?.id ?? ''
 }
 
@@ -358,6 +368,7 @@ async function loadSource() {
 
 function changeSource() {
   resetRetrieval()
+  disclosureSourceId = null
   project.value = null
   stats.value = null
   drafts.value = {}
@@ -455,6 +466,11 @@ function discardEdits() {
 
 function invalidateExternalSource() {
   if (isDemo.value || disposed) return
+  invalidateGraphSource()
+}
+
+function invalidateGraphSource() {
+  if (disposed) return
   invalidateResults()
   stats.value = null
   busy.value = false

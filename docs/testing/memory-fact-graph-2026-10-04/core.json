@@ -1,0 +1,27 @@
+{
+  "fixture": {
+    "version": 1,
+    "chapters": 600,
+    "relations": 5400,
+    "chars": 1411959,
+    "description": "Synthetic 600-chapter fiction with 5,400 source-anchored relations; no LLM or provider requests."
+  },
+  "scenarios": 10,
+  "exactEvidenceChecks": 241,
+  "networkRequests": 0,
+  "measurements": {
+    "fixtureMs": 226.84866499999998,
+    "syncMs": 2689.697353,
+    "boundedSelectionMs": 19.02925899999991,
+    "distantQueryMs": 27.545861999999943
+  },
+  "runtime": {
+    "node": "v24.19.0",
+    "generatedAt": "2026-10-04T08:18:50.186Z"
+  },
+  "limits": [
+    "Deterministic synthetic source-integrity and graph workload tests; not model extraction or literary quality evaluation.",
+    "Single-process single-run timings include no browser canvas and impose no timing assertions.",
+    "The selector consumes completed sync manifests; UI freshness and real canvas interaction are covered separately by browser tests."
+  ]
+}

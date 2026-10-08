@@ -1,0 +1,19 @@
+{
+  "baseCommit": "2e4361941338b78ffb7aa92e77cc726cefc92a13",
+  "sourceSHA256": {
+    "scripts/smoke-memory-fact-graph.ts": "f6af75e477e7968520687154f021ffc41dc0e689adbce5e2823dadb609fd883b",
+    "scripts/fixtures/memory-fact-graph-corpus.ts": "525f5c402a1bc0e5852566b6f22bcbbb6ec7fb9479af7099882793aefa82e7dc",
+    "src/services/memory/factGraph.ts": "c3c5a9f9b5515c68f63f5fdc4a1ef05d9ac41a3e4f3c7bb34509f3497ecc4d1d",
+    "src/types/factGraph.ts": "cec2a483e1f03d0c25c0023cfbf595c7f4593f79bd7b57f69dffa0e85ccac8b3"
+  },
+  "validation": {
+    "localSmokeSuites": 72,
+    "localSmokeResult": "passed",
+    "localLint": "passed",
+    "localBuild": "passed"
+  },
+  "limits": [
+    "Core timings are one run in a shared local environment, not a controlled performance comparison.",
+    "Model extraction tests use deterministic responses and do not establish real model interpretation quality."
+  ]
+}

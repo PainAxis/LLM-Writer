@@ -19,6 +19,7 @@
 
 ## 🚀 Features
 
+- **Fact relationship graph**: Cytoscape.js displays people, events, objects and places, with clickable chapter/revision/quote evidence. Create and review source-anchored relationships, distinguish explicit statements, model inference and author confirmation, and optionally request model proposals from selected disclosed excerpts. Old revisions and future evidence are excluded from the visible graph. See [graph scope and walkthrough](docs/memory-fact-graph.md).
 - **Memory retrieval prototype**: Orama keyword and author-marked clue retrieval, optional semantic embeddings and reranking, chapter revision checks, disclosure cutoffs before external requests, and source evidence. Changed chapters update incrementally; returning from a Writer tab can reuse compatible cached vectors after fresh source validation. External services are off by default; their settings and keys stay in the page session. Open **记忆检索 · 原型** in the sidebar; see [scope and walkthrough](docs/memory-prototype.md).
 
 ### Writing Workbench
@@ -43,7 +44,7 @@
 
 ### Engineering
 - **Tiered local storage**: localStorage + IndexedDB auto-tiering with versioned content shards; old shards are cleaned up only after metadata commits. Save status follows actual completion and supports retry. Failed content loading blocks project access while preserving stored data
-- **System backups**: v2 JSON covers all current storage keys, with selectable novels, prompts, genres, goals, assistants, the book-analysis reference library and settings, including imported Skills and MCP tool authorization. Imports validate data before restoring and attempt rollback on write failure. Selected API settings include API keys; MCP session tokens are excluded
+- **System backups**: v2 JSON provides selectable novels, prompts, genres, goals, assistants, the book-analysis reference library and settings, including imported Skills and MCP tool authorization. Imports validate data before restoring and attempt rollback on write failure. Selected API settings include API keys; MCP session tokens are excluded. Independent fact-graph annotations and the private memory demo are not included
 - **Workbench modules**: `useWriterProject` handles project loading, chapter switching and autosave; `WriterEditor` encapsulates the rich-text editor. Navigation waits for saving and preserves the editing context on failure
 - **Dark mode**: light / dark / system themes, follows system preference automatically
 - **On-demand loading**: route-level lazy loading; the home page has no static dependency on the AI SDK, editor or mind-map libraries. The writing editor loads when a chapter is opened, and the DOCX parser loads during import
@@ -58,6 +59,7 @@
 | UI | Element Plus 2.14 + @element-plus/icons-vue |
 | Editor | WangEditor 5.1 |
 | Mind map | mind-elixir 4.3 |
+| Fact graph | Cytoscape.js 3.34.3 |
 | Build | Vite 8 (Rolldown) + unplugin-auto-import/components |
 | Language / quality | TypeScript 5.9 + ESLint 10 (flat config) + Prettier 3 |
 | AI integration | Vercel AI SDK 7 (unified multi-provider abstraction) |
@@ -114,9 +116,12 @@ npm run smoke:memory-incremental      # Changed chapters, index reuse and recove
 npm run smoke:memory-client           # Worker invalidation and cache lifecycle
 npm run smoke:memory-providers        # Embedding/reranking wire formats and response validation
 npm run smoke:memory-hybrid           # Hybrid retrieval, cache, fallback and stale results
+npm run smoke:memory-fact-graph       # Source-anchored graph, revisions, disclosure and long-novel fixtures
+npm run smoke:memory-fact-store       # Graph storage, failed writes and concurrent tabs
+npm run smoke:memory-fact-extraction  # Bounded model proposals, source-only requests and invalid output
 ```
 
-CI is configured to run strict lint, the production build, 69 smoke suites and 74 Chromium scenarios (65 shorter scenarios plus nine long-novel stress scenarios) on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [incremental indexing and cache lifecycle](docs/memory-incremental-index.md), [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 72 smoke suites and 88 Chromium scenarios (79 shorter scenarios plus nine long-novel stress scenarios) on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [incremental indexing and cache lifecycle](docs/memory-incremental-index.md), [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

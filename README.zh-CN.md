@@ -19,6 +19,7 @@
 
 ## 🚀 主要功能
 
+- **事实关系图**：用 Cytoscape.js 展示人物、事件、物件和地点，点击关系查看章节、修订版本与原文片段；可创建、审阅有原文依据的关系，区分原文明示、模型推断与作者确认，并可选从已选且已披露的片段请求模型提议。过期修订与未来依据不会进入可见图谱。见[图谱范围与试用说明](docs/memory-fact-graph.zh-CN.md)。
 - **记忆检索原型**：Orama 关键词与人工伏笔召回、可选语义嵌入与重排、章节版本校验、外部请求前的披露范围过滤，以及依据面板。修改章节可增量更新，从 Writer 标签页返回后经重新验证来源，可复用兼容缓存向量。外部服务默认关闭，设置与密钥仅保留在页面会话中。入口为侧栏“记忆检索 · 原型”；[试用与范围说明](docs/memory-prototype.zh-CN.md)。
 
 ### 创作工作台
@@ -43,7 +44,7 @@
 
 ### 工程特性
 - **本地存储分层**：localStorage + IndexedDB 自动分层；长正文使用独立版本分片，元数据提交成功后才清理旧分片。保存状态等待实际提交，失败可重试；正文加载失败时暂停打开项目，保留原有数据
-- **系统备份**：v2 JSON 备份覆盖所有当前存储键，可选择小说、提示词、题材、目标、助手、拆书参考库及设置（含导入 Skills 和 MCP 工具授权）；支持旧版备份导入，恢复前校验数据，写入失败时尝试回滚。所选 API 设置包含 API 密钥，MCP 会话令牌不进入备份
+- **系统备份**：v2 JSON 备份可选择小说、提示词、题材、目标、助手、拆书参考库及设置（含导入 Skills 和 MCP 工具授权）；支持旧版备份导入，恢复前校验数据，写入失败时尝试回滚。所选 API 设置包含 API 密钥，MCP 会话令牌不进入备份；独立事实图谱注释和记忆示例数据也不包含在内
 - **工作台模块化**：项目加载、章节切换与自动保存集中到 `useWriterProject`，富文本编辑器封装为 `WriterEditor`；切换前等待保存，失败时保留编辑上下文
 - **暗色模式**：light / dark / system 三态主题，跟随系统自动切换
 - **按需加载**：路由级懒加载；首页静态依赖不包含 AI SDK、编辑器和思维导图库，写作编辑器在打开章节时加载，DOCX 解析器在导入时加载
@@ -58,6 +59,7 @@
 | UI | Element Plus 2.14 + @element-plus/icons-vue |
 | 编辑器 | WangEditor 5.1 |
 | 思维导图 | mind-elixir 4.3 |
+| 事实关系图 | Cytoscape.js 3.34.3 |
 | 构建 | Vite 8（Rolldown）+ unplugin-auto-import/components |
 | 语言/质量 | TypeScript 5.9 + ESLint 10 (flat config) + Prettier 3 |
 | AI 接入 | Vercel AI SDK 7（多服务商统一抽象） |
@@ -114,9 +116,12 @@ npm run smoke:memory-incremental      # 章节变更、索引复用与恢复
 npm run smoke:memory-client           # Worker 失效与缓存生命周期
 npm run smoke:memory-providers        # 嵌入／重排请求格式与响应校验
 npm run smoke:memory-hybrid           # 混合检索、缓存、回退与过期响应
+npm run smoke:memory-fact-graph       # 原文图谱、修订、披露与长篇夹具
+npm run smoke:memory-fact-store       # 图谱存储、写入失败与并发标签页
+npm run smoke:memory-fact-extraction  # 有限模型提议、仅原文请求与无效响应
 ```
 
-CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、69 组冒烟测试与 74 个 Chromium 场景（65 个较短场景，加 9 个超长篇压力场景）。独立的记忆压力任务还运行本地容量与受控服务测试。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
+CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、72 组冒烟测试与 88 个 Chromium 场景（79 个较短场景，加 9 个超长篇压力场景）。独立的记忆压力任务还运行本地容量与受控服务测试。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
 
 ### 首次使用
 1. 点击右上角「API配置」，选择服务商并填入 API 地址与密钥（可选：同步模型列表、配置代理前缀）

@@ -98,6 +98,17 @@ jobs:
       - run: npm run build
       - run: npm run test:browser-memory
       - run: npm run test:browser-memory-hybrid
+      - run: npm run test:browser-memory-fact-graph
+      - name: Upload fact graph review evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fact-graph-review-${{ github.run_attempt }}
+          path: |
+            artifacts/browser-memory-fact-graph/*.json
+            artifacts/browser-memory-fact-graph/*.png
+          if-no-files-found: warn
+          retention-days: 7
       - run: npm run test:browser-extensions
       - run: npm run test:browser
       - name: Upload browser evidence
@@ -110,5 +121,6 @@ jobs:
             artifacts/browser-extensions
             artifacts/browser-memory
             artifacts/browser-memory-hybrid
+            artifacts/browser-memory-fact-graph
           if-no-files-found: warn
           retention-days: 7

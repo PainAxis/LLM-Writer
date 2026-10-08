@@ -37,6 +37,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/services/mcp.ts`, `src/services/skills.ts`, `src/services/writingTools.ts`, `src/services/extensionsRuntime.ts` | Request-scoped MCP, Skills, project tools and bounded model execution; [extension semantics](docs/extensions.md) |
 | `src/stores/extensions.ts`, `src/components/extensions/` | Strictly persisted extension settings, in-memory credentials and assistant opt-in controls |
 | `src/views/MemoryLab.vue`, `src/services/memory/`, `src/types/memory.ts` | Isolated memory retrieval, Worker-owned incremental index, optional embedding/reranking providers, bounded vector cache and revision/disclosure-checked evidence; [scope](docs/memory-prototype.md) and [incremental lifecycle](docs/memory-incremental-index.md) |
+| `src/components/memory/`, `src/services/memory/factGraph.ts`, `src/services/memory/factGraphStore.ts`, `src/services/memory/factExtraction.ts`, `src/types/factGraph.ts` | Source-anchored fact relationships, Cytoscape.js presentation, independent project-scoped persistence and bounded optional model proposals; [graph contract](docs/memory-fact-graph.md) |
 | `src/utils/storage.ts`, `src/utils/aiRequestScope.ts` | Central storage access and isolated, cancellable AI requests |
 | `src/utils/writer/` | Writer prompt builders and response parsers, including literal passage substitution for polishing |
 | `src/utils/writerContent.ts`, `src/utils/novelStats.ts` | Shared visible-text conversion, safe generated HTML, Unicode character counts and chapter-derived novel totals |
@@ -77,9 +78,10 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The configured CI validation set contains 69 sequential smoke suites and 74 Chromium scenarios with synthetic data and API responses, including nine long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
+- The configured CI validation set contains 72 sequential smoke suites and 88 Chromium scenarios with synthetic data and API responses, including nine long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
 - [Long-novel memory stress tests](docs/memory-stress-tests.md): `ci-memory-stress` runs local capacity and controlled HTTP providers; `ci-memory-browser-stress` separately runs persisted browser editing. Paid Jina workloads are optional. Reusable fixtures are under `scripts/fixtures/`, with reviewed reports under `docs/testing/`.
 - Memory increment regressions: `smoke:memory-incremental` and `smoke:memory-client`; repeated-edit/focus-return checks extend the existing stress scripts.
+- Fact graph regressions: `smoke:memory-fact-graph`, `smoke:memory-fact-store`, `smoke:memory-fact-extraction` and `test:browser-memory-fact-graph`; [source contract and limits](docs/memory-fact-graph.md).
 - Other suites: `smoke:generation-budget`, `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.
@@ -97,6 +99,7 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 - `promptCatalog.ts` initializes or migrates the prompt library on demand for Writer, PromptsLibrary, ShortStory, BookAnalysis and ToolsLibrary. Current-version deletions and user metadata are retained; malformed stored data is reported and preserved for recovery.
 - Prompt, API/configuration, genre and assistant management publish saved state and success feedback after their storage writes complete. Failed saves retain retryable drafts or the last committed state.
 - Novel saves stage content before a coordinated commit and compare the versions actually seen by the editor. Edits to different novels can merge; conflicting edits to the same novel retain the local draft and reject overwriting the newer saved version. Copy the draft, refresh/reopen the novel and merge it manually.
+- Fact relationships have a separate project-scoped IndexedDB record with atomic version comparisons. Concurrent saves fail instead of overwriting a newer graph. Source edits hide outdated relationships without silently rebinding or deleting their stored annotations. These records are not included in system backups; see [fact graph persistence](docs/memory-fact-graph.md#persistence-and-limits).
 - Goal increments read the latest committed goal under the same cross-tab gate, preserving both increments and their history. This coordination protects novels and writing goals; other storage keys do not acquire cross-tab protection through this mechanism. See [persistence coordination](docs/persistence-coordination.md).
 - Assistant summaries persist their text together with a coverage cursor. Sending uses that summary plus uncovered original messages; failed or pending compaction does not advance coverage. Full local histories and legacy summary backups remain available.
 - `utils/eventLine.ts` remaps event chapter references by stable chapter identity for chapter management, Writer deletion and mind-map editing. Chapter management commits recalculated chapter counts and both novel total fields with the same save.
