@@ -10,6 +10,8 @@ Open **chapter body generation**, **continuation** or **polishing** in Writer an
 
 Review the exact passages, chapter revisions and explicit/inferred/author-confirmed labels, then select **I have checked these sources; use them for this generation**. Enabling memory requires this approval before generation; an empty result cannot be approved. Changing the query, cutoff or source clears the previous approval. Generation and applying its result retain the ordinary Writer controls.
 
+If another tab edits the same novel, its saved change invalidates the preview. The existing save-conflict protection may also block a new search: copy any unsaved draft, refresh and reopen the novel, reconcile the draft, then save and prepare evidence again. Retrieval does not overwrite the other tab's change; see [persistence coordination](persistence-coordination.md).
+
 The disclosure constraint covers this retrieved attachment. Manually entered instructions, outlines and selected existing materials continue through their own established flows; they are not retrospectively redacted for future plot information.
 
 ## Source and disclosure contract

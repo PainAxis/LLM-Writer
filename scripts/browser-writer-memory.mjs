@@ -172,6 +172,39 @@ async function editChapter(target, ordinal, text) {
   await expect(target.locator('.saving-indicator')).toHaveCount(0)
   liveTexts.set(ordinal, text)
 }
+async function committedChapter(chapterNumber) {
+  return page.evaluate(({ novelId, chapterId }) => {
+    const chapter = JSON.parse(localStorage.getItem('novels') || '[]').find(novel => novel.id === novelId)?.chapterList?.find(item => item.id === chapterId)
+    const html = chapter?.content || ''
+    // These synthetic fixtures contain only paragraph/heading elements. Read
+    // the committed visible text independently of the app's source converter.
+    const body = new DOMParser().parseFromString(html, 'text/html').body
+    const text = Array.from(body.childNodes).map(node => node.textContent || '').join('\n\n').trim()
+    return { html, text }
+  }, { novelId: writerMemoryNovelId, chapterId: chapterIdAt(chapterNumber) })
+}
+async function recoverCommittedWriter(changedChapter, expectedText, committedHtml) {
+  const changed = await committedChapter(changedChapter)
+  assert.equal(changed.text, expectedText, 'The other tab’s committed edit must not be overwritten by stale preparation')
+  assert.equal(changed.html, committedHtml)
+  const current = await committedChapter(40)
+  assert.equal(current.text, liveTexts.get(40))
+  await expect(editor(page)).toHaveText(current.text, { useInnerText: true })
+  // Recovery follows the persistence banner. The checks above establish that
+  // the current editor is already committed, so accepting reload loses no draft.
+  const acceptReload = async notice => {
+    assert.equal(notice.type(), 'beforeunload')
+    await notice.accept()
+  }
+  page.on('dialog', acceptReload)
+  try { await page.reload() } finally { page.off('dialog', acceptReload) }
+  await dismissAnnouncement()
+  await openWriter()
+  assert.equal((await committedChapter(changedChapter)).html, committedHtml)
+  await expect(editor(page)).toHaveText(current.text, { useInnerText: true })
+  await openDialog('continue')
+  await expect(wm('enabled')).not.toBeChecked()
+}
 async function openDialog(kind) {
   if (kind === 'chapter') {
     await page.getByRole('button', { name: '根据大纲生成', exact: true }).click()
@@ -283,7 +316,11 @@ async function generateAndCapture(kind) {
     await expect(dialog).toBeHidden()
     await expect(editor(page)).toContainText(providerState.completion)
     await expect(page.locator('.saving-indicator')).toHaveCount(0)
-    liveTexts.set(40, providerState.completion)
+    // Chapter generation intentionally stores the chapter heading as prose.
+    // Keep the independent source oracle aligned with that visible, saved body.
+    const generatedSource = `${chapterTitleAt(40)}\n\n${providerState.completion}`
+    await expect(editor(page)).toHaveText(generatedSource, { useInnerText: true })
+    liveTexts.set(40, generatedSource)
   } else {
     await expect(dialog.locator('.result-content')).toContainText(providerState.completion)
     await expect(startButton(kind)).toBeEnabled()
@@ -427,8 +464,21 @@ try {
     const editing = await page.context().newPage()
     try { await editChapter(editing, 1, revisedOldFact) } finally { await editing.close() }
     await page.bringToFront()
+    const committedEdit = await committedChapter(1)
+    assert.equal(committedEdit.text, revisedOldFact)
     await expect(wm('approved')).toHaveCount(0)
     await assertNoGeneration('continue', before)
+    // The stale Writer must also refuse its pre-preview save rather than
+    // overwrite the other tab. Follow the displayed recovery flow afterwards.
+    await wm('query').fill('钥匙')
+    await wm('search').click()
+    await expect(wm('search')).toBeEnabled()
+    await expect(wm('error')).toContainText('尚未保存成功')
+    await expect(page.locator('.persistence-error')).toContainText('已在其他标签页修改')
+    await expectNoApprovedEvidence()
+    assert.equal(modelRequests().length, before)
+    await recoverCommittedWriter(1, revisedOldFact, committedEdit.html)
+    await wm('enabled').check()
     await searchMemory('钥匙')
     await expect(wm('result')).toContainText(revisedOldFact)
     await expect(wm('result')).not.toContainText('银钥匙')
@@ -517,14 +567,19 @@ try {
     const changedClue = distantClue.replaceAll('铜铃', '铁铃').replaceAll('西渡口', '南渡口')
     try { await editChapter(editing, 2, changedClue) } finally { await editing.close() }
     await page.bringToFront()
+    const committedEdit = await committedChapter(2)
+    assert.equal(committedEdit.text, changedClue)
     await releaseResponses()
     providerState.embeddings = 'ok'
     await expect(wm('search')).toBeEnabled()
     await expectNoApprovedEvidence()
     await assertNoGeneration('continue', beforeModel)
     assert.equal(remoteRequests().length, beforeRelease, 'A changed source must not be sent to later embedding batches or reranking under the old snapshot')
-    await wm('embedding-enabled').uncheck()
-    await wm('rerank-enabled').uncheck()
+    await recoverCommittedWriter(2, changedClue, committedEdit.html)
+    await wm('enabled').check()
+    await wm('providers').locator('summary').click()
+    await expect(wm('embedding-enabled')).not.toBeChecked()
+    await expect(wm('rerank-enabled')).not.toBeChecked()
     await approveMemory('铁铃')
     await expect(wm('result')).toContainText(changedClue)
     await expect(dialog.locator('[data-testid^="writer-memory-relation-"]')).toHaveCount(0)
@@ -542,6 +597,14 @@ try {
     const entry = await generateAndCapture('continue')
     assert.ok(!JSON.stringify(entry.body.messages).includes('WRITER_MEMORY_CONTEXT_JSON'))
     assert.equal(remoteRequests().length, beforeRemote)
+    await closeDialog()
+    // Scenario 10 recovered by reload, so establish a fresh in-memory
+    // credential state before testing that this next reload clears it.
+    await openDialog('continue')
+    await wm('enabled').check()
+    await configureProviders()
+    await expect(wm('embedding-key')).toHaveValue(embeddingKey)
+    await expect(wm('rerank-key')).toHaveValue(rerankKey)
     await closeDialog()
     await page.reload()
     await dismissAnnouncement()
