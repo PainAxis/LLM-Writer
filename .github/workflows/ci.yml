@@ -29,7 +29,27 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
-      - run: node scripts/benchmark-memory-source.mjs --profile=all --label=baseline --output=artifacts/memory-capacity/browser-baseline
+      # Fixed pre-optimization source; both versions use this checkout's identical harness.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 760042683405760428688d1a7d7f0346e2ff77d3
+          path: .capacity-baseline
+          persist-credentials: false
+      - name: Measure committed reads in ABBA order
+        run: |
+          node scripts/benchmark-memory-source.mjs --source-root=.capacity-baseline --profile=all --label=baseline-a --output=artifacts/memory-capacity/paired
+          node scripts/benchmark-memory-source.mjs --profile=all --label=candidate-a --output=artifacts/memory-capacity/paired
+          node scripts/benchmark-memory-source.mjs --profile=all --label=candidate-b --output=artifacts/memory-capacity/paired
+          node scripts/benchmark-memory-source.mjs --source-root=.capacity-baseline --profile=all --label=baseline-b --output=artifacts/memory-capacity/paired
+      - name: Verify equivalent evidence and read accounting
+        run: >-
+          node scripts/compare-memory-source.mjs
+          --baseline=artifacts/memory-capacity/paired/baseline-a-all.json
+          --baseline=artifacts/memory-capacity/paired/baseline-b-all.json
+          --candidate=artifacts/memory-capacity/paired/candidate-a-all.json
+          --candidate=artifacts/memory-capacity/paired/candidate-b-all.json
+          --baseline-commit=760042683405760428688d1a7d7f0346e2ff77d3
+          --order=ABBA --output=artifacts/memory-capacity/comparison.json
       - name: Upload memory capacity measurements
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

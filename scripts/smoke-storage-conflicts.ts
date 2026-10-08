@@ -79,6 +79,7 @@ function origin(initial = fixture()) {
       './blobStore': {
         isBlobStoreAvailable: () => true,
         idbGet: async (key: string) => blobs.get(key) ?? null,
+        idbGetMany: async (keys: readonly string[]) => new Map(keys.map(key => [key, blobs.get(key) ?? null])),
         idbSetMany: async (entries: Array<{ key: string; content: string }>) => {
           for (const entry of entries) blobs.set(entry.key, entry.content)
         },

@@ -140,3 +140,37 @@ export function makeMixedWriterMemoryFixture(apiBaseURL, { long = false } = {}) 
     disclosedChapters, disclosedChars: [...orderedTexts.values()].slice(0, disclosedChapters).reduce((total, text) => total + text.length, 0),
   } }
 }
+
+export const capacityMemoryProbe = {
+  chapterNumber: 590,
+  query: '末站封条lx-905_c',
+  identifier: 'LX-905_C',
+  quote: '末站账册留下确切登记：编号为LX-905_C的封条由阿宁收存，等候西渡口的旧友取回。',
+  futureQuote: '终局才揭晓：末站封条LX-905_C背后的契约归属于南塔密室，此前无人知晓。',
+}
+
+/** Separate capacity case: the existing 600-chapter acceptance stays unchanged. */
+export function makeCapacityWriterMemoryFixture(apiBaseURL) {
+  const initial = makeMixedWriterMemoryFixture(apiBaseURL, { long: true })
+  const texts = new Map([...initial.texts].map(([number, text]) => [number, text.length === 2400 ? (text + text).slice(0, 4200) : text]))
+  texts.set(capacityMemoryProbe.chapterNumber, capacityMemoryProbe.quote)
+  texts.set(79, `${mixedMemoryProbe.futureQuote}${capacityMemoryProbe.futureQuote}`)
+  const novel = initial.backup.data.novels[0]
+  novel.chapterList = novel.chapterList.map(chapter => {
+    const text = texts.get(chapter.id - writerMemoryNovelId)
+    return { ...chapter, content: `<p>${text}</p>`, wordCount: text.length }
+  })
+  novel.wordCount = novel.totalWords = [...texts.values()].reduce((total, text) => total + text.length, 0)
+  const sourceOrder = [...texts.keys()]
+  const probeOrdinal = sourceOrder.indexOf(capacityMemoryProbe.chapterNumber) + 1
+  // Even non-overlapping chunks at the unchanged 1,200-character maximum
+  // place this exact source beyond a hypothetical first-2,000-only index.
+  const minimumPassagesBeforeProbe = [...texts.values()].slice(0, probeOrdinal - 1).reduce((total, text) => total + Math.ceil(text.length / 1200), 0)
+  return { backup: initial.backup, texts, manifest: {
+    ...initial.manifest, sourceChars: novel.wordCount,
+    serializedNovelChars: JSON.stringify(initial.backup.data.novels).length,
+    expectedSplitChapters: novel.chapterList.filter(chapter => chapter.content.length > 2000).length,
+    disclosedChars: [...texts.values()].slice(0, initial.manifest.disclosedChapters).reduce((total, text) => total + text.length, 0),
+    probeOrdinal, minimumPassagesBeforeProbe,
+  } }
+}
