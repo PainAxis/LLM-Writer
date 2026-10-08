@@ -182,6 +182,12 @@ async function choose(predicate) {
   await relations().first().click()
   await expect(graph('evidence')).toContainText(predicate)
 }
+async function expectEmptyEvidence() {
+  await expect(graph('quote')).toHaveCount(0)
+  await expect(graph('revision')).toHaveCount(0)
+  await expect(graph('provenance')).toHaveCount(0)
+  await expect(graph('evidence')).toHaveText(/^关系依据\s*点击一条关系查看其全部依据。$/)
+}
 async function addAnchor(index) {
   await graph('chapter').selectOption(String(chapterIds[index]))
   await graph('quote-input').fill(texts[index])
@@ -285,7 +291,7 @@ try {
     await selectCutoff(1)
     await graph('query').fill(predicates.inference)
     await expect(relations()).toHaveCount(0)
-    await expect(graph('evidence')).toHaveCount(0)
+    await expectEmptyEvidence()
     await graph('query').fill('玄衣客')
     await expect(relations()).toHaveCount(0)
     await expect(graph('canvas')).toHaveAttribute('data-edge-count', '0')
@@ -310,7 +316,7 @@ try {
     await expect(graph('quote')).toHaveText([texts[3]])
     await selectCutoff(1)
     await expect(relations()).toHaveCount(0)
-    await expect(graph('evidence')).toHaveCount(0)
+    await expectEmptyEvidence()
     await expect(graph('list')).not.toContainText('玄衣客')
     await choose(predicates.clue)
     await screenshot('restored-early-clue-with-future-hidden')
@@ -328,7 +334,7 @@ try {
     await openGraph()
     await graph('query').fill(predicates.old)
     await expect(relations()).toHaveCount(0)
-    await expect(graph('evidence')).toHaveCount(0)
+    await expectEmptyEvidence()
     await choose(predicates.clue)
     await settingsData()
     staleExport = await exportBackup('edited-novel-stale-anchors.json')

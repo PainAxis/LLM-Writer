@@ -79,8 +79,10 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+        id: build
       - run: npm run test:browser-graph-backup
       - run: npm run test:browser-mobile
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
       - name: Upload graph backup and mobile evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
