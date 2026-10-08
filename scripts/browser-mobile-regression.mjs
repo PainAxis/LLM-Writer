@@ -53,13 +53,20 @@ async function screenshot(name) {
 async function reachable(locator) {
   await locator.scrollIntoViewIfNeeded()
   await expect(locator).toBeVisible()
-  const value = await locator.evaluate(element => {
-    const box = element.getBoundingClientRect()
-    const x = box.left + box.width / 2
-    const y = box.top + box.height / 2
-    const hit = document.elementFromPoint(x, y)
-    return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: innerWidth, height: innerHeight, clear: !!hit && (hit === element || element.contains(hit)) }
-  })
+  let value
+  // Element Plus keeps its overlay mounted during the close transition. Wait
+  // for a real hit target, as Playwright tap does, rather than observing the
+  // transient overlay immediately after a successful dismissal or navigation.
+  await expect.poll(async () => {
+    value = await locator.evaluate(element => {
+      const box = element.getBoundingClientRect()
+      const x = box.left + box.width / 2
+      const y = box.top + box.height / 2
+      const hit = document.elementFromPoint(x, y)
+      return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: innerWidth, height: innerHeight, clear: !!hit && (hit === element || element.contains(hit)), hit: hit ? `${hit.tagName}.${hit.className}` : null }
+    })
+    return value
+  }, { message: 'The control must receive touch input after transitions complete' }).toMatchObject({ clear: true })
   assert.ok(value.left >= -1 && value.right <= value.width + 1, `Control must fit horizontally: ${JSON.stringify(value)}`)
   assert.ok(value.top >= -1 && value.bottom <= value.height + 1, `Control must be scrollable into the viewport: ${JSON.stringify(value)}`)
   assert.ok(value.clear, `Control is covered by another element: ${JSON.stringify(value)}`)
@@ -123,6 +130,7 @@ try {
       const announcement = page.getByRole('button', { name: '我知道了', exact: true })
       await expect(announcement).toBeVisible()
       await tap(announcement)
+      await expect(announcement).toBeHidden()
       await expect(memory('search')).toBeEnabled()
       await settledGraph()
       await expect(nav()).toBeHidden()
