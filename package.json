@@ -98,7 +98,10 @@
     "smoke:memory-fact-graph": "node --import tsx scripts/smoke-memory-fact-graph.ts",
     "smoke:memory-fact-extraction": "node --import tsx scripts/smoke-memory-fact-extraction.ts",
     "test:browser-memory-fact-graph": "node scripts/browser-memory-fact-graph.mjs",
-    "smoke:memory-fact-store": "node --import tsx scripts/smoke-memory-fact-store.ts"
+    "smoke:memory-fact-store": "node --import tsx scripts/smoke-memory-fact-store.ts",
+    "test:browser-graph-backup": "node scripts/browser-graph-backup.mjs",
+    "test:browser-mobile": "node scripts/browser-mobile-regression.mjs",
+    "smoke:graph-backup": "node --import tsx scripts/smoke-graph-backup.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

@@ -2,7 +2,7 @@
  * 小说持久化：串行提交快照，长正文使用不可变、带版本的 IndexedDB 分片。
  * localStorage 元数据是提交点；它写入成功前，上一版引用的正文绝不修改或删除。
  */
-import { StorageKeys, registerChunkedKey, writeSerializedWithRetry, type ChunkedKeyBackend } from '@/utils/storage'
+import { StorageKeys, registerChunkedKey, writeSerializedWithRetry, type ChunkedKeyBackend, type StorageCommitReceipt } from '@/utils/storage'
 import { idbDeleteMany, idbGet, idbSetMany, isBlobStoreAvailable } from './blobStore'
 import { withStorageCommit } from './storageCoordination'
 import { createNovelChangeTracker, type NovelChange } from '@/utils/novelConcurrency'
@@ -29,7 +29,11 @@ export interface NovelPersistenceStatus {
   error: string | null
   pending: number
 }
-type SaveRequest = { kind: 'save' | 'remove'; change: NovelChange<NovelLike>; publishOnSuccess?: boolean }
+type SaveRequest = {
+  kind: 'save' | 'remove'; change: NovelChange<NovelLike>; publishOnSuccess?: boolean
+  expectedRaw?: string | null
+  onCommit?: (raw: string | null) => void
+}
 let cache: NovelLike[] = []
 let changes = createNovelChangeTracker<NovelLike>([])
 let ready = false
@@ -159,6 +163,9 @@ async function readCommitted() {
 async function persist(request: SaveRequest): Promise<void> {
   for (let attempt = 0; attempt < 8; attempt++) {
     const previous = await readCommitted()
+    if (request.expectedRaw !== undefined && previous.raw !== request.expectedRaw) {
+      throw new Error('小说已被其他窗口修改，未覆盖其保存结果。')
+    }
     const novels = changes.merge(request.change, previous.novels)
     let serialized = JSON.stringify(novels)
     let blobs: Array<{ key: string; content: string }> = []
@@ -175,6 +182,7 @@ async function persist(request: SaveRequest): Promise<void> {
         if (localStorage.getItem(StorageKeys.novels) !== previous.raw) return false
         if (request.kind === 'remove') localStorage.removeItem(StorageKeys.novels)
         else writeSerializedWithRetry(StorageKeys.novels, serialized)
+        request.onCommit?.(request.kind === 'remove' ? null : serialized)
         return true
       })
       if (committed) {
@@ -248,6 +256,7 @@ const backend: ChunkedKeyBackend = {
     }
   },
   replace: value => replaceNovelPersistence(value),
+  replaceTracked: (value, expectedRaw, receipt) => replaceNovelPersistenceTracked(value, expectedRaw, receipt),
   remove(): Promise<void> {
     if (!ready || loadError) return observed(Promise.reject(loadError ?? new Error('小说数据仍在加载')))
     const change = changes.capture([], cache, true)
@@ -267,6 +276,25 @@ export function replaceNovelPersistence(value: unknown): Promise<void> {
   } catch (error) {
     return observed(Promise.reject(error))
   }
+}
+
+/** Capture the exact metadata token before garbage collection yields to another
+ * tab; conditional rollback checks that token at the same commit boundary. */
+async function replaceNovelPersistenceTracked(
+  value: unknown, expectedRaw?: string | null, receipt?: StorageCommitReceipt,
+): Promise<string | null> {
+  if (!ready || loadError) throw loadError ?? new Error('小说数据仍在加载')
+  const next = snapshot(value === null ? [] : value)
+  const change = changes.capture(next, cache, true)
+  let token: string | null = null
+  await enqueue({
+    kind: value === null ? 'remove' : 'save', change, publishOnSuccess: true, expectedRaw,
+    onCommit: raw => {
+      token = raw
+      if (receipt) Object.assign(receipt, { committed: true, raw })
+    },
+  })
+  return token
 }
 
 /** 等待调用前的最新操作完成；最新保存失败时拒绝，供关闭/导出等操作使用。 */

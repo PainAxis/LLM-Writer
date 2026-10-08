@@ -74,6 +74,8 @@ function resolveKey(key: StorageKey | string): string {
 // ---- 大载荷分片后端注册（如 novels：正文走 IndexedDB，元数据留 localStorage） ----
 
 /** 分片键后端：get/set 均操作内存缓存，持久化由后端自行分层 */
+export interface StorageCommitReceipt { committed: boolean; raw: string | null }
+
 export interface ChunkedKeyBackend {
   /** 同步读取（启动时已 hydrate 到内存） */
   get(): unknown
@@ -83,6 +85,8 @@ export interface ChunkedKeyBackend {
   set(value: unknown): void | Promise<void>
   /** Explicit full replacement, e.g. an approved backup restore. */
   replace?(value: unknown): void | Promise<void>
+  /** Backup writes return their exact commit token; rollback checks it inside the commit gate. */
+  replaceTracked?(value: unknown, expectedRaw?: string | null, receipt?: StorageCommitReceipt): Promise<string | null>
   /** 清除：内存缓存 + LS 键 + IDB 分片 */
   remove(): void | Promise<void>
   /** 启动 hydrate 是否已完成 */
@@ -230,6 +234,37 @@ export function storageReplace(key: StorageKey | string, value: unknown): void |
   const backend = chunkedBackends.get(resolveKey(key))
   if (backend?.replace) return backend.replace(value)
   return storageSet(key, value)
+}
+
+/** A conditional backup write. The returned raw value identifies this exact commit,
+ * even when a split backend normalizes input or stages new content references. */
+export async function storageReplaceTracked(
+  key: StorageKey, value: unknown,
+  options: { raw?: boolean; expectedRaw?: string | null; receipt?: StorageCommitReceipt } = {},
+): Promise<string | null> {
+  const resolved = resolveKey(key)
+  const backend = chunkedBackends.get(resolved)
+  if (backend) {
+    if (backend.replaceTracked) return backend.replaceTracked(value, options.expectedRaw, options.receipt)
+    // Test/legacy custom backends cannot supply atomic commit receipts. Reject a
+    // conditional rollback rather than pretending an async compare is safe.
+    if (options.expectedRaw !== undefined) throw new Error('正文后端不支持安全的条件恢复，请保留备份文件。')
+    if (value === null) await backend.remove()
+    else await (backend.replace ?? backend.set)(value)
+    const token = localStorage.getItem(resolved)
+    if (options.receipt) Object.assign(options.receipt, { committed: true, raw: token })
+    return token
+  }
+  const serialized = value === null ? null : options.raw ? value as string : JSON.stringify(value)
+  return withStorageCommit(() => {
+    if (options.expectedRaw !== undefined && localStorage.getItem(resolved) !== options.expectedRaw) {
+      throw new Error('数据已被其他窗口修改，未覆盖其保存结果。')
+    }
+    if (serialized === null) localStorage.removeItem(resolved)
+    else writeSerializedWithRetry(resolved, serialized)
+    if (options.receipt) Object.assign(options.receipt, { committed: true, raw: serialized })
+    return serialized
+  })
 }
 
 /**

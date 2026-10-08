@@ -44,7 +44,7 @@
 
 ### Engineering
 - **Tiered local storage**: localStorage + IndexedDB auto-tiering with versioned content shards; old shards are cleaned up only after metadata commits. Save status follows actual completion and supports retry. Failed content loading blocks project access while preserving stored data
-- **System backups**: v2 JSON provides selectable novels, prompts, genres, goals, assistants, the book-analysis reference library and settings, including imported Skills and MCP tool authorization. Imports validate data before restoring and attempt rollback on write failure. Selected API settings include API keys; MCP session tokens are excluded. Independent fact-graph annotations and the private memory demo are not included
+- **System backups**: v2 JSON provides selectable novels, prompts, genres, goals, assistants, the book-analysis reference library and settings, including imported Skills and MCP tool authorization. Imports validate data before restoring and attempt rollback on write failure. Selected API settings include API keys; MCP session tokens are excluded. Actual-novel fact graphs are included with the novels category, preserving review states and exact source anchors; the private memory demo is excluded. See [graph backup and mobile acceptance](docs/graph-backup-mobile.md)
 - **Workbench modules**: `useWriterProject` handles project loading, chapter switching and autosave; `WriterEditor` encapsulates the rich-text editor. Navigation waits for saving and preserves the editing context on failure
 - **Dark mode**: light / dark / system themes, follows system preference automatically
 - **On-demand loading**: route-level lazy loading; the home page has no static dependency on the AI SDK, editor or mind-map libraries. The writing editor loads when a chapter is opened, and the DOCX parser loads during import
@@ -104,6 +104,7 @@ npm run smoke:billing-correctness     # Usage evidence, exact filters and local-
 npm run smoke:tools-workspace         # Actual tool handlers, selected IDs and template contracts
 npm run smoke:book-import             # TXT/DOCX parsing, encodings and local chapter splitting
 npm run smoke:backup                  # v2/legacy backups, validation, restore and rollback
+npm run smoke:graph-backup            # Graph round-trip, disclosure and conditional restore failures
 npm run smoke:bundle                  # In-memory production build: home and feature dependency graphs
 npm run smoke:corpus                  # Keyword retrieval, scoring and injection budgets
 npm run smoke:corpus-transfer         # Legacy/portable files, validation and collision preservation

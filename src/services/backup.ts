@@ -1,9 +1,13 @@
 import { THINKING_MODES, THINKING_PROTOCOLS } from '@/utils/generationBudget'
 import { normalizeBookAnalysisLibrary } from './bookAnalysisLibrary'
 import { normalizeExtensionSettings } from '@/stores/extensions'
+import type { FactGraphDocument } from '@/types/factGraph'
+import { FACT_GRAPH_MAX_DOCUMENT_CHARS, validateFactGraphDocument } from './memory/factGraph'
+import { captureFactGraphRestoreSnapshot, readFactGraphsForBackup, restoreFactGraphsFromBackup } from './memory/factGraphStore'
+import { isBlobStoreAvailable } from './blobStore'
 import {
-  StorageKeys, storageGet, storageGetRaw, storageReadCommitted, storageReplace, storageSetRaw, storageRemove,
-  type StorageKey,
+  StorageKeys, storageGet, storageGetRaw, storageReadCommitted, storageReplaceTracked,
+  type StorageKey, type StorageCommitReceipt,
 } from '../utils/storage'
 
 export const BACKUP_GROUPS = {
@@ -29,7 +33,8 @@ const RAW_KEYS: StorageKey[] = [
   StorageKeys.chapterSummaryPromptTemplate,
   StorageKeys.lastReadAnnouncementVersion, StorageKeys.lastReadAnnouncementDate,
 ]
-type Data = Partial<Record<StorageKey, unknown>>
+export const FACT_GRAPHS_BACKUP_KEY = 'factGraphs'
+type Data = Partial<Record<StorageKey, unknown>> & { factGraphs?: FactGraphDocument[] }
 type JsonObject = Record<string, unknown>
 
 export interface BackupFile {
@@ -218,9 +223,62 @@ async function readValue(key: StorageKey): Promise<unknown> {
   return RAW_KEYS.includes(key) ? storageGetRaw(key) : storageReadCommitted(key)
 }
 
+function novelProjectIds(value: unknown): string[] {
+  check(Array.isArray(value), 'novels')
+  const ids = new Set<string>()
+  for (const novel of value) {
+    check(object(novel) && identifier(novel.id), 'novels.id')
+    const projectId = `novel:${String(novel.id)}`
+    check(projectId.length <= 256 && !ids.has(projectId), 'novels.id 重复或过长')
+    ids.add(projectId)
+    if (Array.isArray(novel.chapterList)) {
+      const chapterIds = novel.chapterList.map(chapter => String((chapter as JsonObject).id))
+      check(new Set(chapterIds).size === chapterIds.length, 'novels.chapterList.id 重复')
+    }
+  }
+  return [...ids]
+}
+
+function validateGraphBundle(data: Data): void {
+  if (!(FACT_GRAPHS_BACKUP_KEY in data)) return
+  const projectIds = new Set(novelProjectIds(data[StorageKeys.novels]))
+  check(Array.isArray(data.factGraphs), FACT_GRAPHS_BACKUP_KEY)
+  const seen = new Set<string>()
+  data.factGraphs = data.factGraphs.map((value, index) => {
+    const path = `factGraphs[${index}]`
+    try {
+      check(JSON.stringify(value).length <= FACT_GRAPH_MAX_DOCUMENT_CHARS, path)
+      const document = validateFactGraphDocument(value)
+      check(document.revision.trim() && projectIds.has(document.projectId) && !seen.has(document.projectId), path)
+      seen.add(document.projectId)
+      return document
+    } catch { check(false, path) }
+  })
+}
+
+async function createNovelBackupBundle(): Promise<Data> {
+  // Recheck committed sources around the atomic graph snapshot. A cross-tab edit
+  // must not pair newer annotations with an older novel snapshot.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const novels = await readValue(StorageKeys.novels)
+    if (novels === null) return {}
+    validateValue(StorageKeys.novels, novels)
+    const serialized = JSON.stringify(novels)
+    const graphs = await readFactGraphsForBackup(novelProjectIds(novels))
+    if (JSON.stringify(await readValue(StorageKeys.novels)) === serialized) {
+      return { novels: JSON.parse(serialized), factGraphs: graphs.documents }
+    }
+  }
+  throw new Error('作品在备份期间持续变化，请等待其他窗口保存完成后重试。')
+}
+
 export async function createBackup(groups: readonly BackupGroup[] = ALL_BACKUP_GROUPS): Promise<BackupFile> {
   const data: Data = {}
   for (const group of groups) for (const key of BACKUP_GROUPS[group]) {
+    if (key === StorageKeys.novels) {
+      Object.assign(data, await createNovelBackupBundle())
+      continue
+    }
     let value = await readValue(key)
     if (key === StorageKeys.apiConfig && value === null) {
       value = storageGet(StorageKeys.customApiConfig, null) ?? storageGet(StorageKeys.officialApiConfig, null)
@@ -239,7 +297,7 @@ export function parseBackup(input: unknown): Data {
     check(object(input.data), 'data')
     data = {}
     for (const [key, value] of Object.entries(input.data)) {
-      check(ALL_KEYS.includes(key as StorageKey), `未知数据键 ${key}`)
+      check(ALL_KEYS.includes(key as StorageKey) || key === FACT_GRAPHS_BACKUP_KEY, `未知数据键 ${key}`)
       data[key as StorageKey] = value
     }
   } else {
@@ -265,9 +323,11 @@ export function parseBackup(input: unknown): Data {
   }
   check(Object.keys(data).length > 0, '没有可恢复的数据')
   for (const [key, value] of Object.entries(data)) {
+    if (key === FACT_GRAPHS_BACKUP_KEY) continue
     validateValue(key as StorageKey, value)
     if (key === StorageKeys.extensions && value !== null) data[key] = normalizeExtensionSettings(value)
   }
+  validateGraphBundle(data)
   return data
 }
 
@@ -275,30 +335,46 @@ export function matchingBackupGroups(data: Data, groups: readonly BackupGroup[])
   return groups.filter(group => BACKUP_GROUPS[group].some(key => key in data))
 }
 
-async function writeValue(key: StorageKey, value: unknown): Promise<void> {
-  if (value === null) await storageRemove(key)
-  else if (RAW_KEYS.includes(key)) storageSetRaw(key, value as string)
-  else await storageReplace(key, value)
+async function writeValue(
+  key: StorageKey, value: unknown, expectedRaw?: string | null, receipt?: StorageCommitReceipt,
+): Promise<string | null> {
+  return storageReplaceTracked(key, value, { raw: RAW_KEYS.includes(key), expectedRaw, receipt })
 }
 
 /** 全量验证后才开始覆盖；等待正文分片落盘，并在失败时尝试恢复已经写入的键。 */
 export async function restoreBackup(input: unknown, groups: readonly BackupGroup[] = ALL_BACKUP_GROUPS): Promise<number> {
-  const data = parseBackup(input)
+  // Snapshot before the first await: callers cannot mutate a queued restore.
+  const data = JSON.parse(JSON.stringify(parseBackup(input))) as Data
   const selected = matchingBackupGroups(data, groups)
   const keys = ALL_KEYS.filter(key => selected.some(group => (BACKUP_GROUPS[group] as readonly StorageKey[]).includes(key)) && key in data)
+  const graphDocuments = selected.includes('novels') ? data.factGraphs : undefined
+  if (graphDocuments && graphDocuments.length > 0 && !isBlobStoreAvailable()) {
+    throw new Error('IndexedDB 不可用，无法恢复事实关系图；本地数据尚未修改。')
+  }
+  const graphSnapshot = graphDocuments
+    ? await captureFactGraphRestoreSnapshot(novelProjectIds(data[StorageKeys.novels])) : undefined
   // 深复制，隔离小说后端/响应式状态在写入期间的引用变化。
   const previous = new Map<StorageKey, unknown>()
   for (const key of keys) previous.set(key, JSON.parse(JSON.stringify(await readValue(key))) as unknown)
-  const attempted: StorageKey[] = []
+  const attempted: Array<{ key: StorageKey; receipt: StorageCommitReceipt }> = []
+  let novelCommitRaw: string | null = null
   try {
     for (const key of keys) {
-      attempted.push(key)
-      await writeValue(key, data[key])
+      const receipt = { committed: false, raw: null }
+      attempted.push({ key, receipt })
+      const token = await writeValue(key, data[key], undefined, receipt)
+      if (key === StorageKeys.novels) novelCommitRaw = token
     }
+    if (graphDocuments && graphSnapshot) await restoreFactGraphsFromBackup(graphDocuments, graphSnapshot,
+      () => storageGetRaw(StorageKeys.novels) === novelCommitRaw)
   } catch (error) {
     let rollbackFailed = false
-    for (const key of attempted.reverse()) {
-      try { await writeValue(key, previous.get(key)) } catch { rollbackFailed = true }
+    for (const { key, receipt } of attempted.reverse()) {
+      if (!receipt.committed) continue
+      try {
+        // Never turn rollback into a silent overwrite of a concurrent edit.
+        await writeValue(key, previous.get(key), receipt.raw)
+      } catch { rollbackFailed = true }
     }
     const reason = error instanceof Error ? error.message : '请检查本地数据与可用存储空间后重试'
     throw new Error(rollbackFailed

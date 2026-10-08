@@ -44,7 +44,7 @@
 
 ### 工程特性
 - **本地存储分层**：localStorage + IndexedDB 自动分层；长正文使用独立版本分片，元数据提交成功后才清理旧分片。保存状态等待实际提交，失败可重试；正文加载失败时暂停打开项目，保留原有数据
-- **系统备份**：v2 JSON 备份可选择小说、提示词、题材、目标、助手、拆书参考库及设置（含导入 Skills 和 MCP 工具授权）；支持旧版备份导入，恢复前校验数据，写入失败时尝试回滚。所选 API 设置包含 API 密钥，MCP 会话令牌不进入备份；独立事实图谱注释和记忆示例数据也不包含在内
+- **系统备份**：v2 JSON 备份可选择小说、提示词、题材、目标、助手、拆书参考库及设置（含导入 Skills 和 MCP 工具授权）；支持旧版备份导入，恢复前校验数据，写入失败时尝试回滚。所选 API 设置包含 API 密钥，MCP 会话令牌不进入备份；实际作品的事实图谱随小说分类备份，保留审阅状态和精确原文锚点；记忆示例不包含在内。见[图谱备份与窄屏验收](docs/graph-backup-mobile.zh-CN.md)
 - **工作台模块化**：项目加载、章节切换与自动保存集中到 `useWriterProject`，富文本编辑器封装为 `WriterEditor`；切换前等待保存，失败时保留编辑上下文
 - **暗色模式**：light / dark / system 三态主题，跟随系统自动切换
 - **按需加载**：路由级懒加载；首页静态依赖不包含 AI SDK、编辑器和思维导图库，写作编辑器在打开章节时加载，DOCX 解析器在导入时加载
@@ -104,6 +104,7 @@ npm run smoke:billing-correctness     # 用量依据、精确筛选与本地日�
 npm run smoke:tools-workspace         # 实际工具流程、所选身份与模板约定
 npm run smoke:book-import             # TXT/DOCX 解析、编码与本地分章
 npm run smoke:backup                  # v2/旧版备份、校验、恢复与回滚
+npm run smoke:graph-backup            # 图谱往返、披露隔离与条件恢复失败
 npm run smoke:bundle                  # 内存生产构建，检查首页与功能依赖图
 npm run smoke:corpus                  # 关键词检索、评分与注入预算
 npm run smoke:corpus-transfer         # 旧版/独立语料文件、校验与冲突保留

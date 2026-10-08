@@ -75,10 +75,10 @@ async function main() {
   }
   await storageSet(StorageKeys.legacySettingsApiConfig, { apiKey: 'obsolete-test-key' })
   const backup = JSON.parse(JSON.stringify(await createBackup()))
-  assert.deepEqual(backup.data, fixture)
+  assert.deepEqual(backup.data, { ...fixture, factGraphs: [] })
   store.clear()
   assert.equal(await restoreBackup(backup), ALL_BACKUP_GROUPS.length)
-  assert.deepEqual((await createBackup()).data, fixture)
+  assert.deepEqual((await createBackup()).data, { ...fixture, factGraphs: [] })
   const restoredExtensions = parseBackup({ ...backup, data: { [StorageKeys.extensions]: { ...extensions, credentials: { archive: 'session-only-secret' }, servers: [{ ...extensions.servers[0], bearerToken: 'session-only-secret' }] } } })
   assert.deepEqual(restoredExtensions[StorageKeys.extensions], extensions, '导入扩展设置只保留已定义字段，不能恢复会话凭证')
   await storageSet(StorageKeys.extensions, { ...extensions, credentials: { archive: 'session-only-secret' } })
@@ -105,7 +105,7 @@ async function main() {
 
   for (const group of ALL_BACKUP_GROUPS) {
     const category = await createBackup([group])
-    assert.deepEqual(Object.keys(category.data).sort(), [...BACKUP_GROUPS[group]].sort())
+    assert.deepEqual(Object.keys(category.data).sort(), [...BACKUP_GROUPS[group], ...(group === 'novels' ? ['factGraphs'] : [])].sort())
     assert.equal(await restoreBackup(category, [group]), 1)
   }
   assert.throws(() => parseBackup({ format: 'llm-writer-backup', version: 2, data: { assistants: [{ id: 1, name: '助手', persona: '', contextPolicyMode: 'invalid' }] } }), /contextPolicyMode/)
