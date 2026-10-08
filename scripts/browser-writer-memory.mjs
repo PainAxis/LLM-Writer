@@ -1052,9 +1052,13 @@ try {
     await expect(wm('approved')).toBeVisible()
     await wm('cutoff').selectOption(String(chapterIdAt(2)))
     disclosedThrough = 2
+    await expect(wm('cutoff')).toHaveValue(String(chapterIdAt(2)))
     await expectNoApprovedEvidence()
     await assertNoGeneration('continue', before)
-    await searchMemory(partialIdentifierQuery)
+    // The author explicitly restores cutoff40 and performs a fresh search;
+    // neither the former selection nor its approval may return automatically.
+    await searchMemory(partialIdentifierQuery, 40)
+    await expect(wm('cutoff')).toHaveValue(String(chapterIdAt(40)))
     await expectNothingSelected()
     await selectSourceQuote(mixedMemoryProbe.quote)
     await wm('approve').click()
