@@ -15,6 +15,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  memory-capacity:
+    name: ci-memory-capacity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/benchmark-memory-source.mjs --profile=all --label=baseline --output=artifacts/memory-capacity/browser-baseline
+      - name: Upload memory capacity measurements
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: memory-capacity-evidence-${{ github.run_attempt }}
+          path: artifacts/memory-capacity
+          if-no-files-found: warn
+          retention-days: 7
+
   memory-stress:
     name: ci-memory-stress
     runs-on: ubuntu-latest
