@@ -163,7 +163,7 @@ async function openWriter(target = page, ordinal = 40) {
   await target.goto(`${origin}/#/writer?novelId=${writerMemoryNovelId}`)
   await dismissAnnouncement(target)
   await target.locator('.chapter-item').filter({ has: target.locator('.chapter-info > p', { hasText: chapterTitleAt(ordinal) }) }).click()
-  await expect(editor(target)).toContainText(liveTexts.get(ordinal))
+  await expect(editor(target)).toContainText(liveTexts.get(ordinal), { useInnerText: true })
 }
 async function editChapter(target, ordinal, text) {
   await openWriter(target, ordinal)
