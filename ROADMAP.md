@@ -6,7 +6,7 @@ See [Project Structure](PROJECT_STRUCTURE.md) for the current implementation lay
 
 Completed foundations:
 
-- PR/main CI enforces zero lint warnings, type checking, production builds, 76 smoke suites and 127 real Chromium scenarios with synthetic data/providers, including nine long-novel stress scenarios.
+- PR/main CI enforces zero lint warnings, type checking, production builds, 77 smoke suites and 129 real Chromium scenarios with synthetic data/providers, including nine long-novel stress scenarios.
 - The main ruleset requires GitHub Actions `ci-quality` and `ci-browser` checks and an up-to-date branch before merging.
 - ShortStory uses isolated generation scopes for articles, stories, continuation and optimization, with cancellation/restart/clear/dialog-close/unmount coverage.
 - BookAnalysis, NovelManagement and ToolsLibrary generation use isolated scopes covering stop, source changes, dialog closure and unmount; tool progress no longer uses simulated timers.
@@ -39,7 +39,7 @@ The second batch is implemented:
 
 API settings now include persisted output ceilings and model-aware thinking controls, with actual SDK wire coverage and a settings-to-generation browser scenario. See [generation budgets](docs/generation-budgets.md).
 
-The configured regression set now contains 76 smoke suites and 127 browser scenarios, with separately invoked local/hybrid memory stress workloads. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
+The configured regression set now contains 77 smoke suites and 129 browser scenarios, with separately invoked local/hybrid memory stress workloads. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
 
 ## Feature roadmap
 
@@ -50,3 +50,11 @@ Stage 2 remains planned: incremental chapter persistence, million-character edit
 The isolated [stage-three retrieval prototype](docs/memory-prototype.md) combines keyword and author-clue retrieval with optional semantic embeddings and reranking. It checks chapter revisions and disclosure boundaries before external requests and evidence display, with session-only provider credentials and explicit local fallback. Unchanged validated sources reuse their keyword index; affected chapters and clues can update incrementally. Focus/storage invalidation preserves the completed Worker baseline but requires fresh committed-source synchronization before retrieval. See [incremental indexing and recovery boundaries](docs/memory-incremental-index.md). [Long-novel stress tests](docs/memory-stress-tests.md) cover up to 10.5 million characters and a separate real Jina workload, while documenting cold-start, full-build recovery/compaction, memory and no-answer limits. The [fact relationship graph](docs/memory-fact-graph.md) adds source-anchored author relationships and optional model proposals, a Cytoscape.js view, exact chapter/revision/quote evidence and author review. Every premise must remain current and disclosed; author confirmation cannot preserve stale evidence. Automatic whole-novel extraction and stage-two chapter persistence remain future work. An embedded Agent belongs to stage four and is outside this implementation.
 
 Actual-novel graph backup/restore and mobile drawer navigation are covered in [the stage-three follow-up](docs/graph-backup-mobile.md). Opt-in [Writer retrieval context](docs/writer-memory-context.md) now covers chapter-body generation, continuation and polishing, with approved current/disclosed evidence and separate optional-provider consent. Stage-four Agent work remains deferred.
+
+## Remaining stage-three priorities
+
+1. **Local mixed Chinese/code recall — this increment:** add exact-code candidates and verify complete queries with graph retrieval disabled. Keep the historical miss rates and comparable workloads visible; see [the focused fix](docs/memory-mixed-query-recall.md).
+2. **No-answer and low-relevance handling — next:** define abstention and evidence-quality acceptance so a non-empty result list cannot be mistaken for an answer. Include ordinary Chinese queries and questions without an answer in the disclosed source.
+3. **Indexing and semantic capacity:** reduce expensive cold builds and source-read/validation costs, and design behavior when manuscripts exceed the current vector or request budgets. Measure browser costs separately from Node retrieval.
+
+Whole-novel automatic extraction needs a separate design and review contract; selected-source model proposals do not complete it. This list does not resume stage-two persistence/editor work or the deferred stage-four Agent.

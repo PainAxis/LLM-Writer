@@ -37,6 +37,7 @@
 | `src/services/mcp.ts`、`src/services/skills.ts`、`src/services/writingTools.ts`、`src/services/extensionsRuntime.ts` | 按请求管理 MCP、Skills、创作工具与受限模型调用；[扩展说明](docs/extensions.md) |
 | `src/stores/extensions.ts`、`src/components/extensions/` | 严格校验的扩展配置、内存令牌与助手授权入口 |
 | `src/views/MemoryLab.vue`、`src/services/memory/`、`src/types/memory.ts` | 独立记忆检索、Worker 内的增量索引、可选嵌入／重排服务、有容量上限的向量缓存，以及校验版本和披露范围的依据；[范围](docs/memory-prototype.zh-CN.md)与[增量生命周期](docs/memory-incremental-index.zh-CN.md) |
+| `src/services/memory/identifiers.ts` | 解析完整 ASCII 字母数字代码并检查分块边缘，支撑本地混合查询召回；[语法及验收](docs/memory-mixed-query-recall.zh-CN.md) |
 | `src/components/memory/`、`src/services/memory/factGraph.ts`、`src/services/memory/factGraphStore.ts`、`src/services/memory/factExtraction.ts`、`src/types/factGraph.ts` | 有原文依据的事实关系、Cytoscape.js 展示、按作品隔离的独立持久化和有明确范围的可选模型提议；[图谱约定](docs/memory-fact-graph.zh-CN.md) |
 | `src/utils/storage.ts`、`src/utils/aiRequestScope.ts` | 统一存储入口，以及可独立取消的 AI 请求作用域 |
 | `src/utils/writer/` | Writer 提示词构建与响应解析，包含润色原文的字面替换 |
@@ -78,12 +79,13 @@
 
 ## 校验与发布
 
-- CI 校验配置包含 76 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 127 个 Chromium 场景，其中包括 9 个超长篇压力场景。验证状态以审查提交的 CI 结果为准。
+- CI 校验配置包含 77 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 129 个 Chromium 场景，其中包括 9 个超长篇压力场景。验证状态以审查提交的 CI 结果为准。
 - [超长篇记忆压力测试](docs/memory-stress-tests.zh-CN.md)：`ci-memory-stress` 检验本地容量与受控 HTTP 服务，`ci-memory-browser-stress` 单独检验浏览器持久化改稿；付费 Jina 为可选测试。复用语料位于 `scripts/fixtures/`，经审查的报告位于 `docs/testing/`。
 - 记忆增量回归：`smoke:memory-incremental` 与 `smoke:memory-client`；连续改稿／返回焦点检查扩展已有压力脚本。
 - 事实图谱回归：`smoke:memory-fact-graph`、`smoke:memory-fact-store`、`smoke:memory-fact-extraction` 与 `test:browser-memory-fact-graph`；[来源约定与容量](docs/memory-fact-graph.zh-CN.md)。
 - 图谱备份与移动回归：`smoke:graph-backup`、`test:browser-graph-backup` 与 `test:browser-mobile`；[可移植原文依据与窄屏行为](docs/graph-backup-mobile.zh-CN.md)。
-- 写作记忆回归：`smoke:writer-memory`、`smoke:memory-remote-guard`、`smoke:writer-memory-lifecycle`；`ci-writer-memory` 执行 14 个浏览器流程及 144万／1050万字符压力场景。
+- 混合查询回归：`smoke:memory-mixed-query`；Writer 压力测试保留原有 68 次准备工作负载，每档另加 24 次关闭图谱的完整查询断言。详见[对照及剩余限制](docs/memory-mixed-query-recall.zh-CN.md)。
+- 写作记忆回归：`smoke:writer-memory`、`smoke:memory-remote-guard`、`smoke:writer-memory-lifecycle`；`ci-writer-memory` 执行 16 个浏览器流程及 144万／1050万字符压力场景。
 - 其他测试集：`smoke:generation-budget`、`smoke:writer-content`、`smoke:management-correctness`、`smoke:billing-correctness`、`smoke:tools-workspace`。
 - [浏览器测试](scripts/browser-testing.md)：CI 检查、本地 Chromium 回归与可选预览。
 - [发布说明](scripts/releasing.md)：通过校验的静态构建、校验和及源码/CI 信息。

@@ -30,11 +30,13 @@ const identifier = (query: string) => query.match(/(?:FS|RN|PACT|MASK)\d+/)?.[0]
 async function runProfile(profile: Profile) {
   const started = performance.now()
   const startedAt = new Date().toISOString()
-  const sourcePaths = ['src/services/memory/writerContext.ts', 'src/services/memory/engine.ts', 'scripts/fixtures/memory-stress-corpus.ts', 'scripts/stress-writer-memory.ts']
+  const sourcePaths = ['src/services/memory/writerContext.ts', 'src/services/memory/engine.ts', 'src/services/memory/identifiers.ts', 'scripts/fixtures/memory-stress-corpus.ts', 'scripts/stress-writer-memory.ts']
   const sourceHashes = Object.fromEntries(await Promise.all(sourcePaths.map(async filename => [filename, createHash('sha256').update(await readFile(filename)).digest('hex')])))
   const cases: Array<{ name: string; durationMs: number }> = []
   const preparations: Array<{ query: string; cutoff: number; budget: number; promptChars: number; hits: number; relations: number; durationMs: number; sync: unknown }> = []
   const mixedQueryRecall: Array<{ query: string; expectedChapter: string; passageRank: number; exactGraphEvidence: boolean }> = []
+  const graphDisabledMixedQueries: Array<{ query: string; expectedChapter: string; passageRank: number; promptChars: number }> = []
+  let originalWorkload: { cases: number; preparations: number; evidenceChecks: number; elapsedMs: number; memory: { sampledHeapPeakMiB: number; sampledRssPeakMiB: number; processMaxRssMiB: number } } | undefined
   let evidenceChecks = 0
   let externalRequests = 0
   let mockedProviderRequests = 0
@@ -59,6 +61,7 @@ async function runProfile(profile: Profile) {
       environment: { node: process.version, platform: `${os.platform()} ${os.arch()}`, cpus: os.cpus().length }, sourceHashes,
       fixture: manifest, fixtureMs: rounded(fixtureMs), relationCount, cases, preparations, mixedQueryRecall,
       mixedQuerySummary: { questions: mixedQueryRecall.length, passageHits: mixedQueryRecall.filter(row => row.passageRank > 0).length, graphEvidenceHits: mixedQueryRecall.filter(row => row.exactGraphEvidence).length },
+      graphDisabledMixedQueries, originalWorkload,
       evidenceChecks, externalRequests, mockedProviderRequests,
       memory: { sampledHeapPeakMiB: mib(heapPeak), sampledRssPeakMiB: mib(rssPeak), processMaxRssMiB: rounded(process.resourceUsage().maxRSS / 1024) },
       limitations: ['Deterministic synthetic Chinese fiction; this is not a language-model retrieval or writing-quality evaluation.', 'Node service execution excludes browser Worker serialization, editor layout and real provider latency.', 'Single-run wall times depend on this machine. Sampled heap can miss synchronous peaks; process max RSS is separately reported.'],
@@ -280,6 +283,30 @@ async function runProfile(profile: Profile) {
         await assert.rejects(prepare(query, cutoff, 6_000, true, remote))
         assert.equal(mockedProviderRequests, 1, 'the stale next request must not reach even the mock provider')
       } finally { mockFetch = undefined; mutateBeforeSearch = undefined }
+    })
+    // Preserve the original 11 groups / 68 preparations and their memory scope
+    // before adding acceptance. Compare that unchanged workload with PR #34.
+    sample()
+    originalWorkload = { cases: cases.length, preparations: preparations.length, evidenceChecks, elapsedMs: rounded(performance.now() - started),
+      memory: { sampledHeapPeakMiB: mib(heapPeak), sampledRssPeakMiB: mib(rssPeak), processMaxRssMiB: rounded(process.resourceUsage().maxRSS / 1024) } }
+    assert.equal(originalWorkload.cases, 11)
+    assert.equal(originalWorkload.preparations, 68)
+    await step('All twenty-four full Chinese/identifier queries retrieve the exact passage with graph and remote providers disabled', async () => {
+      // Restore the fixed original fixture so these are the same full queries
+      // and expected sources as the recorded mixed-query rows above.
+      project = corpus.project
+      revisions.clear()
+      for (const chapter of project.chapters) revisions.set(chapter.id, await chapterRevision(chapter))
+      for (const probe of corpus.positiveQueries.filter(item => item.id.startsWith('fact-'))) {
+        const result = await prepare(probe.query, last, 6_000, false)
+        const rank = result.hits.findIndex(hit => hit.chapterId === probe.chapterId && hit.quote.includes(probe.quote)) + 1
+        graphDisabledMixedQueries.push({ query: probe.query, expectedChapter: probe.chapterId, passageRank: rank, promptChars: result.prompt.length })
+        assert.ok(rank > 0, `${probe.query}: the complete mixed query must retrieve its exact source without graph support`)
+        assert.equal(result.relations.length, 0)
+        assert.equal(result.diagnostics.semantic, 'disabled')
+        assert.equal(result.diagnostics.rerank, 'disabled')
+      }
+      assert.equal(graphDisabledMixedQueries.length, 24)
     })
     for (const filename of sourcePaths) assert.equal(createHash('sha256').update(await readFile(filename)).digest('hex'), sourceHashes[filename], `Measured production source changed during ${profile}: ${filename}`)
     await checkpoint('passed')

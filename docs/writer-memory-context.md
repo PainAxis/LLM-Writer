@@ -50,11 +50,11 @@ The two deterministic Chinese-fiction workloads contain **600 chapters / 1.44 mi
 
 The suite uses the real memory index and Writer evidence preparation service. It checks distributed exact-source queries, distant clue aliases, small and large evidence budgets, confirmed multi-premise inferences, later identity disclosure, old-chapter edits, batch edits, reordered/deleted chapters and source/graph changes before transport. A controlled rerank adapter checks outbound passages and rejects a stale-source race; it never calls a real provider. The suite records exact-source checks, prepared block sizes, preparation timings, index synchronization work and memory measurements in `artifacts/writer-memory-stress/`.
 
-The capacity fixture also measures 24 mixed Chinese/code queries separately. A query such as `白银封蜡FS00001` can rank short passages that match only the common Chinese words above the precise source; the isolated `FS00001` identifier recovers it. The report retains those mixed-query misses, while strict source-integrity cases use unique identifiers. Graph-backed clues provide a separate source-grounded path, not proof that the lexical recall issue has been fixed.
+The capacity fixture retains 24 mixed Chinese/code queries separately. The historical PR #34 implementation could rank short passages matching only common Chinese words above the exact source for `白银封蜡FS00001`, while the isolated `FS00001` identifier recovered it. The [mixed-query follow-up](memory-mixed-query-recall.md) fixes that local candidate/ranking path and appends 24 hard assertions per size using the full original queries with graph and remote retrieval disabled. The original 68-preparation workload and mixed-query rows remain available for comparison.
 
 Each size runs in a separate Node process with an in-memory committed-source adapter. These are synthetic source-integrity and capacity checks, not a literary benchmark or a real-model quality evaluation. Node measurements exclude browser IndexedDB hydration, Worker serialization, editor rendering and physical-device behavior; single-run wall times depend on the machine. Sampled heap can miss synchronous peaks, so process maximum RSS is reported separately. No paid model calls are required.
 
-## Recorded local results — 2026-10-08
+## Historical PR #34 local results — 2026-10-08
 
 Both sizes passed **11 scenario groups and 68 successful preparations each**: **136 preparations, 778 exact-source checks**, and zero real external requests in total. Each size made one mocked rerank request and blocked the next request after a source change. Production-source and test-script checksums were verified before accepting these results.
 
@@ -70,7 +70,7 @@ Warm timings cover the 24 exact-identifier preparations immediately after the in
 | Unique identifiers | 24/24 | 24/24 | Not used as the quoted-source success criterion |
 | Mixed Chinese/code queries | 0/24 | 24/24 | 24/24 in both sizes |
 
-The differing mixed-query results reflect different chunk/short-passage distributions, not a monotonic quality improvement with novel length. The smaller workload retains its misses explicitly; no lexical ranking fix is claimed in this increment.
+These historical mixed-query results reflect different chunk/short-passage distributions, not a monotonic quality improvement with novel length. The original miss rows remain unchanged; current fix results and new graph-disabled acceptance are recorded [separately](memory-mixed-query-recall.md).
 
 Raw evidence: [1.44M report](testing/writer-memory-2026-10-08/million.json), [10.5M report](testing/writer-memory-2026-10-08/ten-million.json), [measurement summary](testing/writer-memory-2026-10-08/summary.json).
 

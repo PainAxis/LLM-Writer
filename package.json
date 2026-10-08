@@ -83,6 +83,7 @@
     "test:humanizer-live": "node --import tsx scripts/live-humanizer-writing.ts",
     "smoke:jina-writing-evidence": "node --import tsx scripts/smoke-jina-writing-evidence.ts",
     "smoke:memory": "node --import tsx scripts/smoke-memory-retrieval.ts",
+    "smoke:memory-mixed-query": "node --import tsx scripts/smoke-memory-mixed-query.ts",
     "test:browser-memory": "node scripts/browser-memory-regression.mjs",
     "smoke:memory-providers": "node --import tsx scripts/smoke-memory-providers.ts",
     "smoke:memory-hybrid": "node --import tsx scripts/smoke-memory-hybrid.ts",

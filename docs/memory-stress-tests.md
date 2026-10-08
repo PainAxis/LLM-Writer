@@ -163,7 +163,7 @@ These tests exercise the existing limits rather than silently raising them:
 - The vector cache is bounded by **2,000 entries / 32 MiB** and is lost when the route lifecycle ends. Window focus or novel-storage invalidation retains the Worker baseline but immediately hides old evidence and requires fresh committed-source synchronization. Explicit cancellation, provider changes, cache clearing and project switches still discard the caches. It is not durable background indexing.
 - A chapter's title and entire body determine its revision. Editing one sentence changes the cache scope for all chunks in that chapter, even if other chunks' text is unchanged.
 - Reranking sees at most **60** fused candidates. It cannot recover a relevant passage absent from those candidates.
-- Existing generation tools and prompts do not yet use this prototype. Retrieval tests therefore do not demonstrate long-form generation consistency, automatic foreshadowing detection, summarization quality or a fact relationship graph.
+- These historical retrieval-only reports predate the [fact graph](memory-fact-graph.md) and opt-in [Writer evidence integration](writer-memory-context.md). Those features now have separate acceptance suites. Retrieval tests still do not demonstrate long-form generation consistency, automatic foreshadowing detection or summarization quality. Current mixed Chinese/code recall results are documented in [the focused follow-up](memory-mixed-query-recall.md).
 
 ## Corpus and remote-service boundaries
 

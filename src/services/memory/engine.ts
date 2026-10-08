@@ -12,6 +12,7 @@ import type {
   MemorySearchResult,
 } from '../../types/memory'
 import { chapterRevision } from './revision'
+import { identifierEdges, memoryIdentifiers } from './identifiers'
 import { embedMemoryTexts, normalizeEmbeddingConfig, normalizeRerankConfig, rerankMemoryTexts } from './providers'
 
 // Deliberately generous prototype limits, including novels well beyond 1M Chinese characters.
@@ -35,6 +36,7 @@ const schema = {
   content: 'string',
   title: 'string',
   annotations: 'string',
+  identifiers: 'enum[]',
 } as const
 
 /** Mandarin words plus Han bigrams keep unfamiliar names searchable across segmentation choices. */
@@ -77,12 +79,14 @@ interface IndexDocument {
   content: string
   title: string
   annotations: string
+  identifiers: string[]
+  identifierEdges: number
 }
 
 function sameDocument(left: IndexDocument, right: IndexDocument): boolean {
   return left.id === right.id && left.projectId === right.projectId && left.chapterId === right.chapterId
     && left.kind === right.kind && left.content === right.content && left.title === right.title
-    && left.annotations === right.annotations
+    && left.annotations === right.annotations && left.identifierEdges === right.identifierEdges
 }
 interface ReadyIndex {
   database: ReturnType<typeof createDatabase>
@@ -338,12 +342,20 @@ export class MemoryIndex {
     const add = (record: EvidenceRecord, annotations = '') => {
       if (evidence.size >= MAX_DOCUMENTS) throw new Error('索引条目超过原型的 100,000 条上限。')
       evidence.set(record.id, record)
+      const old = previous?.documents.get(record.id)
       const document: IndexDocument = {
         id: record.id, projectId: snapshot.id, chapterId: record.chapterId, kind: record.kind,
         content: record.quote, title: record.chapterTitle, annotations,
+        identifiers: [], identifierEdges: identifierEdges(chapters.get(record.chapterId)!.text, record.start, record.end),
       }
-      const old = previous?.documents.get(record.id)
-      documents.set(record.id, old && sameDocument(old, document) ? old : document)
+      if (old && sameDocument(old, document)) documents.set(record.id, old)
+      else {
+        document.identifiers = [...new Set([
+          ...memoryIdentifiers(document.content, document.identifierEdges),
+          ...memoryIdentifiers(document.title), ...memoryIdentifiers(annotations),
+        ])]
+        documents.set(record.id, document)
+      }
     }
 
     let chars = 0
@@ -478,6 +490,9 @@ export class MemoryIndex {
     const throughChapterId = query.throughChapterId
     const started = performance.now()
     const text = query.text.trim()
+    const identifiers = new Set(memoryIdentifiers(text))
+    const coverage = (document: { identifiers: Array<string | number> }) => document.identifiers.reduce<number>(
+      (count, identifier) => count + Number(typeof identifier === 'string' && identifiers.has(identifier)), 0)
     const limit = query.limit ?? 8
     const diagnostics: MemoryRetrievalDiagnostics = {
       semantic: embeddingInput ? 'fallback' : 'disabled',
@@ -518,24 +533,55 @@ export class MemoryIndex {
     }
     try {
       if (text) {
+        let hasIdentifierMatches = false
         // Each local channel filters disclosure/project BEFORE ranking and top-k selection.
         for (const kind of ['passage', 'clue'] as const) {
+          const properties = kind === 'clue' ? ['annotations', 'content', 'title'] as const : ['content', 'title'] as const
+          const boost = kind === 'clue' ? { annotations: 2, content: 1, title: 0.3 } : { content: 1, title: 0.3 }
+          const where = { projectId: { eq: ready.project.id }, chapterId: { in: disclosedChapterIds }, kind: { eq: kind } }
+          const candidateLimit = Math.min(limit * 4, 200)
           const result = await search(ready.database, {
             term: text,
-            properties: kind === 'clue' ? ['annotations', 'content', 'title'] : ['content', 'title'],
-            boost: kind === 'clue' ? { annotations: 2, content: 1, title: 0.3 } : { content: 1, title: 0.3 },
+            properties: [...properties], boost,
             // Orama 3.1.18 exact=true adds ASCII \b checks, which reject normal Han text.
             exact: false,
             threshold: 0.7,
-            limit: Math.min(limit * 4, 200),
-            where: { projectId: { eq: ready.project.id }, chapterId: { in: disclosedChapterIds }, kind: { eq: kind } },
+            limit: candidateLimit, where,
           })
           assertCurrent()
+          // Enum postings rescue complete codes before BM25's length bias and top-k.
+          // Coverage only reads indexed token arrays, never scans manuscript text per query.
+          const exact = identifiers.size ? await search(ready.database, {
+            term: text, properties: [...properties], boost, exact: false, threshold: 1,
+            where: { ...where, identifiers: { containsAny: [...identifiers] } }, limit: candidateLimit,
+            sortBy: (a, b) => coverage(b[2]) - coverage(a[2]) || b[1] - a[1]
+              || String(a[2].id).localeCompare(String(b[2].id)),
+          }) : undefined
+          assertCurrent()
+          if (exact?.hits.length) hasIdentifierMatches = true
+          const ordered = new Map((exact?.hits ?? []).map(hit => [hit.id, hit]))
+          for (const hit of result.hits) if (!ordered.has(hit.id)) ordered.set(hit.id, hit)
           // Give the best result from each channel a comparable chance to survive fusion.
           // A fixed clue bonus otherwise lets ten weak clue matches outrank the best passage;
           // author labels/aliases already receive a boost within their own BM25 channel.
-          result.hits.forEach((hit, rank) => addRank(hit.id, rank, 1,
-            kind === 'clue' ? '作者伏笔标记（含标签／别名）与原文关键词匹配' : '原文／章节标题 BM25 关键词匹配'))
+          ;[...ordered.values()].slice(0, candidateLimit).forEach((hit, rank) => {
+            const document = ready.documents.get(hit.id)!
+            const sources = identifiers.size ? [
+              [memoryIdentifiers(document.content, document.identifierEdges), '原文'],
+              [memoryIdentifiers(document.title), '章节标题'],
+              [memoryIdentifiers(document.annotations), '作者标签／别名'],
+            ] as const : []
+            const matched = sources.filter(([values]) => values.some(value => identifiers.has(value))).map(([, label]) => label)
+            addRank(hit.id, rank, 1, matched.length ? `完整编号匹配（${matched.join('、')}）`
+              : kind === 'clue' ? '作者伏笔标记（含标签／别名）与原文关键词匹配' : '原文／章节标题 BM25 关键词匹配')
+          })
+        }
+        if (hasIdentifierMatches) {
+          // Treat bounded local evidence as one channel for code queries. Complete
+          // multi-code coverage leads locally; semantic fusion and remote rerank still follow.
+          const local = [...scores].sort((a, b) => coverage(ready.documents.get(b[0])!) - coverage(ready.documents.get(a[0])!)
+            || b[1] - a[1] || a[0].localeCompare(b[0]))
+          local.forEach(([id], rank) => scores.set(id, 1 / (60 + rank + 1)))
         }
       }
       const eligible = [...ready.evidence.values()].filter(record => record.kind === 'passage' && isAllowed(record, ready, cutoff))
