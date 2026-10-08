@@ -136,7 +136,7 @@
             <dt>依据类型</dt><dd>{{ evidence.hit.kind === 'clue' ? '作者标记，引用来自原文' : '原文明示片段' }}</dd>
             <dt>匹配原因</dt><dd>{{ evidence.hit.reason }}</dd>
             <dt>匹配方式</dt><dd>{{ matchDescription(evidence.hit.match) }}</dd>
-            <dt>原文位置</dt><dd>{{ evidence.hit.start }}–{{ evidence.hit.end }}（UTF-16，左闭右开）</dd>
+            <dt>原文位置</dt><dd data-testid="memory-evidence-range">{{ evidence.hit.start }}–{{ evidence.hit.end }}（UTF-16，左闭右开）</dd>
             <dt>章节版本</dt><dd><code data-testid="memory-evidence-revision">{{ evidence.hit.revision }}</code></dd>
           </dl>
           <h3>精确引用</h3>

@@ -187,7 +187,7 @@ async function inspectEvidence(probe, expectedText = probe.quote) {
   const source = await control('evidence-source').textContent()
   assert.equal(source, expectedSources.get(probe.ordinal), 'The whole displayed chapter must equal its committed source, independently of the UI revision')
   assert.ok(source.includes(quote), 'The evidence quote must be an exact substring of the disclosed source chapter')
-  const span = (await control('evidence').locator('.evidence-details dd').nth(2).textContent()).match(/(\d+)–(\d+)/)
+  const span = (await control('evidence-range').textContent()).match(/(\d+)–(\d+)/)
   assert.ok(span, 'Evidence must expose an exact UTF-16 source range')
   assert.equal(source.slice(Number(span[1]), Number(span[2])), quote, 'The displayed source offsets must select exactly the evidence quote')
   const title = corpus.project.chapters[probe.ordinal - 1].title

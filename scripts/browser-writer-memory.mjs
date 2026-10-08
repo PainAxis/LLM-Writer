@@ -983,7 +983,12 @@ try {
         const ordinary = await generateAndCapture(kind)
         assert.ok(!JSON.stringify(ordinary.body.messages).includes('WRITER_MEMORY_CONTEXT_JSON'))
       }
-      await closeDialog()
+      if (kind === 'chapter') {
+        // Chapter generation closes its launch dialog before acquiring the
+        // memory lease. The denied request must leave the saved editor intact.
+        await expect(dialog).toBeHidden()
+        await expect(editor(page)).toHaveText(currentWritingText, { useInnerText: true })
+      } else await closeDialog()
     }
     report.emptyReview = { query: emptyQuery, deniedDialogs: 3, explicitNoMemoryRequests: modelRequests().length - before }
   })
