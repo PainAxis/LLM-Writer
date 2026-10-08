@@ -71,6 +71,24 @@ export async function idbGet(key: string): Promise<string | null> {
   })
 }
 
+/** Read related annotations from one committed snapshot. */
+export async function idbGetMany(keys: readonly string[]): Promise<Map<string, string | null>> {
+  if (keys.length === 0) return new Map()
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly')
+    const values = new Map<string, string | null>()
+    for (const key of keys) {
+      const request = tx.objectStore(STORE_NAME).get(key)
+      request.onsuccess = () => { values.set(key, (request.result as string | undefined) ?? null) }
+      request.onerror = () => reject(request.error ?? new Error('IndexedDB 批量读取失败'))
+    }
+    tx.oncomplete = () => resolve(values)
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB 批量读取失败'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB 批量读取中止'))
+  })
+}
+
 async function writeTransaction(write: (store: IDBObjectStore) => void): Promise<void> {
   const db = await openDB()
   return new Promise<void>((resolve, reject) => {
@@ -121,6 +139,42 @@ export async function idbCompareAndSwap(key: string, expectedValue: string | nul
       }
     }
     request.onerror = () => reject(request.error ?? new Error('IndexedDB 条件读取失败'))
+  })
+}
+
+/** Restore related documents atomically, only if every original value still matches. */
+export async function idbCompareAndSwapMany(
+  entries: ReadonlyArray<{ key: string; expectedValue: string | null; value: string }>,
+  canCommit: () => boolean = () => true,
+): Promise<boolean> {
+  const snapshot = entries.map(entry => ({ ...entry }))
+  if (new Set(snapshot.map(entry => entry.key)).size !== snapshot.length) throw new Error('IndexedDB 条件写入键重复')
+  if (snapshot.length === 0) return true
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    const store = tx.objectStore(STORE_NAME)
+    let remaining = snapshot.length
+    let matched = true
+    tx.oncomplete = () => resolve(matched)
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB 批量条件写入失败'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB 批量条件写入中止'))
+    for (const entry of snapshot) {
+      const request = store.get(entry.key)
+      request.onerror = () => reject(request.error ?? new Error('IndexedDB 批量条件读取失败'))
+      request.onsuccess = () => {
+        if (((request.result as string | undefined) ?? null) !== entry.expectedValue) matched = false
+        remaining--
+        if (remaining !== 0 || !matched) return
+        try {
+          if (!canCommit()) { matched = false; return }
+          for (const replacement of snapshot) store.put(replacement.value, replacement.key)
+        } catch (cause) {
+          tx.abort()
+          reject(cause)
+        }
+      }
+    }
   })
 }
 

@@ -105,7 +105,7 @@
 
               <div class="data-section">
                 <h3>📤 数据导出</h3>
-                <p>导出您的小说数据、设置和提示词库，支持完整备份或分类导出</p>
+                <p>导出您的小说数据、设置和提示词库，支持完整备份或分类导出。完整备份与“小说数据”均包含实际作品的事实图谱标注、章节修订与原文依据；不包含记忆示例。</p>
                 <div class="data-actions">
                   <el-button type="primary" @click="exportAllData">
                     <el-icon><Download /></el-icon>
@@ -138,7 +138,7 @@
               
               <div class="data-section">
                 <h3>📥 数据导入</h3>
-                <p>从备份文件恢复您的数据，支持完整恢复或选择性导入</p>
+                <p>从备份文件恢复您的数据，支持完整恢复或选择性导入。选择小说时同时恢复备份内的图谱；旧版备份不含图谱时保留已有标注。恢复不会将旧依据自动改绑到新正文。</p>
                 <div class="data-actions">
                   <el-upload
                     :before-upload="beforeImport"
@@ -367,11 +367,11 @@
     </div>
 
     <!-- 导入选项对话框 -->
-    <el-dialog v-model="showImportDialog" title="导入选项" width="500px">
+    <el-dialog v-model="showImportDialog" title="导入选项" width="min(500px, calc(100vw - 24px))">
       <div class="import-options">
         <p>选择要导入的数据类型：</p>
         <el-checkbox-group v-model="importOptions">
-          <el-checkbox label="novels">小说数据</el-checkbox>
+          <el-checkbox label="novels">小说数据（含事实图谱）</el-checkbox>
           <el-checkbox label="prompts">提示词库</el-checkbox>
           <el-checkbox label="novelGenres">小说类型</el-checkbox>
           <el-checkbox label="writingGoals">写作目标</el-checkbox>
@@ -437,7 +437,7 @@ const showImportDialog = ref(false)
 const importOptions = ref([...ALL_BACKUP_GROUPS])
 const isImporting = ref(false)
 const backupLabels = {
-  novels: '小说数据', prompts: '提示词库', novelGenres: '小说类型',
+  novels: '小说数据及备份内的事实图谱', prompts: '提示词库', novelGenres: '小说类型',
   writingGoals: '写作目标', assistants: '助手与会话', settings: '系统设置与用量',
   bookAnalysisLibrary: '拆书参考库',
 }
@@ -896,7 +896,14 @@ onMounted(() => {
   
   .data-actions .el-button {
     width: 100%;
+    min-height: 44px;
+    margin-left: 0;
   }
+  .data-actions :deep(.el-upload) { width: 100%; }
+  .data-stats { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+  .settings-tabs :deep(.el-card__body) { padding: 12px; }
+  .import-options :deep(.el-checkbox) { min-height: 44px; margin-right: 0; white-space: normal; }
+  .import-options :deep(.el-checkbox__label) { white-space: normal; }
 }
 
 /* 主题样式 */

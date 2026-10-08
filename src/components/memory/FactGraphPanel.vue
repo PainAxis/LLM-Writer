@@ -4,7 +4,7 @@
       <div><h2 id="fact-graph-title">事实关系图</h2><p class="muted">人物、事件、物件与地点均由当前有效关系生成。点击关系或下方列表，核对原文与修订版本。</p></div>
       <button data-testid="fact-graph-create" :disabled="!ready || actionBusy" @click="createRelation">添加关系</button>
     </div>
-    <p class="muted">关系单独保存在当前浏览器，不修改正文。确认只表示作者已审核；原文修改或超出披露范围后，关系仍会自动排除。关系数据暂不包含在小说备份内。</p>
+    <p class="muted">关系单独保存在当前浏览器，不修改正文。确认只表示作者已审核；原文修改或超出披露范围后，关系仍会自动排除。实际作品的关系随设置中的完整备份或“小说数据”导出和恢复；记忆示例不包含在备份内。</p>
     <p v-if="!active" class="empty" data-testid="fact-graph-unavailable">{{ props.project && !props.project.chapters.length ? '作品尚无可绘制的已保存章节。' : '等待当前正文校验完成。未保存修改、刷新或检索期间不展示旧关系。' }}</p>
     <p v-else-if="loading" class="empty">正在读取关系记录…</p>
     <p v-if="error" class="error" role="alert" data-testid="fact-graph-error">{{ error }}</p>
@@ -390,4 +390,16 @@ button { border: 1px solid var(--el-border-color); border-radius: 6px; padding: 
 .graph-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin: 18px 0; align-items: start; }.relation-list { max-height: 650px; overflow-y: auto; padding: 3px; }.relation-row { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 9px; text-align: left; padding: 12px; overflow-wrap: anywhere; }.relation-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--el-text-color-secondary); }.relation-evidence { min-width: 0; padding: 14px; border: 1px solid var(--el-border-color-light); border-radius: 8px; font-size: 13px; }.relationship { overflow-wrap: anywhere; }.anchor-evidence { border-top: 1px solid var(--el-border-color-light); padding-top: 14px; margin-top: 16px; } dl { display: grid; grid-template-columns: 65px minmax(0, 1fr); gap: 8px; font-size: 12px; line-height: 1.7; } dt { color: var(--el-text-color-secondary); } dd { margin: 0; overflow-wrap: anywhere; } blockquote { margin: 8px 0; border-left: 3px solid var(--el-color-primary); background: var(--el-fill-color-light); padding: 10px 13px; white-space: pre-wrap; line-height: 1.8; font-size: 13px; overflow-wrap: anywhere; }
 .relation-form { border-top: 1px solid var(--el-border-color-light); margin-top: 20px; padding-top: 20px; }.relation-form fieldset { min-width: 0; border: 1px solid var(--el-border-color-light); border-radius: 8px; margin: 16px 0; padding: 16px; }.relation-form legend { font-size: 14px; padding: 0 6px; }.entity-fields { display: grid; grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1fr) 110px; gap: 12px; }.source-text { max-height: 260px; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 13px; line-height: 1.8; background: var(--el-fill-color-light); padding: 12px; } summary { cursor: pointer; font-size: 13px; margin: 10px 0; }.chosen-anchors article, .proposal { margin-top: 12px; padding: 12px; border: 1px solid var(--el-border-color-light); border-radius: 6px; }.chosen-anchors p { margin: 0; font-size: 13px; }.chosen-anchors button { margin-left: 12px; padding: 4px 8px; }.model-actions > button { margin-right: 10px; }
 @media (max-width: 850px) { .fact-panel { padding: 16px; }.graph-layout { grid-template-columns: 1fr; }.entity-fields { grid-template-columns: minmax(0, 1fr) 100px; }.graph-canvas { height: 300px; } }
+@media (max-width: 480px) {
+  .fact-panel { padding: 12px; }
+  .entity-fields { grid-template-columns: minmax(0, 1fr); }
+  .graph-query { flex-basis: 100%; }
+  .toolbar > .field { width: 100%; }
+  button, input, select { min-height: 44px; }
+  input, select, textarea { font-size: 16px; }
+  .relation-form fieldset { padding: 10px; }
+  .relation-evidence { padding: 10px; }
+  .chosen-anchors article { padding: 8px; }
+  .model-actions > button { margin-bottom: 8px; }
+}
 </style>

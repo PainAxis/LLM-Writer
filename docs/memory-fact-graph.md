@@ -50,7 +50,7 @@ This is bounded extraction from selected evidence, not unattended whole-novel gr
 
 Relationships are saved separately from novel content in project-scoped IndexedDB records. Writes compare the last-read graph version in the same transaction as the update. Concurrent changes fail explicitly instead of overwriting the newer graph. Storage errors or malformed stored data are reported; loading an invalid record does not silently replace it with an empty graph.
 
-Graph annotations are **not included in system backups or novel exports**. They are browser-local and are lost if their IndexedDB records or site data are cleared. Resetting the private demo leaves existing graph annotations stored; it does not overwrite or reseed a previously saved graph. There is no graph import/export or stale-annotation cleanup interface in this version. Stored stale relationships remain excluded from all active graph results; they are not automatically deleted.
+Actual-novel graph annotations are **included in Settings → Data management → Export all data / Novel data** and restored with their novels. This preserves the complete stored graph, including stale or undisclosed relations, without changing evidence revisions or provenance; source/disclosure checks still apply after restoration. Plain manuscript exports are not backups. The private memory demo is excluded. Resetting that demo leaves its existing graph annotations stored. There is still no stale-annotation cleanup interface. See [backup behavior, mobile navigation and acceptance](graph-backup-mobile.md).
 
 | Boundary | Limit or behavior |
 | --- | --- |

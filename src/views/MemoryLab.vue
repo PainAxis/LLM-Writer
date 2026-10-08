@@ -561,4 +561,13 @@ mark { background: var(--el-color-warning-light-7); color: var(--el-text-color-p
 .editor-field { margin: 16px 0; }
 textarea { resize: vertical; line-height: 1.8; }
 @media (max-width: 850px) { .results-layout { grid-template-columns: 1fr; gap: 0; } .provider-grid { grid-template-columns: 1fr; } .memory-lab { padding: 14px; } .lab-header { flex-wrap: wrap; } .lab-card { padding: 16px; } .cutoff-field { flex: 1 1 240px; } }
+@media (max-width: 480px) {
+  .memory-lab { padding: 0; }
+  .lab-card { padding: 12px; }
+  .source-field { flex-basis: 100%; }
+  .control-row > .el-button, .shortcuts .el-button, input, select { min-height: 44px; }
+  input, select, textarea { font-size: 16px; }
+  .provider-grid fieldset { padding: 10px; }
+  .error-box { flex-wrap: wrap; }
+}
 </style>

@@ -1,85 +1,98 @@
 <template>
   <div class="dashboard-container">
+    <button v-if="isMobile && mobileOpen" class="sidebar-backdrop" tabindex="-1" aria-label="关闭导航遮罩" data-testid="navigation-backdrop" @click="closeMobileMenu" />
     <!-- 侧边栏 -->
-    <div class="sidebar" :class="{ 'collapsed': isCollapse }">
+    <div
+      v-show="!isMobile || mobileOpen"
+      id="app-navigation"
+      ref="sidebar"
+      class="sidebar"
+      :class="{ 'collapsed': !isMobile && isCollapse }"
+      :role="isMobile ? 'dialog' : 'navigation'"
+      :aria-modal="isMobile ? true : undefined"
+      aria-label="主导航"
+      data-testid="app-navigation"
+      @keydown="handleNavigationKeydown"
+    >
       <div class="logo">
         <div class="logo-mark">L</div>
         <h2>LLM-Writer</h2>
+        <button v-if="isMobile" ref="closeNavigationButton" class="close-navigation" aria-label="关闭导航" data-testid="navigation-close" @click="closeMobileMenu"><el-icon><Close /></el-icon></button>
       </div>
       
       <el-menu
         :default-active="activeMenu"
         class="sidebar-menu"
         @select="handleMenuSelect"
-        :collapse="isCollapse"
+        :collapse="!isMobile && isCollapse"
         :collapse-transition="false"
       >
-        <el-menu-item index="/">
+        <el-menu-item index="/" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/')" @keydown.space.prevent="handleMenuSelect('/')">
           <el-icon><House /></el-icon>
           <template #title>首页</template>
         </el-menu-item>
         
-        <el-menu-item index="/novels">
+        <el-menu-item index="/novels" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/novels')" @keydown.space.prevent="handleMenuSelect('/novels')">
           <el-icon><Document /></el-icon>
           <template #title>小说列表</template>
         </el-menu-item>
         
-        <el-menu-item index="/prompts">
+        <el-menu-item index="/prompts" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/prompts')" @keydown.space.prevent="handleMenuSelect('/prompts')">
           <el-icon><ChatLineSquare /></el-icon>
           <template #title>提示词库</template>
         </el-menu-item>
 
-        <el-menu-item index="/assistants">
+        <el-menu-item index="/assistants" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/assistants')" @keydown.space.prevent="handleMenuSelect('/assistants')">
           <el-icon><ChatDotRound /></el-icon>
           <template #title>AI 助手</template>
         </el-menu-item>
 
-        <el-menu-item index="/genres">
+        <el-menu-item index="/genres" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/genres')" @keydown.space.prevent="handleMenuSelect('/genres')">
           <el-icon><Collection /></el-icon>
           <template #title>小说类型管理</template>
         </el-menu-item>
         
-        <el-menu-item index="/chapters">
+        <el-menu-item index="/chapters" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/chapters')" @keydown.space.prevent="handleMenuSelect('/chapters')">
           <el-icon><Notebook /></el-icon>
           <template #title>章节管理</template>
         </el-menu-item>
         
-        <el-menu-item index="/goals">
+        <el-menu-item index="/goals" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/goals')" @keydown.space.prevent="handleMenuSelect('/goals')">
           <el-icon><Aim /></el-icon>
           <template #title>写作目标</template>
         </el-menu-item>
         
-        <el-menu-item index="/billing">
+        <el-menu-item index="/billing" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/billing')" @keydown.space.prevent="handleMenuSelect('/billing')">
           <el-icon><CreditCard /></el-icon>
           <template #title>Token计费</template>
         </el-menu-item>
         
-        <el-menu-item index="/tools">
+        <el-menu-item index="/tools" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/tools')" @keydown.space.prevent="handleMenuSelect('/tools')">
           <el-icon><Tools /></el-icon>
           <template #title>工具库</template>
         </el-menu-item>
         
-        <el-menu-item index="/short-story">
+        <el-menu-item index="/short-story" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/short-story')" @keydown.space.prevent="handleMenuSelect('/short-story')">
           <el-icon><EditPen /></el-icon>
           <template #title>短文写作</template>
         </el-menu-item>
         
-        <el-menu-item index="/book-analysis">
+        <el-menu-item index="/book-analysis" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/book-analysis')" @keydown.space.prevent="handleMenuSelect('/book-analysis')">
           <el-icon><DataAnalysis /></el-icon>
           <template #title>拆书工具</template>
         </el-menu-item>
 
-        <el-menu-item index="/mindmap">
+        <el-menu-item index="/mindmap" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/mindmap')" @keydown.space.prevent="handleMenuSelect('/mindmap')">
           <el-icon><Share /></el-icon>
           <template #title>思维导图</template>
         </el-menu-item>
 
-        <el-menu-item index="/memory">
+        <el-menu-item index="/memory" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/memory')" @keydown.space.prevent="handleMenuSelect('/memory')">
           <el-icon><Search /></el-icon>
           <template #title>记忆检索 · 原型</template>
         </el-menu-item>
 
-        <el-menu-item index="/settings">
+        <el-menu-item index="/settings" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/settings')" @keydown.space.prevent="handleMenuSelect('/settings')">
           <el-icon><Setting /></el-icon>
           <template #title>系统设置</template>
         </el-menu-item>
@@ -87,14 +100,19 @@
     </div>
     
     <!-- 主要内容区域 -->
-    <div class="main-container">
+    <div class="main-container" :inert="isMobile && mobileOpen">
       <!-- 顶部导航栏 -->
       <div class="header">
         <div class="header-left">
           <el-button 
+            ref="navigationToggle"
             type="text" 
             @click="toggleSidebar"
             class="collapse-btn"
+            :aria-label="isMobile ? '打开导航' : isCollapse ? '展开导航' : '收起导航'"
+            :aria-expanded="isMobile ? mobileOpen : !isCollapse"
+            aria-controls="app-navigation"
+            data-testid="navigation-toggle"
           >
             <el-icon><Expand v-if="isCollapse" /><Fold v-else /></el-icon>
           </el-button>
@@ -180,7 +198,7 @@
     </div>
     
     <!-- API配置对话框 -->
-    <el-dialog v-model="showApiConfig" title="API配置" width="1000px" destroy-on-close @close="apiConfigPanel?.cancelRequests()">
+    <el-dialog v-model="showApiConfig" title="API配置" width="min(1000px, calc(100vw - 24px))" destroy-on-close @close="apiConfigPanel?.cancelRequests()">
       <ApiConfig ref="apiConfigPanel" @close="showApiConfig = false" />
     </el-dialog>
 
@@ -195,14 +213,14 @@
 
 <script setup lang="ts">
 import type { CustomModelOption } from '@/types/api'
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useApiConfig } from '@/services/apiConfig'
 import { FALLBACK_MODELS } from '@/services/aiProviders'
 import {
   House, Document, ChatLineSquare, ChatDotRound, Collection, Notebook, Aim,
   CreditCard, Setting, Key, Tools, EditPen, DataAnalysis, Share, Search,
-  Expand, Fold, Bell, Sunny, Moon, Monitor
+  Expand, Fold, Bell, Sunny, Moon, Monitor, Close
 } from '@element-plus/icons-vue'
 import { useTheme } from '@/composables/useTheme'
 import ApiConfig from '@/components/ApiConfig.vue'
@@ -216,6 +234,51 @@ const { customModels: savedCustomModels, getProviderModels, activeConfig, isApiC
 
 // 响应式数据
 const isCollapse = ref(false)
+const mobileMedia = window.matchMedia('(max-width: 768px)')
+const isMobile = ref(mobileMedia.matches)
+const mobileOpen = ref(false)
+const sidebar = ref<HTMLElement | null>(null)
+const closeNavigationButton = ref<HTMLButtonElement | null>(null)
+const navigationToggle = ref<{ $el: HTMLButtonElement } | null>(null)
+
+const closeMobileMenu = async () => {
+  if (!mobileOpen.value) return
+  mobileOpen.value = false
+  await nextTick()
+  navigationToggle.value?.$el.focus()
+}
+
+const updateViewport = () => {
+  // Desktop collapse is independent of the temporary mobile drawer. Crossing
+  // the breakpoint never leaves an invisible modal or focus in hidden content.
+  const focusWasInSidebar = sidebar.value?.contains(document.activeElement)
+  isMobile.value = mobileMedia.matches
+  mobileOpen.value = false
+  if (focusWasInSidebar) void nextTick(() => navigationToggle.value?.$el.focus())
+}
+onMounted(() => { mobileMedia.addEventListener('change', updateViewport) })
+onUnmounted(() => { mobileMedia.removeEventListener('change', updateViewport) })
+
+const handleNavigationKeydown = (event: KeyboardEvent) => {
+  if (!isMobile.value || !mobileOpen.value) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    void closeMobileMenu()
+  } else if (event.key === 'Tab') {
+    const targets = [...(sidebar.value?.querySelectorAll<HTMLElement>('button, a[href], [tabindex]') ?? [])]
+      .filter(element => element.tabIndex >= 0 && !element.hasAttribute('disabled') && element.getClientRects().length)
+    const first = targets[0]
+    const last = targets.at(-1)
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last?.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first?.focus()
+    }
+  }
+}
 const showApiConfig = ref(false)
 const apiConfigPanel = ref<InstanceType<typeof ApiConfig> | null>(null)
 const showAnnouncement = ref(false)
@@ -273,11 +336,16 @@ const pageTitle = computed(() => {
 })
 
 // 方法
-const toggleSidebar = () => {
-  isCollapse.value = !isCollapse.value
+const toggleSidebar = async () => {
+  if (isMobile.value) {
+    mobileOpen.value = true
+    await nextTick()
+    closeNavigationButton.value?.focus()
+  } else isCollapse.value = !isCollapse.value
 }
 
 const handleMenuSelect = (index: string) => {
+  void closeMobileMenu()
   router.push(index)
 }
 
@@ -335,6 +403,7 @@ const getModelDisplayName = (modelId: string) => {
 // 监听路由变化
 watch(() => route.path, (newPath) => {
   activeMenu.value = newPath
+  void closeMobileMenu()
 }, { immediate: true })
 
 // 配置变化时同步模型选择器（统一配置模块为响应式，无需轮询 localStorage）
@@ -351,12 +420,14 @@ watch(
 .dashboard-container {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   background-color: var(--el-bg-color-page);
 }
 
 /* ---------- 侧边栏：浅色纸面质感 ---------- */
 .sidebar {
   width: 232px;
+  flex-shrink: 0;
   background-color: var(--app-sidebar-bg);
   border-right: 1px solid var(--ink-200);
   color: var(--ink-700);
@@ -418,7 +489,9 @@ watch(
 .sidebar-menu {
   border: none;
   background-color: transparent;
-  height: calc(100vh - 64px);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 6px 10px;
 }
 
@@ -430,6 +503,11 @@ watch(
   color: var(--ink-500);
   font-size: 14px;
   transition: all 0.18s ease;
+}
+
+.sidebar-menu :deep(.el-menu-item:focus-visible) {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: -2px;
 }
 
 .sidebar-menu :deep(.el-menu-item .el-icon) {
@@ -467,6 +545,7 @@ watch(
 
 .header {
   height: 64px;
+  flex-shrink: 0;
   background-color: var(--app-header-bg);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--ink-200);
@@ -546,6 +625,7 @@ watch(
 
 .content {
   flex: 1;
+  min-height: 0;
   padding: 24px;
   overflow-y: auto;
   background-color: var(--el-bg-color-page);
@@ -553,19 +633,48 @@ watch(
 
 /* ---------- 响应式设计 ---------- */
 @media (max-width: 768px) {
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1999;
+    border: 0;
+    background: rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+  }
+
   .sidebar {
     position: fixed;
-    z-index: 1000;
+    inset: 0 auto 0 0;
+    z-index: 2000;
+    width: min(288px, calc(100vw - 44px));
     height: 100vh;
+    height: 100dvh;
     box-shadow: var(--shadow-card-hover);
   }
+
+  .logo { gap: 8px; padding: 0 12px; }
+  .logo h2 { font-size: 15px; }
+  .close-navigation { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; margin-left: auto; flex-shrink: 0; border: 0; border-radius: 6px; color: var(--ink-700); background: transparent; cursor: pointer; font-size: 20px; }
+  .close-navigation:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: -2px; }
+  .sidebar-menu :deep(.el-menu-item) { min-height: 44px; }
 
   .main-container {
     margin-left: 0;
   }
 
+  .header { height: auto; min-height: 64px; padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
+  .header-left { width: 100%; min-width: 0; }
+  .page-title { overflow-wrap: anywhere; }
+  .collapse-btn { width: 44px; height: 44px; flex-shrink: 0; margin-right: 8px; }
+  .header-right { width: 100%; flex-wrap: wrap; gap: 8px; }
+  .header-right > .el-button { min-height: 44px; margin-left: 0; padding-inline: 10px; }
+  .theme-toggle { min-width: 44px; }
+  .model-selector { order: 1; flex: 1 1 100%; min-width: 0; }
+  .model-selector .el-select { width: 100% !important; min-width: 0; }
+  .model-selector :deep(.el-select__wrapper) { min-height: 44px; }
+
   .content {
-    padding: 16px;
+    padding: 12px;
   }
 }
 </style>
