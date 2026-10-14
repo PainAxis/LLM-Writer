@@ -80,14 +80,15 @@
 
 ## 校验与发布
 
-- CI 校验配置包含 79 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 133 个 Chromium 场景，其中包括 9 个超长篇压力场景。验证状态以审查提交的 CI 结果为准。
+- CI 校验配置包含 80 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 134 个 Chromium 场景，其中包括 9 个超长篇压力场景。验证状态以审查提交的 CI 结果为准。
 - [超长篇记忆压力测试](docs/memory-stress-tests.zh-CN.md)：`ci-memory-stress` 检验本地容量与受控 HTTP 服务，`ci-memory-browser-stress` 单独检验浏览器持久化改稿；付费 Jina 为可选测试。复用语料位于 `scripts/fixtures/`，经审查的报告位于 `docs/testing/`。
 - 记忆增量回归：`smoke:memory-incremental` 与 `smoke:memory-client`；连续改稿／返回焦点检查扩展已有压力脚本。
 - 事实图谱回归：`smoke:memory-fact-graph`、`smoke:memory-fact-store`、`smoke:memory-fact-extraction` 与 `test:browser-memory-fact-graph`；[来源约定与容量](docs/memory-fact-graph.zh-CN.md)。
 - 图谱备份与移动回归：`smoke:graph-backup`、`test:browser-graph-backup` 与 `test:browser-mobile`；[可移植原文依据与窄屏行为](docs/graph-backup-mobile.zh-CN.md)。
 - 混合查询回归：`smoke:memory-mixed-query`；Writer 压力测试保留原有 68 次准备工作负载，每档另加 24 次关闭图谱的完整查询断言。详见[对照及剩余限制](docs/memory-mixed-query-recall.zh-CN.md)。
+- 容量核算：`scripts/benchmark-memory-capacity.ts` 区分冷启动／恢复与语义缓存成本；`benchmark-memory-source.mjs` 执行真实已提交读取与 Writer 新鲜度校验。`ci-memory-capacity` 按 ABBA 比较固定 main 与候选，`smoke:source-hydration` 保护完整正文读取及存储竞争；见[测量与剩余限制](docs/memory-capacity.zh-CN.md)。
 - 依据审阅回归：`smoke:memory-match-signals`、`smoke:writer-memory-selection`，并在 Writer／浏览器压力测试加入明确选择及已知未解答问题；[规则与测量](docs/memory-evidence-review.zh-CN.md)。
-- 写作记忆回归：`smoke:writer-memory`、`smoke:memory-remote-guard`、`smoke:writer-memory-lifecycle`；`ci-writer-memory` 执行 20 个浏览器流程及 144万／1050万字符压力场景。
+- 写作记忆回归：`smoke:writer-memory`、`smoke:memory-remote-guard`、`smoke:writer-memory-lifecycle`；`ci-writer-memory` 执行 21 个浏览器流程及 144万／1050万字符压力场景。
 - 其他测试集：`smoke:generation-budget`、`smoke:writer-content`、`smoke:management-correctness`、`smoke:billing-correctness`、`smoke:tools-workspace`。
 - [浏览器测试](scripts/browser-testing.md)：CI 检查、本地 Chromium 回归与可选预览。
 - [发布说明](scripts/releasing.md)：通过校验的静态构建、校验和及源码/CI 信息。

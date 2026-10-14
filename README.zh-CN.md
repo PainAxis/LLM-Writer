@@ -122,6 +122,9 @@ npm run smoke:memory                  # 本地记忆、章节版本、披露范�
 npm run smoke:memory-mixed-query      # 完整中文／代码查询召回与标识符边界
 npm run smoke:memory-match-signals    # 未验证答案的文字／编号匹配与缺失编号
 npm run smoke:writer-memory-selection # 仅所选依据、批准与来源新鲜度
+npm run smoke:source-hydration        # 已提交正文读取、完整事务与来源竞争
+node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --profile=semantic
+node scripts/benchmark-memory-source.mjs --profile=all
 npm run smoke:memory-incremental      # 章节变更、索引复用与恢复
 npm run smoke:memory-client           # Worker 失效与缓存生命周期
 npm run smoke:memory-providers        # 嵌入／重排请求格式与响应校验
@@ -131,7 +134,7 @@ npm run smoke:memory-fact-store       # 图谱存储、写入失败与并发标�
 npm run smoke:memory-fact-extraction  # 有限模型提议、仅原文请求与无效响应
 ```
 
-CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、79 组冒烟测试与 133 个 Chromium 场景，其中包括 9 个超长篇压力场景。独立的记忆压力任务还运行本地容量与受控服务测试。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
+CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、80 组冒烟测试与 134 个 Chromium 场景，其中包括 9 个专门的超长篇压力场景，Writer 套件另覆盖长篇实际业务。独立记忆压力任务运行本地容量与受控服务测试；`ci-memory-capacity` 增加 Chromium 已提交来源的配对测量，另用独立本地基准记录索引与有界语义缓存成本，见[容量测量与限制](docs/memory-capacity.zh-CN.md)。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
 
 ### 首次使用
 1. 点击右上角「API配置」，选择服务商并填入 API 地址与密钥（可选：同步模型列表、配置代理前缀）

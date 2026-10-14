@@ -122,6 +122,9 @@ npm run smoke:memory                  # Local memory, revisions, disclosure and 
 npm run smoke:memory-mixed-query      # Full Chinese/code query recall and identifier boundaries
 npm run smoke:memory-match-signals    # Unverified literal/code signals and missing identifiers
 npm run smoke:writer-memory-selection # Selected-only evidence, approval and source freshness
+npm run smoke:source-hydration        # Committed body reads, complete transactions and source races
+node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --profile=semantic
+node scripts/benchmark-memory-source.mjs --profile=all
 npm run smoke:memory-incremental      # Changed chapters, index reuse and recovery
 npm run smoke:memory-client           # Worker invalidation and cache lifecycle
 npm run smoke:memory-providers        # Embedding/reranking wire formats and response validation
@@ -131,7 +134,7 @@ npm run smoke:memory-fact-store       # Graph storage, failed writes and concurr
 npm run smoke:memory-fact-extraction  # Bounded model proposals, source-only requests and invalid output
 ```
 
-CI is configured to run strict lint, the production build, 79 smoke suites and 133 Chromium scenarios, including nine long-novel stress scenarios on pull requests and main updates. A separate memory-stress job also runs local capacity and controlled-provider workloads. These counts describe the configured coverage; check the current revision’s CI results for validation status. See [incremental indexing and cache lifecycle](docs/memory-incremental-index.md), [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
+CI is configured to run strict lint, the production build, 80 smoke suites and 134 Chromium scenarios, including nine dedicated long-novel stress scenarios plus Writer long-novel business coverage, on pull requests and main updates. Separate memory-stress jobs run local capacity and controlled-provider workloads; `ci-memory-capacity` adds paired Chromium committed-source measurements. Separate local benchmarks record index and bounded semantic-cache costs. See [capacity measurements and limits](docs/memory-capacity.md). These counts describe the configured coverage; check the current revision’s CI results for validation status. See [incremental indexing and cache lifecycle](docs/memory-incremental-index.md), [long-novel stress tests and results](docs/memory-stress-tests.md) and [local browser setup](scripts/browser-testing.md).
 
 ### First Use
 1. Click "API Config" at the top right, choose a provider and fill in the API base URL and key (optional: sync model list, configure proxy prefix)

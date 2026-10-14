@@ -81,14 +81,15 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The configured CI validation set contains 79 sequential smoke suites and 133 Chromium scenarios with synthetic data and API responses, including nine long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
+- The configured CI validation set contains 80 sequential smoke suites and 134 Chromium scenarios with synthetic data and API responses, including nine long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
 - [Long-novel memory stress tests](docs/memory-stress-tests.md): `ci-memory-stress` runs local capacity and controlled HTTP providers; `ci-memory-browser-stress` separately runs persisted browser editing. Paid Jina workloads are optional. Reusable fixtures are under `scripts/fixtures/`, with reviewed reports under `docs/testing/`.
 - Memory increment regressions: `smoke:memory-incremental` and `smoke:memory-client`; repeated-edit/focus-return checks extend the existing stress scripts.
 - Fact graph regressions: `smoke:memory-fact-graph`, `smoke:memory-fact-store`, `smoke:memory-fact-extraction` and `test:browser-memory-fact-graph`; [source contract and limits](docs/memory-fact-graph.md).
 - Graph backup and mobile regressions: `smoke:graph-backup`, `test:browser-graph-backup` and `test:browser-mobile`; [portable source evidence and narrow-screen behavior](docs/graph-backup-mobile.md).
 - Mixed-query regression: `smoke:memory-mixed-query`; the Writer stress suite retains its original 68-preparation workload and adds 24 full-query, graph-disabled assertions per size. See [comparison and remaining limits](docs/memory-mixed-query-recall.md).
+- Capacity accounting: `scripts/benchmark-memory-capacity.ts` separates cold/recovery and semantic-cache costs; `benchmark-memory-source.mjs` runs real committed reads and Writer freshness checks. `ci-memory-capacity` compares fixed main and candidate in ABBA order; `smoke:source-hydration` protects complete body reads and storage races. See [measurements and remaining limits](docs/memory-capacity.md).
 - Evidence review regressions: `smoke:memory-match-signals` and `smoke:writer-memory-selection`, with explicit-selection and known unanswered-question cases in Writer/browser stress; [contract and measurements](docs/memory-evidence-review.md).
-- Writer memory regressions: `smoke:writer-memory`, `smoke:memory-remote-guard`, `smoke:writer-memory-lifecycle`; `ci-writer-memory` runs 20 browser flows plus 1.44M/10.5M-character stress profiles.
+- Writer memory regressions: `smoke:writer-memory`, `smoke:memory-remote-guard`, `smoke:writer-memory-lifecycle`; `ci-writer-memory` runs 21 browser flows plus 1.44M/10.5M-character stress profiles.
 - Other suites: `smoke:generation-budget`, `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.
 - [Browser testing](scripts/browser-testing.md): CI checks, local Chromium regression and optional preview.
 - [Releasing](scripts/releasing.md): validated static build, checksum and source/CI metadata.

@@ -79,9 +79,11 @@ npm run test:browser-memory-hybrid
 npm run test:browser-memory-fact-graph
 ```
 
-Core regressions cover chapter edits/deletion, ordering changes, project isolation, stale clues, failed builds, concurrent snapshots and a million-character synthetic manuscript. Provider/hybrid regressions check wire formats, invalid responses, semantic fusion, cache reuse, cancellation and fallback. Browser regressions exercise the actual built application, demo editing/restoration, evidence, committed-novel reads and optional providers. The configured project has 79 smoke suites and 133 browser scenarios, including nine long-novel scenarios; validation status comes from the reviewed revision's CI results. Synthetic data and deterministic provider responses test engineering boundaries; they do not measure real-novel semantic recall.
+Core regressions cover chapter edits/deletion, ordering changes, project isolation, stale clues, failed builds, concurrent snapshots and a million-character synthetic manuscript. Provider/hybrid regressions check wire formats, invalid responses, semantic fusion, cache reuse, cancellation and fallback. Browser regressions exercise the actual built application, demo editing/restoration, evidence, committed-novel reads and optional providers. The configured project has 80 smoke suites and 134 browser scenarios, including nine long-novel scenarios; validation status comes from the reviewed revision's CI results. Synthetic data and deterministic provider responses test engineering boundaries; they do not measure real-novel semantic recall.
 
 For larger workloads, see the [long-novel stress tests](memory-stress-tests.md), which separate local capacity, hybrid-provider behavior, browser workflows and real-novel recall, with explicit measurement and fallback boundaries.
+
+The [index and semantic capacity follow-up](memory-capacity.md) separates Node cold/recovery costs from real Chromium committed-source reads and verification. It batches body reads into one transaction without caching sources or raising retrieval budgets, and records the explicit local fallback above 2,000 eligible passages.
 
 For an optional real-service check, set `JINA_API_KEY` in the process environment and run:
 

@@ -30,6 +30,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       # Fixed pre-optimization source; both versions use this checkout's identical harness.
+      # This optimization's frozen comparison contract: docs/memory-capacity.md.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: 760042683405760428688d1a7d7f0346e2ff77d3
