@@ -22,6 +22,7 @@
     "smoke:generation-budget": "node --import tsx scripts/smoke-generation-budget.ts",
     "smoke:compactor": "node --import tsx scripts/smoke-context-compactor.ts",
     "smoke:persistence": "node --import tsx scripts/smoke-novel-persistence.ts",
+    "smoke:source-hydration": "node --import tsx scripts/smoke-source-hydration.ts",
     "smoke:storage-coordination": "node --import tsx scripts/smoke-storage-coordination.ts",
     "smoke:storage-conflicts": "node --import tsx scripts/smoke-storage-conflicts.ts",
     "smoke:api-config-workflow": "node --import tsx scripts/smoke-api-config-workflow.ts",

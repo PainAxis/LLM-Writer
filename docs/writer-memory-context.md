@@ -54,6 +54,8 @@ The capacity fixture retains 24 mixed Chinese/code queries separately. The histo
 
 The [evidence-review follow-up](memory-evidence-review.md) keeps the original 12-group / 92-preparation checkpoint, then adds no-answer boundary and explicit-selection assertions. Selections are counted separately from preparations.
 
+The [capacity follow-up](memory-capacity.md) measures real committed-source hydration and verification separately from these in-memory Node workloads, then batches body reads without removing freshness checks. Its added built-app acceptance covers a late exact-code source beyond 2,000 eligible passages and explicit semantic fallback through Memory Lab and Writer continuation; the existing scenarios cover all three generation paths separately.
+
 Each size runs in a separate Node process with an in-memory committed-source adapter. These are synthetic source-integrity and capacity checks, not a literary benchmark or a real-model quality evaluation. Node measurements exclude browser IndexedDB hydration, Worker serialization, editor rendering and physical-device behavior; single-run wall times depend on the machine. Sampled heap can miss synchronous peaks, so process maximum RSS is reported separately. No paid model calls are required.
 
 ## Historical PR #34 local results — 2026-10-08

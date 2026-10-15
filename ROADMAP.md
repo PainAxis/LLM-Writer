@@ -6,7 +6,7 @@ See [Project Structure](PROJECT_STRUCTURE.md) for the current implementation lay
 
 Completed foundations:
 
-- PR/main CI enforces zero lint warnings, type checking, production builds, 79 smoke suites and 133 real Chromium scenarios with synthetic data/providers, including nine long-novel stress scenarios.
+- PR/main CI enforces zero lint warnings, type checking, production builds, 80 smoke suites and 134 real Chromium scenarios with synthetic data/providers, including nine long-novel stress scenarios.
 - The main ruleset requires GitHub Actions `ci-quality` and `ci-browser` checks and an up-to-date branch before merging.
 - ShortStory uses isolated generation scopes for articles, stories, continuation and optimization, with cancellation/restart/clear/dialog-close/unmount coverage.
 - BookAnalysis, NovelManagement and ToolsLibrary generation use isolated scopes covering stop, source changes, dialog closure and unmount; tool progress no longer uses simulated timers.
@@ -39,7 +39,7 @@ The second batch is implemented:
 
 API settings now include persisted output ceilings and model-aware thinking controls, with actual SDK wire coverage and a settings-to-generation browser scenario. See [generation budgets](docs/generation-budgets.md).
 
-The configured regression set now contains 79 smoke suites and 133 browser scenarios, with separately invoked local/hybrid memory stress workloads. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
+The configured regression set now contains 80 smoke suites and 134 browser scenarios, with separately invoked local/hybrid memory stress workloads. CI results for the reviewed revision are the validation record. Implementation details remain in [Project Structure](PROJECT_STRUCTURE.md) and the unreleased changelog.
 
 ## Feature roadmap
 
@@ -54,7 +54,7 @@ Actual-novel graph backup/restore and mobile drawer navigation are covered in [t
 ## Stage-three progress and remaining priorities
 
 1. **Local mixed Chinese/code recall — implemented:** add exact-code candidates and verify complete queries with graph retrieval disabled. Keep the historical miss rates and comparable workloads visible; see [the focused fix](docs/memory-mixed-query-recall.md).
-2. **No-answer and low-relevance review — this increment:** expose deterministic quotation/title/author-label matches and missing codes without claiming answerability, and require individual Writer evidence selection. [The review contract](docs/memory-evidence-review.md) covers ordinary Chinese and known unanswered questions. Automatic semantic answerability or abstention remains unimplemented and requires separate evaluation.
-3. **Indexing and semantic capacity — next:** reduce expensive cold builds and source-read/validation costs, and design behavior when manuscripts exceed the current vector or request budgets. Measure browser costs separately from Node retrieval.
+2. **No-answer and low-relevance review — implemented:** expose deterministic quotation/title/author-label matches and missing codes without claiming answerability, and require individual Writer evidence selection. [The review contract](docs/memory-evidence-review.md) covers ordinary Chinese and known unanswered questions. Automatic semantic answerability or abstention remains unimplemented and requires separate evaluation.
+3. **Indexing and semantic capacity — measured first increment:** [measure cold builds, recovery, committed-source verification and semantic-cache costs](docs/memory-capacity.md); batch chapter-body hydration into one committed IndexedDB read transaction without removing reads or changing recall budgets. Cold full indexing, new-instance rebuilds, whole-collection hydration and over-2,000-passage semantic fallback remain limits. Further capacity work needs separate measured changes, including an explicit over-budget recall contract.
 
 Whole-novel automatic extraction needs a separate design and review contract; selected-source model proposals do not complete it. This list does not resume stage-two persistence/editor work or the deferred stage-four Agent.

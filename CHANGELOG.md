@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
-- Current configured coverage is 79 smoke suites and 133 browser scenarios, including 20 Writer memory scenarios; validation status is established by the reviewed revision’s CI.
+- Current configured coverage is 80 smoke suites and 134 browser scenarios, including 21 Writer memory scenarios; validation status is established by the reviewed revision’s CI.
+- Measure cold indexing, recovery, committed-source validation and bounded semantic-cache costs before choosing a focused read-path optimization. Hydrate chapter bodies in one IndexedDB transaction, retaining every fresh body read and all-or-nothing publication. Keep exact-code recall, explicit evidence choice, source/disclosure guards, optional-provider consent and existing capacity limits unchanged.
+- Add paired Chromium source measurements, storage-race regressions and a long Memory Lab-to-Writer workflow covering explicit semantic fallback beyond 2,000 passages. Record baseline/candidate accounting and remaining cold-build/full-collection costs in matching [English](docs/memory-capacity.md) and [Simplified Chinese](docs/memory-capacity.zh-CN.md) guides.
+
 - Distinguish empty results, candidates and literal/code matches without score thresholds or answerability claims. Expose missing requested codes and quotation/title/author-annotation provenance; optional retrieval providers remain opt-in.
 - Require individual Writer passage or complete-relationship selection before approval. Serialize only selected current/disclosed evidence, recompute its assessment and revoke approval when selection changes. Add ordinary unanswered-question and selected-context acceptance; see matching [English](docs/memory-evidence-review.md) and [Simplified Chinese](docs/memory-evidence-review.zh-CN.md) guides.
 
