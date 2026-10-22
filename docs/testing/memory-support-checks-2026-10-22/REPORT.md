@@ -66,3 +66,5 @@ Usage is unavailable. Any `0` fields in the failed local billing record are plac
 - No claim of real model accuracy, successful Go compatibility, real embeddings, browser CORS or general novel-writing quality. Selected-evidence limits do not establish whole-novel absence.
 - Advisory results never approve or enter Writer prompts automatically. Model inference still requires author judgment; source validation is not a truth badge.
 - Stage-three track 4, whole-disclosed-novel candidate extraction with author review, remains separate and unimplemented in this change. Stage four begins only after all stage-three tracks and shared gates pass.
+
+Latest mount-contract correction and its exact local evidence are recorded in [CI-FOLLOWUP.md](CI-FOLLOWUP.md) and `ci-mount-fix-validation.json`; earlier owner-fix measurements retain their original revision scope. All 52 browser scenarios still require the corrected exact-head CI.

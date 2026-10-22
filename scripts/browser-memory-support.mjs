@@ -390,7 +390,8 @@ async function openWriter(kind, { localOnly = false } = {}) {
   await expect(editor()).toContainText(targetText.slice(0, 10), { useInnerText: true, timeout: novelId === longNovelId ? 90_000 : 25_000 })
   await openWriterDialog(kind)
   await expect(wm('enabled')).not.toBeChecked(); await wm('enabled').check()
-  await expect(support(wm, 'enabled')).not.toBeChecked()
+  // Support is inside the result subtree: absence is not a checkbox value.
+  await expect(wm('result')).toHaveCount(0); await expect(wm('support')).toHaveCount(0); await expect(wm('approve')).toHaveCount(0)
   if (!localOnly) await configureRetrieval(wm, 'providers')
 }
 
@@ -580,22 +581,38 @@ try {
     await page.goto(`${origin}/__support_seed`)
     await page.evaluate(longNovelId => { const novels = JSON.parse(localStorage.getItem('novels')); localStorage.setItem('novels', JSON.stringify(novels.filter(novel => novel.id !== longNovelId))) }, longNovelId)
     useScope(false); await openWriter('continue')
-    await search(wm); await selectWriter(); await wm('approve').click(); await expect(wm('approved')).toBeVisible()
+    await search(wm); await expect(support(wm, 'enabled')).not.toBeChecked(); await selectWriter(); await wm('approve').click(); await expect(wm('approved')).toBeVisible()
     await support(wm, 'enabled').check(); await prepare(wm); await expect(wm('approved')).toHaveCount(0)
     await page.evaluate(() => { window.__supportIgnoreAbort = true })
     mode = 'hold'; const late = await send(wm)
+    const writerDocumentOrigin = await page.evaluate(() => performance.timeOrigin)
+    const beforeLate = requests.length
     await dialog.getByRole('button', { name: '取消', exact: true }).click(); await expect(dialog).toBeHidden()
+    await expect(page.getByTestId('writer-memory-panel')).toHaveCount(0)
     // Reopen by button only: no reload/goto/provider edit may clear state for production.
     await openWriterDialog('continue')
-    await expect(wm('enabled')).toBeChecked(); await expect(support(wm, 'enabled')).toBeChecked()
-    await expect(wm('approved')).toHaveCount(0); await expect(wm('result')).toHaveCount(0)
-    const beforeLate = requests.length
+    assert.equal(await page.evaluate(() => performance.timeOrigin), writerDocumentOrigin, 'Reopen must keep the same document')
+    await expect(wm('enabled')).toBeChecked()
+    await expect(wm('approved')).toHaveCount(0); await expect(wm('result')).toHaveCount(0); await expect(wm('support')).toHaveCount(0); await expect(wm('approve')).toHaveCount(0)
     await releaseHeld(); mode = 'ok'; await expect.poll(() => late.status).toBe(200)
-    await quiet(beforeLate, 'Same-instance reopen cannot send again, even after ignored-abort success')
+    await quiet(beforeLate, 'Close, same-instance reopen and ignored-abort success cannot send again')
     await expect(wm('approved')).toHaveCount(0); await expect(wm('result')).toHaveCount(0)
     await expect(dialog.locator('input[data-testid^="writer-memory-select-"]:checked')).toHaveCount(0)
     await expect(support(wm, 'preview')).toHaveCount(0); await expect(support(wm, 'assessment')).toHaveCount(0); await expect(support(wm, 'answer')).toHaveCount(0)
-    report.mutationControls.writerCloseIgnoredAbort = { status: late.status, newRequestsAfterReopen: requests.length - beforeLate, sameDocument: true }
+    await expect(wm('support')).toHaveCount(0); await expect(wm('approve')).toHaveCount(0)
+    assert.equal(await page.evaluate(() => performance.timeOrigin), writerDocumentOrigin, 'Late completion must not replace the document')
+    report.mutationControls.writerCloseIgnoredAbort = { status: late.status, newRequestsDuringCloseReopen: requests.length - beforeLate, sameDocument: true }
+    // A fresh explicit retrieval remounts support. Only now can the preserved
+    // author preference be observed; no old preview/approval may return with it.
+    const checksBeforeFreshSearch = supportRequests().length, writingBeforeFreshSearch = writingRequests().length
+    await search(wm)
+    await expect(support(wm, 'enabled')).toBeChecked(); await expect(wm('approved')).toHaveCount(0)
+    await expect(dialog.locator('input[data-testid^="writer-memory-select-"]:checked')).toHaveCount(0)
+    await expect(support(wm, 'prepare')).toBeDisabled(); await expect(wm('approve')).toBeDisabled()
+    await expect(support(wm, 'preview')).toHaveCount(0); await expect(support(wm, 'assessment')).toHaveCount(0); await expect(support(wm, 'answer')).toHaveCount(0)
+    assert.equal(supportRequests().length, checksBeforeFreshSearch, 'Explicit retrieval must not implicitly check support')
+    assert.equal(writingRequests().length, writingBeforeFreshSearch, 'Explicit retrieval must not implicitly generate')
+    assert.equal(await page.evaluate(() => performance.timeOrigin), writerDocumentOrigin, 'Fresh retrieval remains in the same owner instance')
     await page.evaluate(() => { window.__supportIgnoreAbort = false })
     await dialog.getByRole('button', { name: '取消', exact: true }).click()
   })

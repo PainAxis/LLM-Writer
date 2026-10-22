@@ -61,3 +61,27 @@ Independent fresh-instance journeys now cross a fixture-only document before ope
 完整生命周期检查另发现真实生产缺陷：关闭对话框仅取消检索 busy，未撤销独立的支持检查 owner。修复同步处理三入口用户关闭和切换，保留作者已开启的开关，但清掉批准、候选与语义输出。章节生成既有“先关工作区、再取得写作 lease”时序必须保留；只有私有同步标记确认的、已批准启动交接才保留写作 lease，且仍撤销支持检查能力/结果，不用笼统 busy 豁免。
 
 各独立业务场景明确创建新实例检查默认值；关闭重开场景只在同一文档内真实点击，不借重载或修改provider帮生产清状态，并让响应忽略取消后仍成功返回200，再验证候选、选中、预览、答案、判断与批准均未复活，两个作者开关保留。52 / 25 / 50 / 3 / 62 全部分母不减。生产已变化，须新一轮独立审阅、完整本地回归与准确head CI。
+
+## Fourth CI attempt: actual Writer mount gates
+
+Run [39839903136](https://github.com/PainAxis/LLM-Writer/actions/runs/39839903136), PR head `56bfd7108757d498bf06c9ca9d5b58b7cad54cfb`, reached 47 attempted / 46 passed / 1 failed / 5 not executed support scenarios. The complete unmodified `ci-fourth-browser-report.json` retains the result: 44 support requests, 0 writing requests, 91 mock retrieval requests, 51 selected-source transmissions, 27 verified citations and 0 unmocked external requests. Artifact `12453222903` was downloaded as 2,578,614 bytes, ZIP SHA-256 `d669ecae9eb7036b99632ff94d74086689daf343decdc9368142153dfe22192e`.
+
+The artifact records the actual Actions checkout commit `fe6ef9a893cc0cbe86993a15fbe9df16d1bd9408`, a synthetic PR merge with parents `73e730a848c3272ad5a243d028cec65ad5b72c8b` and `56bfd7108757d498bf06c9ca9d5b58b7cad54cfb`. The GitHub Git commit API verifies its tree `4476a3540e7d5718b310dac9a37969fead3b4de6`, identical to the reviewed PR head tree; the raw artifact commit is not rewritten.
+
+The newly added default-off assertion incorrectly looked for a Writer support checkbox before retrieval. Actual `WriterMemoryContext.vue` mounts the support component and approve button only inside `enabled && result`. All three Writer entries share this gate; Lab instead mounts support directly. This failure does not demonstrate a new production defect. No production or workflow file changes in this correction.
+
+[The complete node timeline](WRITER-MOUNT-TIMELINE.md) maps the real templates and all 52 groups. The test now checks subtree absence before search, and checks default-off only after a fresh instance has actually retrieved evidence. Same-instance close/reopen keeps the same `performance.timeOrigin`, verifies that the real slot unmounts, and measures the entire close → reopen → ignored-abort HTTP 200 interval for zero automatic requests. Only after that window ends does a new explicit retrieval remount the support preference; selection is empty, prepare/approve are disabled, and no old preview, answer, assessment or approval returns. Explicit retrieval must not create support or writing requests. No case, response assertion, source guard or 52 / 25 / 50 / 3 / 62 / 27 completion denominator was removed.
+
+An actual-SFC Node SSR matrix is appended to the existing Writer support smoke suite, using the production parent and child templates and real owner fixture. It checks mount, checkbox, disabled-button and state transitions through retrieval, selection, ready, running, assessment, approval, close/reopen and fresh search. Its Vite loader has no HTTP/WebSocket listener, no browser and no external calls. The focused test passes with 25 controlled support calls / 0 real calls. This is not browser acceptance. An additional strict Node TypeScript comparison reports the same two pre-existing script diagnostics at lines 182 and 334 on both previous HEAD and this append; it establishes no new diagnostics, not a clean standalone script typecheck.
+
+## 第四次 CI：依据实际模板检查挂载门槛
+
+本次报告保留完整原始字节：47 个场景已尝试，46 通过、1 失败、5 未执行；44 次支持检查、0 次写作、91 次模拟检索、51 次选中原文传输、27 条有效引用、0 次非模拟外部请求。新加的默认关闭断言放在 Writer 检索前，但生产模板必须先有 result 才挂支持组件和批准按钮，因此当时没有该控件。三个 Writer 入口门槛相同，Lab 则直接挂支持组件。本修正不改变生产或 workflow，也不把此测试时序问题称为新生产缺陷。
+
+已逐组核对全部 52 场景，并将实际节点时序另表保留。首次默认值在真实检索后检查；同实例关闭重开则先证明 slot 已卸载、文档时间原点不变，完整覆盖“关闭前计数 → 重开 → 忽略取消的旧 HTTP 200”窗口且没有新请求，再明确发起新检索，检查开关偏好保留而选择、预览、结论、答案和批准不复活。新检索不得顺带发起支持检查或写作。52 / 25 / 50 / 3 / 62 / 27 全部终值门槛保持不变。
+
+现有 Writer smoke 内新增真实父子 SFC 的 Node SSR 矩阵，覆盖检索前不存在、检索后默认关闭、选择与准备／运行／判断／批准、关闭重开及再次检索等状态。只运行 Node 和本地组件编译，没有监听器、浏览器或真实模型调用；定向通过 25 次受控调用不等于浏览器验收。额外严格 Node TypeScript 对比只报告旧 HEAD 已有的第 182、334 行两个脚本诊断，没有新增诊断，不将此对比称作脚本独立类型检查全绿。准确新 head 仍必须通过全部必要 CI。
+
+Final local validation for this mount correction: production build (including the configured application typecheck), zero-warning lint, all 91 smoke suites and browser-script syntax check passed; all 366 code/config/harness hashes remained unchanged across the run. `ci-mount-fix-validation.json` and the three `ci-mount-fix-*.log` files retain this exact snapshot. These are not a substitute for the corrected browser CI.
+
+该修正已再次通过生产构建（含配置内应用类型检查）、零警告 lint、全部 91 个 smoke 和浏览器脚本语法检查，366 个代码／配置／测试路径在运行前后保持相同。原报告的实测 commit 是 Actions 合成 merge `fe6ef9a…`，并非 PR head `56bfd710…`；GitHub API 证实两者树相同为 `4476a354…`，原报告未改。独立脚本严格类型检查的旧诊断仍按上文单列，不混入应用构建结论。

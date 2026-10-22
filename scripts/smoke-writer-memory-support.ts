@@ -523,6 +523,120 @@ for (const entry of entries) {
   assert.equal(f.persistCalls(), 0)
   f.dispose()
 }
+// Node-only SSR of the actual parent/child SFC templates, driven by the real
+// owner fixture. This verifies render/mount gates, not browser acceptance or DOM
+// event dispatch. No HTTP/WebSocket listener, browser, network, or model is used.
+{
+  const [{ createServer }, { default: vue }, { createSSRApp, h }, { renderToString }, { fileURLToPath }] = await Promise.all([
+    import('vite'), import('@vitejs/plugin-vue'), import('vue'), import('@vue/server-renderer'), import('node:url'),
+  ])
+  const root = fileURLToPath(new URL('..', import.meta.url))
+  const server = await createServer({ configFile: false, root, plugins: [vue()],
+    resolve: { alias: { '@': fileURLToPath(new URL('../src', import.meta.url)) } },
+    server: { middlewareMode: true, ws: false, hmr: false, watch: null }, logLevel: 'error' })
+  const f = await ownerFixture()
+  try {
+    assert.equal(server.httpServer, null, 'The SSR loader must not create an HTTP listener')
+    const { default: WriterMemoryContext } = await server.ssrLoadModule('/src/components/writer/WriterMemoryContext.vue')
+    // The small harness owns only dialog visibility. All nested v-if conditions,
+    // checkbox states, disabled buttons and child markup are production SFCs.
+    const render = () => renderToString(createSSRApp({ render: () => f.visible.chapter.value
+      ? h(WriterMemoryContext, { ...f.memory.state, chapters: f.memory.chapters.value }) : null }))
+    let html = await render()
+    const tag = (id: string) => {
+      const matches = [...html.matchAll(new RegExp(`<[^>]+data-testid="writer-memory-${id}"[^>]*>`, 'g'))]
+      assert.equal(matches.length, 1, `Expected exactly one rendered ${id} control`)
+      return matches[0]![0]
+    }
+    const absent = (...ids: string[]) => {
+      for (const id of ids) assert.ok(!html.includes(`data-testid="writer-memory-${id}"`), `${id} must not be mounted`)
+    }
+    const flag = (id: string, attribute: 'checked' | 'disabled', expected: boolean) => {
+      assert.equal(new RegExp(`\\s${attribute}(?:[\\s=>])`).test(tag(id)), expected, `${id} ${attribute}`)
+    }
+    const cleanSupport = () => absent('support-preview', 'support-send', 'support-assessment', 'support-answer', 'approved')
+    const unselected = () => {
+      assert.deepEqual(f.memory.state.selection, { hitIds: [], relationIds: [] })
+      const inputs = [...html.matchAll(/<input[^>]+data-testid="writer-memory-select-(?:hit|relation)-\d+"[^>]*>/g)]
+      assert.ok(inputs.length > 0, 'The fixture must render actual evidence selection controls')
+      for (const [input] of inputs) assert.doesNotMatch(input, /\schecked(?:[\s=>])/, 'Candidates are never auto-selected')
+    }
+    absent('panel', 'support', 'approve')
+    await f.open('chapter')
+    html = await render()
+    tag('panel'); flag('enabled', 'checked', false)
+    absent('query', 'search', 'result', 'support', 'approve')
+
+    f.memory.state.enabled = true
+    f.memory.state.query = '阿宁 北库 石桥'; f.memory.state.cutoffId = '22'
+    await nextTick()
+    html = await render()
+    flag('enabled', 'checked', true); tag('query'); flag('search', 'disabled', false)
+    absent('result', 'support', 'support-enabled', 'support-prepare', 'approve')
+    assert.equal(await f.memory.search(), true, f.memory.state.error)
+    html = await render()
+    tag('result'); tag('support'); flag('support-enabled', 'checked', false)
+    unselected(); flag('approve', 'disabled', true)
+    absent('support-check-question', 'support-prepare'); cleanSupport()
+
+    f.memory.support.state.setEnabled(true)
+    html = await render()
+    flag('support-enabled', 'checked', true); tag('support-check-question')
+    tag('support-unavailable'); flag('support-prepare', 'disabled', true); flag('approve', 'disabled', true)
+    cleanSupport()
+    f.memory.select({ hitIds: [], relationIds: ['whole-chain'] })
+    html = await render()
+    flag('select-relation-0', 'checked', true)
+    flag('support-prepare', 'disabled', false); flag('approve', 'disabled', false)
+    absent('support-unavailable'); cleanSupport()
+    assert.equal(await f.memory.support.state.prepare(), true)
+    html = await render()
+    tag('support-preview'); flag('support-send', 'disabled', false); flag('approve', 'disabled', false)
+    absent('support-answer', 'approved')
+    f.memory.select({ hitIds: [], relationIds: [] })
+    html = await render()
+    unselected(); flag('support-prepare', 'disabled', true); flag('approve', 'disabled', true)
+    cleanSupport()
+
+    f.memory.select({ hitIds: [], relationIds: ['whole-chain'] })
+    assert.equal(await f.memory.support.state.prepare(), true)
+    pending = deferred<string>(); dispatched = deferred<void>()
+    const running = f.memory.support.state.run(); await dispatched.promise
+    html = await render()
+    tag('support-running'); flag('support-prepare', 'disabled', true); flag('approve', 'disabled', true)
+    absent('support-send', 'support-answer', 'approved')
+    pending.resolve(raw)
+    assert.equal(await running, true)
+    pending = null; dispatched = null
+    html = await render()
+    tag('support-assessment'); tag('support-answer'); flag('approve', 'disabled', false)
+    absent('approved')
+    assert.equal(await f.memory.approve(), true)
+    html = await render()
+    tag('approved'); flag('approve', 'disabled', true)
+
+    f.visible.chapter.value = false
+    f.assertCleared('SSR close revokes the result, preview, assessment and approval')
+    html = await render()
+    absent('panel', 'result', 'support', 'approve')
+    await f.open('chapter')
+    html = await render()
+    tag('panel'); flag('enabled', 'checked', true); tag('query')
+    assert.equal(f.memory.support.state.enabled, true, 'Reopening retains the support preference, not its subtree')
+    absent('result', 'support', 'support-enabled', 'support-prepare', 'approve'); cleanSupport()
+    assert.equal(await f.memory.search(), true, f.memory.state.error)
+    html = await render()
+    tag('result'); tag('support'); flag('support-enabled', 'checked', true); tag('support-check-question')
+    unselected(); flag('support-prepare', 'disabled', true); flag('approve', 'disabled', true)
+    cleanSupport()
+    assert.ok(!html.includes('所选原文明示两个必要前提。'), 'The previous model explanation must not reappear')
+  } finally {
+    pending?.resolve(raw); pending = null; dispatched = null
+    f.dispose()
+    await server.close()
+  }
+}
+console.log('✓ Node-only actual-SFC SSR mount lifecycle: default off, result gate, selection/review gates and clean reopen; NOT browser acceptance')
 console.log(JSON.stringify({ suite: 'writer-memory-support', privateCompleteRelations: true, stalePremiseBlocks: true,
   independentApproval: true, noPromptInjection: true, cancellationAndSourceInvalidation: true,
   threeEntryOwnership: true, approvedChapterLaunchHandoff: true, resolvedResponseRace: true,
