@@ -31,3 +31,16 @@ No new real-provider attempt was made. The previously failed Go test remains one
 Zero-warning lint, all **91** smoke suites and production build passed again. The original direct Node invocation of the aggregate runner correctly rejected missing npm runner context before any suite; the subsequent documented npm command passed. Both logs are retained. `ci-fix-validation.json` records the current 212-path manifest and unchanged production source tree.
 
 零警告 lint、全部 **91** smoke 与生产构建已再次通过。首次直接 Node 调用聚合脚本因缺少 npm 上下文而在任何套件开始前拒绝；随后按规定 npm 命令通过，两份日志均保留。补充清单记录本次 212 个路径及不变的生产源码树。
+
+
+## Second CI attempt: Writer candidate-relative locator
+
+Run [39833809302](https://github.com/PainAxis/LLM-Writer/actions/runs/39833809302) on `9fe242650344df7847fba51b100950855506d675` passed 46 support browser scenarios, including case 06 at real HTTP EOF, all 25 semantic cases, all late-result invalidations and the 600-chapter Lab path. Case 47 stopped at the first Writer selection before any writing request. The retained unmodified `ci-second-browser-report.json` records 46 passed / 1 failed / 5 not executed, 44 support calls, 0 writing calls and 0 unmocked external requests. Its DOM diagnostic explicitly contains both correct chapter 588/590 original excerpts and revisions. This was not evidence of missing retrieval.
+
+The test supplied a dialog-rooted locator inside `filter({ has: ... })`, although Playwright evaluates the inner locator relative to each candidate card. The correction makes only that inner quote locator candidate-relative and additionally asserts exact quote text before checking the author's checkbox. No production files, cases, source/approval guards or 52/25/50/62 completion denominators change. The prior graph/backup/mobile job fully passed this time. Exact revised-head browser execution remains required; local Chromium is still not launched.
+
+## 第二次 CI：Writer 候选内相对选择器
+
+同一运行已通过 46 个支持检查浏览器场景，包括真实 HTTP EOF 后的源失效、第 25 个语义用例、全部旧结果撤销与 600 章 Memory Lab 路径。第 47 个场景在首次 Writer 勾选前中止，尚无写作请求。保留报告原始字节，记录 46 通过 / 1 失败 / 5 未执行、44 次支持检查、0 次写作、0 次非模拟外部请求；页面诊断明确显示第 588/590 章准确原文及修订，因此不把此故障误报为检索漏召回。
+
+根因是 `has` 内层本应相对候选卡查找，却再次从 dialog 根节点开始。仅修正这一测试定位作用域，且增加勾选前原文完全相等断言，不改生产、源校验、作者批准或 52/25/50/62 验收分母。本轮图谱/备份/移动端 job 已完整通过。修正后精确 head 的浏览器验收仍待 CI，不以局部通过代替全部完成。

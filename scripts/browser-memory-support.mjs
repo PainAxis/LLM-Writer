@@ -389,8 +389,11 @@ async function openWriter(kind, { localOnly = false } = {}) {
 async function selectWriter() {
   await expect(dialog.locator('input[data-testid^="writer-memory-select-"]:checked')).toHaveCount(0)
   for (const source of activeCase.sourceExcerpts) {
-    const hit = dialog.locator('[data-testid^="writer-memory-hit-"]').filter({ has: dialog.getByTestId('writer-memory-quote').filter({ hasText: source.quote }) })
-    await expect(hit).toHaveCount(1); await hit.locator('input[type="checkbox"]').check()
+    // has locators are evaluated relative to each candidate, not from the dialog root.
+    const hit = dialog.locator('[data-testid^="writer-memory-hit-"]').filter({ has: page.getByTestId('writer-memory-quote').filter({ hasText: source.quote }) })
+    await expect(hit).toHaveCount(1)
+    await expect(hit.getByTestId('writer-memory-quote')).toHaveText(source.quote)
+    await hit.locator('input[type="checkbox"]').check()
   }
   await expect(dialog.locator('input[data-testid^="writer-memory-select-"]:checked')).toHaveCount(activeCase.sourceExcerpts.length)
 }
