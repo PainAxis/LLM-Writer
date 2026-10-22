@@ -4,6 +4,9 @@ import type {
   MemoryChapterInput,
   MemoryClue,
   MemoryEvidence,
+  MemoryFullScanGrant,
+  MemoryFullScanHandle,
+  MemoryFullScanPage,
   MemoryIndexStats,
   MemoryProjectInput,
   MemoryQuery,
@@ -16,6 +19,7 @@ import { identifierEdges, memoryIdentifiers } from './identifiers'
 import { buildMemoryMatch, summarizeMemoryMatches } from './matchSignals'
 import { embedMemoryTexts, normalizeEmbeddingConfig, normalizeRerankConfig, rerankMemoryTexts } from './providers'
 import { createTokenScoreIndex } from './tokenScoreIndex'
+import { FullSemanticScan, validateFullScanHandle, validateFullScanOptions, type FullScanRecord } from './fullSemanticScan'
 
 // Deliberately generous prototype limits, including novels well beyond 1M Chinese characters.
 const MAX_CHARS = 20_000_000
@@ -259,6 +263,74 @@ function cosine(left: Float32Array, right: Float32Array): number {
   return dot / Math.sqrt(leftNorm * rightNorm)
 }
 
+async function localRanks(ready: ReadyIndex, cutoff: number, text: string, limit: number, assertCurrent: () => void) {
+  const disclosedChapterIds = ready.project.chapters.slice(0, cutoff).map(chapter => chapter.id)
+  const identifiers = new Set(memoryIdentifiers(text))
+  const coverage = (document: { identifiers: Array<string | number> }) => document.identifiers.reduce<number>(
+    (count, identifier) => count + Number(typeof identifier === 'string' && identifiers.has(identifier)), 0)
+  const scores = new Map<string, number>()
+  const reasons = new Map<string, string[]>()
+  const addRank = (id: string, rank: number, weight: number, reason: string) => {
+    const record = ready.evidence.get(id)
+    if (!record || !isAllowed(record, ready, cutoff)) return
+    scores.set(id, (scores.get(id) ?? 0) + weight / (60 + rank + 1))
+    reasons.set(id, [...(reasons.get(id) ?? []), reason])
+  }
+  if (text) {
+    let hasIdentifierMatches = false
+    // Each local channel filters disclosure/project BEFORE ranking and top-k selection.
+    for (const kind of ['passage', 'clue'] as const) {
+      const properties = kind === 'clue' ? ['annotations', 'content', 'title'] as const : ['content', 'title'] as const
+      const boost = kind === 'clue' ? { annotations: 2, content: 1, title: 0.3 } : { content: 1, title: 0.3 }
+      const where = { projectId: { eq: ready.project.id }, chapterId: { in: disclosedChapterIds }, kind: { eq: kind } }
+      const candidateLimit = Math.min(limit * 4, 200)
+      const result = await search(ready.database, {
+        term: text,
+        properties: [...properties], boost,
+        // Orama 3.1.18 exact=true adds ASCII \b checks, which reject normal Han text.
+        exact: false,
+        threshold: 0.7,
+        limit: candidateLimit, where,
+      })
+      assertCurrent()
+      // Enum postings rescue complete codes before BM25's length bias and top-k.
+      // Coverage only reads indexed token arrays, never scans manuscript text per query.
+      const exact = identifiers.size ? await search(ready.database, {
+        term: text, properties: [...properties], boost, exact: false, threshold: 1,
+        where: { ...where, identifiers: { containsAny: [...identifiers] } }, limit: candidateLimit,
+        sortBy: (a, b) => coverage(b[2]) - coverage(a[2]) || b[1] - a[1]
+          || String(a[2].id).localeCompare(String(b[2].id)),
+      }) : undefined
+      assertCurrent()
+      if (exact?.hits.length) hasIdentifierMatches = true
+      const ordered = new Map((exact?.hits ?? []).map(hit => [hit.id, hit]))
+      for (const hit of result.hits) if (!ordered.has(hit.id)) ordered.set(hit.id, hit)
+      // Give the best result from each channel a comparable chance to survive fusion.
+      // A fixed clue bonus otherwise lets ten weak clue matches outrank the best passage;
+      // author labels/aliases already receive a boost within their own BM25 channel.
+      ;[...ordered.values()].slice(0, candidateLimit).forEach((hit, rank) => {
+        const document = ready.documents.get(hit.id)!
+        const sources = identifiers.size ? [
+          [memoryIdentifiers(document.content, document.identifierEdges), '原文'],
+          [memoryIdentifiers(document.title), '章节标题'],
+          [memoryIdentifiers(document.annotations), '作者标签／别名'],
+        ] as const : []
+        const matched = sources.filter(([values]) => values.some(value => identifiers.has(value))).map(([, label]) => label)
+        addRank(hit.id, rank, 1, matched.length ? `完整编号匹配（${matched.join('、')}）`
+          : kind === 'clue' ? '作者伏笔标记（含标签／别名）与原文关键词匹配' : '原文／章节标题 BM25 关键词匹配')
+      })
+    }
+    if (hasIdentifierMatches) {
+      // Treat bounded local evidence as one channel for code queries. Complete
+      // multi-code coverage leads locally; semantic fusion and remote rerank still follow.
+      const local = [...scores].sort((a, b) => coverage(ready.documents.get(b[0])!) - coverage(ready.documents.get(a[0])!)
+        || b[1] - a[1] || a[0].localeCompare(b[0]))
+      local.forEach(([id], rank) => scores.set(id, 1 / (60 + rank + 1)))
+    }
+  }
+  return { scores, reasons, addRank }
+}
+
 /** A rebuildable index with opt-in remote retrieval and a bounded, source-versioned vector cache. */
 export class MemoryIndex {
   private epoch = 0
@@ -274,6 +346,18 @@ export class MemoryIndex {
   // It is never returned, logged, or persisted. Individual cache keys contain source identities only.
   private cacheConfig = ''
   private cacheProjectId = ''
+  private fullScan: {
+    handle: MemoryFullScanHandle
+    controller: AbortController
+    scan?: FullSemanticScan
+    local?: () => MemorySearchResult
+  } | undefined
+
+  private revokeFullScan() {
+    this.fullScan?.controller.abort()
+    this.fullScan?.scan?.cancel()
+    this.fullScan = undefined
+  }
 
   private clearVectors() {
     this.vectorCache.clear()
@@ -301,6 +385,7 @@ export class MemoryIndex {
 
   /** Hide stale evidence and cancel requests without discarding an untouched completed baseline. */
   invalidateSource(): void {
+    this.revokeFullScan()
     ++this.epoch
     this.searchController?.abort()
     if (this.ready) this.retained = this.ready
@@ -308,6 +393,7 @@ export class MemoryIndex {
   }
 
   async sync(project: MemoryProjectInput): Promise<MemoryIndexStats> {
+    this.revokeFullScan()
     // Exclusive ownership: an overlapping sync must build its own database. It cannot
     // observe or republish this build's partially removed/inserted documents.
     const baseline = this.ready ?? this.retained
@@ -475,7 +561,198 @@ export class MemoryIndex {
     return copyStats(stats)
   }
 
+  /** Local-only planning. This never requests a query vector or sends source text. */
+  async startFullScan(query: MemoryQuery, options: MemoryRemoteOptions, handle?: MemoryFullScanHandle): Promise<MemoryFullScanPage> {
+    this.revokeFullScan()
+    this.searchController?.abort()
+    const sequence = ++this.searchSequence
+    const budget = validateFullScanOptions(options?.fullScan)
+    const identity = handle ? { ...handle } : { sessionId: crypto.randomUUID(), generation: sequence }
+    validateFullScanHandle(identity)
+    const controller = new AbortController()
+    const session: NonNullable<MemoryIndex['fullScan']> = { handle: identity, controller }
+    this.fullScan = session
+    const started = performance.now()
+    const createdAt = Date.now()
+    const ready = this.ready
+    const epoch = this.epoch
+    if (!ready) { this.revokeFullScan(); throw new Error('索引尚未就绪，请先根据当前稿件重建。') }
+    if (!query || !validString(query.text, 512, true) || !validString(query.throughChapterId, 256)
+      || (query.limit !== undefined && (!Number.isSafeInteger(query.limit) || query.limit < 1 || query.limit > 50))) {
+      this.revokeFullScan()
+      throw new Error('检索条件无效：查询最多 512 字符，结果数为 1–50。')
+    }
+    const cutoff = ready.ordinals.get(query.throughChapterId)
+    if (cutoff === undefined) { this.revokeFullScan(); throw new Error('披露截止章节不存在；检索已阻止。') }
+    const text = query.text.trim()
+    const throughChapterId = query.throughChapterId
+    const limit = query.limit ?? 8
+    // Snapshot private config before any await, including the account identity.
+    const embeddingInput = options.embedding ? { ...options.embedding } : undefined
+    const rerankInput = options.rerank ? { ...options.rerank } : undefined
+    const assertCurrent = () => {
+      if (controller.signal.aborted || this.fullScan !== session || epoch !== this.epoch
+        || ready !== this.ready || sequence !== this.searchSequence) {
+        throw new Error('稿件快照已变化，或检索已被新的请求替代，请重新检索。')
+      }
+    }
+    const assertSources = (records: readonly FullScanRecord[]) => {
+      assertCurrent()
+      if (!records.every(record => ready.evidence.get(record.id) === record && isAllowed(record as EvidenceRecord, ready, cutoff))) {
+        throw new Error('稿件依据失效，已阻止全范围扫描。')
+      }
+    }
+    try {
+      const diagnostics: MemoryRetrievalDiagnostics = {
+        semantic: embeddingInput ? 'fallback' : 'disabled', rerank: rerankInput ? 'skipped' : 'disabled',
+        eligiblePassages: 0, embeddedPassages: 0, cachedPassages: 0, rerankedCandidates: 0, warnings: [],
+      }
+      let config: ReturnType<typeof normalizeEmbeddingConfig> | undefined
+      try {
+        if (embeddingInput) config = normalizeEmbeddingConfig(embeddingInput)
+      } catch { diagnostics.warnings.push('嵌入设置无效，已保留本地关键词和伏笔结果。') }
+      const cacheIdentity = config ? JSON.stringify([config.protocol, config.endpoint, config.model, config.dimensions, config.apiKey]) : ''
+      if (cacheIdentity !== this.cacheConfig || !config) this.clearVectors()
+      this.cacheConfig = cacheIdentity
+      const local = await localRanks(ready, cutoff, text, limit, assertCurrent)
+      assertCurrent()
+      const eligible = [...ready.evidence.values()].filter(record => record.kind === 'passage' && isAllowed(record, ready, cutoff))
+      diagnostics.eligiblePassages = eligible.length
+      const semanticEnabled = Boolean(config && text && eligible.length)
+      const makeResult = (ranked: [string, number][], reasons: Map<string, string[]>, resultDiagnostics: MemoryRetrievalDiagnostics) => {
+        assertCurrent()
+        assertSources(eligible)
+        const hits: MemoryEvidence[] = []
+        for (const [id, score] of ranked) {
+          const record = ready.evidence.get(id)
+          if (!record || !isAllowed(record, ready, cutoff)) throw new Error('稿件依据失效，请重新预览。')
+          const document = ready.documents.get(id)!
+          hits.push({ ...record, score, reason: reasons.get(id)!.join('；'), match: buildMemoryMatch(text, {
+            quote: record.quote, chapterTitle: record.chapterTitle,
+            quoteEdges: document.identifierEdges, annotations: document.annotationItems,
+          }) })
+          if (hits.length === limit) break
+        }
+        return {
+          projectId: ready.project.id, fingerprint: ready.stats.fingerprint,
+          query: text, throughChapterId, hits, assessment: summarizeMemoryMatches(text, hits.map(hit => hit.match!)),
+          searchMs: performance.now() - started,
+          method: resultDiagnostics.semantic === 'used' ? 'bm25+clues+semantic' as const : 'bm25+clues' as const,
+          diagnostics: resultDiagnostics,
+        }
+      }
+      const localOrder = [...local.scores].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      session.local = () => makeResult(localOrder, local.reasons, {
+        ...diagnostics, warnings: [...diagnostics.warnings, '全范围语义扫描已停止；仅返回本地关键词和伏笔结果，不使用部分语义评分，也不再远程重排。'],
+      })
+      const scan = new FullSemanticScan({
+        handle: identity, options: budget, records: eligible, query: text, dimensions: config?.dimensions ?? 1,
+        topK: Math.min(limit * 4, 200), rerank: semanticEnabled && Boolean(rerankInput), enabled: semanticEnabled,
+        preparedMs: performance.now() - started, createdAt, assertCurrent, assertSources,
+        cached: record => {
+          assertSources([record])
+          return this.vectorCache.get(sourceKey(record as EvidenceRecord))?.vector
+        },
+        cache: (record, vector) => { assertSources([record]); this.cacheVector(record as EvidenceRecord, vector) },
+        embed: (texts, task, signal) => embedMemoryTexts(config!, texts, task, signal),
+        finish: async (semantic, remote) => {
+          assertSources(eligible)
+          if (!semanticEnabled) return session.local!()
+          // Rebuild from untouched local channels on every retry; fusion never double-counts.
+          const scores = new Map(local.scores)
+          const reasons = new Map([...local.reasons].map(([id, values]) => [id, [...values]]))
+          semantic.forEach((item, rank) => {
+            scores.set(item.id, (scores.get(item.id) ?? 0) + 1 / (60 + rank + 1))
+            reasons.set(item.id, [...(reasons.get(item.id) ?? []), '原文片段语义相似度匹配'])
+          })
+          let ranked = [...scores].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+          const progress = scan.progress()
+          const completeDiagnostics: MemoryRetrievalDiagnostics = {
+            ...diagnostics, semantic: 'used', cachedPassages: progress.scoredCachedPassages,
+            embeddedPassages: progress.embeddedPassages, warnings: [...diagnostics.warnings],
+          }
+          if (rerankInput && text && ranked.length) {
+            let rerankConfig: ReturnType<typeof normalizeRerankConfig> | undefined
+            try { rerankConfig = normalizeRerankConfig(rerankInput) }
+            catch {
+              completeDiagnostics.rerank = 'fallback'
+              completeDiagnostics.warnings.push('重排设置无效，已保留融合检索顺序。')
+            }
+            if (rerankConfig) {
+              const candidates = ranked.slice(0, MAX_RERANK_CANDIDATES).map(([id]) => ready.evidence.get(id)!)
+              assertSources(candidates)
+              const returned = await remote('rerank', candidates.reduce((sum, record) => sum + record.quote.length, 0), candidates, async signal => {
+                const values = await rerankMemoryTexts(rerankConfig!, text, candidates.map(record => record.quote), signal)
+                const seen = new Set<number>()
+                for (const item of values) {
+                  if (!Number.isSafeInteger(item.index) || item.index < 0 || item.index >= candidates.length
+                    || !Number.isFinite(item.score) || seen.has(item.index)) throw new Error('重排映射无效。')
+                  seen.add(item.index)
+                }
+                if (!values.length) throw new Error('重排映射为空。')
+                return values
+              })
+              assertSources(candidates)
+              const reranked = returned.slice().sort((a, b) => b.score - a.score || a.index - b.index)
+                .map(item => [candidates[item.index]!.id, item.score] as [string, number])
+              const rerankedIds = new Set(reranked.map(([id]) => id))
+              for (const [id] of reranked) reasons.set(id, [...reasons.get(id)!, '远程重排'])
+              ranked = [...reranked, ...ranked.filter(([id]) => !rerankedIds.has(id))]
+              completeDiagnostics.rerank = 'used'
+              completeDiagnostics.rerankedCandidates = returned.length
+            }
+          }
+          return makeResult(ranked, reasons, completeDiagnostics)
+        },
+      })
+      session.scan = scan
+      assertCurrent()
+      return scan.plan(performance.now() - started)
+    } catch (error) {
+      if (this.fullScan === session) this.revokeFullScan()
+      throw error
+    }
+  }
+
+  private requireFullScan(handle: MemoryFullScanHandle) {
+    validateFullScanHandle(handle)
+    const session = this.fullScan
+    if (!session || session.handle.sessionId !== handle.sessionId || session.handle.generation !== handle.generation || !session.scan) {
+      throw new Error('全范围扫描会话已丢失或尚未就绪，请重新预览。')
+    }
+    session.scan.assertHandle(handle)
+    return session as typeof session & { scan: FullSemanticScan; local: () => MemorySearchResult }
+  }
+
+  async advanceFullScan(handle: MemoryFullScanHandle, beforeRemote?: () => Promise<void>): Promise<MemoryFullScanPage> {
+    return this.requireFullScan(handle).scan.advance(handle, beforeRemote)
+  }
+
+  async resumeFullScan(grant: MemoryFullScanGrant, beforeRemote?: () => Promise<void>): Promise<MemoryFullScanPage> {
+    return this.requireFullScan(grant).scan.resume(grant, beforeRemote)
+  }
+
+  async useLocalFullScan(handle: MemoryFullScanHandle, beforeRemote?: () => Promise<void>): Promise<MemorySearchResult> {
+    const session = this.requireFullScan(handle)
+    const result = await session.scan.validateLocal(handle, beforeRemote, session.local)
+    result.diagnostics.fullScan = { ...session.scan.progress(), status: 'stopped-local', coverage: 'incomplete' }
+    // No remote path (including rerank) can run after this terminal choice.
+    this.revokeFullScan()
+    return result
+  }
+
+  cancelFullScan(handle: MemoryFullScanHandle): void {
+    validateFullScanHandle(handle)
+    if (this.fullScan?.handle.sessionId === handle.sessionId && this.fullScan.handle.generation === handle.generation) this.revokeFullScan()
+  }
+
   async search(query: MemoryQuery, options?: MemoryRemoteOptions, beforeRemote?: () => Promise<void>): Promise<MemorySearchResult> {
+    if (options?.fullScan !== undefined) {
+      const page = await this.startFullScan(query, options)
+      // A direct engine caller has no author-decision channel. Never silently scan or wait.
+      return this.useLocalFullScan(page.progress, beforeRemote)
+    }
+    this.revokeFullScan()
     this.searchController?.abort()
     const sequence = ++this.searchSequence
     const controller = new AbortController()
@@ -490,16 +767,12 @@ export class MemoryIndex {
     }
     const cutoff = ready.ordinals.get(query.throughChapterId)
     if (cutoff === undefined) throw new Error('披露截止章节不存在；检索已阻止。')
-    const disclosedChapterIds = ready.project.chapters.slice(0, cutoff).map(chapter => chapter.id)
     // Snapshot primitive settings and query before the first await; callers may mutate UI objects.
     const embeddingInput = options?.embedding ? { ...options.embedding } : undefined
     const rerankInput = options?.rerank ? { ...options.rerank } : undefined
     const throughChapterId = query.throughChapterId
     const started = performance.now()
     const text = query.text.trim()
-    const identifiers = new Set(memoryIdentifiers(text))
-    const coverage = (document: { identifiers: Array<string | number> }) => document.identifiers.reduce<number>(
-      (count, identifier) => count + Number(typeof identifier === 'string' && identifiers.has(identifier)), 0)
     const limit = query.limit ?? 8
     const diagnostics: MemoryRetrievalDiagnostics = {
       semantic: embeddingInput ? 'fallback' : 'disabled',
@@ -530,67 +803,8 @@ export class MemoryIndex {
     }
     const timer = embeddingInput || rerankInput
       ? setTimeout(() => controller.abort(), REMOTE_BUDGET_MS) : undefined
-    const scores = new Map<string, number>()
-    const reasons = new Map<string, string[]>()
-    const addRank = (id: string, rank: number, weight: number, reason: string) => {
-      const record = ready.evidence.get(id)
-      if (!record || !isAllowed(record, ready, cutoff)) return
-      scores.set(id, (scores.get(id) ?? 0) + weight / (60 + rank + 1))
-      reasons.set(id, [...(reasons.get(id) ?? []), reason])
-    }
     try {
-      if (text) {
-        let hasIdentifierMatches = false
-        // Each local channel filters disclosure/project BEFORE ranking and top-k selection.
-        for (const kind of ['passage', 'clue'] as const) {
-          const properties = kind === 'clue' ? ['annotations', 'content', 'title'] as const : ['content', 'title'] as const
-          const boost = kind === 'clue' ? { annotations: 2, content: 1, title: 0.3 } : { content: 1, title: 0.3 }
-          const where = { projectId: { eq: ready.project.id }, chapterId: { in: disclosedChapterIds }, kind: { eq: kind } }
-          const candidateLimit = Math.min(limit * 4, 200)
-          const result = await search(ready.database, {
-            term: text,
-            properties: [...properties], boost,
-            // Orama 3.1.18 exact=true adds ASCII \b checks, which reject normal Han text.
-            exact: false,
-            threshold: 0.7,
-            limit: candidateLimit, where,
-          })
-          assertCurrent()
-          // Enum postings rescue complete codes before BM25's length bias and top-k.
-          // Coverage only reads indexed token arrays, never scans manuscript text per query.
-          const exact = identifiers.size ? await search(ready.database, {
-            term: text, properties: [...properties], boost, exact: false, threshold: 1,
-            where: { ...where, identifiers: { containsAny: [...identifiers] } }, limit: candidateLimit,
-            sortBy: (a, b) => coverage(b[2]) - coverage(a[2]) || b[1] - a[1]
-              || String(a[2].id).localeCompare(String(b[2].id)),
-          }) : undefined
-          assertCurrent()
-          if (exact?.hits.length) hasIdentifierMatches = true
-          const ordered = new Map((exact?.hits ?? []).map(hit => [hit.id, hit]))
-          for (const hit of result.hits) if (!ordered.has(hit.id)) ordered.set(hit.id, hit)
-          // Give the best result from each channel a comparable chance to survive fusion.
-          // A fixed clue bonus otherwise lets ten weak clue matches outrank the best passage;
-          // author labels/aliases already receive a boost within their own BM25 channel.
-          ;[...ordered.values()].slice(0, candidateLimit).forEach((hit, rank) => {
-            const document = ready.documents.get(hit.id)!
-            const sources = identifiers.size ? [
-              [memoryIdentifiers(document.content, document.identifierEdges), '原文'],
-              [memoryIdentifiers(document.title), '章节标题'],
-              [memoryIdentifiers(document.annotations), '作者标签／别名'],
-            ] as const : []
-            const matched = sources.filter(([values]) => values.some(value => identifiers.has(value))).map(([, label]) => label)
-            addRank(hit.id, rank, 1, matched.length ? `完整编号匹配（${matched.join('、')}）`
-              : kind === 'clue' ? '作者伏笔标记（含标签／别名）与原文关键词匹配' : '原文／章节标题 BM25 关键词匹配')
-          })
-        }
-        if (hasIdentifierMatches) {
-          // Treat bounded local evidence as one channel for code queries. Complete
-          // multi-code coverage leads locally; semantic fusion and remote rerank still follow.
-          const local = [...scores].sort((a, b) => coverage(ready.documents.get(b[0])!) - coverage(ready.documents.get(a[0])!)
-            || b[1] - a[1] || a[0].localeCompare(b[0]))
-          local.forEach(([id], rank) => scores.set(id, 1 / (60 + rank + 1)))
-        }
-      }
+      const { scores, reasons, addRank } = await localRanks(ready, cutoff, text, limit, assertCurrent)
       const eligible = [...ready.evidence.values()].filter(record => record.kind === 'passage' && isAllowed(record, ready, cutoff))
       diagnostics.eligiblePassages = eligible.length
       if (!embeddingInput) {

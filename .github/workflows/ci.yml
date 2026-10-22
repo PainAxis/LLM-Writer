@@ -84,12 +84,19 @@ jobs:
           ref: 7739cb0f6d020e4e05d0bff8d9d18f59f3d903c0
           path: .cold-index-baseline
           persist-credentials: false
+      # Historical cold-index experiment: freeze both endpoints, as for hydration above.
+      # Current-engine scope/semantics are exercised by smoke, stress and full-scan jobs.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ed83bfef9903e8870ecf8b2b7ff2f47da6d2b5fc
+          path: .cold-index-candidate
+          persist-credentials: false
       - name: Measure cold and new-instance builds with identical retrieval in ABBA order
         run: |
           for profile in million ten-million; do
             node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --engine-root=.cold-index-baseline --profile=$profile --label=baseline-a --output=artifacts/memory-cold-index
-            node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --profile=$profile --label=candidate-a --output=artifacts/memory-cold-index
-            node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --profile=$profile --label=candidate-b --output=artifacts/memory-cold-index
+            node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --engine-root=.cold-index-candidate --profile=$profile --label=candidate-a --output=artifacts/memory-cold-index
+            node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --engine-root=.cold-index-candidate --profile=$profile --label=candidate-b --output=artifacts/memory-cold-index
             node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --engine-root=.cold-index-baseline --profile=$profile --label=baseline-b --output=artifacts/memory-cold-index
             node scripts/compare-memory-cold-index.mjs --baseline=artifacts/memory-cold-index/baseline-a-$profile.json --baseline=artifacts/memory-cold-index/baseline-b-$profile.json --candidate=artifacts/memory-cold-index/candidate-a-$profile.json --candidate=artifacts/memory-cold-index/candidate-b-$profile.json --output=artifacts/memory-cold-index/comparison-$profile.json
           done
@@ -99,6 +106,38 @@ jobs:
         with:
           name: memory-cold-index-evidence-${{ github.run_attempt }}
           path: artifacts/memory-cold-index
+          if-no-files-found: warn
+          retention-days: 7
+
+  memory-full-scan:
+    name: ci-memory-full-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Measure production full-range scans and real adapter parsing
+        run: |
+          for dimensions in 128 512 4096; do
+            npm run test:memory-full-scan-capacity -- --dimensions=$dimensions --rounds=3
+          done
+      - run: npm run test:browser-memory-full-scan
+      - name: Upload full-range scan measurements and browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: memory-full-scan-evidence-${{ github.run_attempt }}
+          path: |
+            artifacts/memory-full-scan
+            artifacts/browser-memory-full-scan
           if-no-files-found: warn
           retention-days: 7
 

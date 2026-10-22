@@ -2,6 +2,7 @@ import { computed, markRaw, reactive, watch, type Ref } from 'vue'
 import type { WriterChapter, WriterNovel } from '@/types/writer'
 import type { MemoryChapterInput } from '@/types/memory'
 import { MemoryClient } from '@/services/memory/client'
+import { createSemanticScanUi, withMemoryAbort } from '@/services/memory/semanticScanUi'
 import { prepareWriterMemoryContext, type PreparedWriterMemoryContext, type WriterMemoryClient, type WriterMemorySelection } from '@/services/memory/writerContext'
 import { stripWriterHtml } from '@/utils/writerContent'
 import { StorageKeys } from '@/utils/storage'
@@ -27,10 +28,11 @@ export interface WriterMemoryLease {
 export function useWriterMemoryContext(options: WriterMemoryOptions) {
   const client = options.client ?? new MemoryClient()
   const prepare = options.prepare ?? prepareWriterMemoryContext
+  const scan = createSemanticScanUi()
   const state = reactive({
     enabled: false, query: '', cutoffId: '', busy: false, error: '', notice: '', approved: false,
     selection: { hitIds: [], relationIds: [] } as WriterMemorySelection,
-    providers: createWriterMemoryProviders(), result: null as WriterMemoryPreview | null,
+    scan: scan.state, providers: createWriterMemoryProviders(), result: null as WriterMemoryPreview | null,
   })
   let revision = 0
   let acquisition = 0
@@ -65,6 +67,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
     approvalBusy = false
     previewAbort?.abort()
     previewAbort = null
+    scan.reset()
     client.invalidateSource()
     prepared = null
     approvedSelection = null
@@ -110,7 +113,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
     previewAbort = controller
     state.busy = true
     try {
-      const saved = await options.saveCurrentChapter()
+      const saved = await withMemoryAbort(options.saveCurrentChapter(), controller.signal)
       ensureCurrent(operation, identity)
       if (!saved) throw new Error('当前正文尚未保存成功，请先解决保存问题，再检索写作依据。')
       if (editorIdentity !== JSON.stringify([options.currentChapter.value?.id, options.content.value])) {
@@ -121,10 +124,10 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
       if (!target || !novel || !chapters.value.some(chapter => chapter.id === state.cutoffId)) {
         throw new Error('请选择有效的目标章节和剧情披露截止章节。')
       }
-      const result = await prepare({
+      const result = await withMemoryAbort(prepare({
         projectId: `novel:${novel.id}`, query: state.query, throughChapterId: state.cutoffId,
         targetChapterId: target.id, expectedTarget: target, remote: writerMemoryRemoteOptions(state.providers),
-      }, { client, signal: controller.signal })
+      }, { client, signal: controller.signal, searchControls: scan.controls(controller.signal) }), controller.signal)
       ensureCurrent(operation, identity)
       prepared = result
       preparedTarget = identity
@@ -139,7 +142,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
       if (operation === revision && !disposed) state.error = error instanceof Error ? error.message : '写作记忆检索失败，请重试。'
       return false
     } finally {
-      if (operation === revision) state.busy = false
+      if (operation === revision) { state.busy = false; previewAbort = null; scan.finish() }
     }
   }
 

@@ -13,7 +13,7 @@
       <div class="control-row">
         <label class="field source-field">
           <span>素材来源</span>
-          <select v-model="sourceId" data-testid="memory-source" :disabled="busy || dirty" @change="changeSource">
+          <select v-model="sourceId" data-testid="memory-source" :disabled="controlsLocked || dirty" @change="changeSource">
             <option value="memory-demo">内置示例 · 80 章</option>
             <option v-for="novel in novelChoices" :key="novel.id" :value="novel.id">{{ novel.title }}（只读）</option>
           </select>
@@ -42,9 +42,9 @@
       <details class="provider-settings" data-testid="memory-provider-settings">
         <summary>可选语义召回与重排 <span class="muted">默认关闭</span></summary>
         <p class="muted">设置与密钥仅保留在当前页面内存，离开或刷新页面即清除，不写入浏览器存储或小说备份。修改设置会清除当前结果和向量缓存。</p>
-        <p class="warning">开启后，点击检索会将查询及已披露范围内的正文片段发送给所填服务，可能产生费用。服务须支持浏览器跨域请求（CORS）。后续章节不会发送。</p>
+        <p class="warning">开启后会将查询及已披露范围内的正文片段发送给所填服务，可能产生费用。普通检索点击即发送；启用全范围扫描时先显示计划，须再点击“开始扫描”才发送。服务须支持浏览器跨域请求（CORS），后续章节不会发送。</p>
         <div class="provider-grid">
-          <fieldset :disabled="busy">
+          <fieldset :disabled="controlsLocked">
             <legend>语义召回</legend>
             <label class="toggle-field"><input v-model="providers.embeddingEnabled" data-testid="memory-embedding-enabled" type="checkbox" />启用嵌入模型</label>
             <div v-if="providers.embeddingEnabled" class="provider-fields">
@@ -53,9 +53,15 @@
               <label class="field"><span>嵌入模型</span><input v-model="providers.embedding.model" data-testid="memory-embedding-model" autocomplete="off" spellcheck="false" /></label>
               <label class="field"><span>API 密钥</span><input v-model="providers.embedding.apiKey" data-testid="memory-embedding-key" type="password" autocomplete="off" spellcheck="false" placeholder="仅本页面使用" /></label>
               <label class="field"><span>输出维度（须与模型支持值一致）</span><input v-model.number="providers.embedding.dimensions" data-testid="memory-embedding-dimensions" type="number" min="1" max="4096" step="1" /></label>
+              <label class="toggle-field"><input v-model="providers.fullScanEnabled" type="checkbox" data-testid="memory-full-scan-enabled" />扫描全部已披露原文块（默认关闭）</label>
+              <template v-if="providers.fullScanEnabled">
+                <p class="warning">冷缓存或全范围扫描可能需要数分钟。预算是累计调用尝试次数和处理时间，不是金额上限；失败与重试也计数。适用于任何原文规模，不保证在预算内完成。</p>
+                <label class="field"><span>本次调用尝试上限（含查询、正文、重排）</span><input v-model.number="providers.fullScanMaxCalls" type="number" min="1" max="4096" step="1" data-testid="memory-full-scan-max-calls" /></label>
+                <label class="field"><span>本次处理时间预算（暂停等待不计入）</span><select v-model.number="providers.fullScanMaxActiveMs" data-testid="memory-full-scan-max-time"><option v-for="choice in FULL_SCAN_TIME_CHOICES" :key="choice.value" :value="choice.value">{{ choice.label }}</option></select></label>
+              </template>
             </div>
           </fieldset>
-          <fieldset :disabled="busy">
+          <fieldset :disabled="controlsLocked">
             <legend>候选重排</legend>
             <label class="toggle-field"><input v-model="providers.rerankEnabled" data-testid="memory-rerank-enabled" type="checkbox" />启用重排模型</label>
             <div v-if="providers.rerankEnabled" class="provider-fields">
@@ -74,18 +80,44 @@
       <div class="control-row search-row">
         <label class="field query-field">
           <span>检索内容</span>
-          <input v-model="query" data-testid="memory-query" type="search" placeholder="例如：钥匙、接应信号、玄衣客 真名" :disabled="busy" @input="invalidateResults" @keydown.enter.prevent="search" />
+          <input v-model="query" data-testid="memory-query" type="search" placeholder="例如：钥匙、接应信号、玄衣客 真名" :disabled="controlsLocked" @input="invalidateResults" @keydown.enter.prevent="search" />
         </label>
         <label class="field cutoff-field">
           <span>已披露至（含本章）</span>
-          <select v-model="cutoffId" data-testid="memory-cutoff" :disabled="busy || !project" @change="invalidateResults">
+          <select v-model="cutoffId" data-testid="memory-cutoff" :disabled="controlsLocked || !project" @change="invalidateResults">
             <option v-if="project?.chapters.length && !cutoffId" disabled value="">请选择已披露截止章节</option>
             <option v-for="(chapter, index) in project?.chapters ?? []" :key="chapter.id" :value="chapter.id">{{ index + 1 }} · {{ chapter.title }}</option>
           </select>
         </label>
-        <el-button type="primary" data-testid="memory-search" :disabled="!canSearch" :loading="busy && operation === 'search'" @click="search">检索</el-button>
+        <el-button type="primary" data-testid="memory-search" :disabled="!canSearch" :loading="busy && operation === 'search'" @click="search">{{ providers.embeddingEnabled && providers.fullScanEnabled ? '准备扫描计划' : '检索' }}</el-button>
         <el-button v-if="busy && operation === 'search'" data-testid="memory-cancel" @click="cancelSearch">取消检索</el-button>
       </div>
+      <section v-if="busy && scan.progress" class="scan-status" data-testid="memory-full-scan-status" :data-state="scan.pauseReason ?? 'running'" aria-label="全范围扫描进度" aria-live="polite">
+        <h4>{{ scan.pauseReason === 'ready' ? '全范围扫描计划' : '全范围扫描进度' }}</h4>
+        <p data-testid="memory-full-scan-plan">已披露范围 {{ scan.progress.eligiblePassages }} 个原文块；有效缓存 {{ scan.progress.cachedPassages }} 个；待嵌入 {{ scan.progress.missingPassages }} 个；原文字符约 {{ scan.progress.sourceChars.toLocaleString() }}。当前预计 {{ scan.progress.currentEstimatedCalls }} 次调用，冷缓存预计 {{ scan.progress.coldEstimatedCalls }} 次（含启用的重排预留，不含失败重试）。</p>
+        <p data-testid="memory-full-scan-progress">{{ scanSummary(scan.progress) }}</p>
+        <progress :value="scan.progress.scoredPassages" :max="scan.progress.eligiblePassages || 1" aria-label="原文块评分进度" />
+        <p data-testid="memory-full-scan-pause">{{ scanPauseText(scan.pauseReason) }}</p>
+        <p class="muted">处理时间含本地计算、来源校验和请求等待，不含暂停决策时间；从创建起最长 1 小时后会话失效。扫描完成只表示覆盖完成，不代表已回答问题，仍须逐条选择并核对依据。</p>
+        <template v-if="scan.pauseReason && scan.pauseReason !== 'ready'">
+          <div class="scan-fields">
+            <label class="field"><span>明确追加调用尝试次数</span><input :value="scan.addCalls" type="number" min="0" :max="4096 - scan.progress.callsApproved" step="1" data-testid="memory-full-scan-add-calls" @input="scan.setAddCalls(Number(($event.target as HTMLInputElement).value))" /></label>
+            <label class="field"><span>明确追加处理时间</span><select :value="scan.addActiveMs" data-testid="memory-full-scan-add-time" @change="scan.setAddActiveMs(Number(($event.target as HTMLInputElement).value))"><option :value="0">不追加</option><option v-for="choice in FULL_SCAN_TIME_CHOICES" :key="choice.value" :value="choice.value">{{ choice.label }}</option></select></label>
+          </div>
+          <p data-testid="memory-full-scan-proposed">追加后累计授权：{{ scan.progress.callsApproved + scan.addCalls }} 次尝试、{{ (scan.progress.activeMsApproved + scan.addActiveMs) / 1000 }} 秒处理时间。未使用的原授权仍保留。</p>
+        </template>
+        <p v-if="scan.pauseReason && scanTimeExhausted(scan.progress)" class="warning" data-testid="memory-full-scan-local-restart">处理时间预算已用完，当前会话无法再校验本地来源。可追加预算继续；若只需本地结果，请先取消扫描，再关闭嵌入与重排后重新点击检索。这将开启一次新的本地检索，不会续用本次会话。</p>
+        <p v-if="scan.error" class="error" role="alert">{{ scan.error }}</p>
+        <div v-if="scan.pauseReason" class="control-row">
+          <button v-if="scan.pauseReason === 'ready'" data-testid="memory-full-scan-start" @click="scan.start()">开始扫描</button>
+          <template v-else>
+            <button data-testid="memory-full-scan-retry" @click="scan.retry()">在剩余预算内继续 / 重试</button>
+            <button :disabled="scan.addCalls === 0 && scan.addActiveMs === 0" data-testid="memory-full-scan-continue" @click="scan.extend()">授权追加并继续</button>
+          </template>
+          <button :disabled="scanTimeExhausted(scan.progress)" data-testid="memory-full-scan-use-local" @click="scan.useLocal()">使用本地结果（停止全部远程请求）</button>
+          <button data-testid="memory-full-scan-cancel" @click="cancelSearch">取消</button>
+        </div>
+      </section>
       <p class="muted">截止章节按正文排列顺序判断。后续章节不会进入候选结果或依据面板。</p>
       <p v-if="project?.chapters.length && !cutoffId" class="warning" data-testid="memory-cutoff-required" role="status">原截止章节已不存在，请重新选择已披露范围。系统不会自动开放后续章节。</p>
       <div v-if="isDemo" class="shortcuts" aria-label="三项验收快捷检索">
@@ -103,8 +135,9 @@
           <h2 id="results-title">检索候选</h2>
           <span v-if="result" class="muted">{{ result.hits.length }} 条 · {{ result.searchMs.toFixed(1) }} ms</span>
         </div>
-        <div v-if="result" class="retrieval-status" data-testid="memory-retrieval-status" role="status">
+        <div v-if="result?.diagnostics" class="retrieval-status" data-testid="memory-retrieval-status" role="status">
           <p>语义召回：{{ semanticStatus }} · 候选重排：{{ rerankStatus }}</p>
+          <p v-if="result.diagnostics.fullScan" data-testid="memory-full-scan-final">{{ result.diagnostics.fullScan.coverage === 'complete' ? '已完成全范围评分，答案仍未核验。' : '已停止全范围扫描，仅使用本地结果；未完成的语义评分不参与候选。' }} {{ scanSummary(result.diagnostics.fullScan) }}</p>
           <p class="muted">披露范围内 {{ result.diagnostics.eligiblePassages }} 个原文块 · 本次新嵌入 {{ result.diagnostics.embeddedPassages }} 个 · 复用缓存 {{ result.diagnostics.cachedPassages }} 个 · 已重排 {{ result.diagnostics.rerankedCandidates }} 条候选</p>
           <p v-for="(warning, index) in result.diagnostics.warnings" :key="index" class="warning" data-testid="memory-retrieval-warning">{{ warning }}</p>
         </div>
@@ -158,11 +191,11 @@
       <template v-if="project">
         <label class="field">
           <span>编辑示例章节</span>
-          <select v-model="editChapterId" data-testid="memory-edit-chapter" :disabled="busy">
+          <select v-model="editChapterId" data-testid="memory-edit-chapter" :disabled="controlsLocked">
             <option v-for="(chapter, index) in project.chapters" :key="chapter.id" :value="chapter.id">{{ index + 1 }} · {{ chapter.title }}{{ Object.hasOwn(drafts, chapter.id) ? '（已修改）' : '' }}</option>
           </select>
         </label>
-        <label class="field editor-field"><span>示例章节正文</span><textarea v-model="editorText" data-testid="memory-chapter-editor" rows="7" :disabled="busy" /></label>
+        <label class="field editor-field"><span>示例章节正文</span><textarea v-model="editorText" data-testid="memory-chapter-editor" rows="7" :disabled="controlsLocked" /></label>
         <div class="control-row">
           <el-button type="primary" data-testid="memory-save-demo" :disabled="busy || !dirty" :loading="busy && operation === 'save'" @click="saveDemo">保存示例并重建</el-button>
           <el-button :disabled="busy || !dirty" @click="discardEdits">撤销未保存编辑</el-button>
@@ -177,6 +210,8 @@
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
 import FactGraphPanel from '@/components/memory/FactGraphPanel.vue'
 import { MemoryClient } from '@/services/memory/client'
+import { createWriterMemoryProviders, writerMemoryRemoteOptions } from '@/composables/writerMemoryUi'
+import { createSemanticScanUi, createCommittedMemorySourceGuard, FULL_SCAN_TIME_CHOICES, scanPauseText, scanSummary, scanTimeExhausted, withMemoryAbort } from '@/services/memory/semanticScanUi'
 import { createMemoryDemo, readMemoryDemo, readMemoryNovel, readMemoryNovelChoices, saveMemoryDemo } from '@/services/memory/labData'
 import type { MemoryIndexStats, MemoryMatchSignals, MemoryProjectInput, MemoryRemoteOptions, MemorySearchResult } from '@/types/memory'
 
@@ -197,22 +232,11 @@ const choicesError = ref('')
 const sourceRefreshNeeded = ref(false)
 const providerNotice = ref('')
 // Intentionally route-scoped: neither configurations nor credentials are persisted.
-const providers = reactive({
-  embeddingEnabled: false,
-  rerankEnabled: false,
-  embedding: {
-    protocol: 'jina' as 'jina' | 'openai-compatible',
-    endpoint: 'https://api.jina.ai/v1/embeddings',
-    model: 'jina-embeddings-v3',
-    apiKey: '',
-    dimensions: 512,
-  },
-  rerank: {
-    endpoint: 'https://api.jina.ai/v1/rerank',
-    model: 'jina-reranker-v2-base-multilingual',
-    apiKey: '',
-  },
-})
+const providers = reactive(createWriterMemoryProviders())
+const scanController = createSemanticScanUi()
+const scan = scanController.state
+let searchAbort: AbortController | null = null
+const controlsLocked = computed(() => busy.value && operation.value !== 'search')
 const isDemo = computed(() => sourceId.value === 'memory-demo')
 const dirty = computed(() => Object.keys(drafts.value).length > 0)
 const canSearch = computed(() => Boolean(project.value && cutoffId.value && query.value.trim() && !busy.value && !dirty.value))
@@ -221,8 +245,8 @@ let generation = 0
 let disposed = false
 let disclosureSourceId: string | null = null
 
-const semanticStatus = computed(() => ({ disabled: '未启用（本地检索）', used: '已参与混合检索', fallback: '不可用，已回退至本地检索' })[result.value?.diagnostics.semantic ?? 'disabled'])
-const rerankStatus = computed(() => ({ disabled: '未启用', used: '已完成', fallback: '不可用，保留召回顺序', skipped: '无需重排，未调用服务' })[result.value?.diagnostics.rerank ?? 'disabled'])
+const semanticStatus = computed(() => ({ disabled: '未启用（本地检索）', used: '已参与混合检索', fallback: '不可用，已回退至本地检索' })[result.value?.diagnostics?.semantic ?? 'disabled'])
+const rerankStatus = computed(() => ({ disabled: '未启用', used: '已完成', fallback: '不可用，保留召回顺序', skipped: '无需重排，未调用服务' })[result.value?.diagnostics?.rerank ?? 'disabled'])
 const assessmentText = computed(() => {
   if (!result.value?.assessment) return '以下是检索候选，尚未判断是否回答本次问题。请核对原文。'
   if (result.value.assessment.state === 'none') return '本次检索未返回原文候选。可调整关键词或披露范围；这不表示全书不存在相关内容。'
@@ -241,10 +265,7 @@ function matchDescription(match?: MemoryMatchSignals) {
 }
 
 function remoteOptions(): MemoryRemoteOptions {
-  return {
-    ...(providers.embeddingEnabled ? { embedding: { ...providers.embedding } } : {}),
-    ...(providers.rerankEnabled ? { rerank: { ...providers.rerank } } : {}),
-  }
+  return writerMemoryRemoteOptions(providers)
 }
 
 function getClient() {
@@ -259,6 +280,11 @@ function clearResults() {
 
 function invalidateResults() {
   generation += 1
+  searchAbort?.abort()
+  searchAbort = null
+  scanController.reset()
+  if (operation.value === 'search') busy.value = false
+  client?.invalidateSource()
   clearResults()
 }
 
@@ -327,6 +353,9 @@ function messageOf(cause: unknown) {
 }
 
 function startOperation(kind: typeof operation.value) {
+  searchAbort?.abort()
+  searchAbort = null
+  scanController.reset()
   const token = ++generation
   busy.value = true
   operation.value = kind
@@ -341,7 +370,11 @@ function isCurrent(token: number) {
 }
 
 function finishOperation(token: number) {
-  if (isCurrent(token)) busy.value = false
+  if (isCurrent(token)) {
+    busy.value = false
+    searchAbort = null
+    scanController.finish()
+  }
 }
 
 function acceptSnapshot(snapshot: MemoryProjectInput, index: MemoryIndexStats) {
@@ -404,23 +437,36 @@ function changeSource() {
 async function search() {
   if (!canSearch.value) return
   const token = startOperation('search')
+  const controller = new AbortController()
+  searchAbort = controller
   const id = sourceId.value
   const text = query.value.trim()
   const throughChapterId = cutoffId.value
   const options = remoteOptions()
   try {
     // Always refresh persisted source, including real novels, before searching.
-    const snapshot = await readSource(id)
+    const snapshot = await withMemoryAbort(readSource(id), controller.signal)
     if (!isCurrent(token)) return
-    const index = await getClient().sync(snapshot)
+    const index = await withMemoryAbort(getClient().sync(snapshot), controller.signal)
     if (!isCurrent(token)) return
     acceptSnapshot(snapshot, index)
     if (!snapshot.chapters.some(chapter => chapter.id === throughChapterId)) throw new Error('截止章节已删除或变更，请重新选择披露范围后检索')
-    const response = await getClient().search({ text, throughChapterId, limit: 12 }, options)
+    const providerIdentity = JSON.stringify(options)
+    const assertCurrentSource = createCommittedMemorySourceGuard(snapshot, () => readSource(id), () => {
+      if (controller.signal.aborted || !isCurrent(token) || id !== sourceId.value
+        || text !== query.value.trim() || throughChapterId !== cutoffId.value
+        || providerIdentity !== JSON.stringify(remoteOptions())) {
+        throw new Error('检索来源或设置已改变，请重新准备扫描。')
+      }
+    }, controller.signal)
+    const response = await withMemoryAbort(getClient().search({ text, throughChapterId, limit: 12 }, options,
+      assertCurrentSource, scanController.controls(controller.signal)), controller.signal)
+    await assertCurrentSource()
     if (!isCurrent(token)) return
     result.value = response
   } catch (cause) {
     if (isCurrent(token)) {
+      client?.invalidateSource()
       stats.value = null
       error.value = `检索失败：${messageOf(cause)}`
     }
@@ -517,6 +563,8 @@ onMounted(() => {
 onUnmounted(() => {
   disposed = true
   generation += 1
+  searchAbort?.abort()
+  scanController.reset()
   client?.dispose()
   window.removeEventListener('focus', invalidateExternalSource)
   window.removeEventListener('storage', onStorage)
@@ -524,6 +572,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.scan-status { margin: 16px 0; padding: 16px; border: 1px solid var(--el-border-color); border-radius: 8px; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.scan-status progress { width: 100%; }
+.scan-status h4 { margin: 0; }
+.scan-status button { padding: 9px 12px; border: 1px solid var(--el-border-color); border-radius: 6px; background: var(--el-fill-color-blank); color: inherit; cursor: pointer; font: inherit; }
+.scan-status button:disabled { opacity: 0.6; cursor: not-allowed; }
+.scan-status .error { color: var(--el-color-danger); }
+.scan-fields { display: flex; flex-wrap: wrap; gap: 14px; }
+.scan-fields .field { flex: 1 1 200px; }
 .memory-lab { max-width: 1360px; margin: 0 auto; padding: 24px; color: var(--el-text-color-primary); }
 .lab-header, .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .lab-header { align-items: flex-start; margin-bottom: 20px; }
@@ -584,9 +640,25 @@ blockquote { margin: 0; border-left: 3px solid var(--el-color-primary); backgrou
 mark { background: var(--el-color-warning-light-7); color: var(--el-text-color-primary); }
 .editor-field { margin: 16px 0; }
 textarea { resize: vertical; line-height: 1.8; }
-@media (max-width: 850px) { .results-layout { grid-template-columns: 1fr; gap: 0; } .provider-grid { grid-template-columns: 1fr; } .memory-lab { padding: 14px; } .lab-header { flex-wrap: wrap; } .lab-card { padding: 16px; } .cutoff-field { flex: 1 1 240px; } }
+@media (max-width: 850px) { .results-layout { grid-template-columns: 1fr; gap: 0; } .provider-grid { grid-template-columns: 1fr; } .scan-status { margin: 16px 0; padding: 16px; border: 1px solid var(--el-border-color); border-radius: 8px; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.scan-status progress { width: 100%; }
+.scan-status h4 { margin: 0; }
+.scan-status button { padding: 9px 12px; border: 1px solid var(--el-border-color); border-radius: 6px; background: var(--el-fill-color-blank); color: inherit; cursor: pointer; font: inherit; }
+.scan-status button:disabled { opacity: 0.6; cursor: not-allowed; }
+.scan-status .error { color: var(--el-color-danger); }
+.scan-fields { display: flex; flex-wrap: wrap; gap: 14px; }
+.scan-fields .field { flex: 1 1 200px; }
+.memory-lab { padding: 14px; } .lab-header { flex-wrap: wrap; } .lab-card { padding: 16px; } .cutoff-field { flex: 1 1 240px; } }
 @media (max-width: 480px) {
-  .memory-lab { padding: 0; }
+  .scan-status { margin: 16px 0; padding: 16px; border: 1px solid var(--el-border-color); border-radius: 8px; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.scan-status progress { width: 100%; }
+.scan-status h4 { margin: 0; }
+.scan-status button { padding: 9px 12px; border: 1px solid var(--el-border-color); border-radius: 6px; background: var(--el-fill-color-blank); color: inherit; cursor: pointer; font: inherit; }
+.scan-status button:disabled { opacity: 0.6; cursor: not-allowed; }
+.scan-status .error { color: var(--el-color-danger); }
+.scan-fields { display: flex; flex-wrap: wrap; gap: 14px; }
+.scan-fields .field { flex: 1 1 200px; }
+.memory-lab { padding: 0; }
   .lab-card { padding: 12px; }
   .source-field { flex-basis: 100%; }
   .control-row > .el-button, .shortcuts .el-button, input, select { min-height: 44px; }

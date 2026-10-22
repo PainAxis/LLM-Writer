@@ -8,17 +8,17 @@
     <p class="muted">为本次章节正文生成、续写或润色检索已保存原文；核对依据后再开始生成。该设置不会替你生成或修改正文。</p>
     <template v-if="enabled">
       <div class="search-fields">
-        <label class="field"><span>要查找的事实或伏笔</span><input :value="query" :disabled="disabled || busy" type="search" maxlength="500" placeholder="例如：铜铃、接应信号、旧日约定" data-testid="writer-memory-query" @input="emit('update:query', valueOf($event))" @keydown.enter.prevent="canSearch && emit('search')" /></label>
-        <label class="field"><span>已披露至（含本章）</span><select :value="cutoffId" :disabled="disabled || busy" data-testid="writer-memory-cutoff" @change="emit('update:cutoffId', valueOf($event))"><option value="" disabled>请选择披露截止章节</option><option v-for="chapter in chapters" :key="chapter.id" :value="chapter.id">{{ chapter.ordinal }} · {{ chapter.title }}</option></select></label>
+        <label class="field"><span>要查找的事实或伏笔</span><input :value="query" :disabled="disabled" type="search" maxlength="500" placeholder="例如：铜铃、接应信号、旧日约定" data-testid="writer-memory-query" @input="emit('update:query', valueOf($event))" @keydown.enter.prevent="canSearch && emit('search')" /></label>
+        <label class="field"><span>已披露至（含本章）</span><select :value="cutoffId" :disabled="disabled" data-testid="writer-memory-cutoff" @change="emit('update:cutoffId', valueOf($event))"><option value="" disabled>请选择披露截止章节</option><option v-for="chapter in chapters" :key="chapter.id" :value="chapter.id">{{ chapter.ordinal }} · {{ chapter.title }}</option></select></label>
       </div>
       <p class="muted">仅检索所选截止章节之前的已保存内容。改稿、切章、改变查询或披露范围后，须重新检索和核对。模型推断会保留推断标识。</p>
       <p class="muted">披露范围约束本次检索依据。你填写的写作要求、大纲及手选素材仍按原流程使用，请自行确认其中是否包含后续剧情。</p>
       <details class="providers" data-testid="writer-memory-providers">
         <summary>可选语义召回与重排（默认关闭）</summary>
         <p class="muted">设置与密钥仅保留在当前写作页面内存，刷新或离开后清除，不写入小说或备份。更改服务地址或访问格式会清除对应密钥。</p>
-        <p class="warning">开启后，点击“检索并预览”会把查询和已披露范围内的正文片段发给所填服务，可能产生费用。服务须支持浏览器跨域请求。后续章节不会发送。</p>
+        <p class="warning">开启后会将查询和已披露范围内的正文片段发给所填服务，可能产生费用。普通检索点击即发送；启用全范围扫描时先显示计划，须再点击“开始扫描”才发送。服务须支持浏览器跨域请求，后续章节不会发送。</p>
         <div class="provider-grid">
-          <fieldset :disabled="disabled || busy">
+          <fieldset :disabled="disabled">
             <legend>语义召回</legend>
             <label class="toggle"><input :checked="providers.embeddingEnabled" type="checkbox" data-testid="writer-memory-embedding-enabled" @change="updateProviders({ embeddingEnabled: checked($event) })" />启用嵌入模型</label>
             <div v-if="providers.embeddingEnabled" class="provider-fields">
@@ -27,9 +27,15 @@
               <label class="field"><span>嵌入模型</span><input :value="providers.embedding.model" autocomplete="off" spellcheck="false" data-testid="writer-memory-embedding-model" @input="updateEmbedding({ model: valueOf($event) })" /></label>
               <label class="field"><span>API 密钥</span><input :value="providers.embedding.apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="仅当前写作页面使用" data-testid="writer-memory-embedding-key" @input="updateEmbedding({ apiKey: valueOf($event) })" /></label>
               <label class="field"><span>输出维度（须与模型支持值一致）</span><input :value="providers.embedding.dimensions" type="number" min="1" max="4096" step="1" data-testid="writer-memory-embedding-dimensions" @input="updateEmbedding({ dimensions: Number(valueOf($event)) })" /></label>
+              <label class="toggle"><input :checked="providers.fullScanEnabled" type="checkbox" data-testid="writer-memory-full-scan-enabled" @change="updateProviders({ fullScanEnabled: checked($event) })" />扫描全部已披露原文块（默认关闭）</label>
+              <template v-if="providers.fullScanEnabled">
+                <p class="warning">冷缓存或全范围扫描可能需要数分钟。预算是累计调用尝试次数和处理时间，不是金额上限；失败与重试也计数。适用于任何原文规模，不保证在预算内完成。</p>
+                <label class="field"><span>本次调用尝试上限（含查询、正文、重排）</span><input :value="providers.fullScanMaxCalls" type="number" min="1" max="4096" step="1" data-testid="writer-memory-full-scan-max-calls" @input="updateProviders({ fullScanMaxCalls: Number(valueOf($event)) })" /></label>
+                <label class="field"><span>本次处理时间预算（暂停等待不计入）</span><select :value="providers.fullScanMaxActiveMs" data-testid="writer-memory-full-scan-max-time" @change="updateProviders({ fullScanMaxActiveMs: Number(valueOf($event)) })"><option v-for="choice in FULL_SCAN_TIME_CHOICES" :key="choice.value" :value="choice.value">{{ choice.label }}</option></select></label>
+              </template>
             </div>
           </fieldset>
-          <fieldset :disabled="disabled || busy">
+          <fieldset :disabled="disabled">
             <legend>候选重排</legend>
             <label class="toggle"><input :checked="providers.rerankEnabled" type="checkbox" data-testid="writer-memory-rerank-enabled" @change="updateProviders({ rerankEnabled: checked($event) })" />启用重排模型</label>
             <div v-if="providers.rerankEnabled" class="provider-fields">
@@ -42,9 +48,35 @@
         </div>
       </details>
       <div class="actions">
-        <button :disabled="!canSearch" data-testid="writer-memory-search" @click="emit('search')">{{ busy ? '正在检索…' : '检索并预览' }}</button>
+        <button :disabled="!canSearch" data-testid="writer-memory-search" @click="emit('search')">{{ busy ? '正在准备或检索…' : providers.embeddingEnabled && providers.fullScanEnabled ? '准备扫描计划' : '检索并预览' }}</button>
         <button v-if="busy" data-testid="writer-memory-cancel" @click="emit('cancel')">取消检索</button>
       </div>
+      <section v-if="busy && scan?.progress" class="scan-status" data-testid="writer-memory-full-scan-status" :data-state="scan.pauseReason ?? 'running'" aria-label="全范围扫描进度" aria-live="polite">
+        <h4>{{ scan.pauseReason === 'ready' ? '全范围扫描计划' : '全范围扫描进度' }}</h4>
+        <p data-testid="writer-memory-full-scan-plan">已披露范围 {{ scan.progress.eligiblePassages }} 个原文块；有效缓存 {{ scan.progress.cachedPassages }} 个；待嵌入 {{ scan.progress.missingPassages }} 个；原文字符约 {{ scan.progress.sourceChars.toLocaleString() }}。当前预计 {{ scan.progress.currentEstimatedCalls }} 次调用，冷缓存预计 {{ scan.progress.coldEstimatedCalls }} 次（含启用的重排预留，不含失败重试）。</p>
+        <p data-testid="writer-memory-full-scan-progress">{{ scanSummary(scan.progress) }}</p>
+        <progress :value="scan.progress.scoredPassages" :max="scan.progress.eligiblePassages || 1" aria-label="原文块评分进度" />
+        <p data-testid="writer-memory-full-scan-pause">{{ scanPauseText(scan.pauseReason) }}</p>
+        <p class="muted">处理时间含本地计算、来源校验和请求等待，不含暂停决策时间；从创建起最长 1 小时后会话失效。扫描完成只表示覆盖完成，不代表已回答问题，仍须逐条选择并核对依据。</p>
+        <template v-if="scan.pauseReason && scan.pauseReason !== 'ready'">
+          <div class="search-fields">
+            <label class="field"><span>明确追加调用尝试次数</span><input :value="scan.addCalls" type="number" min="0" :max="4096 - scan.progress.callsApproved" step="1" data-testid="writer-memory-full-scan-add-calls" @input="scan.setAddCalls(Number(valueOf($event)))" /></label>
+            <label class="field"><span>明确追加处理时间</span><select :value="scan.addActiveMs" data-testid="writer-memory-full-scan-add-time" @change="scan.setAddActiveMs(Number(valueOf($event)))"><option :value="0">不追加</option><option v-for="choice in FULL_SCAN_TIME_CHOICES" :key="choice.value" :value="choice.value">{{ choice.label }}</option></select></label>
+          </div>
+          <p data-testid="writer-memory-full-scan-proposed">追加后累计授权：{{ scan.progress.callsApproved + scan.addCalls }} 次尝试、{{ (scan.progress.activeMsApproved + scan.addActiveMs) / 1000 }} 秒处理时间。未使用的原授权仍保留。</p>
+        </template>
+        <p v-if="scan.pauseReason && scanTimeExhausted(scan.progress)" class="warning" data-testid="writer-memory-full-scan-local-restart">处理时间预算已用完，当前会话无法再校验本地来源。可追加预算继续；若只需本地结果，请先取消扫描，再关闭嵌入与重排后重新点击检索。这将开启一次新的本地检索，不会续用本次会话。</p>
+        <p v-if="scan.error" class="error" role="alert">{{ scan.error }}</p>
+        <div v-if="scan.pauseReason" class="actions">
+          <button v-if="scan.pauseReason === 'ready'" data-testid="writer-memory-full-scan-start" @click="scan.start()">开始扫描</button>
+          <template v-else>
+            <button data-testid="writer-memory-full-scan-retry" @click="scan.retry()">在剩余预算内继续 / 重试</button>
+            <button :disabled="scan.addCalls === 0 && scan.addActiveMs === 0" data-testid="writer-memory-full-scan-continue" @click="scan.extend()">授权追加并继续</button>
+          </template>
+          <button :disabled="scanTimeExhausted(scan.progress)" data-testid="writer-memory-full-scan-use-local" @click="scan.useLocal()">使用本地结果（停止全部远程请求）</button>
+          <button data-testid="writer-memory-full-scan-cancel" @click="emit('cancel')">取消</button>
+        </div>
+      </section>
       <p v-if="error" class="error" role="alert" data-testid="writer-memory-error">{{ error }}</p>
       <p v-if="notice" class="muted" role="status" data-testid="writer-memory-notice">{{ notice }}</p>
       <div v-if="result" class="preview" data-testid="writer-memory-result">
@@ -57,6 +89,7 @@
         </div>
         <div v-if="result.diagnostics" class="diagnostics" data-testid="writer-memory-diagnostics">
           <p>语义召回：{{ semanticStatus }}；候选重排：{{ rerankStatus }}</p>
+          <p v-if="result.diagnostics.fullScan" data-testid="writer-memory-full-scan-final">{{ result.diagnostics.fullScan.coverage === 'complete' ? '已完成全范围评分，答案仍未核验。' : '已停止全范围扫描，仅使用本地结果；未完成的语义评分不参与候选。' }} {{ scanSummary(result.diagnostics.fullScan) }}</p>
           <p v-for="(warning, index) in result.diagnostics.warnings" :key="index" class="warning">{{ warning }}</p>
         </div>
         <p v-if="!hasEvidence" class="warning" data-testid="writer-memory-empty">本次未返回可选候选。请调整查询和披露范围；没有选择依据时不会批准记忆上下文。</p>
@@ -101,6 +134,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { summarizeMemoryMatches } from '@/services/memory/matchSignals'
+import { FULL_SCAN_TIME_CHOICES, scanPauseText, scanSummary, scanTimeExhausted, type SemanticScanUiState } from '@/services/memory/semanticScanUi'
 import type { MemoryEmbeddingConfig, MemoryMatchSignals, MemoryRerankConfig } from '@/types/memory'
 import type { WriterMemoryChapterChoice, WriterMemoryPreview, WriterMemoryProviders } from '@/composables/writerMemoryUi'
 
@@ -117,6 +151,7 @@ const props = defineProps<{
   approved: boolean
   disabled?: boolean
   providers: WriterMemoryProviders
+  scan?: SemanticScanUiState
 }>()
 const emit = defineEmits<{
   'update:enabled': [value: boolean]
@@ -190,6 +225,8 @@ function updateRerank(patch: Partial<MemoryRerankConfig>) {
 </script>
 
 <style scoped>
+.scan-status { margin: 14px 0; padding: 14px; border: 1px solid var(--el-border-color); border-radius: 8px; }
+.scan-status progress { width: 100%; }
 .writer-memory { min-width: 0; margin: 0 0 16px; padding: 16px; border: 1px solid var(--el-border-color-light); border-radius: 8px; background: var(--el-bg-color); color: var(--el-text-color-primary); font-size: 13px; }
 p { line-height: 1.7; margin: 10px 0; overflow-wrap: anywhere; }
 h4 { margin: 0 0 12px; font-size: 15px; } h5 { margin: 0 0 8px; font-size: 14px; overflow-wrap: anywhere; }
@@ -207,5 +244,7 @@ button:hover:enabled { border-color: var(--el-color-primary); background: var(--
 dl { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 7px 10px; line-height: 1.7; font-size: 12px; } dt { color: var(--el-text-color-secondary); } dd { margin: 0; overflow-wrap: anywhere; }
 blockquote { margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid var(--el-color-primary); background: var(--el-fill-color-light); white-space: pre-wrap; line-height: 1.8; overflow-wrap: anywhere; }.approval { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--el-border-color-light); }
 @media (max-width: 760px) { .search-fields, .provider-grid, .evidence-grid { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 480px) { .writer-memory { padding: 12px; } button, input:not([type="checkbox"]), select, .toggle { min-height: 44px; } input:not([type="checkbox"]), select { font-size: 16px; } .evidence { padding: 10px; } .approval button { width: 100%; } }
+@media (max-width: 480px) { .scan-status { margin: 14px 0; padding: 14px; border: 1px solid var(--el-border-color); border-radius: 8px; }
+.scan-status progress { width: 100%; }
+.writer-memory { padding: 12px; } button, input:not([type="checkbox"]), select, .toggle { min-height: 44px; } input:not([type="checkbox"]), select { font-size: 16px; } .evidence { padding: 10px; } .approval button { width: 100%; } }
 </style>

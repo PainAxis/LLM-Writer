@@ -1,6 +1,6 @@
 import type {
   MemoryChapterInput, MemoryEvidence, MemoryIndexStats, MemoryProjectInput, MemoryQuery,
-  MemoryRemoteOptions, MemoryRetrievalDiagnostics, MemorySearchResult, MemoryMatchSummary, MemoryMatchSignals,
+  MemoryRemoteOptions, MemoryRetrievalDiagnostics, MemorySearchResult, MemoryMatchSummary, MemoryMatchSignals, MemorySearchControls,
 } from '@/types/memory'
 import type { FactGraphDocument, VisibleFactRelation } from '@/types/factGraph'
 import { readMemoryNovel } from './labData'
@@ -31,7 +31,7 @@ export interface WriterMemoryRequest {
 
 export interface WriterMemoryClient {
   sync(project: MemoryProjectInput): Promise<MemoryIndexStats>
-  search(query: MemoryQuery, options?: MemoryRemoteOptions, beforeRemote?: () => Promise<void>): Promise<MemorySearchResult>
+  search(query: MemoryQuery, options?: MemoryRemoteOptions, beforeRemote?: () => Promise<void>, controls?: MemorySearchControls): Promise<MemorySearchResult>
   invalidateSource(): void
 }
 
@@ -40,6 +40,8 @@ export interface WriterMemoryDependencies {
   readProject?: (projectId: string) => Promise<MemoryProjectInput>
   readGraph?: (projectId: string) => Promise<FactGraphDocument>
   signal?: AbortSignal
+  /** UI-only callbacks; never serialized into remote options or generation. */
+  searchControls?: MemorySearchControls
 }
 
 export interface WriterMemorySelection {
@@ -141,7 +143,7 @@ export async function prepareWriterMemoryContext(
   request.query = request.query.trim()
   const readProject = dependencies.readProject ?? readMemoryNovel
   const readGraph = dependencies.readGraph ?? readFactGraph
-  const signal = dependencies.signal
+  const signal = dependencies.signal ?? dependencies.searchControls?.signal
   const client = dependencies.client
   const includeGraph = request.includeGraph !== false
   stopped(signal)
@@ -168,7 +170,9 @@ export async function prepareWriterMemoryContext(
     const stats = await client.sync(snapshot(project))
     stopped(signal)
     await assertFresh()
-    const result = await client.search({ text: request.query, throughChapterId: request.throughChapterId, limit }, request.remote, assertFresh)
+    const result = await client.search({ text: request.query, throughChapterId: request.throughChapterId, limit }, request.remote, assertFresh, {
+      ...dependencies.searchControls, signal,
+    })
     stopped(signal)
     await assertFresh()
     if (stats.projectId !== project.id || result.projectId !== project.id || result.fingerprint !== stats.fingerprint
