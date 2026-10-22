@@ -2,7 +2,7 @@ import { THINKING_MODES, THINKING_PROTOCOLS } from '@/utils/generationBudget'
 import { normalizeBookAnalysisLibrary } from './bookAnalysisLibrary'
 import { normalizeExtensionSettings } from '@/stores/extensions'
 import type { FactGraphDocument } from '@/types/factGraph'
-import { FACT_GRAPH_MAX_DOCUMENT_CHARS, validateFactGraphDocument } from './memory/factGraph'
+import { FactGraphValidationError, FACT_GRAPH_MAX_DOCUMENT_CHARS, validateFactGraphDocument } from './memory/factGraph'
 import { captureFactGraphRestoreSnapshot, readFactGraphsForBackup, restoreFactGraphsFromBackup } from './memory/factGraphStore'
 import { isBlobStoreAvailable } from './blobStore'
 import {
@@ -252,7 +252,10 @@ function validateGraphBundle(data: Data): void {
       check(document.revision.trim() && projectIds.has(document.projectId) && !seen.has(document.projectId), path)
       seen.add(document.projectId)
       return document
-    } catch { check(false, path) }
+    } catch (error) {
+      if (error instanceof FactGraphValidationError && error.code === 'unsupported-version') throw error
+      check(false, path)
+    }
   })
 }
 
@@ -351,7 +354,9 @@ export async function restoreBackup(input: unknown, groups: readonly BackupGroup
   if (graphDocuments && graphDocuments.length > 0 && !isBlobStoreAvailable()) {
     throw new Error('IndexedDB 不可用，无法恢复事实关系图；本地数据尚未修改。')
   }
-  const graphSnapshot = graphDocuments
+  // Even legacy source-only restores must not rewrite sources paired with a graph
+  // whose schema is newer than this client. Check before the first local write.
+  const graphSnapshot = selected.includes('novels')
     ? await captureFactGraphRestoreSnapshot(novelProjectIds(data[StorageKeys.novels])) : undefined
   // 深复制，隔离小说后端/响应式状态在写入期间的引用变化。
   const previous = new Map<StorageKey, unknown>()

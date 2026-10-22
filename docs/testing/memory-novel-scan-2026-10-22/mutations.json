@@ -1,0 +1,14 @@
+[
+  {
+    "mutant": "always-empty",
+    "expectedExitCode": 1,
+    "actualExitCode": 1,
+    "firstFailedCase": "P01"
+  },
+  {
+    "mutant": "wrong-meaning",
+    "expectedExitCode": 1,
+    "actualExitCode": 1,
+    "firstFailedCase": "P01"
+  }
+]

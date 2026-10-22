@@ -1,0 +1,56 @@
+# Whole-disclosed-source candidate scan: retained engineering evidence
+
+[English](REPORT.md) | [简体中文](REPORT.zh-CN.md)
+
+Date: 2026-10-22. Stage-three track 4 only. The [feature contract](../../memory-novel-scan.md) defines the exact finite scope; this report does not claim stage-three completion, a live-model quality result, or browser acceptance before CI. The working tree includes the reviewed Writer owner-lifecycle correction plus its actual-SFC/mount-timing regression update from support-check head `e6402cd4c6b87b18c585c8bd5ad3a2d287278073`.
+
+## What is being accepted
+
+A explicitly processes every saved, disclosed original-text window. B requires separate authorization and examines retained-cue singleton, adjacent pair/triple, shared-literal-key distant pair and at-most-three-cue bridge routes. Original-text coverage, finite connection coverage and semantic correctness are separate. A completed text scan does not prove every relationship was found. Saved proposals retain every original premise and default to unconfirmed; no proposal or assessment enters Writer automatically.
+
+Six budgets accumulate across phases, failed attempts, retries and review segments. Full review pools have an operational exit: individually save/ignore, then continue the retained B cursor before remaining A, without redispatch or resetting cost. Hard limits remain explicit and missed ranges are retained. Active scan time, bounded author-triggered local review time and preparation time are distinct; idle time is not silently charged and there is no two-second full-source polling loop.
+
+## Revision-bound local validation
+
+The 19:32 validation results and code/config/harness hashes are recorded in `validation.json`; raw command output is retained next to this report. They describe the reviewed track-four implementation snapshot `f80dd12d94bd86b5fb84a4eeb8097592ceda4c16`, not a relabeled later integration run. Subsequent upstream support-test integration is recorded separately in `post-support-mount-fix/`; it changes no track-four production code, fixture or harness. The earlier `pre-guard-fix/` run is intentionally retained as historical evidence, **not** substituted for final validation: independent review subsequently found that ignored-abort reads could continue a new local read after an active-budget pause. The correction uses operation-scoped cancellation gates for source validation and lazy next-segment preparation. The original two narrow reproductions and regression suites now verify zero subsequent reads/model calls/saves after the late first read is released. The final source snapshot also includes the separately reviewed Writer dialog-owner fix and browser fixture-isolation correction.
+
+No local browser installation or execution was performed; that route remains restricted. `ci-memory-novel-scan` is a separate necessary built-app job, not silently included in the existing `test:browser` aggregate. All other existing necessary jobs remain required on the exact reviewed revision.
+
+The 19:32 snapshot passed **all 97 smoke suites, production build and zero-warning ESLint**. All **383** captured code/config/harness hashes remained unchanged. Both mutation commands failed at P01 with the expected exit code 1, not an unrelated setup error. The retained 19:32 10.5M sample took **3,504 ms wall / 3,800.613 ms CPU**, cancellation settled in **4 ms**; heap changed from **21,148,648 to 47,751,808 bytes**, RSS from **72,220,672 to 154,124,288 bytes**, and process maximum RSS was **151,412 KiB**. This is one controlled resource observation, not an optimization comparison or full-model cost.
+
+## Fixed semantic and protocol evidence
+
+Frozen fixture SHA256: `6d54c1cc1a02d0fe1b4b7580b21c8e5fb02d13f15e9f712b853e6721b67a8206`.
+
+The 24-case, 62-original-segment fixture has 12 positives, six negative controls and six real scope misses. The controlled provider passes through production planning, generation boundaries, strict parsers, current-source citation validation, author review and **12 real v2 CAS writes**, all unconfirmed by default. Report all denominators together:
+
+- All story targets: **12/18**.
+- Disclosed targets: **12/17**.
+- In-contract targets: **12/12**.
+- Negative controls: **6/6**; known misses: **6/6 retained**, not dropped.
+
+An always-empty provider loses all 18 story targets and is rejected for all 12 positive cases. A semantically wrong but mechanically valid citation is rejected by the gold evaluator, **not** falsely claimed to be detectable by schema/citation validation. Five protocol-forgery controls are rejected. These controlled outputs test engineering and evaluation sensitivity, not general novel understanding or real-model recall.
+
+The geometry fixture covers **1,317,800 disclosed UTF-16 units / 599 chapters / 599 windows / 1,797 atoms**. A separate worst-escaping profile covers **156,554 original units / 12 chapters / 38 windows / 186 atoms** without silent normalization or truncation. Both geometry checks have zero provider calls; they are not full inference runs.
+
+## Capacity and lifecycle evidence
+
+The engine continuation fixture performs **270 A + 807 B = 1,077 controlled dispatches**, producing **1,614 candidates over four review batches**. Earlier batches are explicitly ignored in this pressure test; this count is not 1,614 graph saves. B progresses beyond the 512-candidate pool without repeating completed jobs or resetting its cumulative ledger, and retained provenance permits later cross-segment bridges. Separate tests exercise the real 8,192-cue campaign index limit, explicit remaining-source skip and bounded range-miss ledger.
+
+The 10.5-million-unit capacity run is **preparation, geometry, finite planner pressure, one controlled call, budget pause and cancellation only**. It has 500 chapters, 10,500 atoms and 2,000 A windows; primary intervals cover exactly 10,500,000 original units. Maximum A system+JSON input is 9,203 UTF-16 units / 25,203 UTF-8 bytes. The dense bounded planner reaches 65,536 distinct IDs in 71,028 steps. Final measured CPU, elapsed time and memory are in `capacity.log` and `validation.json`. Process heap/RSS are observed process values, not the 16 MiB provenance payload allowance, a fixed memory bound, or an all-book inference cost.
+
+The actual production SDK adapter is intercepted at HTTP: **nine controlled HTTP calls, zero live network requests**, including strict collect/connect requests, exact escaped prose, bounded output/response, redirect/503/oversized/incomplete responses, source guards, timeouts and late cancellation. Zero-dispatch safety cases are retained. No novel or credential was sent to an external provider in this track.
+
+## Built-app gate, not yet executed locally
+
+The new suite defines **20 scenario groups**, **1,501 controlled scan HTTP calls (834 A + 667 B)** and **three Writer calls**. It covers saved proposals, typed plot links, full-pool continuation, failed-call skip, cancellation, source/graph/CAS invalidation, backup/restore, default-off/fresh-owner behavior, the three Writer modes and a 390-pixel layout. Its long novel runs **599 A + 9 B** calls; the capacity route runs **180 A + 537 B** calls. Expected aggregate original-source transmission is **1,388,842 units / 3,354 spans**, with **568 candidate responses** including duplicates and pressure-fixture proposals. These are fixed harness assertions, not passed-browser claims. The CI report, trace and screenshots must establish the actual executed result.
+
+## Persistence and unresolved capability limits
+
+Graph v2 preserves typed setup/recovery/context premises and scan provenance. v1 is normalized in memory without an implicit write. Unknown future versions are rejected consistently by read/save/import/backup/restore without replacing existing data. Every stored premise retains exact source text and revision, and changing an old chapter hides the whole invalid relationship or plot link. Author confirmation cannot bypass revision/disclosure checks. A late CAS belongs only to its original campaign; uncertain save outcomes are not misreported as confirmed non-writes.
+
+Finite routing still misses distant low-overlap links without an extracted common key, omitted cues, arbitrary four-or-more-premise chains and future-disclosed aliases. Dense names can exhaust planning/time/index budgets. Empty or complete-for-contract results do not establish absence or general semantic completeness. Full 10.5-million-unit A+B model processing and real embedding/chat quality are **not measured**. The earlier Go support-check attempt remains one transport failure, zero assessed outputs, six stopped cases and unknown usage/cost; this track did not retry or change the route/model. Stage four starts only after all four finite stage-three tracks and shared exact-head review/CI gates pass.
+
+## Post-support-mount integration verification
+
+After integrating upstream support head `e6402cd4c6b87b18c585c8bd5ad3a2d287278073`, build, zero-warning lint and all **97 smoke suites** passed again. Both mutation controls still failed at P01 as intended. All **383** current code/config/harness hashes remained unchanged across execution. Relative to the reviewed track-four snapshot, only the support browser script and its Writer support smoke changed; track-four production, fixtures and harness are identical. The new logs/manifests are in `post-support-mount-fix/`; earlier individual timing/memory reports retain their original revision scope. Browser acceptance and all 11 necessary exact-head CI jobs remain pending publication, not locally simulated.

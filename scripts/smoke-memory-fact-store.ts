@@ -91,11 +91,16 @@ Object.defineProperty(globalThis, 'indexedDB', { configurable: true, value: {
 } })
 
 const { idbCompareAndSwap } = await import('../src/services/blobStore')
-const { readFactGraph, saveFactGraph } = await import('../src/services/memory/factGraphStore')
-const { FACT_GRAPH_MAX_DOCUMENT_CHARS } = await import('../src/services/memory/factGraph')
+const { readFactGraph, saveFactGraph, captureFactGraphRestoreSnapshot, restoreFactGraphsFromBackup } = await import('../src/services/memory/factGraphStore')
+const { FACT_GRAPH_MAX_DOCUMENT_CHARS, FactGraphValidationError } = await import('../src/services/memory/factGraph')
 const key = (projectId: string) => `memory-fact-graph:v1:${projectId}`
 const document = (projectId = 'graph-novel'): FactGraphDocument => ({
-  version: 1, projectId, revision: '', relations: [{
+  version: 2, projectId, revision: '', plotLinks: [{
+    id: 'plot-1', projectId, mode: 'setup_candidate', title: '铜铃信号', explanation: '模型提出可能伏笔，不证明尚未回收。',
+    origin: 'inferred', createdBy: 'model', authorConfirmed: false, semanticValidation: 'protocol-and-current-sources',
+    provenance: { campaignId: 'campaign', segmentId: 'segment', jobId: 'job', candidateId: 'candidate' },
+    premises: [{ role: 'setup', evidence: [{ chapterId: 'chapter-1', sourceRevision: 'a'.repeat(64), start: 0, end: 6, quote: '阿宁摇响铜铃' }] }],
+  }], relations: [{
     id: 'edge-1', projectId, source: { type: 'person', label: '阿宁' },
     target: { type: 'object', label: '铜铃' }, predicate: '可能借铜铃接应',
     origin: 'inferred', createdBy: 'model', authorConfirmed: true,
@@ -104,7 +109,7 @@ const document = (projectId = 'graph-novel'): FactGraphDocument => ({
 })
 
 assert.deepEqual(await readFactGraph('graph-novel'), {
-  version: 1, projectId: 'graph-novel', revision: '', relations: [],
+  version: 2, projectId: 'graph-novel', revision: '', relations: [], plotLinks: [],
 })
 assert.equal(disk.size, 0, 'Reading absent annotations must not create or seed them')
 const first = await saveFactGraph(document(), null)
@@ -113,7 +118,23 @@ assert.deepEqual(await readFactGraph('graph-novel'), first)
 assert.equal(first.relations[0]!.origin, 'inferred')
 assert.equal(first.relations[0]!.createdBy, 'model')
 assert.equal(first.relations[0]!.authorConfirmed, true)
+assert.deepEqual(first.plotLinks, document().plotLinks)
 console.log('✓ Empty reads do not write; committed graph revision and independent provenance survive reload')
+
+const legacyInput = document('legacy-project')
+const legacyRaw = JSON.stringify({ version: 1, projectId: legacyInput.projectId, revision: 'legacy-r1', relations: legacyInput.relations })
+disk.set(key(legacyInput.projectId), legacyRaw)
+const legacy = await readFactGraph(legacyInput.projectId)
+assert.equal(legacy.version, 2)
+assert.deepEqual(legacy.plotLinks, [])
+assert.equal(disk.get(key(legacyInput.projectId)), legacyRaw, 'Read normalization must not write v2 implicitly')
+const upgraded = await saveFactGraph({ ...legacy, plotLinks: legacyInput.plotLinks }, legacy.revision)
+assert.equal(JSON.parse(disk.get(key(legacyInput.projectId))!).version, 2)
+assert.deepEqual(upgraded.plotLinks, legacyInput.plotLinks)
+const relationOnly = await saveFactGraph({ ...upgraded, relations: [] }, upgraded.revision)
+assert.deepEqual(relationOnly.plotLinks, upgraded.plotLinks, 'Deleting ordinary relations must preserve typed links')
+assert.notEqual(relationOnly.revision, upgraded.revision)
+console.log('✓ Legacy reads are read-only; the first explicit write upgrades in place and later relation writes retain every typed premise')
 
 const left = structuredClone(first)
 const right = structuredClone(first)
@@ -201,3 +222,21 @@ assert.deepEqual(await readFactGraph('graph-novel'), beforeAbort)
 await assert.rejects(saveFactGraph(document('bad-expectation'), ''), /有效的已读取版本/)
 assert.equal(disk.has(key('bad-expectation')), false)
 console.log('✓ Project keys and expected revisions remain isolated; invalid saves create no storage')
+
+const futureProject = 'future-project'
+const futureRaw = JSON.stringify({ ...document(futureProject), version: 3, revision: 'future', unreleased: ['preserve'] })
+disk.set(key(futureProject), futureRaw)
+const unsupported = (error: unknown) => error instanceof FactGraphValidationError && error.code === 'unsupported-version'
+const beforeFuture = new Map(disk)
+await assert.rejects(readFactGraph(futureProject), unsupported)
+await assert.rejects(saveFactGraph(document(futureProject), 'future'), unsupported)
+await assert.rejects(captureFactGraphRestoreSnapshot([futureProject]), unsupported)
+await assert.rejects(restoreFactGraphsFromBackup([document(futureProject)], { raw: new Map([[futureProject, futureRaw]]), documents: [] }), unsupported)
+assert.deepEqual(disk, beforeFuture, 'Even a caller-constructed restore snapshot cannot authorize a future-schema overwrite')
+const corruptId = 'corrupt-v2'
+disk.set(key(corruptId), JSON.stringify({ ...document(corruptId), revision: 'broken', plotLinks: [{ bad: true }] }))
+await assert.rejects(readFactGraph(corruptId))
+const repair = await captureFactGraphRestoreSnapshot([corruptId])
+await restoreFactGraphsFromBackup([document(corruptId)], repair)
+assert.deepEqual((await readFactGraph(corruptId)).plotLinks, document(corruptId).plotLinks)
+console.log('✓ Future schemas reject read/save/restore even with forged capture; known-version corrupt v2 remains explicitly repairable')

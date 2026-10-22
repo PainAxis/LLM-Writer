@@ -185,6 +185,10 @@
 
     <MemorySupportCheck :state="support.state" :available="canCheckSupport" prefix="memory" />
 
+    <NovelCandidateScan :state="novelScan.state" :available="canScanNovel" />
+
+    <PlotLinksPanel :project="project" :stats="stats" :through-chapter-id="cutoffId" :disabled="busy || dirty || !stats" @refresh-required="invalidateGraphSource" />
+
     <FactGraphPanel :project="project" :stats="stats" :through-chapter-id="cutoffId" :disabled="busy || dirty || !stats" :selected-evidence="evidence?.hit" @refresh-required="invalidateGraphSource" />
 
     <section v-if="isDemo" class="lab-card demo-editor" aria-labelledby="editor-title">
@@ -217,6 +221,9 @@ import MemorySupportCheck from '@/components/memory/MemorySupportCheck.vue'
 import { useMemorySupportCheck } from '@/composables/useMemorySupportCheck'
 import { prepareSupportCheck, SupportCheckError } from '@/services/memory/supportCheck'
 import FactGraphPanel from '@/components/memory/FactGraphPanel.vue'
+import PlotLinksPanel from '@/components/memory/PlotLinksPanel.vue'
+import NovelCandidateScan from '@/components/memory/NovelCandidateScan.vue'
+import { useNovelCandidateScan } from '@/composables/useNovelCandidateScan'
 import { MemoryClient } from '@/services/memory/client'
 import { createWriterMemoryProviders, writerMemoryRemoteOptions } from '@/composables/writerMemoryUi'
 import { createSemanticScanUi, createCommittedMemorySourceGuard, FULL_SCAN_TIME_CHOICES, scanPauseText, scanSummary, scanTimeExhausted, withMemoryAbort } from '@/services/memory/semanticScanUi'
@@ -264,6 +271,13 @@ const support = useMemorySupportCheck({ canPrepare: () => canCheckSupport.value,
   onInvalidSource: reason => { invalidateGraphSource(); support.invalidate(reason) } })
 watch(selectedSupportIds, () => { supportSelectionRevision++; support.invalidate() }, { deep: true, flush: 'sync' })
 watch([sourceId, query, cutoffId, dirty], () => support.invalidate(), { flush: 'sync' })
+
+const canScanNovel = computed(() => !disposed && !busy.value && !dirty.value && !!project.value && !!stats.value && !sourceRefreshNeeded.value && project.value.chapters.some(chapter => chapter.id === cutoffId.value))
+const novelScan = useNovelCandidateScan({
+  canPrepare: () => canScanNovel.value,
+  current: () => project.value && stats.value ? { project: project.value, stats: stats.value, throughChapterId: cutoffId.value } : null,
+  readProject: readSource, onInvalidSource: invalidateGraphSource,
+})
 
 function selectSupport(id: string, checked: boolean) {
   if (!supportRetrieval || busy.value || dirty.value || !supportRetrieval.result.hits.some(hit => hit.id === id)) return
@@ -625,6 +639,7 @@ onMounted(() => {
 onUnmounted(() => {
   disposed = true
   support.dispose()
+  novelScan.dispose()
   supportRetrieval = null
   generation += 1
   searchAbort?.abort()

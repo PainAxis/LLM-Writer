@@ -301,6 +301,7 @@ async function persist(next: FactRelation[], success: string) {
     await freshSource(token)
     if (disposed || token !== generation) return false
     document.value = value; notice.value = success
+    window.dispatchEvent(new CustomEvent('memory-fact-graph-changed', { detail: { projectId: value.projectId, revision: value.revision, owner: 'relation-panel' } }))
     return true
   } catch (cause) {
     if (!disposed && token === generation) error.value = `${messageOf(cause)}。如在其他窗口编辑过关系，请刷新后重试。`
@@ -371,12 +372,17 @@ async function refreshOnFocus() {
   } catch (cause) { if (!disposed && token === generation) error.value = `关系刷新失败：${messageOf(cause)}` }
   finally { if (token === generation) loading.value = false }
 }
+function onGraphChanged(event: Event) {
+  const detail = (event as CustomEvent<{ projectId?: string; owner?: string }>).detail
+  if (detail?.projectId === props.project?.id && detail.owner !== 'relation-panel') { invalidate(); document.value = null; void loadDocument() }
+}
 onMounted(() => {
+  window.addEventListener('memory-fact-graph-changed', onGraphChanged)
   window.addEventListener('focus', refreshOnFocus)
   themeObserver = new MutationObserver(() => { cy?.style(graphStyles()) })
   themeObserver.observe(window.document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] })
 })
-onUnmounted(() => { disposed = true; invalidate(); themeObserver?.disconnect(); window.removeEventListener('focus', refreshOnFocus) })
+onUnmounted(() => { disposed = true; invalidate(); themeObserver?.disconnect(); window.removeEventListener('focus', refreshOnFocus); window.removeEventListener('memory-fact-graph-changed', onGraphChanged) })
 </script>
 
 <style scoped>

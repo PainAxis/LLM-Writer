@@ -1,0 +1,801 @@
+﻿2026-10-22T19:53:29.0131433Z Current runner version: '2.338.0'
+2026-10-22T19:53:29.0157886Z ##[group]Runner Image Provisioner
+2026-10-22T19:53:29.0158795Z Hosted Compute Agent
+2026-10-22T19:53:29.0159470Z Version: 20261015.610
+2026-10-22T19:53:29.0160304Z Commit: 267fdb4e8bbec4ab5ea31367f3a00d5c480c7656
+2026-10-22T19:53:29.0161048Z Build Date: 2026-10-14T17:06:54Z
+2026-10-22T19:53:29.0161808Z Worker ID: {a03275b0-5b8a-44e4-b663-6bd281a7b4cf}
+2026-10-22T19:53:29.0162573Z Region: westus
+2026-10-22T19:53:29.0163108Z Cloud: Azure
+2026-10-22T19:53:29.0163712Z ##[endgroup]
+2026-10-22T19:53:29.0165788Z ##[group]Operating System
+2026-10-22T19:53:29.0166528Z Ubuntu
+2026-10-22T19:53:29.0167101Z 24.04.5
+2026-10-22T19:53:29.0167602Z LTS
+2026-10-22T19:53:29.0168188Z ##[endgroup]
+2026-10-22T19:53:29.0168757Z ##[group]Runner Image
+2026-10-22T19:53:29.0169398Z Image: ubuntu-24.04
+2026-10-22T19:53:29.0170019Z Version: 20261018.339.1
+2026-10-22T19:53:29.0171374Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261018.339/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-22T19:53:29.0173001Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261018.339
+2026-10-22T19:53:29.0174049Z ##[endgroup]
+2026-10-22T19:53:29.0175624Z ##[group]GITHUB_TOKEN Permissions
+2026-10-22T19:53:29.0177610Z Contents: read
+2026-10-22T19:53:29.0178247Z Metadata: read
+2026-10-22T19:53:29.0178818Z ##[endgroup]
+2026-10-22T19:53:29.0181406Z Secret source: Actions
+2026-10-22T19:53:29.0182359Z Cache mode: write
+2026-10-22T19:53:29.0183136Z Prepare workflow directory
+2026-10-22T19:53:29.0581906Z Prepare all required actions
+2026-10-22T19:53:29.0634982Z Getting action download info
+2026-10-22T19:53:29.4276711Z Download action repository 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-22T19:53:29.5346054Z Download action repository 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-22T19:53:29.6343374Z Download action repository 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-22T19:53:29.9104102Z Complete job name: ci-writer-memory
+2026-10-22T19:53:30.0029263Z ##[group]Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+2026-10-22T19:53:30.0030410Z with:
+2026-10-22T19:53:30.0030872Z   persist-credentials: false
+2026-10-22T19:53:30.0031424Z   repository: PainAxis/LLM-Writer
+2026-10-22T19:53:30.0035969Z   token: ***
+2026-10-22T19:53:30.0036422Z   ssh-strict: true
+2026-10-22T19:53:30.0036865Z   ssh-user: git
+2026-10-22T19:53:30.0037295Z   clean: true
+2026-10-22T19:53:30.0037743Z   sparse-checkout-cone-mode: true
+2026-10-22T19:53:30.0038280Z   fetch-depth: 1
+2026-10-22T19:53:30.0038713Z   fetch-tags: false
+2026-10-22T19:53:30.0039164Z   show-progress: true
+2026-10-22T19:53:30.0039608Z   lfs: false
+2026-10-22T19:53:30.0040032Z   submodules: false
+2026-10-22T19:53:30.0040496Z   set-safe-directory: true
+2026-10-22T19:53:30.0041023Z   allow-unsafe-pr-checkout: false
+2026-10-22T19:53:30.0041874Z ##[endgroup]
+2026-10-22T19:53:30.1254276Z Syncing repository: PainAxis/LLM-Writer
+2026-10-22T19:53:30.1257568Z ##[group]Getting Git version info
+2026-10-22T19:53:30.1258804Z Working directory is '/home/runner/work/LLM-Writer/LLM-Writer'
+2026-10-22T19:53:30.1298200Z [command]/usr/bin/git version
+2026-10-22T19:53:30.1462185Z git version 2.55.0
+2026-10-22T19:53:30.1522859Z ##[endgroup]
+2026-10-22T19:53:30.1545365Z Temporarily overriding HOME='/home/runner/work/_temp/b093ea8d-f0bd-469f-aa1b-7002c2be467a' before making global git config changes
+2026-10-22T19:53:30.1548160Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-22T19:53:30.1555372Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/LLM-Writer/LLM-Writer
+2026-10-22T19:53:30.1625080Z Deleting the contents of '/home/runner/work/LLM-Writer/LLM-Writer'
+2026-10-22T19:53:30.1632012Z ##[group]Initializing the repository
+2026-10-22T19:53:30.1636272Z [command]/usr/bin/git init /home/runner/work/LLM-Writer/LLM-Writer
+2026-10-22T19:53:30.1763497Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-22T19:53:30.1765589Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-22T19:53:30.1767403Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-22T19:53:30.1768683Z hint: call:
+2026-10-22T19:53:30.1769337Z hint:
+2026-10-22T19:53:30.1770179Z hint: 	git config --global init.defaultBranch <name>
+2026-10-22T19:53:30.1771197Z hint:
+2026-10-22T19:53:30.1772218Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-22T19:53:30.1773828Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-22T19:53:30.1775264Z hint:
+2026-10-22T19:53:30.1775951Z hint: 	git branch -m <name>
+2026-10-22T19:53:30.1776722Z hint:
+2026-10-22T19:53:30.1777873Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-22T19:53:30.1779621Z Initialized empty Git repository in /home/runner/work/LLM-Writer/LLM-Writer/.git/
+2026-10-22T19:53:30.1791958Z [command]/usr/bin/git remote add origin https://github.com/PainAxis/LLM-Writer
+2026-10-22T19:53:30.1876892Z ##[endgroup]
+2026-10-22T19:53:30.1877993Z ##[group]Disabling automatic garbage collection
+2026-10-22T19:53:30.1878738Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-22T19:53:30.1914915Z ##[endgroup]
+2026-10-22T19:53:30.1915928Z ##[group]Setting up auth
+2026-10-22T19:53:30.1924232Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-22T19:53:30.1968824Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-22T19:53:30.2378250Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-22T19:53:30.2422918Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-22T19:53:30.2672245Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-22T19:53:30.2719330Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-22T19:53:30.3059268Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-22T19:53:30.3063326Z ##[endgroup]
+2026-10-22T19:53:30.3064905Z ##[group]Fetching the repository
+2026-10-22T19:53:30.3067008Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +56cc874d85519614c5977b7b18f152e4fb5d51c9:refs/remotes/pull/40/merge
+2026-10-22T19:53:31.1132015Z From https://github.com/PainAxis/LLM-Writer
+2026-10-22T19:53:31.1135027Z  * [new ref]         56cc874d85519614c5977b7b18f152e4fb5d51c9 -> pull/40/merge
+2026-10-22T19:53:31.1138730Z ##[endgroup]
+2026-10-22T19:53:31.1140115Z ##[group]Determining the checkout info
+2026-10-22T19:53:31.1142045Z ##[endgroup]
+2026-10-22T19:53:31.1145205Z [command]/usr/bin/git sparse-checkout disable
+2026-10-22T19:53:31.1212036Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-22T19:53:31.1263916Z ##[group]Checking out the ref
+2026-10-22T19:53:31.1269025Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/40/merge
+2026-10-22T19:53:31.1791683Z Note: switching to 'refs/remotes/pull/40/merge'.
+2026-10-22T19:53:31.1793104Z 
+2026-10-22T19:53:31.1794256Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-22T19:53:31.1797398Z changes and commit them, and you can discard any commits you make in this
+2026-10-22T19:53:31.1800165Z state without impacting any branches by switching back to a branch.
+2026-10-22T19:53:31.1801807Z 
+2026-10-22T19:53:31.1803325Z If you want to create a new branch to retain commits you create, you may
+2026-10-22T19:53:31.1805473Z do so (now or later) by using -c with the switch command. Example:
+2026-10-22T19:53:31.1806889Z 
+2026-10-22T19:53:31.1807507Z   git switch -c <new-branch-name>
+2026-10-22T19:53:31.1808624Z 
+2026-10-22T19:53:31.1809118Z Or undo this operation with:
+2026-10-22T19:53:31.1809980Z 
+2026-10-22T19:53:31.1810479Z   git switch -
+2026-10-22T19:53:31.1811188Z 
+2026-10-22T19:53:31.1812108Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-22T19:53:31.1813765Z 
+2026-10-22T19:53:31.1815754Z HEAD is now at 56cc874 Merge e6402cd4c6b87b18c585c8bd5ad3a2d287278073 into 73e730a848c3272ad5a243d028cec65ad5b72c8b
+2026-10-22T19:53:31.1821387Z ##[endgroup]
+2026-10-22T19:53:31.1869705Z [command]/usr/bin/git log -1 --format=%H
+2026-10-22T19:53:31.1907086Z 56cc874d85519614c5977b7b18f152e4fb5d51c9
+2026-10-22T19:53:31.1918308Z ##[group]Removing auth
+2026-10-22T19:53:31.1922441Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-22T19:53:31.1968244Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-22T19:53:31.2216702Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-22T19:53:31.2253806Z http.https://github.com/.extraheader
+2026-10-22T19:53:31.2262629Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-22T19:53:31.2307463Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-22T19:53:31.2550616Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-22T19:53:31.2593613Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-22T19:53:31.2836057Z ##[endgroup]
+2026-10-22T19:53:31.3236740Z ##[group]Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+2026-10-22T19:53:31.3238449Z with:
+2026-10-22T19:53:31.3239322Z   node-version: 24
+2026-10-22T19:53:31.3240256Z   cache: npm
+2026-10-22T19:53:31.3241154Z   always-auth: false
+2026-10-22T19:53:31.3242135Z   check-latest: false
+2026-10-22T19:53:31.3253047Z   token: ***
+2026-10-22T19:53:31.3253957Z ##[endgroup]
+2026-10-22T19:53:31.4767000Z Found in cache @ /opt/hostedtoolcache/node/24.22.0/x64
+2026-10-22T19:53:31.4772654Z (node:2372) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-22T19:53:31.4777363Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-22T19:53:31.4780490Z ##[group]Environment details
+2026-10-22T19:53:31.9311488Z node: v24.22.0
+2026-10-22T19:53:31.9313182Z npm: 11.19.1
+2026-10-22T19:53:31.9315039Z yarn: 1.22.22
+2026-10-22T19:53:31.9317667Z ##[endgroup]
+2026-10-22T19:53:31.9337206Z [command]/opt/hostedtoolcache/node/24.22.0/x64/bin/npm config get cache
+2026-10-22T19:53:32.0618158Z /home/runner/.npm
+2026-10-22T19:53:32.3536277Z Cache hit for: node-cache-Linux-x64-npm-55180cb6cbe3de2e88b1ffde9a607603c89d20f59b48be774d27194eead993c3
+2026-10-22T19:53:32.3654662Z (node:2372) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-22T19:53:33.6256251Z Received 4194304 of 74277357 (5.6%), 4.0 MBs/sec
+2026-10-22T19:53:34.6305817Z Received 70083053 of 74277357 (94.4%), 33.4 MBs/sec
+2026-10-22T19:53:34.6611746Z Received 74277357 of 74277357 (100.0%), 34.8 MBs/sec
+2026-10-22T19:53:34.6612564Z Cache Size: ~71 MB (74277357 B)
+2026-10-22T19:53:34.6650390Z [command]/usr/bin/tar -xf /home/runner/work/_temp/dc06f7d9-6d7d-4f0f-9114-0674fd8a977e/cache.tzst -P -C /home/runner/work/LLM-Writer/LLM-Writer --use-compress-program unzstd
+2026-10-22T19:53:34.8381636Z Cache restored successfully
+2026-10-22T19:53:34.8425657Z Cache restored from key: node-cache-Linux-x64-npm-55180cb6cbe3de2e88b1ffde9a607603c89d20f59b48be774d27194eead993c3
+2026-10-22T19:53:34.8669820Z ##[group]Run npm ci --no-audit --no-fund
+2026-10-22T19:53:34.8670254Z [36;1mnpm ci --no-audit --no-fund[0m
+2026-10-22T19:53:34.8864318Z shell: /usr/bin/bash -e {0}
+2026-10-22T19:53:34.8864914Z ##[endgroup]
+2026-10-22T19:53:37.4301091Z npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+2026-10-22T19:53:42.9888371Z 
+2026-10-22T19:53:42.9889258Z added 354 packages in 8s
+2026-10-22T19:53:42.9909742Z npm warn install-scripts 2 packages have install scripts not yet covered by allowScripts:
+2026-10-22T19:53:42.9911534Z npm warn install-scripts   es5-ext@0.10.64 (postinstall:  node -e "try{require('./_postinstall')}catch(e){}" || exit 0)
+2026-10-22T19:53:42.9913007Z npm warn install-scripts   esbuild@0.28.2 (postinstall: node install.js)
+2026-10-22T19:53:42.9914015Z npm warn install-scripts
+2026-10-22T19:53:42.9915426Z npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+2026-10-22T19:53:43.0855320Z ##[group]Run npx playwright install --with-deps chromium
+2026-10-22T19:53:43.0855826Z [36;1mnpx playwright install --with-deps chromium[0m
+2026-10-22T19:53:43.0908402Z shell: /usr/bin/bash -e {0}
+2026-10-22T19:53:43.0908694Z ##[endgroup]
+2026-10-22T19:53:43.8684905Z Installing dependencies...
+2026-10-22T19:53:43.8777851Z Switching to root user to install dependencies...
+2026-10-22T19:53:43.9806463Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-10-22T19:53:44.0208899Z Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+2026-10-22T19:53:44.0988337Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [633 kB]
+2026-10-22T19:53:44.1114950Z Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [571 kB]
+2026-10-22T19:53:49.6213229Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+2026-10-22T19:53:49.6222231Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+2026-10-22T19:53:49.6248130Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+2026-10-22T19:53:49.6265981Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+2026-10-22T19:53:49.7315958Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1400 kB]
+2026-10-22T19:53:49.7427677Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [310 kB]
+2026-10-22T19:53:49.7458294Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1706 kB]
+2026-10-22T19:53:49.7635536Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [342 kB]
+2026-10-22T19:53:49.8391847Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1146 kB]
+2026-10-22T19:53:49.8495526Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [231 kB]
+2026-10-22T19:53:49.8522445Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1222 kB]
+2026-10-22T19:53:52.8741242Z Fetched 7943 kB in 6s (1248 kB/s)
+2026-10-22T19:53:53.9535911Z Reading package lists...
+2026-10-22T19:53:53.9854238Z Reading package lists...
+2026-10-22T19:53:54.2208347Z Building dependency tree...
+2026-10-22T19:53:54.2216091Z Reading state information...
+2026-10-22T19:53:54.3866667Z libasound2t64 is already the newest version (1.2.11-1ubuntu0.3).
+2026-10-22T19:53:54.3867723Z libasound2t64 set to manually installed.
+2026-10-22T19:53:54.3895750Z libatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-22T19:53:54.3896644Z libatk-bridge2.0-0t64 set to manually installed.
+2026-10-22T19:53:54.3897228Z libatk1.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-22T19:53:54.3898413Z libatk1.0-0t64 set to manually installed.
+2026-10-22T19:53:54.3899190Z libatspi2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-22T19:53:54.3899930Z libatspi2.0-0t64 set to manually installed.
+2026-10-22T19:53:54.3900654Z libcairo2 is already the newest version (1.18.0-3build1).
+2026-10-22T19:53:54.3901069Z libcairo2 set to manually installed.
+2026-10-22T19:53:54.3901651Z libcups2t64 is already the newest version (2.4.7-1.2ubuntu7.14).
+2026-10-22T19:53:54.3902080Z libcups2t64 set to manually installed.
+2026-10-22T19:53:54.3902514Z libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+2026-10-22T19:53:54.3902924Z libdbus-1-3 set to manually installed.
+2026-10-22T19:53:54.3903349Z libdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.2).
+2026-10-22T19:53:54.3903771Z libdrm2 set to manually installed.
+2026-10-22T19:53:54.3904186Z libgbm1 is already the newest version (25.2.8-0ubuntu0.24.04.4).
+2026-10-22T19:53:54.3905023Z libgbm1 set to manually installed.
+2026-10-22T19:53:54.3905713Z libnspr4 is already the newest version (2:4.35-1.1build1).
+2026-10-22T19:53:54.3906186Z libnspr4 set to manually installed.
+2026-10-22T19:53:54.3906608Z libpango-1.0-0 is already the newest version (1.52.1+ds-1build1).
+2026-10-22T19:53:54.3907291Z libpango-1.0-0 set to manually installed.
+2026-10-22T19:53:54.3907737Z libx11-6 is already the newest version (2:1.8.7-1ubuntu0.1).
+2026-10-22T19:53:54.3908124Z libx11-6 set to manually installed.
+2026-10-22T19:53:54.3908487Z libxcb1 is already the newest version (1.15-1ubuntu2).
+2026-10-22T19:53:54.3908854Z libxcb1 set to manually installed.
+2026-10-22T19:53:54.3909263Z libxcomposite1 is already the newest version (1:0.4.5-1build3).
+2026-10-22T19:53:54.3909716Z libxcomposite1 set to manually installed.
+2026-10-22T19:53:54.3910140Z libxdamage1 is already the newest version (1:1.1.6-1build1).
+2026-10-22T19:53:54.3910527Z libxdamage1 set to manually installed.
+2026-10-22T19:53:54.3910922Z libxext6 is already the newest version (2:1.3.4-1build2).
+2026-10-22T19:53:54.3911324Z libxext6 set to manually installed.
+2026-10-22T19:53:54.3911712Z libxfixes3 is already the newest version (1:6.0.0-2build1).
+2026-10-22T19:53:54.3912097Z libxfixes3 set to manually installed.
+2026-10-22T19:53:54.3912510Z libxkbcommon0 is already the newest version (1.6.0-1build1).
+2026-10-22T19:53:54.3912902Z libxkbcommon0 set to manually installed.
+2026-10-22T19:53:54.3913331Z libxrandr2 is already the newest version (2:1.5.2-2build1).
+2026-10-22T19:53:54.3913717Z libxrandr2 set to manually installed.
+2026-10-22T19:53:54.3914216Z fonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).
+2026-10-22T19:53:54.3915138Z libfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).
+2026-10-22T19:53:54.3915566Z libfontconfig1 set to manually installed.
+2026-10-22T19:53:54.3916016Z libfreetype6 is already the newest version (2.13.2+dfsg-1ubuntu0.2).
+2026-10-22T19:53:54.3916442Z libfreetype6 set to manually installed.
+2026-10-22T19:53:54.3916864Z fonts-liberation is already the newest version (1:2.1.5-3).
+2026-10-22T19:53:54.3917283Z fonts-liberation set to manually installed.
+2026-10-22T19:53:54.3917683Z The following additional packages will be installed:
+2026-10-22T19:53:54.3918125Z   gir1.2-glib-2.0 libglib2.0-bin libglib2.0-data libnss3-tools
+2026-10-22T19:53:54.3918544Z   xfonts-encodings xfonts-utils xserver-common
+2026-10-22T19:53:54.3918863Z Suggested packages:
+2026-10-22T19:53:54.3919090Z   low-memory-monitor
+2026-10-22T19:53:54.3919333Z Recommended packages:
+2026-10-22T19:53:54.3919635Z   fonts-ipafont-mincho fonts-tlwg-loma xfonts-base
+2026-10-22T19:53:54.4170098Z The following NEW packages will be installed:
+2026-10-22T19:53:54.4170902Z   fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+2026-10-22T19:53:54.4179432Z   fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable
+2026-10-22T19:53:54.4180152Z   xfonts-utils
+2026-10-22T19:53:54.4182939Z The following packages will be upgraded:
+2026-10-22T19:53:54.4185077Z   gir1.2-glib-2.0 libglib2.0-0t64 libglib2.0-bin libglib2.0-data libnss3
+2026-10-22T19:53:54.4189433Z   libnss3-tools xserver-common xvfb
+2026-10-22T19:53:54.4399522Z 8 upgraded, 9 newly installed, 0 to remove and 48 not upgraded.
+2026-10-22T19:53:54.4400142Z Need to get 25.9 MB of archives.
+2026-10-22T19:53:54.4400598Z After this operation, 79.5 MB of additional disk space will be used.
+2026-10-22T19:53:54.4401102Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-10-22T19:54:02.4939310Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-ipafont-gothic all 00303-21ubuntu1 [3513 kB]
+2026-10-22T19:55:26.6993811Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libglib2.0-data all 2.80.0-6ubuntu3.10 [50.2 kB]
+2026-10-22T19:55:28.8883433Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libglib2.0-bin amd64 2.80.0-6ubuntu3.10 [97.9 kB]
+2026-10-22T19:55:31.6595269Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 gir1.2-glib-2.0 amd64 2.80.0-6ubuntu3.10 [183 kB]
+2026-10-22T19:55:36.5200692Z Get:6 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libglib2.0-0t64 amd64 2.80.0-6ubuntu3.10 [1548 kB]
+2026-10-22T19:56:13.5043358Z Get:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 fonts-freefont-ttf all 20211204+svn4273-2 [5641 kB]
+2026-10-22T19:58:17.3010615Z Get:8 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-tlwg-loma-otf all 1:0.7.3-1 [107 kB]
+2026-10-22T19:58:20.6197931Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-unifont all 1:15.1.01-1build1 [2993 kB]
+2026-10-22T19:59:24.4913796Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-wqy-zenhei all 0.9.45-8 [7472 kB]
+2026-10-22T20:02:07.4272292Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libnss3 amd64 2:3.98-1ubuntu0.3 [1445 kB]
+2026-10-22T20:02:45.0189988Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 libnss3-tools amd64 2:3.98-1ubuntu0.3 [615 kB]
+2026-10-22T20:03:00.0256904Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings all 1:1.0.5-0ubuntu2 [578 kB]
+2026-10-22T20:03:14.0138625Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]
+2026-10-22T20:03:16.4584785Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]
+2026-10-22T20:03:25.4395832Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]
+2026-10-22T20:03:32.7301007Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 xserver-common all 2:21.1.12-1ubuntu1.9 [35.0 kB]
+2026-10-22T20:03:34.1672847Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 xvfb amd64 2:21.1.12-1ubuntu1.9 [877 kB]
+2026-10-22T20:03:53.4472973Z Fetched 25.9 MB in 9min 59s (43.3 kB/s)
+2026-10-22T20:03:53.4737777Z Selecting previously unselected package fonts-ipafont-gothic.
+2026-10-22T20:03:53.5099900Z (Reading database ... 
+2026-10-22T20:03:53.5100394Z (Reading database ... 5%
+2026-10-22T20:03:53.5101127Z (Reading database ... 10%
+2026-10-22T20:03:53.5101768Z (Reading database ... 15%
+2026-10-22T20:03:53.5102200Z (Reading database ... 20%
+2026-10-22T20:03:53.5102488Z (Reading database ... 25%
+2026-10-22T20:03:53.5103164Z (Reading database ... 30%
+2026-10-22T20:03:53.5103642Z (Reading database ... 35%
+2026-10-22T20:03:53.5104094Z (Reading database ... 40%
+2026-10-22T20:03:53.5104795Z (Reading database ... 45%
+2026-10-22T20:03:53.5105297Z (Reading database ... 50%
+2026-10-22T20:03:53.5152642Z (Reading database ... 55%
+2026-10-22T20:03:53.6649721Z (Reading database ... 60%
+2026-10-22T20:03:53.8586817Z (Reading database ... 65%
+2026-10-22T20:03:53.9529461Z (Reading database ... 70%
+2026-10-22T20:03:54.0624720Z (Reading database ... 75%
+2026-10-22T20:03:54.2043048Z (Reading database ... 80%
+2026-10-22T20:03:54.4307445Z (Reading database ... 85%
+2026-10-22T20:03:54.6585446Z (Reading database ... 90%
+2026-10-22T20:03:54.8604157Z (Reading database ... 95%
+2026-10-22T20:03:54.8605042Z (Reading database ... 100%
+2026-10-22T20:03:54.8605930Z (Reading database ... 214410 files and directories currently installed.)
+2026-10-22T20:03:54.8653098Z Preparing to unpack .../00-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
+2026-10-22T20:03:54.8766350Z Unpacking fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-10-22T20:03:55.1440041Z Preparing to unpack .../01-libglib2.0-data_2.80.0-6ubuntu3.10_all.deb ...
+2026-10-22T20:03:55.1462004Z Unpacking libglib2.0-data (2.80.0-6ubuntu3.10) over (2.80.0-6ubuntu3.9) ...
+2026-10-22T20:03:55.1871939Z Preparing to unpack .../02-libglib2.0-bin_2.80.0-6ubuntu3.10_amd64.deb ...
+2026-10-22T20:03:55.1890729Z Unpacking libglib2.0-bin (2.80.0-6ubuntu3.10) over (2.80.0-6ubuntu3.9) ...
+2026-10-22T20:03:55.2452940Z Preparing to unpack .../03-gir1.2-glib-2.0_2.80.0-6ubuntu3.10_amd64.deb ...
+2026-10-22T20:03:55.2471905Z Unpacking gir1.2-glib-2.0:amd64 (2.80.0-6ubuntu3.10) over (2.80.0-6ubuntu3.9) ...
+2026-10-22T20:03:55.2956996Z Preparing to unpack .../04-libglib2.0-0t64_2.80.0-6ubuntu3.10_amd64.deb ...
+2026-10-22T20:03:55.3082357Z Unpacking libglib2.0-0t64:amd64 (2.80.0-6ubuntu3.10) over (2.80.0-6ubuntu3.9) ...
+2026-10-22T20:03:55.3586828Z Selecting previously unselected package fonts-freefont-ttf.
+2026-10-22T20:03:55.3747873Z Preparing to unpack .../05-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...
+2026-10-22T20:03:55.3754981Z Unpacking fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-10-22T20:03:55.4709126Z Selecting previously unselected package fonts-tlwg-loma-otf.
+2026-10-22T20:03:55.4856111Z Preparing to unpack .../06-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...
+2026-10-22T20:03:55.4864240Z Unpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-10-22T20:03:55.5125811Z Selecting previously unselected package fonts-unifont.
+2026-10-22T20:03:55.5275552Z Preparing to unpack .../07-fonts-unifont_1%3a15.1.01-1build1_all.deb ...
+2026-10-22T20:03:55.5282667Z Unpacking fonts-unifont (1:15.1.01-1build1) ...
+2026-10-22T20:03:55.6521840Z Selecting previously unselected package fonts-wqy-zenhei.
+2026-10-22T20:03:55.6671315Z Preparing to unpack .../08-fonts-wqy-zenhei_0.9.45-8_all.deb ...
+2026-10-22T20:03:55.6792955Z Unpacking fonts-wqy-zenhei (0.9.45-8) ...
+2026-10-22T20:03:56.1775706Z Preparing to unpack .../09-libnss3_2%3a3.98-1ubuntu0.3_amd64.deb ...
+2026-10-22T20:03:56.1859377Z Unpacking libnss3:amd64 (2:3.98-1ubuntu0.3) over (2:3.98-1ubuntu0.2) ...
+2026-10-22T20:03:56.2435020Z Preparing to unpack .../10-libnss3-tools_2%3a3.98-1ubuntu0.3_amd64.deb ...
+2026-10-22T20:03:56.2455872Z Unpacking libnss3-tools (2:3.98-1ubuntu0.3) over (2:3.98-1ubuntu0.2) ...
+2026-10-22T20:03:56.3002216Z Selecting previously unselected package xfonts-encodings.
+2026-10-22T20:03:56.3147312Z Preparing to unpack .../11-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...
+2026-10-22T20:03:56.3155339Z Unpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-10-22T20:03:56.3480994Z Selecting previously unselected package xfonts-utils.
+2026-10-22T20:03:56.3624721Z Preparing to unpack .../12-xfonts-utils_1%3a7.7+6build3_amd64.deb ...
+2026-10-22T20:03:56.3632572Z Unpacking xfonts-utils (1:7.7+6build3) ...
+2026-10-22T20:03:56.4082616Z Selecting previously unselected package xfonts-cyrillic.
+2026-10-22T20:03:56.4231981Z Preparing to unpack .../13-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...
+2026-10-22T20:03:56.4240290Z Unpacking xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-10-22T20:03:56.4643913Z Selecting previously unselected package xfonts-scalable.
+2026-10-22T20:03:56.4797965Z Preparing to unpack .../14-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...
+2026-10-22T20:03:56.4805446Z Unpacking xfonts-scalable (1:1.0.3-1.3) ...
+2026-10-22T20:03:56.5228482Z Preparing to unpack .../15-xserver-common_2%3a21.1.12-1ubuntu1.9_all.deb ...
+2026-10-22T20:03:56.5248772Z Unpacking xserver-common (2:21.1.12-1ubuntu1.9) over (2:21.1.12-1ubuntu1.8) ...
+2026-10-22T20:03:56.5660849Z Preparing to unpack .../16-xvfb_2%3a21.1.12-1ubuntu1.9_amd64.deb ...
+2026-10-22T20:03:56.5680671Z Unpacking xvfb (2:21.1.12-1ubuntu1.9) over (2:21.1.12-1ubuntu1.8) ...
+2026-10-22T20:03:56.6288639Z Setting up fonts-wqy-zenhei (0.9.45-8) ...
+2026-10-22T20:03:56.6407262Z Setting up fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-10-22T20:03:56.6424763Z Setting up libnss3:amd64 (2:3.98-1ubuntu0.3) ...
+2026-10-22T20:03:56.6442403Z Setting up libglib2.0-0t64:amd64 (2.80.0-6ubuntu3.10) ...
+2026-10-22T20:03:56.6673355Z Setting up libglib2.0-data (2.80.0-6ubuntu3.10) ...
+2026-10-22T20:03:56.6690445Z Setting up fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-10-22T20:03:56.6708128Z Setting up xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-10-22T20:03:56.6724755Z Setting up gir1.2-glib-2.0:amd64 (2.80.0-6ubuntu3.10) ...
+2026-10-22T20:03:56.6742124Z Setting up fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-10-22T20:03:56.6809409Z update-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+2026-10-22T20:03:56.6824274Z Setting up xserver-common (2:21.1.12-1ubuntu1.9) ...
+2026-10-22T20:03:56.6841012Z Setting up libnss3-tools (2:3.98-1ubuntu0.3) ...
+2026-10-22T20:03:56.6858166Z Setting up fonts-unifont (1:15.1.01-1build1) ...
+2026-10-22T20:03:56.6877040Z Setting up xvfb (2:21.1.12-1ubuntu1.9) ...
+2026-10-22T20:03:56.6893266Z Setting up libglib2.0-bin (2.80.0-6ubuntu3.10) ...
+2026-10-22T20:03:56.6909404Z Setting up xfonts-utils (1:7.7+6build3) ...
+2026-10-22T20:03:56.6952190Z Setting up xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-10-22T20:03:56.7271533Z Setting up xfonts-scalable (1:1.0.3-1.3) ...
+2026-10-22T20:03:56.7563421Z Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+2026-10-22T20:03:56.7898608Z Processing triggers for man-db (2.12.0-4build2) ...
+2026-10-22T20:03:56.7923122Z Not building database; man-db/auto-update is not 'true'.
+2026-10-22T20:03:56.7936636Z Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+2026-10-22T20:03:57.6561479Z 
+2026-10-22T20:03:57.6562298Z Running kernel seems to be up-to-date.
+2026-10-22T20:03:57.6562849Z 
+2026-10-22T20:03:57.6563041Z Restarting services...
+2026-10-22T20:03:57.6982288Z  systemctl restart php8.3-fpm.service polkit.service udisks2.service
+2026-10-22T20:03:57.8255929Z 
+2026-10-22T20:03:57.8256476Z Service restarts being deferred:
+2026-10-22T20:03:57.8256887Z  systemctl restart ModemManager.service
+2026-10-22T20:03:57.8257270Z  systemctl restart networkd-dispatcher.service
+2026-10-22T20:03:57.8257507Z 
+2026-10-22T20:03:57.8257658Z No containers need to be restarted.
+2026-10-22T20:03:57.8257855Z 
+2026-10-22T20:03:57.8258039Z No user sessions are running outdated binaries.
+2026-10-22T20:03:57.8258253Z 
+2026-10-22T20:03:57.8258547Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+2026-10-22T20:03:59.0747347Z Downloading Chrome for Testing 153.0.8010.12 (playwright chromium v1243) from https://cdn.playwright.dev/builds/cft/153.0.8010.12/linux64/chrome-linux64.zip
+2026-10-22T20:03:59.5079131Z |                                                                                |   0% of 186.8 MiB
+2026-10-22T20:03:59.6801190Z |■■■■■■■■                                                                        |  10% of 186.8 MiB
+2026-10-22T20:03:59.7801080Z |■■■■■■■■■■■■■■■■                                                                |  20% of 186.8 MiB
+2026-10-22T20:03:59.9031726Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 186.8 MiB
+2026-10-22T20:04:00.0009633Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 186.8 MiB
+2026-10-22T20:04:00.1038400Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 186.8 MiB
+2026-10-22T20:04:00.2232184Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 186.8 MiB
+2026-10-22T20:04:00.3272631Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 186.8 MiB
+2026-10-22T20:04:00.4523329Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 186.8 MiB
+2026-10-22T20:04:00.5518236Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 186.8 MiB
+2026-10-22T20:04:00.6851102Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 186.8 MiB
+2026-10-22T20:04:03.6566668Z Chrome for Testing 153.0.8010.12 (playwright chromium v1243) downloaded to /home/runner/.cache/ms-playwright/chromium-1243
+2026-10-22T20:04:03.6571743Z Downloading FFmpeg (playwright ffmpeg v1011) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip
+2026-10-22T20:04:04.0244906Z |                                                                                |   0% of 2.3 MiB
+2026-10-22T20:04:04.0282311Z |■■■■■■■■                                                                        |  10% of 2.3 MiB
+2026-10-22T20:04:04.0321365Z |■■■■■■■■■■■■■■■■                                                                |  20% of 2.3 MiB
+2026-10-22T20:04:04.0345166Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.3 MiB
+2026-10-22T20:04:04.0360241Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.3 MiB
+2026-10-22T20:04:04.0371819Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.3 MiB
+2026-10-22T20:04:04.0384858Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 2.3 MiB
+2026-10-22T20:04:04.0430740Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 2.3 MiB
+2026-10-22T20:04:04.0449027Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.3 MiB
+2026-10-22T20:04:04.0463142Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 2.3 MiB
+2026-10-22T20:04:04.0473903Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.3 MiB
+2026-10-22T20:04:04.1079910Z FFmpeg (playwright ffmpeg v1011) downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1011
+2026-10-22T20:04:04.1084033Z Downloading Chrome Headless Shell 153.0.8010.12 (playwright chromium-headless-shell v1243) from https://cdn.playwright.dev/builds/cft/153.0.8010.12/linux64/chrome-headless-shell-linux64.zip
+2026-10-22T20:04:04.5358291Z |                                                                                |   0% of 114.3 MiB
+2026-10-22T20:04:04.6385918Z |■■■■■■■■                                                                        |  10% of 114.3 MiB
+2026-10-22T20:04:04.7100117Z |■■■■■■■■■■■■■■■■                                                                |  20% of 114.3 MiB
+2026-10-22T20:04:04.7940759Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 114.3 MiB
+2026-10-22T20:04:04.8881055Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 114.3 MiB
+2026-10-22T20:04:04.9419408Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 114.3 MiB
+2026-10-22T20:04:05.0062856Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 114.3 MiB
+2026-10-22T20:04:05.0799961Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 114.3 MiB
+2026-10-22T20:04:05.1386943Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 114.3 MiB
+2026-10-22T20:04:05.2027739Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 114.3 MiB
+2026-10-22T20:04:05.2750047Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 114.3 MiB
+2026-10-22T20:04:07.6119396Z Chrome Headless Shell 153.0.8010.12 (playwright chromium-headless-shell v1243) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1243
+2026-10-22T20:04:07.6446018Z ##[group]Run npm run build
+2026-10-22T20:04:07.6446328Z [36;1mnpm run build[0m
+2026-10-22T20:04:07.6497442Z shell: /usr/bin/bash -e {0}
+2026-10-22T20:04:07.6497711Z ##[endgroup]
+2026-10-22T20:04:07.7636040Z 
+2026-10-22T20:04:07.7636682Z > llm-writer@1.0.2 build
+2026-10-22T20:04:07.7637300Z > vue-tsc --noEmit && vite build
+2026-10-22T20:04:07.7637606Z 
+2026-10-22T20:04:20.5203391Z [36mvite v8.2.2 [32mbuilding client environment for production...[36m[39m
+2026-10-22T20:04:20.5919746Z transforming...
+2026-10-22T20:04:22.8456636Z ✓ 2172 modules transformed.
+2026-10-22T20:04:23.1308776Z rendering chunks...
+2026-10-22T20:04:23.4732184Z computing gzip size...
+2026-10-22T20:04:23.5078879Z dist/index.html                                   1.50 kB │ gzip:   0.58 kB
+2026-10-22T20:04:23.5079785Z dist/assets/memory.worker-CFRPmXJF.js           110.65 kB
+2026-10-22T20:04:23.5080926Z dist/assets/NotFound-CLIX985M.css                 0.10 kB │ gzip:   0.10 kB
+2026-10-22T20:04:23.5082220Z dist/assets/ApiConfig-BEArGvfy.css                0.25 kB │ gzip:   0.16 kB
+2026-10-22T20:04:23.5083484Z dist/assets/MindMap-rgkWhW2B.css                  0.77 kB │ gzip:   0.36 kB
+2026-10-22T20:04:23.5084892Z dist/assets/WriterEditor-BKXmRvZz.css             1.21 kB │ gzip:   0.47 kB
+2026-10-22T20:04:23.5086091Z dist/assets/writerMemoryUi-m6kVOG0R.css           2.01 kB │ gzip:   0.68 kB
+2026-10-22T20:04:23.5087073Z dist/assets/GenreManagement-kydzY1F9.css          2.03 kB │ gzip:   0.69 kB
+2026-10-22T20:04:23.5087773Z dist/assets/ToolsLibrary-C-8XQV6V.css             2.82 kB │ gzip:   0.91 kB
+2026-10-22T20:04:23.5088428Z dist/assets/ChapterManagement-BTX6d-iQ.css        3.61 kB │ gzip:   0.83 kB
+2026-10-22T20:04:23.5089075Z dist/assets/PromptsLibrary-CRI28N8W.css           4.67 kB │ gzip:   1.18 kB
+2026-10-22T20:04:23.5089714Z dist/assets/TokenBilling-uXl0BEce.css             4.67 kB │ gzip:   1.18 kB
+2026-10-22T20:04:23.5090346Z dist/assets/AssistantManagement-DqxeFLbr.css      4.91 kB │ gzip:   1.31 kB
+2026-10-22T20:04:23.5092110Z dist/assets/WritingGoals-DUFNLIID.css             5.79 kB │ gzip:   1.20 kB
+2026-10-22T20:04:23.5093253Z dist/assets/NovelManagement-CDjtcdtM.css          6.33 kB │ gzip:   1.47 kB
+2026-10-22T20:04:23.5094707Z dist/assets/Settings-CNv0wVMH.css                 6.69 kB │ gzip:   1.51 kB
+2026-10-22T20:04:23.5095968Z dist/assets/HomePage-D744AE87.css                 9.77 kB │ gzip:   2.13 kB
+2026-10-22T20:04:23.5097248Z dist/assets/vendor-editor-CeTR0shq.css           14.61 kB │ gzip:   2.81 kB
+2026-10-22T20:04:23.5098412Z dist/assets/MemoryLab-e0CHquIW.css               15.46 kB │ gzip:   2.58 kB
+2026-10-22T20:04:23.5099587Z dist/assets/index-CwkF8Az_.css                   15.67 kB │ gzip:   3.90 kB
+2026-10-22T20:04:23.5100712Z dist/assets/BookAnalysis-DlcB7YBL.css            37.35 kB │ gzip:   4.01 kB
+2026-10-22T20:04:23.5101923Z dist/assets/Writer-VkxGo3i3.css                  50.03 kB │ gzip:   6.81 kB
+2026-10-22T20:04:23.5102988Z dist/assets/ShortStory-DaKYxkYX.css              55.96 kB │ gzip:   5.64 kB
+2026-10-22T20:04:23.5103668Z dist/assets/vendor-element-Cr_xNH8y.css         393.61 kB │ gzip:  52.12 kB
+2026-10-22T20:04:23.5104306Z dist/assets/dates-C60M1YGU.js                     0.08 kB │ gzip:   0.09 kB
+2026-10-22T20:04:23.5106559Z dist/assets/id-D1jmWXJ1.js                        0.09 kB │ gzip:   0.10 kB
+2026-10-22T20:04:23.5107573Z dist/assets/destroyEditor-Dkk1qqIF.js             0.13 kB │ gzip:   0.14 kB
+2026-10-22T20:04:23.5108259Z dist/assets/tokenBudget-Dlsv-7Ps.js               0.37 kB │ gzip:   0.22 kB
+2026-10-22T20:04:23.5108902Z dist/assets/novelStats-DECc2mzN.js                0.40 kB │ gzip:   0.27 kB
+2026-10-22T20:04:23.5109531Z dist/assets/ApiConfig-BNCdscnp.js                 0.50 kB │ gzip:   0.42 kB
+2026-10-22T20:04:23.5110141Z dist/assets/NotFound-BGyo06UI.js                  0.59 kB │ gzip:   0.46 kB
+2026-10-22T20:04:23.5110749Z dist/assets/eventLine-CHGgGs7W.js                 0.66 kB │ gzip:   0.37 kB
+2026-10-22T20:04:23.5111783Z dist/assets/useGenerationTask-BrQk0UAG.js         0.76 kB │ gzip:   0.50 kB
+2026-10-22T20:04:23.5112448Z dist/assets/useAIStream-BmyRHK5H.js               0.89 kB │ gzip:   0.56 kB
+2026-10-22T20:04:23.5113074Z dist/assets/rolldown-runtime-Dd_uD5pT.js          1.10 kB │ gzip:   0.62 kB
+2026-10-22T20:04:23.5113695Z dist/assets/preload-helper-HclGiUj8.js            1.21 kB │ gzip:   0.67 kB
+2026-10-22T20:04:23.5114370Z dist/assets/WriterEditor-t03DpPv-.js              1.23 kB │ gzip:   0.73 kB
+2026-10-22T20:04:23.5115462Z dist/assets/corpusRetrieval-D8h47Esu.js           1.49 kB │ gzip:   0.90 kB
+2026-10-22T20:04:23.5116151Z dist/assets/extensionsRuntime-5-WxNzHW.js         2.44 kB │ gzip:   1.52 kB
+2026-10-22T20:04:23.5116792Z dist/assets/bookAnalysisLibrary-Dh7VdRVt.js       2.77 kB │ gzip:   1.33 kB
+2026-10-22T20:04:23.5117430Z dist/assets/writingGoals-Bxjdpk5V.js              5.68 kB │ gzip:   2.39 kB
+2026-10-22T20:04:23.5118039Z dist/assets/billing-D3l36FGA.js                   5.73 kB │ gzip:   2.31 kB
+2026-10-22T20:04:23.5118642Z dist/assets/novel-C86yhQ7X.js                     6.69 kB │ gzip:   2.73 kB
+2026-10-22T20:04:23.5119268Z dist/assets/factGraphStore-CD1nvox_.js            8.16 kB │ gzip:   3.58 kB
+2026-10-22T20:04:23.5119878Z dist/assets/storage-CgkvZqCp.js                   8.44 kB │ gzip:   3.04 kB
+2026-10-22T20:04:23.5120487Z dist/assets/GenreManagement-_GuY4kAK.js           9.85 kB │ gzip:   4.10 kB
+2026-10-22T20:04:23.5121118Z dist/assets/ChapterManagement-DPrLGpjB.js        13.34 kB │ gzip:   4.83 kB
+2026-10-22T20:04:23.5121736Z dist/assets/MindMap-Czimi6pP.js                  13.61 kB │ gzip:   5.91 kB
+2026-10-22T20:04:23.5122342Z dist/assets/TokenBilling-Bq8UZDOb.js             15.04 kB │ gzip:   5.21 kB
+2026-10-22T20:04:23.5123003Z dist/assets/apiConfig-D4mh4tn5.js                15.93 kB │ gzip:   6.24 kB
+2026-10-22T20:04:23.5123636Z dist/assets/WritingGoals-k4IxCPBW.js             16.11 kB │ gzip:   4.98 kB
+2026-10-22T20:04:23.5124258Z dist/assets/PromptsLibrary-a88eY3gr.js           16.57 kB │ gzip:   6.24 kB
+2026-10-22T20:04:23.5125424Z dist/assets/assistant-BbGvG5rh.js                19.22 kB │ gzip:   7.68 kB
+2026-10-22T20:04:23.5126057Z dist/assets/AssistantManagement-A8MrXlNC.js      19.53 kB │ gzip:   7.27 kB
+2026-10-22T20:04:23.5126671Z dist/assets/api-CCH2D4MR.js                      20.57 kB │ gzip:   8.06 kB
+2026-10-22T20:04:23.5127289Z dist/assets/HomePage-BoW1gA04.js                 21.66 kB │ gzip:   6.97 kB
+2026-10-22T20:04:23.5127885Z dist/assets/dist-BRDXkmQY.js                     24.52 kB │ gzip:   6.65 kB
+2026-10-22T20:04:23.5128493Z dist/assets/ToolsLibrary-B69p2L8w.js             27.53 kB │ gzip:   9.51 kB
+2026-10-22T20:04:23.5129147Z dist/assets/writerMemoryUi-CXETbtdJ.js           36.71 kB │ gzip:  14.05 kB
+2026-10-22T20:04:23.5129799Z dist/assets/NovelManagement-YNpOfgRd.js          37.78 kB │ gzip:  13.47 kB
+2026-10-22T20:04:23.5130442Z dist/assets/writerContent-OxTzskBD.js            41.29 kB │ gzip:  23.69 kB
+2026-10-22T20:04:23.5131069Z dist/assets/Settings-P_6OxSn0.js                 41.34 kB │ gzip:  14.20 kB
+2026-10-22T20:04:23.5131713Z dist/assets/BookAnalysis-D_aomjRo.js             48.23 kB │ gzip:  15.08 kB
+2026-10-22T20:04:23.5132454Z dist/assets/ShortStory-B2KCClvh.js               53.63 kB │ gzip:  16.11 kB
+2026-10-22T20:04:23.5133115Z dist/assets/dist-CR4ARqew.js                     58.07 kB │ gzip:  18.52 kB
+2026-10-22T20:04:23.5133724Z dist/assets/MemoryLab-DDsQPLiF.js                58.38 kB │ gzip:  19.81 kB
+2026-10-22T20:04:23.5134350Z dist/assets/promptCatalog-ClT2GH0r.js            59.90 kB │ gzip:  18.62 kB
+2026-10-22T20:04:23.5135243Z dist/assets/dist-ByVy1uG1.js                     85.05 kB │ gzip:  24.96 kB
+2026-10-22T20:04:23.5135844Z dist/assets/index-B56BXLND.js                    87.00 kB │ gzip:  29.37 kB
+2026-10-22T20:04:23.5136452Z dist/assets/MindElixir-DYBAKuTs.js               90.93 kB │ gzip:  30.61 kB
+2026-10-22T20:04:23.5137065Z dist/assets/stream-BtAzIZPS.js                   98.94 kB │ gzip:  27.66 kB
+2026-10-22T20:04:23.5137832Z dist/assets/dist-r1irZedM.js                    107.32 kB │ gzip:  22.76 kB
+2026-10-22T20:04:23.5138512Z dist/assets/vendor-vue-Cmm9cjgr.js              112.59 kB │ gzip:  43.62 kB
+2026-10-22T20:04:23.5139126Z dist/assets/dist-CouRvZnn.js                    121.22 kB │ gzip:  88.88 kB
+2026-10-22T20:04:23.5139731Z dist/assets/writingTools-Ced583j_.js            130.97 kB │ gzip:  44.42 kB
+2026-10-22T20:04:23.5140364Z dist/assets/dist-BWHjFqtG.js                    133.88 kB │ gzip:  35.65 kB
+2026-10-22T20:04:23.5140976Z dist/assets/Writer-Bnxs8pK8.js                  244.10 kB │ gzip:  70.02 kB
+2026-10-22T20:04:23.5141571Z dist/assets/dist-DA7MiMBS.js                    338.25 kB │ gzip:  82.24 kB
+2026-10-22T20:04:23.5142189Z dist/assets/cytoscape.esm-D_6vJjgy.js           434.93 kB │ gzip: 137.82 kB
+2026-10-22T20:04:23.5142820Z dist/assets/mammoth.browser-D9DJTbPw.js         491.94 kB │ gzip: 118.75 kB
+2026-10-22T20:04:23.5143444Z dist/assets/vendor-editor-DyiJLWRV.js           799.83 kB │ gzip: 273.57 kB
+2026-10-22T20:04:23.5144123Z dist/assets/vendor-element-DpxkWr3q.js        1,047.91 kB │ gzip: 322.03 kB
+2026-10-22T20:04:23.5144746Z 
+2026-10-22T20:04:23.5145194Z [32m✓ built in 2.99s[39m
+2026-10-22T20:04:23.5950407Z ##[group]Run npm run test:browser-writer-memory
+2026-10-22T20:04:23.5950806Z [36;1mnpm run test:browser-writer-memory[0m
+2026-10-22T20:04:23.6002032Z shell: /usr/bin/bash -e {0}
+2026-10-22T20:04:23.6002293Z ##[endgroup]
+2026-10-22T20:04:23.7048404Z 
+2026-10-22T20:04:23.7049103Z > llm-writer@1.0.2 test:browser-writer-memory
+2026-10-22T20:04:23.7049650Z > node scripts/browser-writer-memory.mjs
+2026-10-22T20:04:23.7049878Z 
+2026-10-22T20:04:25.4233532Z START 01 Memory is opt-in: ordinary continuation sends no retrieval envelope or provider request
+2026-10-22T20:04:34.7050059Z PASS  01 Memory is opt-in: ordinary continuation sends no retrieval envelope or provider request
+2026-10-22T20:04:34.7052132Z START 02 Local preview retrieves a chapter-two clue, requires review and preserves confirmed inference provenance
+2026-10-22T20:04:37.5302219Z PASS  02 Local preview retrieves a chapter-two clue, requires review and preserves confirmed inference provenance
+2026-10-22T20:04:37.5304609Z START 03 Approved exact source spans and inference labels reach the actual continuation request
+2026-10-22T20:04:38.7311902Z PASS  03 Approved exact source spans and inference labels reach the actual continuation request
+2026-10-22T20:04:38.7313624Z START 04 Chapter-body generation receives current key evidence and commits only its synthetic response
+2026-10-22T20:04:41.7741702Z PASS  04 Chapter-body generation receives current key evidence and commits only its synthetic response
+2026-10-22T20:04:41.7742903Z START 05 Full-text polishing uses the same reviewed clue and exact source revision contract
+2026-10-22T20:04:44.9385603Z PASS  05 Full-text polishing uses the same reviewed clue and exact source revision contract
+2026-10-22T20:04:44.9390949Z START 06 A saved old-chapter edit invalidates approved evidence before generation; fresh retrieval excludes the old fact
+2026-10-22T20:05:03.2640633Z PASS  06 A saved old-chapter edit invalidates approved evidence before generation; fresh retrieval excludes the old fact
+2026-10-22T20:05:03.2642653Z START 07 Changing query or cutoff invalidates approval, with multi-premise inference and future identity hidden
+2026-10-22T20:05:08.6073101Z PASS  07 Changing query or cutoff invalidates approval, with multi-premise inference and future identity hidden
+2026-10-22T20:05:08.6075259Z START 08 Optional embedding and reranking require explicit opt-in and transmit only disclosed current source
+2026-10-22T20:05:12.0569809Z PASS  08 Optional embedding and reranking require explicit opt-in and transmit only disclosed current source
+2026-10-22T20:05:12.0571854Z START 09 Cancelling delayed semantic preparation leaves no approved evidence and sends no writing request
+2026-10-22T20:05:14.5562397Z PASS  09 Cancelling delayed semantic preparation leaves no approved evidence and sends no writing request
+2026-10-22T20:05:14.5577108Z START 10 A source edit during held preparation blocks later provider stages and late stale results
+2026-10-22T20:05:31.5780197Z PASS  10 A source edit during held preparation blocks later provider stages and late stale results
+2026-10-22T20:05:31.5781599Z START 11 Disabling reviewed memory preserves ordinary generation and refresh clears provider-session credentials
+2026-10-22T20:05:42.9144620Z PASS  11 Disabling reviewed memory preserves ordinary generation and refresh clears provider-session credentials
+2026-10-22T20:05:42.9146066Z START 12 390px real touch can preview, inspect and approve evidence then generate with an unobscured dialog
+2026-10-22T20:06:05.3673346Z PASS  12 390px real touch can preview, inspect and approve evidence then generate with an unobscured dialog
+2026-10-22T20:06:05.3678190Z START 13 320px real touch can preview, inspect and approve evidence then generate with an unobscured dialog
+2026-10-22T20:06:27.1527457Z PASS  13 320px real touch can preview, inspect and approve evidence then generate with an unobscured dialog
+2026-10-22T20:06:27.1529317Z START 14 A 600-chapter split-storage manuscript restores, hydrates and sends bounded, exact Writer evidence
+2026-10-22T20:07:34.3117972Z PASS  14 A 600-chapter split-storage manuscript restores, hydrates and sends bounded, exact Writer evidence
+2026-10-22T20:07:34.3119891Z START 15 A mixed Chinese/identifier query travels from Memory Lab source review to Writer and the actual model request
+2026-10-22T20:07:48.9166419Z PASS  15 A mixed Chinese/identifier query travels from Memory Lab source review to Writer and the actual model request
+2026-10-22T20:07:48.9175286Z START 16 A real old-chapter edit replaces the mixed identifier in Lab evidence, Writer preview and generated payload
+2026-10-22T20:08:02.1790219Z PASS  16 A real old-chapter edit replaces the mixed identifier in Lab evidence, Writer preview and generated payload
+2026-10-22T20:08:02.1792422Z START 17 Empty candidates stay unselected across all generation dialogs; disabling memory explicitly restores ordinary writing
+2026-10-22T20:08:20.4555384Z PASS  17 Empty candidates stay unselected across all generation dialogs; disabling memory explicitly restores ordinary writing
+2026-10-22T20:08:20.4557841Z START 18 Missing identifiers and unanswered Chinese questions remain unverified candidates requiring an explicit selection
+2026-10-22T20:08:29.5365693Z PASS  18 Missing identifiers and unanswered Chinese questions remain unverified candidates requiring an explicit selection
+2026-10-22T20:08:29.5367838Z START 19 Partial identifier coverage preserves a selectable exact source while unselected decoys, graph relations and future text stay off the wire
+2026-10-22T20:08:40.6721781Z PASS  19 Partial identifier coverage preserves a selectable exact source while unselected decoys, graph relations and future text stay off the wire
+2026-10-22T20:08:40.6729878Z START 20 Explicit semantic and rerank providers cannot auto-select candidates or turn an unmatched identifier into a verified answer
+2026-10-22T20:08:44.6876494Z PASS  20 Explicit semantic and rerank providers cannot auto-select candidates or turn an unmatched identifier into a verified answer
+2026-10-22T20:08:44.6879017Z START 21 Over-capacity committed sources explicitly fall back without partial embedding while late identifiers, distant clues and revised evidence reach Writer by author selection
+2026-10-22T20:10:20.8764179Z PASS  21 Over-capacity committed sources explicitly fall back without partial embedding while late identifiers, distant clues and revised evidence reach Writer by author selection
+2026-10-22T20:10:20.8765912Z PASS 21 Writer memory browser scenarios
+2026-10-22T20:10:34.9931829Z ##[group]Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+2026-10-22T20:10:34.9932256Z with:
+2026-10-22T20:10:34.9932481Z   name: writer-memory-browser-evidence-1
+2026-10-22T20:10:34.9932786Z   path: artifacts/browser-writer-memory
+2026-10-22T20:10:34.9933078Z   if-no-files-found: warn
+2026-10-22T20:10:34.9933317Z   retention-days: 7
+2026-10-22T20:10:34.9933549Z   compression-level: 6
+2026-10-22T20:10:34.9933771Z   overwrite: false
+2026-10-22T20:10:34.9933997Z   include-hidden-files: false
+2026-10-22T20:10:34.9934245Z ##[endgroup]
+2026-10-22T20:10:35.1752116Z (node:3802) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-22T20:10:35.1753652Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-22T20:10:35.1883676Z With the provided path, there will be 31 files uploaded
+2026-10-22T20:10:35.1890608Z Artifact name is valid!
+2026-10-22T20:10:35.1891411Z Root directory input is valid!
+2026-10-22T20:10:35.5579133Z Beginning upload of artifact content to blob storage
+2026-10-22T20:10:35.8427176Z (node:3802) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-22T20:10:36.7994378Z Uploaded bytes 8388608
+2026-10-22T20:10:37.0649695Z Uploaded bytes 16777216
+2026-10-22T20:10:37.1809517Z Uploaded bytes 25165824
+2026-10-22T20:10:37.2593123Z Uploaded bytes 33554432
+2026-10-22T20:10:37.4106935Z Uploaded bytes 41943040
+2026-10-22T20:10:37.5514576Z Uploaded bytes 50331648
+2026-10-22T20:10:37.6603950Z Uploaded bytes 58720256
+2026-10-22T20:10:37.9117284Z Uploaded bytes 67108864
+2026-10-22T20:10:38.1215604Z Uploaded bytes 75497472
+2026-10-22T20:10:38.4269035Z Uploaded bytes 83886080
+2026-10-22T20:10:38.5989092Z Uploaded bytes 92274688
+2026-10-22T20:10:38.8884975Z Uploaded bytes 100663296
+2026-10-22T20:10:39.1647322Z Uploaded bytes 109051904
+2026-10-22T20:10:39.4104352Z Uploaded bytes 117440512
+2026-10-22T20:10:39.6956129Z Uploaded bytes 125829120
+2026-10-22T20:10:39.9475673Z Uploaded bytes 134217728
+2026-10-22T20:10:40.1818768Z Uploaded bytes 142606336
+2026-10-22T20:10:40.4957616Z Uploaded bytes 150994944
+2026-10-22T20:10:40.8287342Z Uploaded bytes 159383552
+2026-10-22T20:10:41.0791194Z Uploaded bytes 167772160
+2026-10-22T20:10:41.2813333Z Uploaded bytes 176160768
+2026-10-22T20:10:41.5661260Z Uploaded bytes 184549376
+2026-10-22T20:10:41.8294271Z Uploaded bytes 192937984
+2026-10-22T20:10:42.1285884Z Uploaded bytes 201326592
+2026-10-22T20:10:42.3763421Z Uploaded bytes 209715200
+2026-10-22T20:10:42.6923729Z Uploaded bytes 218103808
+2026-10-22T20:10:42.9156827Z Uploaded bytes 226492416
+2026-10-22T20:10:43.1502559Z Uploaded bytes 234881024
+2026-10-22T20:10:43.3435422Z Uploaded bytes 243269632
+2026-10-22T20:10:43.6460784Z Uploaded bytes 251658240
+2026-10-22T20:10:43.8982402Z Uploaded bytes 260046848
+2026-10-22T20:10:44.1815414Z Uploaded bytes 266701240
+2026-10-22T20:10:44.2602875Z Finished uploading artifact content to blob storage!
+2026-10-22T20:10:44.2606565Z SHA256 digest of uploaded artifact zip is 55b6d4b2765090bb242968512aa63de0607c1c23fd0771da8fde88cd498d3c51
+2026-10-22T20:10:44.2609342Z Finalizing artifact upload
+2026-10-22T20:10:44.8475453Z Artifact writer-memory-browser-evidence-1.zip successfully finalized. Artifact ID 12454499450
+2026-10-22T20:10:44.8477271Z Artifact writer-memory-browser-evidence-1 has been successfully uploaded! Final size is 266701240 bytes. Artifact ID is 12454499450
+2026-10-22T20:10:44.8483277Z Artifact download URL: https://github.com/PainAxis/LLM-Writer/actions/runs/39844019935/artifacts/12454499450
+2026-10-22T20:10:44.8725190Z ##[group]Run npm run test:writer-memory-stress
+2026-10-22T20:10:44.8725615Z [36;1mnpm run test:writer-memory-stress[0m
+2026-10-22T20:10:44.8776013Z shell: /usr/bin/bash -e {0}
+2026-10-22T20:10:44.8776279Z ##[endgroup]
+2026-10-22T20:10:44.9819076Z 
+2026-10-22T20:10:44.9820128Z > llm-writer@1.0.2 test:writer-memory-stress
+2026-10-22T20:10:44.9820757Z > node --expose-gc --import tsx scripts/stress-writer-memory.ts
+2026-10-22T20:10:44.9821088Z 
+2026-10-22T20:10:45.4910301Z [storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.4911748Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.4913198Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:39:17)
+2026-10-22T20:10:45.4914723Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.4915877Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.4916698Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.4917646Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:45.4919116Z [storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.4920302Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.4921582Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:42:9)
+2026-10-22T20:10:45.4922864Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.4923938Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.4925029Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.4926006Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:45.4927478Z [storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.4928657Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.4929940Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:43:9)
+2026-10-22T20:10:45.4931228Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.4932310Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.4933108Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.4934081Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:45.4936647Z [storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.4937793Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.4939073Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:60:23)
+2026-10-22T20:10:45.4940391Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.4941484Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.4942316Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.4943279Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:45.4944969Z [storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.4946076Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.4947393Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:65:31)
+2026-10-22T20:10:45.4948665Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.4950122Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.4950994Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.4951989Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:45.8249316Z [storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.8250039Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.8250741Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:39:17)
+2026-10-22T20:10:45.8251440Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.8252447Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.8253244Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.8254129Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:45.8255712Z [storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.8256787Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.8257959Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:42:9)
+2026-10-22T20:10:45.8259142Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.8260126Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.8260865Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.8261760Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:45.8263089Z [storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.8263837Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.8264788Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:43:9)
+2026-10-22T20:10:45.8265508Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.8266086Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.8266520Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.8267032Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:45.8267789Z [storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.8268396Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.8269478Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:60:23)
+2026-10-22T20:10:45.8270217Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.8270788Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.8271214Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.8271847Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:45.8273096Z [storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:10:45.8273905Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:10:45.8274911Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:65:31)
+2026-10-22T20:10:45.8275629Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:10:45.8276199Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:10:45.8276646Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:10:45.8277149Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:10:48.8532767Z PASS million: Cold preparation of the full manuscript and thousands of source-anchored relations
+2026-10-22T20:10:51.4160587Z PASS million: Twenty-four distributed exact-source queries reuse the full disclosed index
+2026-10-22T20:10:54.3421571Z PASS million: Record mixed Chinese/code query recall without misrepresenting lexical misses as source failures
+2026-10-22T20:10:54.4115463Z PASS million: Distant author-marked clue alias recovers its original early-volume evidence
+2026-10-22T20:10:54.8327159Z PASS million: Small and large evidence budgets include metadata without splitting source quotations
+2026-10-22T20:10:55.3702067Z PASS million: Future identity and every confirmed inference premise remain behind the disclosure cutoff
+2026-10-22T20:10:58.1475344Z PASS million: Editing an old chapter invalidates prepared context and its author-confirmed graph anchors
+2026-10-22T20:10:58.5138283Z PASS million: Thirty-chapter revision invalidates old clue marks while unrelated distant evidence survives
+2026-10-22T20:11:01.2096767Z PASS million: Chapter reorder and deletion recompute disclosure from the latest narrative order
+2026-10-22T20:11:01.4363056Z PASS million: Changed graph state and unavailable committed source block previously prepared context
+2026-10-22T20:11:01.6230711Z PASS million: Controlled rerank receives current disclosed passages; changed source blocks the next outbound request
+2026-10-22T20:11:05.9552814Z PASS million: All twenty-four full Chinese/identifier queries retrieve the exact passage with graph and remote providers disabled
+2026-10-22T20:11:06.9757022Z PASS million: No-answer boundaries stay unverified and only explicitly selected current evidence enters the bounded attachment
+2026-10-22T20:11:07.4199629Z [storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:11:07.4200348Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:11:07.4201340Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:39:17)
+2026-10-22T20:11:07.4202120Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:11:07.4203060Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:11:07.4203570Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:11:07.4204083Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:11:07.4231897Z [storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:11:07.4232776Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:11:07.4234015Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:42:9)
+2026-10-22T20:11:07.4236087Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:11:07.4237118Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:11:07.4237881Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:11:07.4238788Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:11:07.4240216Z [storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:11:07.4241377Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:11:07.4242655Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:43:9)
+2026-10-22T20:11:07.4243941Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:11:07.4245306Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:11:07.4246116Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:11:07.4246984Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:11:07.4248690Z [storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:11:07.4249855Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:11:07.4251075Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:60:23)
+2026-10-22T20:11:07.4252307Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:11:07.4253380Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:11:07.4254134Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:11:07.4255318Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:11:07.4256716Z [storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+2026-10-22T20:11:07.4257896Z     at storageGet (/home/runner/work/LLM-Writer/LLM-Writer/src/utils/storage.ts:119:17)
+2026-10-22T20:11:07.4259133Z     at loadFromStorage (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:65:31)
+2026-10-22T20:11:07.4260459Z     at <anonymous> (/home/runner/work/LLM-Writer/LLM-Writer/src/services/apiConfig.ts:124:1)
+2026-10-22T20:11:07.4261563Z     at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+2026-10-22T20:11:07.4262362Z     at async node:internal/modules/esm/loader:647:26
+2026-10-22T20:11:07.4263265Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+2026-10-22T20:11:28.0410235Z PASS ten-million: Cold preparation of the full manuscript and thousands of source-anchored relations
+2026-10-22T20:11:45.0686830Z PASS ten-million: Twenty-four distributed exact-source queries reuse the full disclosed index
+2026-10-22T20:12:07.0059154Z PASS ten-million: Record mixed Chinese/code query recall without misrepresenting lexical misses as source failures
+2026-10-22T20:12:07.5087781Z PASS ten-million: Distant author-marked clue alias recovers its original early-volume evidence
+2026-10-22T20:12:10.3434021Z PASS ten-million: Small and large evidence budgets include metadata without splitting source quotations
+2026-10-22T20:12:13.4124844Z PASS ten-million: Future identity and every confirmed inference premise remain behind the disclosure cutoff
+2026-10-22T20:12:33.2961533Z PASS ten-million: Editing an old chapter invalidates prepared context and its author-confirmed graph anchors
+2026-10-22T20:12:34.9342605Z PASS ten-million: Thirty-chapter revision invalidates old clue marks while unrelated distant evidence survives
+2026-10-22T20:12:54.5435789Z PASS ten-million: Chapter reorder and deletion recompute disclosure from the latest narrative order
+2026-10-22T20:12:56.0247046Z PASS ten-million: Changed graph state and unavailable committed source block previously prepared context
+2026-10-22T20:12:56.5128206Z PASS ten-million: Controlled rerank receives current disclosed passages; changed source blocks the next outbound request
+2026-10-22T20:13:33.1225138Z PASS ten-million: All twenty-four full Chinese/identifier queries retrieve the exact passage with graph and remote providers disabled
+2026-10-22T20:13:41.7714271Z PASS ten-million: No-answer boundaries stay unverified and only explicitly selected current evidence enters the bounded attachment
+2026-10-22T20:13:42.1310593Z ##[error]The operation was canceled.
+2026-10-22T20:13:42.1380004Z ##[group]Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+2026-10-22T20:13:42.1380434Z with:
+2026-10-22T20:13:42.1380666Z   name: writer-memory-stress-evidence-1
+2026-10-22T20:13:42.1380978Z   path: artifacts/writer-memory-stress
+2026-10-22T20:13:42.1381267Z   if-no-files-found: warn
+2026-10-22T20:13:42.1381504Z   retention-days: 7
+2026-10-22T20:13:42.1381725Z   compression-level: 6
+2026-10-22T20:13:42.1381959Z   overwrite: false
+2026-10-22T20:13:42.1382199Z   include-hidden-files: false
+2026-10-22T20:13:42.1382445Z ##[endgroup]
+2026-10-22T20:13:42.3103813Z (node:3899) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-22T20:13:42.3105111Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-22T20:13:42.3186490Z With the provided path, there will be 3 files uploaded
+2026-10-22T20:13:42.3187448Z Artifact name is valid!
+2026-10-22T20:13:42.3188018Z Root directory input is valid!
+2026-10-22T20:13:42.7066396Z Beginning upload of artifact content to blob storage
+2026-10-22T20:13:42.7324841Z (node:3899) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-22T20:13:43.0735718Z Uploaded bytes 22509
+2026-10-22T20:13:43.1525123Z Finished uploading artifact content to blob storage!
+2026-10-22T20:13:43.1526369Z SHA256 digest of uploaded artifact zip is 3768bcb96bb3716ff15c174eff674b149b650f907344a10f64d516061019e0dc
+2026-10-22T20:13:43.1527373Z Finalizing artifact upload
+2026-10-22T20:13:43.6261668Z Artifact writer-memory-stress-evidence-1.zip successfully finalized. Artifact ID 12456380021
+2026-10-22T20:13:43.6263225Z Artifact writer-memory-stress-evidence-1 has been successfully uploaded! Final size is 22509 bytes. Artifact ID is 12456380021
+2026-10-22T20:13:43.6270224Z Artifact download URL: https://github.com/PainAxis/LLM-Writer/actions/runs/39844019935/artifacts/12456380021
+2026-10-22T20:13:43.6494077Z Post job cleanup.
+2026-10-22T20:13:43.7347044Z [command]/usr/bin/git version
+2026-10-22T20:13:43.7395833Z git version 2.55.0
+2026-10-22T20:13:43.7441309Z Temporarily overriding HOME='/home/runner/work/_temp/251b9a56-2296-4ca4-bb02-ef74625fedd9' before making global git config changes
+2026-10-22T20:13:43.7442490Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-22T20:13:43.7448186Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/LLM-Writer/LLM-Writer
+2026-10-22T20:13:43.7490548Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-22T20:13:43.7530765Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-22T20:13:43.7820145Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-22T20:13:43.7863230Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-22T20:13:43.8152130Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-22T20:13:43.8194037Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-22T20:13:43.8651088Z Cleaning up orphan processes
+2026-10-22T20:13:43.9079361Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@11d5960a326750d5838078e36cf38b85af677262, actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020, actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

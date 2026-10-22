@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-10-22T20:00:34.399667+00:00",
+  "results": [
+    {
+      "mutation": "always-empty",
+      "exitCode": 1,
+      "failedAt": "P01",
+      "expected": true
+    },
+    {
+      "mutation": "wrong-meaning",
+      "exitCode": 1,
+      "failedAt": "P01",
+      "expected": true
+    }
+  ]
+}

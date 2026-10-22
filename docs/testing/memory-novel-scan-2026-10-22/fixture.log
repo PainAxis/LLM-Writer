@@ -1,0 +1,321 @@
+{
+  "fixtureSha256": "6d54c1cc1a02d0fe1b4b7580b21c8e5fb02d13f15e9f712b853e6721b67a8206",
+  "mode": "controlled-provider-production-pipeline",
+  "realModelQuality": "not measured",
+  "cases": [
+    {
+      "id": "P01",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 45,
+      "processedChars": 45
+    },
+    {
+      "id": "P02",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 44,
+      "processedChars": 44
+    },
+    {
+      "id": "P03",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 48,
+      "processedChars": 48
+    },
+    {
+      "id": "P04",
+      "category": "positive",
+      "route": "shared_key",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 4,
+      "bCalls": 10,
+      "eligibleChars": 106,
+      "processedChars": 106
+    },
+    {
+      "id": "P05",
+      "category": "positive",
+      "route": "adjacent",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 61,
+      "processedChars": 61
+    },
+    {
+      "id": "P06",
+      "category": "positive",
+      "route": "bridge",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 5,
+      "bCalls": 15,
+      "eligibleChars": 111,
+      "processedChars": 111
+    },
+    {
+      "id": "P07",
+      "category": "positive",
+      "route": "adjacent",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 58,
+      "processedChars": 58
+    },
+    {
+      "id": "P08",
+      "category": "positive",
+      "route": "adjacent",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 51,
+      "processedChars": 51
+    },
+    {
+      "id": "P09",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 50,
+      "processedChars": 50
+    },
+    {
+      "id": "P10",
+      "category": "positive",
+      "route": "adjacent",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 66,
+      "processedChars": 66
+    },
+    {
+      "id": "P11",
+      "category": "positive",
+      "route": "shared_key",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 4,
+      "bCalls": 10,
+      "eligibleChars": 93,
+      "processedChars": 93
+    },
+    {
+      "id": "P12",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 49,
+      "processedChars": 49
+    },
+    {
+      "id": "N01",
+      "category": "negative",
+      "route": "singleton",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 46,
+      "processedChars": 46
+    },
+    {
+      "id": "N02",
+      "category": "negative",
+      "route": "adjacent",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 41,
+      "processedChars": 41
+    },
+    {
+      "id": "N03",
+      "category": "negative",
+      "route": "singleton",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 42,
+      "processedChars": 42
+    },
+    {
+      "id": "N04",
+      "category": "negative",
+      "route": "shared_key",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 4,
+      "bCalls": 10,
+      "eligibleChars": 76,
+      "processedChars": 76
+    },
+    {
+      "id": "N05",
+      "category": "negative",
+      "route": "singleton",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 49,
+      "processedChars": 49
+    },
+    {
+      "id": "N06",
+      "category": "negative",
+      "route": "adjacent",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 45,
+      "processedChars": 45
+    },
+    {
+      "id": "U01",
+      "category": "unsupported",
+      "route": "distant_no_key",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 5,
+      "bCalls": 12,
+      "eligibleChars": 86,
+      "processedChars": 86,
+      "knownMiss": "真实目标仍计入总召回分母；有限路由不包含远距无共同key的这对前提。"
+    },
+    {
+      "id": "U02",
+      "category": "unsupported",
+      "route": "four_premise",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 4,
+      "bCalls": 9,
+      "eligibleChars": 78,
+      "processedChars": 78,
+      "knownMiss": "目标需要四个独立cue，B最多三cue；完整前提不可能进入一个job，计为真实漏召回。"
+    },
+    {
+      "id": "U03",
+      "category": "unsupported",
+      "route": "a_missing_cue",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 4,
+      "bCalls": 6,
+      "eligibleChars": 77,
+      "processedChars": 77,
+      "knownMiss": "A完成原文覆盖但没有产出必要cue；不得将该目标从总分母删除或把空输出算作正确拒绝。"
+    },
+    {
+      "id": "U04",
+      "category": "unsupported",
+      "route": "a_missing_key",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 4,
+      "bCalls": 9,
+      "eligibleChars": 67,
+      "processedChars": 67,
+      "knownMiss": "必要cue均存在却缺共同key且非相邻，属于表示缺口；精确引用校验不能补回路由遗漏。"
+    },
+    {
+      "id": "U05",
+      "category": "unsupported",
+      "route": "implicit_alias",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 5,
+      "bCalls": 12,
+      "eligibleChars": 100,
+      "processedChars": 100,
+      "knownMiss": "不以常识或隐含身份构造未提供的桥；两端未被有限路由组合，仍按目标计漏召回。"
+    },
+    {
+      "id": "U06",
+      "category": "unsupported",
+      "route": "future_premise",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 40,
+      "processedChars": 40,
+      "knownMiss": "含未来前提的目标作为边界负控单列，同时留在18个全故事目标分母；不得泄露未来原文来提高召回。"
+    }
+  ],
+  "mutationControls": {
+    "alwaysEmpty": {
+      "rejected": 12,
+      "recoveredTargets": "0/18"
+    },
+    "validCitationWrongMeaning": "rejected by semantic gold, not parser",
+    "protocolForgeries": 5
+  },
+  "geometry": [
+    {
+      "profile": "novel-candidate-long-v1",
+      "disclosedChapters": 599,
+      "eligibleChars": 1317800,
+      "windows": 599,
+      "atoms": 1797,
+      "cpuOnlyMs": 1189,
+      "heapDeltaBytes": 22086616,
+      "rssBytes": 216891392,
+      "providerCalls": 0
+    },
+    {
+      "profile": "novel-candidate-escaping-v1",
+      "disclosedChapters": 12,
+      "eligibleChars": 156554,
+      "windows": 38,
+      "atoms": 186,
+      "cpuOnlyMs": 104,
+      "heapDeltaBytes": -10381568,
+      "rssBytes": 216891392,
+      "providerCalls": 0
+    }
+  ],
+  "summary": {
+    "recoveredAllStoryTargets": "12/18",
+    "recoveredDisclosedTargets": "12/17",
+    "recoveredInContractTargets": "12/12",
+    "negativeControls": "6/6",
+    "knownMisses": "6/6 honestly retained",
+    "productionCasWrites": 12,
+    "networkRequests": 0,
+    "browser": "not run",
+    "realModel": "not run"
+  }
+}
+PASS frozen novel-candidate semantic gold, production parsing/anchors/review/CAS-v2 pipeline and exact long/escaping geometry

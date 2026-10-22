@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { MemoryIndex } from '../src/services/memory/engine'
 import { createMemoryDemo } from '../src/services/memory/labData'
-import { createDemoFactGraph, selectFactGraph } from '../src/services/memory/factGraph'
+import { createDemoFactGraph, createFactPlotLink, FactGraphValidationError, selectFactGraph } from '../src/services/memory/factGraph'
 import { readFactGraph, saveFactGraph } from '../src/services/memory/factGraphStore'
 import { createBackup, parseBackup, restoreBackup } from '../src/services/backup'
 import { StorageKeys, storageReadCommitted, storageSet } from '../src/utils/storage'
@@ -79,12 +79,30 @@ const seeded = await createDemoFactGraph(demo)
 seeded.projectId = project.id
 seeded.relations.forEach(relation => { relation.projectId = project.id })
 seeded.relations.find(relation => relation.origin === 'inferred')!.authorConfirmed = true
+const inference = seeded.relations.find(relation => relation.origin === 'inferred')!
+inference.provenance = { campaignId: 'campaign', segmentId: 'segment', jobId: 'relation-job', candidateId: 'relation-candidate' }
+inference.semanticValidation = 'protocol-and-current-sources'
+seeded.plotLinks = [createFactPlotLink({
+  id: 'backup-possible-recovery', projectId: project.id, mode: 'possible_recovery',
+  title: '铜铃与接应', explanation: '模型提出的可能回收，不代表已证实。', origin: 'inferred',
+  provenance: { campaignId: 'campaign', segmentId: 'segment', jobId: 'job', candidateId: 'candidate' },
+  premises: [
+    { role: 'setup', evidence: [inference.evidence[0]!] },
+    { role: 'recovery', evidence: [inference.evidence[1]!] },
+    { role: 'context', evidence: [seeded.relations.find(row => row.id === 'demo-hidden-identity')!.evidence[0]!] },
+  ],
+}), createFactPlotLink({
+  id: 'backup-setup-candidate', projectId: project.id, mode: 'setup_candidate',
+  title: '独立铜铃伏笔候选', explanation: '尚未证明其功能或是否回收。', origin: 'inferred',
+  provenance: { campaignId: 'campaign', segmentId: 'segment', jobId: 'setup-job', candidateId: 'setup-candidate' },
+  premises: [{ role: 'setup', evidence: [inference.evidence[0]!] }],
+})]
 const novel = { id: 1, title: project.title, chapterList: project.chapters.map(chapter => ({
   id: chapter.id, title: chapter.title, content: chapter.text,
 })) }
 await storageSet(StorageKeys.novels, [novel])
 const original = await saveFactGraph(seeded, null)
-const demoGraph = { ...seeded, projectId: 'memory-demo', revision: '', relations: [] }
+const demoGraph = { ...seeded, projectId: 'memory-demo', revision: '', relations: [], plotLinks: [] }
 await saveFactGraph(demoGraph, null)
 const backup = await createBackup(['novels'])
 assert.deepEqual(Object.keys(backup.data).sort(), ['factGraphs', 'novels'])
@@ -124,9 +142,16 @@ console.log('✓ Backup and restore never rebase old anchors onto edited prose, 
 const current = await readFactGraph(project.id)
 await restoreBackup({ novels: [novel] })
 assert.deepEqual(await readFactGraph(project.id), current, 'Legacy missing sidecar preserves current graph document')
+const legacySidecar = { version: 1, projectId: original.projectId, revision: original.revision, relations: original.relations }
+await restoreBackup({ ...backup, data: { novels: [novel], factGraphs: [legacySidecar] } })
+const legacyRestored = await readFactGraph(project.id)
+assert.equal(legacyRestored.version, 2)
+assert.deepEqual(legacyRestored.relations, original.relations)
+assert.deepEqual(legacyRestored.plotLinks, [], 'Legacy v1 sidecar imports without fabricating plot annotations')
 await restoreBackup({ ...backup, data: { novels: [novel], factGraphs: [] } })
 const empty = await readFactGraph(project.id)
 assert.deepEqual(empty.relations, [])
+assert.deepEqual(empty.plotLinks, [])
 assert.ok(empty.revision && empty.revision !== current.revision)
 await assert.rejects(saveFactGraph(current, current.revision), /其他窗口修改/)
 await restoreBackup(backup)
@@ -162,8 +187,30 @@ await restoreBackup(backup)
 assert.deepEqual(relationData(await readFactGraph(project.id)), relationData(original), 'Valid backup repairs corrupt graph storage')
 console.log('✓ Malformed, mismatched and ambiguous bundles fail before writes; valid backup can repair corrupt storage')
 
+// A supported backup may repair malformed v2, but must never overwrite future data.
+const supportedRaw = disk.get(graphKey(project.id))!
+const futureRaw = JSON.stringify({ ...original, version: 3, futureAnnotations: ['must survive'] })
+const unsupported = (error: unknown) => error instanceof FactGraphValidationError && error.code === 'unsupported-version'
+disk.set(graphKey(project.id), futureRaw)
+const beforeFutureLocal = new Map(local)
+await assert.rejects(readFactGraph(project.id), unsupported)
+await assert.rejects(saveFactGraph(original, original.revision), unsupported)
+await assert.rejects(createBackup(['novels']), unsupported)
+await assert.rejects(restoreBackup(backup), unsupported)
+await assert.rejects(restoreBackup({ novels: [novel] }), unsupported)
+assert.throws(() => parseBackup({ ...backup, data: { ...backup.data, factGraphs: [{ ...original, version: 3 }] } }), unsupported)
+await assert.rejects(restoreBackup({ ...backup, data: { ...backup.data, factGraphs: [{ ...original, version: 3 }] } }), unsupported)
+assert.deepEqual(local, beforeFutureLocal, 'Unsupported local graph must fail before novels or settings are written')
+assert.equal(disk.get(graphKey(project.id)), futureRaw)
+disk.set(graphKey(project.id), JSON.stringify({ ...original, plotLinks: [{ broken: true }] }))
+await assert.rejects(createBackup(['novels']))
+await restoreBackup(backup)
+assert.deepEqual(relationData(await readFactGraph(project.id)), relationData(original), 'Explicit restore repairs invalid known-version v2')
+assert.notEqual(disk.get(graphKey(project.id)), supportedRaw, 'Restore uses a new committed revision')
+console.log('✓ Unknown future schemas fail distinctly before any import write; known-version corruption remains explicitly repairable')
+
 const otherId = 'novel:2'
-const second = { ...original, projectId: otherId, revision: '', relations: original.relations.map(row => ({ ...row, projectId: otherId })) }
+const second = { ...original, projectId: otherId, revision: '', relations: original.relations.map(row => ({ ...row, projectId: otherId })), plotLinks: original.plotLinks.map(row => ({ ...row, projectId: otherId })) }
 const secondStored = await saveFactGraph(second, null)
 await storageSet(StorageKeys.novels, [novel, { ...novel, id: 2 }])
 const multiple = await createBackup(['novels'])

@@ -46,7 +46,7 @@ export async function createFactGraphCorpus() {
     })
   }
   // Reverse storage order to force disclosure/query filtering before the 200-row rendering bound.
-  const document: FactGraphDocument = { version: 1, projectId: project.id, revision: '', relations: relations.reverse() }
+  const document: FactGraphDocument = { version: 2, projectId: project.id, revision: '', relations: relations.reverse(), plotLinks: [] }
   return {
     project, document,
     manifest: {

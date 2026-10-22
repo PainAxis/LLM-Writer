@@ -1,7 +1,8 @@
 import type { FactGraphDocument } from '../../types/factGraph'
 import { idbCompareAndSwap, idbCompareAndSwapMany, idbGet, idbGetMany, isBlobStoreAvailable } from '../blobStore'
-import { emptyFactGraph, FACT_GRAPH_MAX_DOCUMENT_CHARS, validateFactGraphDocument } from './factGraph'
+import { assertFactGraphSupportedVersion, emptyFactGraph, FACT_GRAPH_MAX_DOCUMENT_CHARS, validateFactGraphDocument } from './factGraph'
 
+// Keep the historical key: a second v2 key could resurrect stale v1 annotations.
 function storageKey(projectId: string): string {
   emptyFactGraph(projectId)
   return `memory-fact-graph:v1:${projectId}`
@@ -14,6 +15,14 @@ function parseStored(raw: string, projectId: string): FactGraphDocument {
   const document = validateFactGraphDocument(value, projectId)
   if (!document.revision.trim()) throw new Error('事实关系图存储缺少版本；原有数据已保留，请恢复存储数据后重试。')
   return document
+}
+
+/** Invalid known-version data can be repaired; unsupported schemas cannot. */
+function checkRestoreToken(raw: string | null): void {
+  if (raw === null) return
+  let value: unknown
+  try { value = JSON.parse(raw) } catch { return } // Explicit backup restore may repair malformed JSON.
+  assertFactGraphSupportedVersion(value)
 }
 
 export async function readFactGraph(projectId: string): Promise<FactGraphDocument> {
@@ -59,6 +68,7 @@ async function readGraphSnapshot(projectIds: readonly string[], validateStored: 
     raw.set(id, value)
     // A corrupt graph fails the entire export rather than silently losing annotations.
     if (value !== null && validateStored) documents.push(parseStored(value, id))
+    else checkRestoreToken(value)
   }
   return { raw, documents }
 }
@@ -67,7 +77,7 @@ export async function readFactGraphsForBackup(projectIds: readonly string[]): Pr
   return readGraphSnapshot(projectIds, true)
 }
 
-/** A valid backup can repair corrupt storage; retain its exact raw CAS token. */
+/** A valid backup can repair corrupt known schemas, never an unsupported future schema. */
 export async function captureFactGraphRestoreSnapshot(projectIds: readonly string[]): Promise<FactGraphBackupSnapshot> {
   return readGraphSnapshot(projectIds, false)
 }
@@ -77,9 +87,14 @@ export async function restoreFactGraphsFromBackup(
   documents: readonly FactGraphDocument[], expected: FactGraphBackupSnapshot,
   canCommit: () => boolean = () => true,
 ): Promise<void> {
+  // Recheck even caller-constructed snapshots before any write. Capture is not authority
+  // to overwrite a schema this application cannot understand.
+  for (const raw of expected.raw.values()) checkRestoreToken(raw)
+  const seen = new Set<string>()
   const replacements = new Map(documents.map(document => {
     const snapshot = validateFactGraphDocument(document)
-    if (!expected.raw.has(snapshot.projectId)) throw new Error('事实关系图没有对应的恢复作品。')
+    if (!expected.raw.has(snapshot.projectId) || seen.has(snapshot.projectId)) throw new Error('事实关系图没有对应的恢复作品或作品重复。')
+    seen.add(snapshot.projectId)
     return [snapshot.projectId, snapshot] as const
   }))
   if (!isBlobStoreAvailable()) {
