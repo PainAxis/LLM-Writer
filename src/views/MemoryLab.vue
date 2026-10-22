@@ -150,14 +150,17 @@
         <p v-else-if="dirty" class="empty-state">示例有未保存修改。保存并重建后再检索，旧结果已清除。</p>
         <p v-else-if="!result" class="empty-state">输入内容并检索，或使用上方的验收示例。</p>
         <p v-else-if="!result.hits.length" class="empty-state" data-testid="memory-no-results">本次未返回候选。可调整关键词或截止章节；这不表示全书不存在相关内容。</p>
-        <button v-for="(hit, index) in result?.hits ?? []" :key="hit.id" class="result-item" :class="{ selected: selectedId === hit.id }" :data-testid="`memory-result-${index}`" :aria-pressed="selectedId === hit.id" @click="selectedId = hit.id">
+        <article v-for="(hit, index) in result?.hits ?? []" :key="hit.id" class="result-option">
+          <label v-if="support.state.enabled" class="support-selection"><input type="checkbox" :checked="selectedSupportIds.includes(hit.id)" :disabled="busy || dirty" :data-testid="`memory-support-select-${index}`" @change="selectSupport(hit.id, ($event.target as HTMLInputElement).checked)" />选择这条完整原文用于支持检查</label>
+          <button class="result-item" :class="{ selected: selectedId === hit.id }" :data-testid="`memory-result-${index}`" :aria-pressed="selectedId === hit.id" @click="selectedId = hit.id">
           <span class="result-meta"><el-tag size="small" :type="hit.kind === 'clue' ? 'warning' : 'info'">{{ hit.kind === 'clue' ? '人工标记伏笔' : '原文片段' }}</el-tag><span>第 {{ hit.ordinal }} 章</span><code>{{ hit.revision.slice(0, 10) }}</code></span>
           <strong>{{ hit.chapterTitle }}</strong>
           <span v-if="hit.label" class="hit-label">{{ hit.label }}</span>
           <span class="quote">{{ hit.quote }}</span>
           <span class="muted hit-reason">{{ hit.reason }}</span>
           <span class="muted hit-match" :data-testid="`memory-match-${index}`">{{ matchDescription(hit.match) }}</span>
-        </button>
+          </button>
+        </article>
       </section>
 
       <aside class="lab-card evidence-card" aria-labelledby="evidence-title" data-testid="memory-evidence">
@@ -179,6 +182,8 @@
         </template>
       </aside>
     </div>
+
+    <MemorySupportCheck :state="support.state" :available="canCheckSupport" prefix="memory" />
 
     <FactGraphPanel :project="project" :stats="stats" :through-chapter-id="cutoffId" :disabled="busy || dirty || !stats" :selected-evidence="evidence?.hit" @refresh-required="invalidateGraphSource" />
 
@@ -208,6 +213,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
+import MemorySupportCheck from '@/components/memory/MemorySupportCheck.vue'
+import { useMemorySupportCheck } from '@/composables/useMemorySupportCheck'
+import { prepareSupportCheck, SupportCheckError } from '@/services/memory/supportCheck'
 import FactGraphPanel from '@/components/memory/FactGraphPanel.vue'
 import { MemoryClient } from '@/services/memory/client'
 import { createWriterMemoryProviders, writerMemoryRemoteOptions } from '@/composables/writerMemoryUi'
@@ -244,6 +252,54 @@ let client: MemoryClient | undefined
 let generation = 0
 let disposed = false
 let disclosureSourceId: string | null = null
+// Never construct outbound evidence from editable presentation copies or the
+// independently opened evidence viewer. Only a completed private retrieval is eligible.
+let supportRetrieval: { project: MemoryProjectInput; stats: MemoryIndexStats; result: MemorySearchResult;
+  sourceId: string; question: string; cutoff: string; generation: number } | null = null
+const selectedSupportIds = ref<string[]>([])
+let supportSelectionRevision = 0
+const canCheckSupport = computed(() => !disposed && !busy.value && !dirty.value && !!result.value
+  && !!supportRetrieval && selectedSupportIds.value.length > 0 && !!query.value.trim())
+const support = useMemorySupportCheck({ canPrepare: () => canCheckSupport.value, prepare: prepareSelectedSupport,
+  onInvalidSource: reason => { invalidateGraphSource(); support.invalidate(reason) } })
+watch(selectedSupportIds, () => { supportSelectionRevision++; support.invalidate() }, { deep: true, flush: 'sync' })
+watch([sourceId, query, cutoffId, dirty], () => support.invalidate(), { flush: 'sync' })
+
+function selectSupport(id: string, checked: boolean) {
+  if (!supportRetrieval || busy.value || dirty.value || !supportRetrieval.result.hits.some(hit => hit.id === id)) return
+  const ids = new Set(selectedSupportIds.value)
+  if (checked) ids.add(id)
+  else ids.delete(id)
+  selectedSupportIds.value = [...ids]
+}
+
+async function prepareSelectedSupport(signal: AbortSignal, assertOwner: () => void) {
+  const snapshot = supportRetrieval
+  const selected = [...selectedSupportIds.value]
+  const question = support.state.question
+  const selectedRevision = supportSelectionRevision
+  if (!snapshot || !selected.length || new Set(selected).size !== selected.length) throw new SupportCheckError('invalid_input')
+  const assertCurrent = () => {
+    assertOwner()
+    if (snapshot !== supportRetrieval || !isCurrent(snapshot.generation) || selectedRevision !== supportSelectionRevision
+      || snapshot.sourceId !== sourceId.value || snapshot.question !== query.value || question !== support.state.question || snapshot.cutoff !== cutoffId.value
+      || dirty.value || busy.value || snapshot.result.projectId !== snapshot.project.id
+      || snapshot.result.fingerprint !== snapshot.stats.fingerprint || snapshot.result.throughChapterId !== snapshot.cutoff) {
+      throw new SupportCheckError('source_changed')
+    }
+  }
+  assertCurrent()
+  const anchors = selected.map(id => {
+    const hit = snapshot.result.hits.find(item => item.id === id)
+    if (!hit) throw new SupportCheckError('invalid_input')
+    return { chapterId: hit.chapterId, sourceRevision: hit.revision, start: hit.start, end: hit.end, quote: hit.quote }
+  })
+  const assertFresh = createCommittedMemorySourceGuard(snapshot.project, () => readSource(snapshot.sourceId), assertCurrent, signal)
+  return prepareSupportCheck({ question, project: snapshot.project, stats: snapshot.stats,
+    throughChapterId: snapshot.cutoff, evidence: anchors,
+    selectionFingerprint: JSON.stringify([snapshot.generation, selectedRevision, selected]),
+    assertFresh, assertOwner: assertCurrent, signal })
+}
 
 const semanticStatus = computed(() => ({ disabled: '未启用（本地检索）', used: '已参与混合检索', fallback: '不可用，已回退至本地检索' })[result.value?.diagnostics?.semantic ?? 'disabled'])
 const rerankStatus = computed(() => ({ disabled: '未启用', used: '已完成', fallback: '不可用，保留召回顺序', skipped: '无需重排，未调用服务' })[result.value?.diagnostics?.rerank ?? 'disabled'])
@@ -274,6 +330,9 @@ function getClient() {
 }
 
 function clearResults() {
+  support.invalidate()
+  supportRetrieval = null
+  selectedSupportIds.value = []
   result.value = null
   selectedId.value = ''
 }
@@ -463,6 +522,9 @@ async function search() {
       assertCurrentSource, scanController.controls(controller.signal)), controller.signal)
     await assertCurrentSource()
     if (!isCurrent(token)) return
+    support.state.setQuestion(query.value)
+    supportRetrieval = { project: structuredClone(snapshot), stats: structuredClone(index), result: structuredClone(response),
+      sourceId: id, question: query.value, cutoff: throughChapterId, generation: token }
     result.value = response
   } catch (cause) {
     if (isCurrent(token)) {
@@ -562,6 +624,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   disposed = true
+  support.dispose()
+  supportRetrieval = null
   generation += 1
   searchAbort?.abort()
   scanController.reset()
@@ -572,6 +636,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.support-selection { display: flex; align-items: flex-start; gap: 8px; padding: 10px 0; font-size: 13px; line-height: 1.7; cursor: pointer; }.support-selection input { width: 18px; height: 18px; flex: 0 0 18px; margin-top: 3px; }.result-option { min-width: 0; }
 .scan-status { margin: 16px 0; padding: 16px; border: 1px solid var(--el-border-color); border-radius: 8px; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
 .scan-status progress { width: 100%; }
 .scan-status h4 { margin: 0; }

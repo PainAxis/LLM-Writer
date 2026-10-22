@@ -116,13 +116,14 @@
             </div>
           </article>
         </div>
+        <MemorySupportCheck v-if="support" :state="support" :available="hasSelection && !busy" :disabled="disabled" prefix="writer-memory" />
         <div class="approval">
           <p data-testid="writer-memory-selection-summary" role="status">已选择 {{ selectedHitCount }} 条原文、{{ selectedRelationCount }} 条关系。仅所选依据会用于本次生成。</p>
           <div class="assessment" data-testid="writer-memory-selected-assessment" :data-state="selectedAssessment.state" data-answerability="unverified" role="status">
             <p><strong>所选依据：</strong>{{ selectedAssessmentText }}</p>
             <p v-if="hasSelection && selectedAssessment.missingIdentifiers.length" class="warning" data-testid="writer-memory-selected-missing-identifiers">所选依据尚未确认匹配的完整编号：{{ selectedAssessment.missingIdentifiers.join('、') }}。此提示仅针对所选依据。</p>
           </div>
-          <button :disabled="disabled || busy || !hasSelection || approved" data-testid="writer-memory-approve" @click="emit('approve')">{{ approved ? '所选依据已核对' : '已核对，将所选依据用于本次生成' }}</button>
+          <button :disabled="disabled || busy || support?.phase === 'preparing' || support?.phase === 'running' || !hasSelection || approved" data-testid="writer-memory-approve" @click="emit('approve')">{{ approved ? '所选依据已核对' : '已核对，将所选依据用于本次生成' }}</button>
           <p v-if="approved" class="success" role="status" data-testid="writer-memory-approved">所选依据已就绪。开始生成前会再次校验正文版本和披露范围；失效时不会发送旧依据。</p>
           <p v-else class="muted">请逐条核对原文、章节版本和推断标识，再选择本次需要的依据。关系须单独选择，修改选择后须重新核对；未选择时不能批准记忆上下文。</p>
         </div>
@@ -133,6 +134,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import MemorySupportCheck from '@/components/memory/MemorySupportCheck.vue'
+import type { MemorySupportUiState } from '@/composables/useMemorySupportCheck'
 import { summarizeMemoryMatches } from '@/services/memory/matchSignals'
 import { FULL_SCAN_TIME_CHOICES, scanPauseText, scanSummary, scanTimeExhausted, type SemanticScanUiState } from '@/services/memory/semanticScanUi'
 import type { MemoryEmbeddingConfig, MemoryMatchSignals, MemoryRerankConfig } from '@/types/memory'
@@ -152,6 +155,7 @@ const props = defineProps<{
   disabled?: boolean
   providers: WriterMemoryProviders
   scan?: SemanticScanUiState
+  support?: MemorySupportUiState
 }>()
 const emit = defineEmits<{
   'update:enabled': [value: boolean]

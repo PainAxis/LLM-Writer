@@ -2,7 +2,9 @@ import type {
   MemoryChapterInput, MemoryEvidence, MemoryIndexStats, MemoryProjectInput, MemoryQuery,
   MemoryRemoteOptions, MemoryRetrievalDiagnostics, MemorySearchResult, MemoryMatchSummary, MemoryMatchSignals, MemorySearchControls,
 } from '@/types/memory'
-import type { FactGraphDocument, VisibleFactRelation } from '@/types/factGraph'
+import type { FactAnchor, FactGraphDocument, VisibleFactRelation } from '@/types/factGraph'
+import type { PreparedSupportCheck, SupportCheckOwner } from '@/types/memorySupport'
+import { prepareSupportCheck as prepareCitedSupportCheck, SupportCheckError } from './supportCheck'
 import { readMemoryNovel } from './labData'
 import { readFactGraph } from './factGraphStore'
 import { selectFactGraph, validateFactGraphDocument } from './factGraph'
@@ -66,6 +68,8 @@ export interface PreparedWriterMemoryContext {
   relationMatches: Record<string, MemoryMatchSignals[]>
   /** Select whole units from the private, verified preview; never trust UI copies. */
   selectEvidence(selection: WriterMemorySelection): Promise<PreparedWriterMemoryContext>
+  /** Local-only plan from explicitly selected private originals; never approves writing. */
+  prepareSupportCheck(question: string, owner: SupportCheckOwner): Promise<PreparedSupportCheck>
   /** Call immediately before model transport, and before accepting/applying output. */
   assertFresh(): Promise<void>
 }
@@ -256,7 +260,7 @@ export async function prepareWriterMemoryContext(
     const trustedRelations = snapshot(includedRelations)
     const trustedDiagnostics = snapshot(result.diagnostics)
     const truncated = includedHits.length < hits.length || includedRelations.length < relations.length
-    const materialize = async (selectedHits: MemoryEvidence[], selectedRelations: VisibleFactRelation[]): Promise<PreparedWriterMemoryContext> => {
+    const materialize = async (selectedHits: MemoryEvidence[], selectedRelations: VisibleFactRelation[], explicitlySelected = false): Promise<PreparedWriterMemoryContext> => {
       await assertFresh()
       const assessment = assess(selectedHits, selectedRelations)
       const prompt = serialize(request, selectedHits, selectedRelations, assessment)
@@ -269,6 +273,19 @@ export async function prepareWriterMemoryContext(
         diagnostics: snapshot(trustedDiagnostics), maxChars, truncated, assessment,
         relationMatches: snapshot(Object.fromEntries(selectedRelations.map(row => [row.id, relationMatches.get(row.id)!]))),
         assertFresh, selectEvidence,
+        prepareSupportCheck(question, owner) {
+          // Only selectEvidence can grant this local selection capability. Public
+          // preview mutations and passing a different question cannot select text.
+          if (!explicitlySelected) return Promise.reject(new SupportCheckError('invalid_input'))
+          const evidence: FactAnchor[] = [
+            ...selectedHits.map(hit => ({ chapterId: hit.chapterId, sourceRevision: hit.revision,
+              start: hit.start, end: hit.end, quote: hit.quote })),
+            ...selectedRelations.flatMap(row => row.evidence.map(({ chapterId, sourceRevision, start, end, quote }) =>
+              ({ chapterId, sourceRevision, start, end, quote }))),
+          ]
+          return prepareCitedSupportCheck({ question, project, stats, throughChapterId: request.throughChapterId,
+            selectionFingerprint: fingerprint, evidence, assertFresh, signal: owner.signal, assertOwner: owner.assertOwner })
+        },
       }
     }
     const selectEvidence = async (selection: WriterMemorySelection): Promise<PreparedWriterMemoryContext> => {
@@ -281,7 +298,7 @@ export async function prepareWriterMemoryContext(
       }
       const hitIds = validateIds(selection?.hitIds, trustedHits)
       const relationIds = validateIds(selection?.relationIds, trustedRelations)
-      return materialize(trustedHits.filter(hit => hitIds.has(hit.id)), trustedRelations.filter(row => relationIds.has(row.id)))
+      return materialize(trustedHits.filter(hit => hitIds.has(hit.id)), trustedRelations.filter(row => relationIds.has(row.id)), true)
     }
     return await materialize(trustedHits, trustedRelations)
   } catch (error) {

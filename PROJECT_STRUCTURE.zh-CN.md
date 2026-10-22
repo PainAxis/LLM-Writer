@@ -11,7 +11,7 @@
 | `src/` | 应用源码 |
 | `public/` | 网站图标等静态资源 |
 | `scripts/` | 模块冒烟测试、浏览器回归、预览工具、发布校验与部署脚本 |
-| `scripts/fixtures/` | 文档导入使用的合成测试文件 |
+| `scripts/fixtures/` | 合成导入／压力语料，以及冻结、带版本的支持核对小说／代码固定集 |
 | `docs/` | 数据格式、编辑协议、上下文策略与持久化协调说明 |
 | `.github/workflows/` | 持续校验、由 CI 结果约束的发布，以及可选的临时浏览器预览 |
 | `package.json`、`package-lock.json` | 依赖、锁定版本与 npm 命令 |
@@ -29,6 +29,7 @@
 | `src/components/` | 共享 UI 与各功能组件，包括 Writer 的面板、对话框与编辑器 |
 | `src/composables/` | 写作、AI 流式生成、提示词选择与主题等响应式流程 |
 | `src/services/api.ts`、`src/services/aiProviders.ts`、`src/services/apiConfig.ts` | AI SDK 接口封装、服务商适配、模型发现与共享 API 配置 |
+| `src/services/aiRequestLimits.ts` | SDK 解析前的可选请求级时间／响应字节上限，单次传输且不重定向；普通请求保留原有行为 |
 | `src/services/novelPersistence.ts`、`src/services/blobStore.ts` | 小说保存队列、分阶段写入且带版本的 IndexedDB 正文分片与启动回填 |
 | `src/services/storageCoordination.ts`、`src/utils/novelConcurrency.ts` | 小说/目标的跨标签页提交协调，以及逐部小说的版本检查 |
 | `src/services/promptCatalog.ts` | 五个提示词入口共享的初始化、迁移与提交后更新 |
@@ -38,6 +39,8 @@
 | `src/stores/extensions.ts`、`src/components/extensions/` | 严格校验的扩展配置、内存令牌与助手授权入口 |
 | `src/views/MemoryLab.vue`、`src/services/memory/`、`src/types/memory.ts` | 独立记忆检索、Worker 内的增量索引、可选嵌入／重排服务、有容量上限的向量缓存，以及校验版本和披露范围的依据；[范围](docs/memory-prototype.zh-CN.md)与[增量生命周期](docs/memory-incremental-index.zh-CN.md) |
 | `src/services/memory/matchSignals.ts` | 确定性的完整查询／编号信号与所选依据汇总，始终不验证可回答性；[审阅规则](docs/memory-evidence-review.zh-CN.md) |
+| `src/services/memory/supportCheck.ts`、`src/types/memorySupport.ts` | 纯本地核对计划、所选来源保护、有界聊天发送、严格结果／引用校验及不持久化的模型辅助意见；[规则与验收](docs/memory-support-checks.zh-CN.md) |
+| `src/composables/useMemorySupportCheck.ts`、`src/components/memory/MemorySupportCheck.vue` | Lab／Writer 共用预览、明确启动、取消与过期结果生命周期；不提供置信度认证、不自动批准 Writer、不注入核对答案 |
 | `src/services/memory/identifiers.ts` | 解析完整 ASCII 字母数字代码并检查分块边缘，支撑本地混合查询召回；[语法及验收](docs/memory-mixed-query-recall.zh-CN.md) |
 | `src/components/memory/`、`src/services/memory/factGraph.ts`、`src/services/memory/factGraphStore.ts`、`src/services/memory/factExtraction.ts`、`src/types/factGraph.ts` | 有原文依据的事实关系、Cytoscape.js 展示、按作品隔离的独立持久化和有明确范围的可选模型提议；[图谱约定](docs/memory-fact-graph.zh-CN.md) |
 | `src/utils/storage.ts`、`src/utils/aiRequestScope.ts` | 统一存储入口，以及可独立取消的 AI 请求作用域 |
@@ -80,13 +83,15 @@
 
 ## 校验与发布
 
-- CI 校验配置包含 80 组顺序执行的冒烟测试，以及使用合成数据和 API 响应的 134 个 Chromium 场景，其中包括 9 个超长篇压力场景。验证状态以审查提交的 CI 结果为准。
+- CI 校验配置包含 91 组顺序执行的冒烟测试，由 `smoke:all` 动态全部纳入，另有独立的合成数据生产构建 Chromium 套件。带日期报告中的数量是历史记录，不是当前总数。新增 52 场景 `ci-memory-support` 是必要门槛，有意不加入旧 `test:browser` 聚合，避免重复执行。它尚未在本地运行，浏览器验收需以受审修订的 CI 结果为准。
 - [超长篇记忆压力测试](docs/memory-stress-tests.zh-CN.md)：`ci-memory-stress` 检验本地容量与受控 HTTP 服务，`ci-memory-browser-stress` 单独检验浏览器持久化改稿；付费 Jina 为可选测试。复用语料位于 `scripts/fixtures/`，经审查的报告位于 `docs/testing/`。
 - 记忆增量回归：`smoke:memory-incremental` 与 `smoke:memory-client`；连续改稿／返回焦点检查扩展已有压力脚本。
 - 事实图谱回归：`smoke:memory-fact-graph`、`smoke:memory-fact-store`、`smoke:memory-fact-extraction` 与 `test:browser-memory-fact-graph`；[来源约定与容量](docs/memory-fact-graph.zh-CN.md)。
 - 图谱备份与移动回归：`smoke:graph-backup`、`test:browser-graph-backup` 与 `test:browser-mobile`；[可移植原文依据与窄屏行为](docs/graph-backup-mobile.zh-CN.md)。
 - 混合查询回归：`smoke:memory-mixed-query`；Writer 压力测试保留原有 68 次准备工作负载，每档另加 24 次关闭图谱的完整查询断言。详见[对照及剩余限制](docs/memory-mixed-query-recall.zh-CN.md)。
-- 容量核算：`scripts/benchmark-memory-capacity.ts` 区分冷启动／恢复与语义缓存成本；`benchmark-memory-source.mjs` 执行真实已提交读取与 Writer 新鲜度校验。`ci-memory-capacity` 按 ABBA 比较固定 main 与候选，`smoke:source-hydration` 保护完整正文读取及存储竞争；见[测量与剩余限制](docs/memory-capacity.zh-CN.md)。
+- 容量核算：`scripts/benchmark-memory-capacity.ts` 区分冷启动／恢复与语义缓存成本；`benchmark-memory-source.mjs` 执行真实已提交读取与 Writer 新鲜度校验。`ci-memory-capacity` 按 ABBA 比较固定的历史基线／正文加载修订，`smoke:source-hydration` 保护完整正文读取及存储竞争；见[测量与剩余限制](docs/memory-capacity.zh-CN.md)。
+- 全范围扫描回归：四组 `smoke:*full-scan*` 套件及 `ci-memory-full-scan` 生产适配器容量／浏览器检查；[范围与已完成的第 2 条工作线验收](docs/memory-full-range-semantics.zh-CN.md)，合并状态见[路线图](ROADMAP.zh-CN.md#第三阶段完成契约)。
+- 可选支持核对回归：`smoke:memory-support`、`smoke:memory-support-transport`、`smoke:memory-support-ui`、`smoke:writer-memory-support` 与完全 mock 的 `smoke:memory-support-code`；`test:browser-memory-support` 覆盖冻结的 25 个语义用例，另有 600 章／1,388,902 字符的 Memory Lab 与三个 Writer 入口场景。长篇场景不改变语义分母；[当前验收限制](docs/memory-support-checks.zh-CN.md)。
 - 依据审阅回归：`smoke:memory-match-signals`、`smoke:writer-memory-selection`，并在 Writer／浏览器压力测试加入明确选择及已知未解答问题；[规则与测量](docs/memory-evidence-review.zh-CN.md)。
 - 写作记忆回归：`smoke:writer-memory`、`smoke:memory-remote-guard`、`smoke:writer-memory-lifecycle`；`ci-writer-memory` 执行 21 个浏览器流程及 144万／1050万字符压力场景。
 - 其他测试集：`smoke:generation-budget`、`smoke:writer-content`、`smoke:management-correctness`、`smoke:billing-correctness`、`smoke:tools-workspace`。

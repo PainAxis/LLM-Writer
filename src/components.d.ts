@@ -81,6 +81,7 @@ declare module 'vue' {
     EventPanel: typeof import('./components/writer/panels/EventPanel.vue')['default']
     ExtensionSettings: typeof import('./components/extensions/ExtensionSettings.vue')['default']
     FactGraphPanel: typeof import('./components/memory/FactGraphPanel.vue')['default']
+    MemorySupportCheck: typeof import('./components/memory/MemorySupportCheck.vue')['default']
     NovelMetadataForm: typeof import('./components/novel-management/NovelMetadataForm.vue')['default']
     OptimizeDialog: typeof import('./components/writer/dialogs/OptimizeDialog.vue')['default']
     PromptPickerDialog: typeof import('./components/writer/dialogs/PromptPickerDialog.vue')['default']

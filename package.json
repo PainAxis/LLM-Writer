@@ -118,7 +118,13 @@
     "smoke:memory-remote-guard": "node --import tsx scripts/smoke-memory-remote-guard.ts",
     "smoke:writer-memory-lifecycle": "node --import tsx scripts/smoke-writer-memory-lifecycle.ts",
     "test:browser-writer-memory": "node scripts/browser-writer-memory.mjs",
-    "test:writer-memory-stress": "node --expose-gc --import tsx scripts/stress-writer-memory.ts"
+    "test:writer-memory-stress": "node --expose-gc --import tsx scripts/stress-writer-memory.ts",
+    "smoke:memory-support": "node --import tsx scripts/smoke-memory-support.ts",
+    "smoke:memory-support-transport": "node --import tsx scripts/smoke-memory-support-transport.ts",
+    "smoke:memory-support-ui": "node --import tsx scripts/smoke-memory-support-ui.ts",
+    "smoke:writer-memory-support": "node --import tsx scripts/smoke-writer-memory-support.ts",
+    "smoke:memory-support-code": "node --import tsx scripts/eval-memory-support-code.mjs",
+    "test:browser-memory-support": "node --import tsx scripts/browser-memory-support.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

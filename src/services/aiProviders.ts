@@ -1,6 +1,7 @@
 import type { LanguageModel } from 'ai'
 import type { ApiConfig } from '@/types/api'
 import { usesCompletionTokenLimit } from '@/utils/generationBudget'
+import type { BoundedRequestScope } from './aiRequestLimits'
 
 export type ProviderKind = 'compatible' | 'anthropic' | 'google'
 
@@ -186,7 +187,7 @@ function resolveBaseURL(config: ApiConfig, preset: ProviderPreset): string {
  * 根据配置解析出 AI SDK 的 LanguageModel 实例。
  * custom / anthropic 使用用户自填地址，其余预设使用固定地址。
  */
-export async function resolveLanguageModel(config: ApiConfig, beforeRequest?: () => Promise<void>): Promise<LanguageModel> {
+export async function resolveLanguageModel(config: ApiConfig, beforeRequest?: () => Promise<void>, requestScope?: BoundedRequestScope): Promise<LanguageModel> {
   const preset = getPreset(config.provider)
   const baseURL = resolveBaseURL(config, preset)
   const proxiedBaseURL = applyProxyPrefix(baseURL, config.proxyUrl)
@@ -198,7 +199,7 @@ export async function resolveLanguageModel(config: ApiConfig, beforeRequest?: ()
   const { createOpenAICompatible, createAnthropic, createGoogleGenerativeAI } = await loadAISDK()
   // The SDK can retry or defer dispatch after model resolution. Revalidate at
   // the transport boundary on every attempt, not just before lazy imports.
-  const guardedFetch: typeof fetch | undefined = beforeRequest ? async (input, init) => {
+  const guardedFetch: typeof fetch | undefined = requestScope ? requestScope.createFetch(beforeRequest) : beforeRequest ? async (input, init) => {
     const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
     signal?.throwIfAborted()
     if (signal) {

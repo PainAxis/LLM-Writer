@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useWriterChapterContentGeneration } from '../src/composables/useWriterChapterContentGeneration'
 import type {
   PromptTemplate,
@@ -490,6 +490,60 @@ async function testRejectedPersistenceAndProjectRaces() {
   console.log('✓ 过期快照、persist reject、同 ID 重载、元数据修改与删章均隔离迟到结果')
 }
 
+async function testSynchronousLaunchCloseBoundary() {
+  const f = fixture()
+  const closeMarkers: boolean[] = []
+  const stop = watch(f.controller.visible, opened => {
+    if (!opened) closeMarkers.push(f.controller.isExpectedDialogClose())
+  }, { flush: 'sync' })
+  assert.equal(f.controller.isExpectedDialogClose(), false)
+  f.controller.open(f.chapters.value[0])
+  f.selectPrompt()
+  f.controller.close()
+  assert.deepEqual(closeMarkers, [false], 'Manual close never grants launch handoff')
+
+  f.controller.open(f.chapters.value[0])
+  f.selectPrompt()
+  const action = f.controller.generateChapterContentWithDialog()
+  assert.deepEqual(closeMarkers, [false, true], 'Only the synchronous controller-owned launch close is marked')
+  assert.equal(f.controller.isExpectedDialogClose(), false, 'Marker is already cleared while the request is pending')
+  f.stream.requests[0].resolve('正常生成')
+  assert.equal(await action, true)
+  assert.equal(f.persistCalls(), 1)
+  assert.equal(f.controller.isExpectedDialogClose(), false)
+  stop(); f.controller.dispose()
+
+  const selecting = fixture()
+  selecting.controller.open(selecting.chapters.value[2])
+  selecting.selectPrompt()
+  selecting.setSelectMode('delayed')
+  const selected = selecting.controller.generateChapterContentWithDialog()
+  await flushUntil(() => selecting.selectCalls() === 1)
+  assert.equal(selecting.controller.isBusy.value, true)
+  assert.equal(selecting.controller.isExpectedDialogClose(), false, 'Slow selection is not an authorized close boundary')
+  selecting.controller.close()
+  assert.equal(selecting.controller.isExpectedDialogClose(), false)
+  selecting.releaseSelection()
+  assert.equal(await selected, false)
+  assert.equal(selecting.stream.requests.length, 0)
+  selecting.controller.dispose()
+
+  const failed = fixture()
+  failed.controller.open(failed.chapters.value[0])
+  failed.selectPrompt()
+  const close = failed.controller.workspace.close
+  failed.controller.workspace.close = () => { close(); throw new Error('关闭失败') }
+  const originalConsoleError = console.error
+  console.error = () => undefined
+  try {
+    assert.equal(await failed.controller.generateChapterContentWithDialog(), false)
+  } finally { console.error = originalConsoleError }
+  assert.equal(failed.controller.isExpectedDialogClose(), false, 'Throwing launch close must clear its private marker')
+  assert.equal(failed.stream.requests.length, 0)
+  failed.controller.dispose()
+  console.log('✓ 章节 launch 交接只覆盖同步自动关闭；手动关闭、慢切章、请求等待与异常均无豁免')
+}
+
 async function main() {
   await testWorkspaceHelpersAndRecommendation()
   await testSnapshotSurvivesDelayedChapterSelection()
@@ -497,6 +551,7 @@ async function main() {
   await testUserEditCancelsAndCanRestartImmediately()
   await testPersistenceFailureAndCommitBarrier()
   await testRejectedPersistenceAndProjectRaces()
+  await testSynchronousLaunchCloseBoundary()
   console.log('\n=== WRITER CHAPTER CONTENT GENERATION TESTS PASSED ===')
 }
 

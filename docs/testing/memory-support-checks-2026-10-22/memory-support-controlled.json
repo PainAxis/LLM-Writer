@@ -1,0 +1,32 @@
+{
+  "suite": "memory-support-controlled",
+  "fixtureSha256": "ebf0a7ea662e6ddd3e2079598954888cd553c72ae74c666691ae822704b20c2d",
+  "semanticCases": 25,
+  "recovered": {
+    "supported": 12,
+    "insufficient": 6,
+    "uncertain": 7
+  },
+  "supportedRecovery": "12/12",
+  "appropriateInsufficiency": "6/6",
+  "appropriateUncertainty": "7/7",
+  "requiredPremises": 26,
+  "validCitations": 27,
+  "operationalBlocks": "8/8",
+  "allRefusalFailures": 19,
+  "allSupportedFailures": 13,
+  "attemptedControlledCalls": 25,
+  "realModelCalls": 0,
+  "maxInputChars": 2443,
+  "maxInputBytes": 2579,
+  "maxResponseChars": 255,
+  "maxResponseBytes": 369,
+  "failureCategories": {
+    "source_changed": 4,
+    "invalid_response": 2,
+    "owner_changed": 1,
+    "cancelled": 1
+  },
+  "elapsedMs": 165,
+  "note": "Controlled replies validate protocol, sources and lifecycle, not real-model quality."
+}

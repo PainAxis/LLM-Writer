@@ -685,6 +685,8 @@ export function useWriterChapterContentGeneration(
     waitForSelection,
     waitForIdle,
     isExpectedChapterSelection,
+    // Read-only and synchronous: never a general busy/launch permission.
+    isExpectedDialogClose: () => suppressDialogClose,
     dispose,
   }
 }

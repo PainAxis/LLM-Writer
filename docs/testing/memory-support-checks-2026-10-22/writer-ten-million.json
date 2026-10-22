@@ -1,0 +1,2441 @@
+{
+  "status": "passed",
+  "profile": "ten-million",
+  "startedAt": "2026-10-22T18:03:16.380Z",
+  "finishedAt": "2026-10-22T18:06:15.669Z",
+  "elapsedMs": 179289.071,
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux x64",
+    "cpus": 9
+  },
+  "sourceHashes": {
+    "src/services/memory/writerContext.ts": "e3c9e72210e8103e7cc0682c8dcb4beee016ccc9bf1fd861f0a7e6c12843fdb1",
+    "src/services/memory/engine.ts": "c6424d09fe6f9889c51bb59239e6b909d6decd6b1a5fb9bd13b9ae68968b33d0",
+    "src/services/memory/identifiers.ts": "0e0fe01aa82a8cb0e991e38c0cd4d3a7117951cb37524559b4f0403fa68d8f45",
+    "src/services/memory/matchSignals.ts": "e0bf6a7e60a24545363a0237815b0f447e4e12bdc920b483c41543c2ccc5cd9d",
+    "scripts/fixtures/memory-stress-corpus.ts": "76128bf392086f29c4852342e138c58e80f81b036252efcb45acb0aefa92b9d5",
+    "scripts/stress-writer-memory.ts": "984978a75de5ba7a6cadeab1292360f1af7fbf5f2d882a2dd2c71fa70b3de6f1"
+  },
+  "fixture": {
+    "fixtureVersion": 2,
+    "seed": 1365799083,
+    "chapters": 2500,
+    "charsPerChapter": 4200,
+    "totalChars": 10500000,
+    "volumes": 50,
+    "castSize": 72,
+    "locations": 36,
+    "usedCast": 72,
+    "usedLocations": 36,
+    "paragraphTemplates": 8,
+    "usedParagraphTemplates": 8,
+    "generatedParagraphs": 114622,
+    "uniqueParagraphRatio": 1,
+    "description": "Deterministic procedural Chinese fiction: varied cast, locations, events and similar clue aliases; planted exact identifiers test retrieval and provenance, not literary realism or semantic-model quality."
+  },
+  "fixtureMs": 856.61,
+  "relationCount": 7501,
+  "cases": [
+    {
+      "name": "Cold preparation of the full manuscript and thousands of source-anchored relations",
+      "durationMs": 24288.325
+    },
+    {
+      "name": "Twenty-four distributed exact-source queries reuse the full disclosed index",
+      "durationMs": 17553.556
+    },
+    {
+      "name": "Record mixed Chinese/code query recall without misrepresenting lexical misses as source failures",
+      "durationMs": 22994.38
+    },
+    {
+      "name": "Distant author-marked clue alias recovers its original early-volume evidence",
+      "durationMs": 597.863
+    },
+    {
+      "name": "Small and large evidence budgets include metadata without splitting source quotations",
+      "durationMs": 2870.117
+    },
+    {
+      "name": "Future identity and every confirmed inference premise remain behind the disclosure cutoff",
+      "durationMs": 3099.565
+    },
+    {
+      "name": "Editing an old chapter invalidates prepared context and its author-confirmed graph anchors",
+      "durationMs": 25652.262
+    },
+    {
+      "name": "Thirty-chapter revision invalidates old clue marks while unrelated distant evidence survives",
+      "durationMs": 1773.636
+    },
+    {
+      "name": "Chapter reorder and deletion recompute disclosure from the latest narrative order",
+      "durationMs": 24668.268
+    },
+    {
+      "name": "Changed graph state and unavailable committed source block previously prepared context",
+      "durationMs": 1345.496
+    },
+    {
+      "name": "Controlled rerank receives current disclosed passages; changed source blocks the next outbound request",
+      "durationMs": 447.795
+    },
+    {
+      "name": "All twenty-four full Chinese/identifier queries retrieve the exact passage with graph and remote providers disabled",
+      "durationMs": 43412.831
+    },
+    {
+      "name": "No-answer boundaries stay unverified and only explicitly selected current evidence enters the bounded attachment",
+      "durationMs": 9657.972
+    }
+  ],
+  "preparations": [
+    {
+      "query": "FS00001",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4084,
+      "hits": 1,
+      "relations": 4,
+      "durationMs": 24287.264,
+      "sync": {
+        "mode": "full",
+        "rebuiltChapters": 2500,
+        "reusedChapters": 0,
+        "insertedDocuments": 11250,
+        "removedDocuments": 0,
+        "reusedDocuments": 0
+      }
+    },
+    {
+      "query": "FS00001",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4084,
+      "hits": 1,
+      "relations": 4,
+      "durationMs": 826.878,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00109",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 3307,
+      "hits": 1,
+      "relations": 3,
+      "durationMs": 819.804,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00218",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4720,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 739.463,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00326",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4733,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 686.912,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00435",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 3291,
+      "hits": 1,
+      "relations": 3,
+      "durationMs": 753.778,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00544",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4730,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 719.386,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00652",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4749,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 716.995,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00761",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 3283,
+      "hits": 1,
+      "relations": 3,
+      "durationMs": 723.51,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00870",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4741,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 816.292,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00978",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4700,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 835.387,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS01087",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 3412,
+      "hits": 1,
+      "relations": 3,
+      "durationMs": 752.063,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS01196",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4800,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 725,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS01304",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4761,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 722.788,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS01413",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 3322,
+      "hits": 1,
+      "relations": 3,
+      "durationMs": 710.477,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS01522",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4748,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 706.244,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS01630",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4787,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 710.581,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS01739",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 3394,
+      "hits": 1,
+      "relations": 3,
+      "durationMs": 651.991,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS01848",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4612,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 750.347,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS01956",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4738,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 714.839,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS02065",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 3315,
+      "hits": 1,
+      "relations": 3,
+      "durationMs": 671.127,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS02174",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4774,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 659.963,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS02282",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4757,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 723.68,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS02391",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 3312,
+      "hits": 1,
+      "relations": 3,
+      "durationMs": 706.714,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS02500",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5490,
+      "hits": 3,
+      "relations": 4,
+      "durationMs": 694.105,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00001",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5881,
+      "hits": 5,
+      "relations": 4,
+      "durationMs": 981.517,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00109",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5104,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 907.534,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00218",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5312,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 929.124,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00326",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5325,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 914.648,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00435",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5088,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 1018.835,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00544",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5322,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 994.619,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00652",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5341,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 884.318,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00761",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5080,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 934.001,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00870",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5333,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 890.83,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00978",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5292,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 874.619,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01087",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5209,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 883.484,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01196",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5392,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 905.916,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01304",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5353,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 976.595,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01413",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5119,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 947.526,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01522",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5340,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 1062.707,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01630",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5379,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 1031.14,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01739",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5191,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 927.359,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01848",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5204,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 898.569,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01956",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5330,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 864.273,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02065",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5112,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 1019.541,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02174",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5366,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 994.07,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02282",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5349,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 1092.383,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02391",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5109,
+      "hits": 5,
+      "relations": 3,
+      "durationMs": 1031.458,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02500",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5786,
+      "hits": 4,
+      "relations": 4,
+      "durationMs": 1015.737,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "PACT00002",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 788,
+      "hits": 1,
+      "relations": 0,
+      "durationMs": 597.238,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "封存",
+      "cutoff": 2500,
+      "budget": 1000,
+      "promptChars": 958,
+      "hits": 0,
+      "relations": 1,
+      "durationMs": 720.201,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "封存",
+      "cutoff": 2500,
+      "budget": 2000,
+      "promptChars": 1923,
+      "hits": 1,
+      "relations": 0,
+      "durationMs": 701.044,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "封存",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 5671,
+      "hits": 3,
+      "relations": 2,
+      "durationMs": 685.343,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "封存",
+      "cutoff": 2500,
+      "budget": 16000,
+      "promptChars": 11860,
+      "hits": 6,
+      "relations": 6,
+      "durationMs": 761.639,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "终卷多前提关联验收",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 1209,
+      "hits": 0,
+      "relations": 1,
+      "durationMs": 817.015,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "终卷多前提关联验收",
+      "cutoff": 2499,
+      "budget": 6000,
+      "promptChars": 0,
+      "hits": 0,
+      "relations": 0,
+      "durationMs": 685.528,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2499,
+        "insertedDocuments": 0,
+        "removedDocuments": 5,
+        "reusedDocuments": 11245
+      }
+    },
+    {
+      "query": "MASK02500",
+      "cutoff": 2499,
+      "budget": 6000,
+      "promptChars": 0,
+      "hits": 0,
+      "relations": 0,
+      "durationMs": 651.298,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2499,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11245
+      }
+    },
+    {
+      "query": "MASK02500",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 2357,
+      "hits": 1,
+      "relations": 1,
+      "durationMs": 705.035,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 1,
+        "reusedChapters": 2499,
+        "insertedDocuments": 5,
+        "removedDocuments": 0,
+        "reusedDocuments": 11245
+      }
+    },
+    {
+      "query": "终卷多前提关联验收",
+      "cutoff": 10,
+      "budget": 6000,
+      "promptChars": 0,
+      "hits": 0,
+      "relations": 0,
+      "durationMs": 237.459,
+      "sync": {
+        "mode": "full",
+        "rebuiltChapters": 0,
+        "reusedChapters": 10,
+        "insertedDocuments": 45,
+        "removedDocuments": 0,
+        "reusedDocuments": 0
+      }
+    },
+    {
+      "query": "FS00001",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4084,
+      "hits": 1,
+      "relations": 4,
+      "durationMs": 24839.257,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 2490,
+        "reusedChapters": 10,
+        "insertedDocuments": 11205,
+        "removedDocuments": 0,
+        "reusedDocuments": 45
+      }
+    },
+    {
+      "query": "RN00001",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 1971,
+      "hits": 1,
+      "relations": 0,
+      "durationMs": 734.533,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 1,
+        "reusedChapters": 2499,
+        "insertedDocuments": 1,
+        "removedDocuments": 1,
+        "reusedDocuments": 11249
+      }
+    },
+    {
+      "query": "PACT00002",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 0,
+      "hits": 0,
+      "relations": 0,
+      "durationMs": 1078.231,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 30,
+        "reusedChapters": 2470,
+        "insertedDocuments": 60,
+        "removedDocuments": 90,
+        "reusedDocuments": 11160
+      }
+    },
+    {
+      "query": "FS00100",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4715,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 688.403,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11220
+      }
+    },
+    {
+      "query": "FS00100",
+      "cutoff": 100,
+      "budget": 6000,
+      "promptChars": 0,
+      "hits": 0,
+      "relations": 0,
+      "durationMs": 906.436,
+      "sync": {
+        "mode": "full",
+        "rebuiltChapters": 0,
+        "reusedChapters": 100,
+        "insertedDocuments": 419,
+        "removedDocuments": 0,
+        "reusedDocuments": 0
+      }
+    },
+    {
+      "query": "FS00100",
+      "cutoff": 2499,
+      "budget": 6000,
+      "promptChars": 0,
+      "hits": 0,
+      "relations": 0,
+      "durationMs": 23760.117,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 2399,
+        "reusedChapters": 100,
+        "insertedDocuments": 10796,
+        "removedDocuments": 0,
+        "reusedDocuments": 419
+      }
+    },
+    {
+      "query": "FS00102",
+      "cutoff": 2499,
+      "budget": 6000,
+      "promptChars": 4707,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 685.753,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2499,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11215
+      }
+    },
+    {
+      "query": "FS00102",
+      "cutoff": 2499,
+      "budget": 6000,
+      "promptChars": 4710,
+      "hits": 3,
+      "relations": 3,
+      "durationMs": 619.287,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2499,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11215
+      }
+    },
+    {
+      "query": "FS00005",
+      "cutoff": 20,
+      "budget": 6000,
+      "promptChars": 3340,
+      "hits": 1,
+      "relations": 3,
+      "durationMs": 360.803,
+      "sync": {
+        "mode": "full",
+        "rebuiltChapters": 0,
+        "reusedChapters": 20,
+        "insertedDocuments": 80,
+        "removedDocuments": 0,
+        "reusedDocuments": 0
+      }
+    },
+    {
+      "query": "白银封蜡FS00001",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4824,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 25574.648,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 2491,
+        "reusedChapters": 9,
+        "insertedDocuments": 11191,
+        "removedDocuments": 21,
+        "reusedDocuments": 59
+      }
+    },
+    {
+      "query": "白银封蜡FS00109",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4748,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 682.014,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00218",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4809,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 738.402,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00326",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4822,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 775.777,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00435",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4732,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 769.534,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00544",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4813,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 755.913,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00652",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4832,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 765.188,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00761",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4718,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 742.212,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00870",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4824,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 781.246,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00978",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4783,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 813.22,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01087",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4835,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 733.108,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01196",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4871,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 777.813,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01304",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4832,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 744.775,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01413",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4745,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 769.18,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01522",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4819,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 772.568,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01630",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4858,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 788.332,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01739",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4817,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 734.133,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01848",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4683,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 724.692,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS01956",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4809,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 743.835,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02065",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4738,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 752.354,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02174",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4845,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 853.266,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02282",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4828,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 909.824,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02391",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4735,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 711.011,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS02500",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4836,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 723.751,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "封蜡为什么会飞到月亮上",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4458,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 543.065,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "ABSENT999999",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 0,
+      "hits": 0,
+      "relations": 0,
+      "durationMs": 500.311,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡ABSENT999999",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4486,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 822.384,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00001 ABSENT999999",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4853,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 733.269,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "白银封蜡FS00001何时登上月亮？",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4824,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 774.408,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "谁把渡口的铜铃藏进了月亮？",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4822,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 943.712,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 1,
+        "reusedChapters": 2499,
+        "insertedDocuments": 1,
+        "removedDocuments": 1,
+        "reusedDocuments": 11249
+      }
+    },
+    {
+      "query": "白银封蜡FS00001",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4824,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 881.997,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "FS00001",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 0,
+      "hits": 0,
+      "relations": 0,
+      "durationMs": 618.644,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 1,
+        "reusedChapters": 2499,
+        "insertedDocuments": 1,
+        "removedDocuments": 1,
+        "reusedDocuments": 11249
+      }
+    },
+    {
+      "query": "赤铜封蜡RN00001",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 4824,
+      "hits": 6,
+      "relations": 0,
+      "durationMs": 740.134,
+      "sync": {
+        "mode": "unchanged",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2500,
+        "insertedDocuments": 0,
+        "removedDocuments": 0,
+        "reusedDocuments": 11250
+      }
+    },
+    {
+      "query": "MASK02500",
+      "cutoff": 2499,
+      "budget": 6000,
+      "promptChars": 0,
+      "hits": 0,
+      "relations": 0,
+      "durationMs": 640.818,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 0,
+        "reusedChapters": 2499,
+        "insertedDocuments": 0,
+        "removedDocuments": 5,
+        "reusedDocuments": 11245
+      }
+    },
+    {
+      "query": "终卷多前提关联验收",
+      "cutoff": 2500,
+      "budget": 6000,
+      "promptChars": 1209,
+      "hits": 0,
+      "relations": 1,
+      "durationMs": 812.409,
+      "sync": {
+        "mode": "incremental",
+        "rebuiltChapters": 2,
+        "reusedChapters": 2498,
+        "insertedDocuments": 6,
+        "removedDocuments": 1,
+        "reusedDocuments": 11244
+      }
+    }
+  ],
+  "mixedQueryRecall": [
+    {
+      "query": "白银封蜡FS00001",
+      "expectedChapter": "stress-chapter-1",
+      "passageRank": 1,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS00109",
+      "expectedChapter": "stress-chapter-109",
+      "passageRank": 1,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS00218",
+      "expectedChapter": "stress-chapter-218",
+      "passageRank": 2,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS00326",
+      "expectedChapter": "stress-chapter-326",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS00435",
+      "expectedChapter": "stress-chapter-435",
+      "passageRank": 1,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS00544",
+      "expectedChapter": "stress-chapter-544",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS00652",
+      "expectedChapter": "stress-chapter-652",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS00761",
+      "expectedChapter": "stress-chapter-761",
+      "passageRank": 1,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS00870",
+      "expectedChapter": "stress-chapter-870",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS00978",
+      "expectedChapter": "stress-chapter-978",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS01087",
+      "expectedChapter": "stress-chapter-1087",
+      "passageRank": 1,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS01196",
+      "expectedChapter": "stress-chapter-1196",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS01304",
+      "expectedChapter": "stress-chapter-1304",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS01413",
+      "expectedChapter": "stress-chapter-1413",
+      "passageRank": 1,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS01522",
+      "expectedChapter": "stress-chapter-1522",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS01630",
+      "expectedChapter": "stress-chapter-1630",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS01739",
+      "expectedChapter": "stress-chapter-1739",
+      "passageRank": 1,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS01848",
+      "expectedChapter": "stress-chapter-1848",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS01956",
+      "expectedChapter": "stress-chapter-1956",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS02065",
+      "expectedChapter": "stress-chapter-2065",
+      "passageRank": 1,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS02174",
+      "expectedChapter": "stress-chapter-2174",
+      "passageRank": 3,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS02282",
+      "expectedChapter": "stress-chapter-2282",
+      "passageRank": 2,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS02391",
+      "expectedChapter": "stress-chapter-2391",
+      "passageRank": 1,
+      "exactGraphEvidence": true
+    },
+    {
+      "query": "白银封蜡FS02500",
+      "expectedChapter": "stress-chapter-2500",
+      "passageRank": 2,
+      "exactGraphEvidence": true
+    }
+  ],
+  "mixedQuerySummary": {
+    "questions": 24,
+    "passageHits": 24,
+    "graphEvidenceHits": 24
+  },
+  "graphDisabledMixedQueries": [
+    {
+      "query": "白银封蜡FS00001",
+      "expectedChapter": "stress-chapter-1",
+      "passageRank": 1,
+      "promptChars": 4824
+    },
+    {
+      "query": "白银封蜡FS00109",
+      "expectedChapter": "stress-chapter-109",
+      "passageRank": 1,
+      "promptChars": 4748
+    },
+    {
+      "query": "白银封蜡FS00218",
+      "expectedChapter": "stress-chapter-218",
+      "passageRank": 2,
+      "promptChars": 4809
+    },
+    {
+      "query": "白银封蜡FS00326",
+      "expectedChapter": "stress-chapter-326",
+      "passageRank": 3,
+      "promptChars": 4822
+    },
+    {
+      "query": "白银封蜡FS00435",
+      "expectedChapter": "stress-chapter-435",
+      "passageRank": 1,
+      "promptChars": 4732
+    },
+    {
+      "query": "白银封蜡FS00544",
+      "expectedChapter": "stress-chapter-544",
+      "passageRank": 3,
+      "promptChars": 4813
+    },
+    {
+      "query": "白银封蜡FS00652",
+      "expectedChapter": "stress-chapter-652",
+      "passageRank": 3,
+      "promptChars": 4832
+    },
+    {
+      "query": "白银封蜡FS00761",
+      "expectedChapter": "stress-chapter-761",
+      "passageRank": 1,
+      "promptChars": 4718
+    },
+    {
+      "query": "白银封蜡FS00870",
+      "expectedChapter": "stress-chapter-870",
+      "passageRank": 3,
+      "promptChars": 4824
+    },
+    {
+      "query": "白银封蜡FS00978",
+      "expectedChapter": "stress-chapter-978",
+      "passageRank": 3,
+      "promptChars": 4783
+    },
+    {
+      "query": "白银封蜡FS01087",
+      "expectedChapter": "stress-chapter-1087",
+      "passageRank": 1,
+      "promptChars": 4835
+    },
+    {
+      "query": "白银封蜡FS01196",
+      "expectedChapter": "stress-chapter-1196",
+      "passageRank": 3,
+      "promptChars": 4871
+    },
+    {
+      "query": "白银封蜡FS01304",
+      "expectedChapter": "stress-chapter-1304",
+      "passageRank": 3,
+      "promptChars": 4832
+    },
+    {
+      "query": "白银封蜡FS01413",
+      "expectedChapter": "stress-chapter-1413",
+      "passageRank": 1,
+      "promptChars": 4745
+    },
+    {
+      "query": "白银封蜡FS01522",
+      "expectedChapter": "stress-chapter-1522",
+      "passageRank": 3,
+      "promptChars": 4819
+    },
+    {
+      "query": "白银封蜡FS01630",
+      "expectedChapter": "stress-chapter-1630",
+      "passageRank": 3,
+      "promptChars": 4858
+    },
+    {
+      "query": "白银封蜡FS01739",
+      "expectedChapter": "stress-chapter-1739",
+      "passageRank": 1,
+      "promptChars": 4817
+    },
+    {
+      "query": "白银封蜡FS01848",
+      "expectedChapter": "stress-chapter-1848",
+      "passageRank": 3,
+      "promptChars": 4683
+    },
+    {
+      "query": "白银封蜡FS01956",
+      "expectedChapter": "stress-chapter-1956",
+      "passageRank": 3,
+      "promptChars": 4809
+    },
+    {
+      "query": "白银封蜡FS02065",
+      "expectedChapter": "stress-chapter-2065",
+      "passageRank": 1,
+      "promptChars": 4738
+    },
+    {
+      "query": "白银封蜡FS02174",
+      "expectedChapter": "stress-chapter-2174",
+      "passageRank": 3,
+      "promptChars": 4845
+    },
+    {
+      "query": "白银封蜡FS02282",
+      "expectedChapter": "stress-chapter-2282",
+      "passageRank": 2,
+      "promptChars": 4828
+    },
+    {
+      "query": "白银封蜡FS02391",
+      "expectedChapter": "stress-chapter-2391",
+      "passageRank": 1,
+      "promptChars": 4735
+    },
+    {
+      "query": "白银封蜡FS02500",
+      "expectedChapter": "stress-chapter-2500",
+      "passageRank": 2,
+      "promptChars": 4836
+    }
+  ],
+  "originalWorkload": {
+    "cases": 11,
+    "preparations": 68,
+    "evidenceChecks": 386,
+    "elapsedMs": 126210.065,
+    "memory": {
+      "sampledHeapPeakMiB": 1672.376,
+      "sampledRssPeakMiB": 1922.328,
+      "processMaxRssMiB": 1952.383
+    }
+  },
+  "mixedQueryWorkload": {
+    "cases": 12,
+    "preparations": 92,
+    "evidenceChecks": 530,
+    "elapsedMs": 169624.886,
+    "memory": {
+      "sampledHeapPeakMiB": 1672.376,
+      "sampledRssPeakMiB": 2137.953,
+      "processMaxRssMiB": 2159.328
+    }
+  },
+  "reviewCases": [
+    {
+      "name": "ordinary-Chinese-partial-candidates",
+      "query": "封蜡为什么会飞到月亮上",
+      "assessment": {
+        "answerability": "unverified",
+        "state": "candidates",
+        "requestedIdentifiers": [],
+        "missingIdentifiers": []
+      },
+      "hits": 6,
+      "relations": 0
+    },
+    {
+      "name": "absent-code-empty",
+      "query": "ABSENT999999",
+      "assessment": {
+        "answerability": "unverified",
+        "state": "none",
+        "requestedIdentifiers": [
+          "absent999999"
+        ],
+        "missingIdentifiers": [
+          "absent999999"
+        ]
+      },
+      "hits": 0,
+      "relations": 0
+    },
+    {
+      "name": "absent-code-keyword-fallback",
+      "query": "白银封蜡ABSENT999999",
+      "assessment": {
+        "answerability": "unverified",
+        "state": "candidates",
+        "requestedIdentifiers": [
+          "absent999999"
+        ],
+        "missingIdentifiers": [
+          "absent999999"
+        ]
+      },
+      "hits": 6,
+      "relations": 0
+    },
+    {
+      "name": "partial-identifiers-are-not-an-answer",
+      "query": "白银封蜡FS00001 ABSENT999999",
+      "assessment": {
+        "answerability": "unverified",
+        "state": "matched",
+        "requestedIdentifiers": [
+          "fs00001",
+          "absent999999"
+        ],
+        "missingIdentifiers": [
+          "absent999999"
+        ]
+      },
+      "hits": 6,
+      "relations": 0
+    },
+    {
+      "name": "existing-topic-without-event-answer",
+      "query": "白银封蜡FS00001何时登上月亮？",
+      "assessment": {
+        "answerability": "unverified",
+        "state": "matched",
+        "requestedIdentifiers": [
+          "fs00001"
+        ],
+        "missingIdentifiers": []
+      },
+      "hits": 6,
+      "relations": 0
+    },
+    {
+      "name": "literal-question-is-still-unanswered",
+      "query": "谁把渡口的铜铃藏进了月亮？",
+      "assessment": {
+        "answerability": "unverified",
+        "state": "matched",
+        "requestedIdentifiers": [],
+        "missingIdentifiers": []
+      },
+      "hits": 6,
+      "relations": 0
+    },
+    {
+      "name": "removed-old-code",
+      "query": "FS00001",
+      "assessment": {
+        "answerability": "unverified",
+        "state": "none",
+        "requestedIdentifiers": [
+          "fs00001"
+        ],
+        "missingIdentifiers": [
+          "fs00001"
+        ]
+      },
+      "hits": 0,
+      "relations": 0
+    },
+    {
+      "name": "replacement-current-code",
+      "query": "赤铜封蜡RN00001",
+      "assessment": {
+        "answerability": "unverified",
+        "state": "matched",
+        "requestedIdentifiers": [
+          "rn00001"
+        ],
+        "missingIdentifiers": []
+      },
+      "hits": 6,
+      "relations": 0
+    },
+    {
+      "name": "future-only-code",
+      "query": "MASK02500",
+      "assessment": {
+        "answerability": "unverified",
+        "state": "none",
+        "requestedIdentifiers": [
+          "mask02500"
+        ],
+        "missingIdentifiers": [
+          "mask02500"
+        ]
+      },
+      "hits": 0,
+      "relations": 0
+    }
+  ],
+  "selections": [
+    {
+      "name": "one-exact-passage",
+      "hitIds": [
+        "passage:[\"stress-chapter-1\",0]"
+      ],
+      "relationIds": [],
+      "promptChars": 2000,
+      "assessment": {
+        "answerability": "unverified",
+        "state": "matched",
+        "requestedIdentifiers": [
+          "fs00001",
+          "absent999999"
+        ],
+        "missingIdentifiers": [
+          "absent999999"
+        ]
+      },
+      "durationMs": 171.871
+    },
+    {
+      "name": "only-partial-candidate",
+      "hitIds": [
+        "clue:\"clue-2\""
+      ],
+      "relationIds": [],
+      "promptChars": 828,
+      "assessment": {
+        "answerability": "unverified",
+        "state": "candidates",
+        "requestedIdentifiers": [
+          "fs00001",
+          "absent999999"
+        ],
+        "missingIdentifiers": [
+          "fs00001",
+          "absent999999"
+        ]
+      },
+      "durationMs": 195.322
+    },
+    {
+      "name": "empty-selection",
+      "hitIds": [],
+      "relationIds": [],
+      "promptChars": 0,
+      "assessment": {
+        "answerability": "unverified",
+        "state": "none",
+        "requestedIdentifiers": [
+          "fs00001",
+          "absent999999"
+        ],
+        "missingIdentifiers": [
+          "fs00001",
+          "absent999999"
+        ]
+      },
+      "durationMs": 179.535
+    },
+    {
+      "name": "unanswered-literal-question",
+      "hitIds": [
+        "passage:[\"stress-chapter-3\",3]"
+      ],
+      "relationIds": [],
+      "promptChars": 1668,
+      "assessment": {
+        "answerability": "unverified",
+        "state": "matched",
+        "requestedIdentifiers": [],
+        "missingIdentifiers": []
+      },
+      "durationMs": 220.883
+    },
+    {
+      "name": "current-source-before-edit",
+      "hitIds": [
+        "passage:[\"stress-chapter-1\",0]"
+      ],
+      "relationIds": [],
+      "promptChars": 1971,
+      "assessment": {
+        "answerability": "unverified",
+        "state": "matched",
+        "requestedIdentifiers": [
+          "fs00001"
+        ],
+        "missingIdentifiers": []
+      },
+      "durationMs": 193.58
+    },
+    {
+      "name": "current-source-after-edit",
+      "hitIds": [
+        "passage:[\"stress-chapter-1\",0]"
+      ],
+      "relationIds": [],
+      "promptChars": 1971,
+      "assessment": {
+        "answerability": "unverified",
+        "state": "matched",
+        "requestedIdentifiers": [
+          "rn00001"
+        ],
+        "missingIdentifiers": []
+      },
+      "durationMs": 220.769
+    },
+    {
+      "name": "complete-two-premise-relation",
+      "hitIds": [],
+      "relationIds": [
+        "confirmed-multiple-premises"
+      ],
+      "promptChars": 1209,
+      "assessment": {
+        "answerability": "unverified",
+        "state": "candidates",
+        "requestedIdentifiers": [],
+        "missingIdentifiers": []
+      },
+      "durationMs": 321.259
+    }
+  ],
+  "rejectedSelections": 1,
+  "reviewFixtureAddedChars": 43,
+  "evidenceChecks": 581,
+  "externalRequests": 0,
+  "mockedProviderRequests": 1,
+  "memory": {
+    "sampledHeapPeakMiB": 1672.376,
+    "sampledRssPeakMiB": 2138.262,
+    "processMaxRssMiB": 2159.617
+  },
+  "limitations": [
+    "Deterministic synthetic Chinese fiction; this is not a language-model retrieval or writing-quality evaluation.",
+    "Node service execution excludes browser Worker serialization, editor layout and real provider latency.",
+    "Single-run wall times depend on this machine. Sampled heap can miss synchronous peaks; process max RSS is separately reported."
+  ]
+}
