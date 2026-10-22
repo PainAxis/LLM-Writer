@@ -47,8 +47,16 @@ const sample = () => {
   observedRss = Math.max(observedRss, value.rss)
 }
 const sampler = setInterval(sample, 25)
-const sourcePaths = ['src/services/memory/engine.ts', 'src/services/memory/providers.ts', 'src/services/memory/identifiers.ts', 'src/services/memory/matchSignals.ts', 'src/services/memory/revision.ts']
-const implementationHashes = Object.fromEntries(await Promise.all(sourcePaths.map(async filename => [filename, sha256(await readFile(path.join(engineRoot, filename)))])))
+const optionalSourcePaths = new Set(['src/services/memory/tokenScoreIndex.ts'])
+const sourcePaths = ['src/services/memory/engine.ts', 'src/services/memory/providers.ts', 'src/services/memory/identifiers.ts', 'src/services/memory/matchSignals.ts', 'src/services/memory/revision.ts', 'package-lock.json', ...optionalSourcePaths]
+async function implementationHash(filename: string) {
+  try { return sha256(await readFile(path.join(engineRoot, filename))) }
+  catch (error) {
+    if (optionalSourcePaths.has(filename) && (error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
+const implementationHashes = Object.fromEntries(await Promise.all(sourcePaths.map(async filename => [filename, await implementationHash(filename)])))
 const harnessHashes = {
   script: sha256(await readFile(fileURLToPath(import.meta.url))),
   fixture: sha256(await readFile(new URL('./fixtures/memory-stress-corpus.ts', import.meta.url))),
@@ -148,7 +156,9 @@ async function localSearch(index: MemoryIndexType, project: MemoryProjectInput, 
   await validate(result, project, stats)
   assert.equal(result.diagnostics.semantic, 'disabled')
   assert.equal(result.diagnostics.rerank, 'disabled')
+  const { searchMs: _searchMs, ...immutableResult } = result
   searches.push({ operation, query, cutoff, searchMs: rounded(result.searchMs), assessment: result.assessment,
+    resultSha256: sha256(JSON.stringify(immutableResult)),
     hitIds: result.hits.map(hit => hit.id), sourceRevisions: result.hits.map(hit => hit.revision) })
   return result
 }
@@ -165,6 +175,16 @@ async function regression(index: MemoryIndexType, project: MemoryProjectInput, s
     const rank = result.hits.findIndex(hit => hit.chapterId === probe.chapterId && hit.quote.includes(probe.quote)) + 1
     assert.ok(rank > 0, `Mixed Chinese/exact-code recall must remain intact: ${probe.id}`)
     Object.assign(searches.at(-1)!, { expectedChapter: probe.chapterId, rank })
+  }
+  // Preserve natural-query misses too. An optimization must not silently alter ranking
+  // or mislabel weak/no-answer candidates as verified answers to improve its numbers.
+  for (const probe of corpus.naturalQueries) {
+    const result = await localSearch(index, project, stats, probe.query, probe.throughChapterId, `${operation}:natural-query`)
+    Object.assign(searches.at(-1)!, { relevantChapterIds: probe.relevantChapterIds,
+      relevantRanks: result.hits.flatMap((hit, position) => probe.relevantChapterIds.includes(hit.chapterId) ? [position + 1] : []) })
+  }
+  for (const query of corpus.negativeQueries) {
+    await localSearch(index, project, stats, query, project.chapters.at(-1)!.id, `${operation}:known-unanswered`)
   }
   for (const secret of corpus.futureSecrets) {
     const hidden = await localSearch(index, project, stats, secret.query, secret.beforeChapterId, `${operation}:future-hidden`)
@@ -382,7 +402,7 @@ try {
   if (profile === 'semantic') await semanticProfile()
   else await localProfile()
   assert.equal(networkAttempts, 0)
-  for (const filename of sourcePaths) assert.equal(sha256(await readFile(path.join(engineRoot, filename))), implementationHashes[filename], 'Measured implementation must not change during a run')
+  for (const filename of sourcePaths) assert.equal(await implementationHash(filename), implementationHashes[filename], 'Measured implementation must not change during a run')
   assert.equal(sha256(await readFile(fileURLToPath(import.meta.url))), harnessHashes.script, 'Harness must remain frozen during the run')
   assert.equal(sha256(await readFile(new URL('./fixtures/memory-stress-corpus.ts', import.meta.url))), harnessHashes.fixture)
   assert.equal(sha256(await readFile(new URL('../src/services/memory/revision.ts', import.meta.url))), harnessHashes.revision)

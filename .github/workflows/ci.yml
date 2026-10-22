@@ -29,18 +29,24 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
-      # Fixed pre-optimization source; both versions use this checkout's identical harness.
+      # Frozen hydration experiment: both production endpoints are pinned.
+      # Current-engine correctness is checked by the other jobs; cold indexing has its own pair.
       # This optimization's frozen comparison contract: docs/memory-capacity.md.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: 760042683405760428688d1a7d7f0346e2ff77d3
           path: .capacity-baseline
           persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 7739cb0f6d020e4e05d0bff8d9d18f59f3d903c0
+          path: .capacity-hydration
+          persist-credentials: false
       - name: Measure committed reads in ABBA order
         run: |
           node scripts/benchmark-memory-source.mjs --source-root=.capacity-baseline --profile=all --label=baseline-a --output=artifacts/memory-capacity/paired
-          node scripts/benchmark-memory-source.mjs --profile=all --label=candidate-a --output=artifacts/memory-capacity/paired
-          node scripts/benchmark-memory-source.mjs --profile=all --label=candidate-b --output=artifacts/memory-capacity/paired
+          node scripts/benchmark-memory-source.mjs --source-root=.capacity-hydration --profile=all --label=candidate-a --output=artifacts/memory-capacity/paired
+          node scripts/benchmark-memory-source.mjs --source-root=.capacity-hydration --profile=all --label=candidate-b --output=artifacts/memory-capacity/paired
           node scripts/benchmark-memory-source.mjs --source-root=.capacity-baseline --profile=all --label=baseline-b --output=artifacts/memory-capacity/paired
       - name: Verify equivalent evidence and read accounting
         run: >-
@@ -57,6 +63,42 @@ jobs:
         with:
           name: memory-capacity-evidence-${{ github.run_attempt }}
           path: artifacts/memory-capacity
+          if-no-files-found: warn
+          retention-days: 7
+
+  memory-cold-index:
+    name: ci-memory-cold-index
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 7739cb0f6d020e4e05d0bff8d9d18f59f3d903c0
+          path: .cold-index-baseline
+          persist-credentials: false
+      - name: Measure cold and new-instance builds with identical retrieval in ABBA order
+        run: |
+          for profile in million ten-million; do
+            node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --engine-root=.cold-index-baseline --profile=$profile --label=baseline-a --output=artifacts/memory-cold-index
+            node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --profile=$profile --label=candidate-a --output=artifacts/memory-cold-index
+            node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --profile=$profile --label=candidate-b --output=artifacts/memory-cold-index
+            node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --engine-root=.cold-index-baseline --profile=$profile --label=baseline-b --output=artifacts/memory-cold-index
+            node scripts/compare-memory-cold-index.mjs --baseline=artifacts/memory-cold-index/baseline-a-$profile.json --baseline=artifacts/memory-cold-index/baseline-b-$profile.json --candidate=artifacts/memory-cold-index/candidate-a-$profile.json --candidate=artifacts/memory-cold-index/candidate-b-$profile.json --output=artifacts/memory-cold-index/comparison-$profile.json
+          done
+      - name: Upload cold index measurements
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: memory-cold-index-evidence-${{ github.run_attempt }}
+          path: artifacts/memory-cold-index
           if-no-files-found: warn
           retention-days: 7
 

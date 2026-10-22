@@ -15,6 +15,7 @@ import { chapterRevision } from './revision'
 import { identifierEdges, memoryIdentifiers } from './identifiers'
 import { buildMemoryMatch, summarizeMemoryMatches } from './matchSignals'
 import { embedMemoryTexts, normalizeEmbeddingConfig, normalizeRerankConfig, rerankMemoryTexts } from './providers'
+import { createTokenScoreIndex } from './tokenScoreIndex'
 
 // Deliberately generous prototype limits, including novels well beyond 1M Chinese characters.
 const MAX_CHARS = 20_000_000
@@ -68,7 +69,9 @@ function createMemoryTokenizer(): Tokenizer {
 }
 
 function createDatabase() {
-  return create({ schema, sort: { enabled: false }, components: { tokenizer: createMemoryTokenizer() } })
+  return create({ schema, sort: { enabled: false }, components: {
+    tokenizer: createMemoryTokenizer(), index: createTokenScoreIndex(),
+  } })
 }
 
 type EvidenceRecord = Omit<MemoryEvidence, 'score' | 'reason' | 'match'>
