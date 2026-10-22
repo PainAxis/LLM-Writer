@@ -1,0 +1,123 @@
+{
+  "status": "passed",
+  "implementationCommit": "86eb1a2760bba172b9ab33adb262d3fd3f7bb36b",
+  "profiles": [
+    {
+      "dimensions": 128,
+      "sourceChecks": 48,
+      "processMaxRssMiB": 296.816,
+      "cold": {
+        "medianMs": 472.239,
+        "rangeMs": [
+          454.257,
+          491.732
+        ],
+        "medianCpuMs": 238.022,
+        "calls": 129,
+        "sourceChars": 411809,
+        "responseBytes": 5203224,
+        "largestResponseBytes": 40645,
+        "sampledHeapPeakMiB": 158.312,
+        "sampledRssPeakMiB": 296.816,
+        "sampledArrayBuffersPeakMiB": 5.762,
+        "residentVectorPayloadBytes": 1024000
+      },
+      "immediate-warm": {
+        "medianMs": 329.134,
+        "rangeMs": [
+          325.391,
+          329.662
+        ],
+        "medianCpuMs": 152.556,
+        "calls": 67,
+        "sourceChars": 210207,
+        "responseBytes": 2663214,
+        "largestResponseBytes": 40645,
+        "sampledHeapPeakMiB": 159.242,
+        "sampledRssPeakMiB": 296.773,
+        "sampledArrayBuffersPeakMiB": 5.463,
+        "residentVectorPayloadBytes": 1024000
+      }
+    },
+    {
+      "dimensions": 512,
+      "sourceChecks": 48,
+      "processMaxRssMiB": 312.762,
+      "cold": {
+        "medianMs": 747.522,
+        "rangeMs": [
+          746.689,
+          910.605
+        ],
+        "medianCpuMs": 636.912,
+        "calls": 129,
+        "sourceChars": 411809,
+        "responseBytes": 20497325,
+        "largestResponseBytes": 160101,
+        "sampledHeapPeakMiB": 168.23,
+        "sampledRssPeakMiB": 312.637,
+        "sampledArrayBuffersPeakMiB": 12.432,
+        "residentVectorPayloadBytes": 4096000
+      },
+      "immediate-warm": {
+        "medianMs": 507.086,
+        "rangeMs": [
+          492.142,
+          511.13
+        ],
+        "medianCpuMs": 341.397,
+        "calls": 67,
+        "sourceChars": 210207,
+        "responseBytes": 10491315,
+        "largestResponseBytes": 160101,
+        "sampledHeapPeakMiB": 165.384,
+        "sampledRssPeakMiB": 311.52,
+        "sampledArrayBuffersPeakMiB": 12.793,
+        "residentVectorPayloadBytes": 4096000
+      }
+    },
+    {
+      "dimensions": 4096,
+      "sourceChecks": 48,
+      "processMaxRssMiB": 431.141,
+      "cold": {
+        "medianMs": 3645.963,
+        "rangeMs": [
+          3309.931,
+          3760.819
+        ],
+        "medianCpuMs": 4503.984,
+        "calls": 129,
+        "sourceChars": 411809,
+        "responseBytes": 163212223,
+        "largestResponseBytes": 1274789,
+        "sampledHeapPeakMiB": 186.088,
+        "sampledRssPeakMiB": 423.746,
+        "sampledArrayBuffersPeakMiB": 49.047,
+        "residentVectorPayloadBytes": 32768000
+      },
+      "immediate-warm": {
+        "medianMs": 1883.156,
+        "rangeMs": [
+          1788.164,
+          1933.155
+        ],
+        "medianCpuMs": 2307.371,
+        "calls": 67,
+        "sourceChars": 210207,
+        "responseBytes": 83538213,
+        "largestResponseBytes": 1274789,
+        "sampledHeapPeakMiB": 195.937,
+        "sampledRssPeakMiB": 431.016,
+        "sampledArrayBuffersPeakMiB": 52.901,
+        "residentVectorPayloadBytes": 32768000
+      }
+    }
+  ],
+  "reports": {
+    "dense-128.json": "690782c1691af5633acacad6d12314f574c30496411d02d17361e5074cbdf7e2",
+    "dense-512.json": "a80eb33a12d10460e633c2db83b99d75349d5be9857f62232b4ef53599202470",
+    "dense-4096.json": "052cc46437330716f8d80a05bc490eb22a3bb96577e873c6d34916f0944a9fd8"
+  },
+  "limitations": "Synthetic dense JSON parsing and engine capacity only; not actual embedding quality, network latency or browser memory. Three samples per cold/warm state in one fresh process for each dimension. Not a paired speedup study."
+}

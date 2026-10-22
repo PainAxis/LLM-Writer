@@ -1,0 +1,40 @@
+{
+  "implementationCommit": "86eb1a2760bba172b9ab33adb262d3fd3f7bb36b",
+  "localValidation": {
+    "strictLint": "passed",
+    "productionBuildIncludingTypecheck": "passed",
+    "smokeSuites": 86,
+    "smokeStatus": "passed",
+    "memoryStress": {
+      "local": {
+        "status": "passed",
+        "sha256": "46fa8d4c644d15873a3efda78773ce7e82f3a925fddcc3885a09650e3cdef663",
+        "reproduce": "npm run test:memory-stress-local"
+      },
+      "hybrid": {
+        "status": "passed",
+        "sha256": "0226e8d9b1d7692f57304e7fc328cca79aea1c76b7645f1c4e258721e6041baf",
+        "reproduce": "npm run test:memory-stress-hybrid"
+      }
+    },
+    "fullScanProfiles": 3,
+    "fullScanColdWarmPairsPerProfile": 3,
+    "fullScanExactSourceChecks": 144,
+    "controlledIndependentProbes": 46,
+    "controlledIndependentPremises": 62,
+    "controlledColdAndWarmAllPremisesTop5": "passed",
+    "protocolPositiveProbes": 4,
+    "localRegressionProbes": 4,
+    "closedFixtureNegativeProbes": 4,
+    "realAdapterMiddleBatchFailureRetry": "passed",
+    "realAdapterMalformedWholeBatchRetry": "passed",
+    "realAdapterSourceInvalidationLateResponse": "passed"
+  },
+  "browser": {
+    "localExecution": "not-run",
+    "reason": "Local Chromium launch unavailable in this environment; no launch restriction bypass. Dedicated GitHub CI job is mandatory.",
+    "script": "scripts/browser-memory-full-scan.mjs",
+    "configuredScenarios": 16
+  },
+  "scope": "Synthetic engineering coverage and capacity only. No real embedding/model request or quality validation. Does not complete stage three."
+}

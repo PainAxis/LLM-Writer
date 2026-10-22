@@ -76,12 +76,78 @@ export interface MemoryRerankConfig {
   apiKey: string
 }
 
+/** Explicit, bounded author authorization. Processing time excludes decision waits. */
+export interface MemoryFullScanOptions {
+  maxCalls: number
+  maxActiveMs: number
+}
+
+export interface MemoryFullScanHandle {
+  sessionId: string
+  generation: number
+}
+
+/** Counts only. No source text, intermediate hits, provider identities, or vectors. */
+export interface MemoryFullScanProgress extends MemoryFullScanHandle {
+  eligiblePassages: number
+  cachedPassages: number
+  missingPassages: number
+  scoredPassages: number
+  embeddedPassages: number
+  scoredCachedPassages: number
+  sourceChars: number
+  attemptedSourceChars: number
+  queryCalls: number
+  passageCalls: number
+  rerankCalls: number
+  callsAttempted: number
+  callsApproved: number
+  activeMsUsed: number
+  activeMsApproved: number
+  coldEstimatedCalls: number
+  currentEstimatedCalls: number
+  /** Absolute wall-clock expiry; not an extra processing-time allowance. */
+  expiresAt: number
+}
+
+export interface MemoryFullScanGrant extends MemoryFullScanHandle {
+  grantId: string
+  addCalls: number
+  addActiveMs: number
+}
+
+export type MemoryFullScanDecision =
+  | ({ type: 'continue' } & MemoryFullScanGrant)
+  | ({ type: 'use-local' | 'cancel' } & MemoryFullScanHandle)
+
+export interface MemoryFullScanPause {
+  reason: 'ready' | 'budget' | 'provider'
+  progress: MemoryFullScanProgress
+}
+
+export interface MemorySearchControls {
+  signal?: AbortSignal
+  onProgress?: (progress: MemoryFullScanProgress) => void
+  onPause?: (pause: MemoryFullScanPause) => Promise<MemoryFullScanDecision> | MemoryFullScanDecision
+}
+
+export type MemoryFullScanPage =
+  | { state: 'ready' | 'page-complete' | 'paused-budget' | 'paused-provider'; progress: MemoryFullScanProgress }
+  | { state: 'complete'; progress: MemoryFullScanProgress; result: MemorySearchResult }
+
+export interface MemoryFullScanDiagnostics extends MemoryFullScanProgress {
+  status: 'complete' | 'stopped-local'
+  coverage: 'complete' | 'incomplete'
+}
+
 export interface MemoryRemoteOptions {
+  fullScan?: MemoryFullScanOptions
   embedding?: MemoryEmbeddingConfig
   rerank?: MemoryRerankConfig
 }
 
 export interface MemoryRetrievalDiagnostics {
+  fullScan?: MemoryFullScanDiagnostics
   semantic: 'disabled' | 'used' | 'fallback'
   rerank: 'disabled' | 'used' | 'fallback' | 'skipped'
   eligiblePassages: number
@@ -143,10 +209,18 @@ export type MemoryWorkerRequest =
   | { id: number; type: 'invalidate' }
   | { id: number; type: 'sync'; project: MemoryProjectInput }
   | { id: number; type: 'search'; query: MemoryQuery; options?: MemoryRemoteOptions; guardRemote?: boolean }
-  | { id: number; type: 'remote-ack'; guardId: number; ok: boolean }
+  | { id: number; type: 'full-scan-start'; handle: MemoryFullScanHandle; query: MemoryQuery; options: MemoryRemoteOptions; guardRemote?: boolean }
+  | { id: number; type: 'full-scan-advance'; handle: MemoryFullScanHandle }
+  | { id: number; type: 'full-scan-resume'; grant: MemoryFullScanGrant }
+  | { id: number; type: 'full-scan-local'; handle: MemoryFullScanHandle }
+  | { id: number; type: 'full-scan-cancel'; handle: MemoryFullScanHandle }
+  | { id: number; type: 'remote-ack'; guardId: number; ok: boolean; handle?: MemoryFullScanHandle }
 
 export type MemoryWorkerResponse =
-  | { id: number; ok: true; type: 'remote-check'; guardId: number }
+  | { id: number; ok: true; type: 'full-scan'; page: MemoryFullScanPage }
+  | { id: number; ok: true; type: 'full-scan-local'; handle: MemoryFullScanHandle; result: MemorySearchResult }
+  | { id: number; ok: true; type: 'full-scan-cancel'; handle: MemoryFullScanHandle }
+  | { id: number; ok: true; type: 'remote-check'; guardId: number; handle?: MemoryFullScanHandle }
   | { id: number; ok: true; type: 'sync'; result: MemoryIndexStats }
   | { id: number; ok: true; type: 'search'; result: MemorySearchResult }
-  | { id: number; ok: false; error: string }
+  | { id: number; ok: false; error: string; handle?: MemoryFullScanHandle }

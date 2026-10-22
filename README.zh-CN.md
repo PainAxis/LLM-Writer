@@ -21,7 +21,8 @@
 
 - **事实关系图**：用 Cytoscape.js 展示人物、事件、物件和地点，点击关系查看章节、修订版本与原文片段；可创建、审阅有原文依据的关系，区分原文明示、模型推断与作者确认，并可选从已选且已披露的片段请求模型提议。过期修订与未来依据不会进入可见图谱。见[图谱范围与试用说明](docs/memory-fact-graph.zh-CN.md)。
 - **写作记忆依据**：章节正文生成、续写与润色可主动启用检索，选择披露截止章，预览后逐项选择原文或完整关系，再核对加入生成上下文；匹配提示不验证是否有答案，见[依据审阅](docs/memory-evidence-review.zh-CN.md)。发送、生成完成及应用前重新校验修订。嵌入与重排分别主动启用，凭据仅留当前页面。见[写作检索上下文](docs/writer-memory-context.zh-CN.md)。
-- **记忆检索原型**：Orama 关键词与人工伏笔召回、可选语义嵌入与重排、章节版本校验、外部请求前的披露范围过滤，以及依据面板。修改章节可增量更新，从 Writer 标签页返回后经重新验证来源，可复用兼容缓存向量。外部服务默认关闭，设置与密钥仅保留在页面会话中。中文／代码混合查询也使用[本地精确代码候选](docs/memory-mixed-query-recall.zh-CN.md)。入口为侧栏“记忆检索 · 原型”；[试用与范围说明](docs/memory-prototype.zh-CN.md)。[冷索引改动](docs/memory-cold-index.zh-CN.md)严格保留评分，不增加持久化索引快照或语义容量上限；[第三阶段四条完成契约](ROADMAP.zh-CN.md#第三阶段完成契约)明确转入第四阶段受限 Agent 前的剩余范围。
+- **记忆检索原型**：Orama 关键词与作者伏笔检索、可选语义嵌入和重排、章节修订校验、外部请求前的披露隔离及原文依据。改动章节增量更新；返回 Writer 后，经过新鲜来源校验可复用兼容向量。外部服务默认关闭，配置和密钥仅留在页面会话；中英编号混合查询还有[精确本地候选](docs/memory-mixed-query-recall.zh-CN.md)。侧边栏打开「记忆检索 · 原型」，详见[范围与操作](docs/memory-prototype.zh-CN.md)。已合并的[冷索引优化](docs/memory-cold-index.zh-CN.md)保留精确评分。
+- **全范围语义扫描**：默认关闭的[明确授权扫描](docs/memory-full-range-semantics.zh-CN.md)：先看零请求计划，再明确开始，在累计预算内覆盖全部已披露原文，保留 2,000 条／32 MiB 向量缓存。专项合成测试不证明真实语义质量，完整验收仍以当前修订审阅与 CI 为准；答案仍未验证。[第三阶段四条工作线](ROADMAP.zh-CN.md#第三阶段完成契约)继续限定第四阶段 Agent 启动前的剩余范围。
 
 ### 创作工作台
 - **小说管理**：多类型模板创建项目、元数据管理、章节三状态（草稿/完成/发表）、封面、导入导出；章节修改后正文计数、预览与导出保持一致
@@ -131,12 +132,17 @@ npm run smoke:memory-incremental      # 章节变更、索引复用与恢复
 npm run smoke:memory-client           # Worker 失效与缓存生命周期
 npm run smoke:memory-providers        # 嵌入／重排请求格式与响应校验
 npm run smoke:memory-hybrid           # 混合检索、缓存、回退与过期响应
+npm run smoke:memory-full-scan        # 冻结 46 查询／62 前提，生产适配器与完整覆盖
+npm run smoke:memory-full-scan-session # 累计预算、缓存优先、分页与原子重试
+npm run smoke:memory-full-scan-client  # Worker／回调取消、到期与丢失会话
+npm run smoke:writer-full-scan-ui     # 计划／开始、来源校验与纯本地结束
+npm run test:browser-memory-full-scan # 生产构建扫描与三种 Writer 入口
 npm run smoke:memory-fact-graph       # 原文图谱、修订、披露与长篇夹具
 npm run smoke:memory-fact-store       # 图谱存储、写入失败与并发标签页
 npm run smoke:memory-fact-extraction  # 有限模型提议、仅原文请求与无效响应
 ```
 
-CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、82 组冒烟测试与 134 个 Chromium 场景，其中包括 9 个专门的超长篇压力场景，Writer 套件另覆盖长篇实际业务。独立记忆压力任务运行本地容量与受控服务测试。`ci-memory-capacity` 保留历史固定端点的 Chromium 正文加载对照；`ci-memory-cold-index` 以固定基线 `7739cb0` 按 ABBA 顺序比较冷构建／新实例重建和完整检索结果，见[冷索引复现与限制](docs/memory-cold-index.zh-CN.md)及[历史容量测量](docs/memory-capacity.zh-CN.md)；有界语义缓存核算仍单独进行。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
+CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、86 组冒烟测试与生产构建 Chromium 套件，包括超长篇压力、Writer 实际业务及明确授权的全范围扫描验收。独立记忆压力任务运行本地容量与受控服务测试。`ci-memory-capacity` 保留历史固定端点的 Chromium 正文加载对照；`ci-memory-cold-index` 保留历史冷构建／新实例 ABBA 对照，两端均固定为 `7739cb0` 与已合并的冷索引修订 `ed83bfe`，比较器不变；当前生产实现另由 86 组冒烟、压力测试及 `ci-memory-full-scan` 适配器容量／浏览器任务验证。见[冷索引复现与限制](docs/memory-cold-index.zh-CN.md)及[历史容量测量](docs/memory-capacity.zh-CN.md)；有界语义缓存核算仍单独进行。这些数量表示已配置的覆盖范围，验证状态以当前提交的 CI 结果为准。详见[增量索引与缓存生命周期](docs/memory-incremental-index.zh-CN.md)、[超长篇压力测试及结果](docs/memory-stress-tests.zh-CN.md)与[本地浏览器配置](scripts/browser-testing.md)。
 
 ### 首次使用
 1. 点击右上角「API配置」，选择服务商并填入 API 地址与密钥（可选：同步模型列表、配置代理前缀）
@@ -147,6 +153,7 @@ CI 配置在 PR 和 main 更新时执行严格 lint、生产构建、82 组冒�
 
 - [目录结构](PROJECT_STRUCTURE.zh-CN.md)
 - [路线图](ROADMAP.zh-CN.md)
+- [全范围语义扫描：授权、成本、复现与限制](docs/memory-full-range-semantics.zh-CN.md)
 - [更新日志](CHANGELOG.md) · [下载发布版](https://github.com/PainAxis/LLM-Writer/releases) · [发布流程](scripts/releasing.md)
 
 ## 🐳 Docker 部署

@@ -8,6 +8,9 @@ import type { VisibleFactRelation } from '@/types/factGraph'
 export interface WriterMemoryProviders {
   embeddingEnabled: boolean
   rerankEnabled: boolean
+  fullScanEnabled: boolean
+  fullScanMaxCalls: number
+  fullScanMaxActiveMs: number
   embedding: MemoryEmbeddingConfig
   rerank: MemoryRerankConfig
 }
@@ -32,6 +35,9 @@ export function createWriterMemoryProviders(): WriterMemoryProviders {
   return {
     embeddingEnabled: false,
     rerankEnabled: false,
+    fullScanEnabled: false,
+    fullScanMaxCalls: 160,
+    fullScanMaxActiveMs: 65_000,
     embedding: {
       protocol: 'jina', endpoint: 'https://api.jina.ai/v1/embeddings',
       model: 'jina-embeddings-v3', apiKey: '', dimensions: 512,
@@ -46,6 +52,9 @@ export function createWriterMemoryProviders(): WriterMemoryProviders {
 /** Copy only explicitly enabled provider settings at the request boundary. */
 export function writerMemoryRemoteOptions(providers: WriterMemoryProviders): MemoryRemoteOptions {
   return {
+    ...(providers.embeddingEnabled && providers.fullScanEnabled ? { fullScan: {
+      maxCalls: providers.fullScanMaxCalls, maxActiveMs: providers.fullScanMaxActiveMs,
+    } } : {}),
     ...(providers.embeddingEnabled ? { embedding: { ...providers.embedding } } : {}),
     ...(providers.rerankEnabled ? { rerank: { ...providers.rerank } } : {}),
   }

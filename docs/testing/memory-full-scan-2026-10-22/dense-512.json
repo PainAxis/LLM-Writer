@@ -1,0 +1,255 @@
+{
+  "status": "passed",
+  "label": "dense-512",
+  "dimensions": 512,
+  "rounds": 3,
+  "startedAt": "2026-10-22T16:59:37.058Z",
+  "commit": "86eb1a2760bba172b9ab33adb262d3fd3f7bb36b",
+  "workingTreeChanged": false,
+  "implementationHashes": {
+    "src/services/memory/engine.ts": "c6424d09fe6f9889c51bb59239e6b909d6decd6b1a5fb9bd13b9ae68968b33d0",
+    "src/services/memory/fullSemanticScan.ts": "a51dabe6edf4436d4a4cc3571926b62d9f4f7ea6a6eba34cda7a1bdeca673a4d",
+    "src/services/memory/providers.ts": "b0c66a1c1a36198af1f5dc9563d19fc806aaab4165845d2a90124fea6fcf0f06",
+    "src/services/memory/tokenScoreIndex.ts": "ca9b6ec251832409beb5cae749e6601b2937a87850f35ee43310246b4d2641d9",
+    "src/services/memory/identifiers.ts": "0e0fe01aa82a8cb0e991e38c0cd4d3a7117951cb37524559b4f0403fa68d8f45",
+    "src/services/memory/matchSignals.ts": "e0bf6a7e60a24545363a0237815b0f447e4e12bdc920b483c41543c2ccc5cd9d",
+    "src/services/memory/revision.ts": "9e99bb1aae13ea2a0d6f95832875705ba626b17fbb1d895b50ec7b241ea859bb",
+    "src/types/memory.ts": "5b70f7ecbd3f1e601253ab9b3060771830523ad7003fed32929bc838647bb263",
+    "package-lock.json": "c7736b45bc7acf35a65f0d5f9e090c3ee229c0340b7bbe6202b08860d2169a28"
+  },
+  "harnessHashes": {
+    "scripts/benchmark-memory-full-scan.mjs": "6c2afc0bf471749dfd4b5a3d179b7dbe6b19781e8519945af9378de63b3828cc",
+    "scripts/fixtures/memory-semantic-fixture.mjs": "553504ad3f5b2223a90d945f16d8815325f5288c129a946e5407fb54454d17ae"
+  },
+  "fixtureHashes": {
+    "corpus": "6cb8be20910e7d313f4ebed5756f0048301cf74ed1a01472c117e4605b524b5a",
+    "cases": "8b58cbb85e41ddd3d69df99c2af3c17c649b039358370aecadd4661033b947d4",
+    "vectors": "f5af160a990212bb927159ec66d4c20e91ce79ef37ea6b1cfbcf880a401959dc",
+    "mutations": "73f823065e7619bdaf19c603138253488af255897646f417b79cf9ee8683ab72"
+  },
+  "fixture": {
+    "passages": 4096,
+    "sourceChars": 411809,
+    "caseId": "eval-multi-9"
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpus": 9,
+    "loadAverage": [
+      0.13,
+      0.22,
+      0.29
+    ]
+  },
+  "provider": "In-process dense decimal JSON fixture through production providers.ts bounded parsing; no external network, no real model and no simulated latency.",
+  "phases": [
+    {
+      "round": 1,
+      "state": "cold",
+      "elapsedMs": 746.689,
+      "cpuMs": 547.516,
+      "activeMsUsed": 743.373,
+      "pages": 17,
+      "resultDigest": "0963956d611fcc27f5ea3945797dfec418e2b8e4be74adccf1d932f547539267",
+      "callsAttempted": 129,
+      "guardChecks": 129,
+      "embeddedPassages": 4096,
+      "scoredCachedPassages": 0,
+      "sourceCharsSent": 411809,
+      "requestBytes": 1229498,
+      "responseBytes": 20497325,
+      "largestResponseBytes": 160101,
+      "residentVectorEntries": 2000,
+      "residentVectorPayloadBytes": 4096000,
+      "memory": {
+        "heapBeforeMiB": 102.754,
+        "heapAfterMiB": 120.856,
+        "sampledHeapPeakMiB": 163.406,
+        "sampledRssPeakMiB": 306.301,
+        "sampledArrayBuffersPeakMiB": 12.432,
+        "processMaxRssMiB": 306.551
+      },
+      "projectedSequentialProviderMs": {
+        "100": 12900,
+        "500": 64500,
+        "1500": 193500
+      }
+    },
+    {
+      "round": 1,
+      "state": "immediate-warm",
+      "elapsedMs": 507.086,
+      "cpuMs": 341.397,
+      "activeMsUsed": 505.772,
+      "pages": 9,
+      "resultDigest": "0963956d611fcc27f5ea3945797dfec418e2b8e4be74adccf1d932f547539267",
+      "callsAttempted": 67,
+      "guardChecks": 67,
+      "embeddedPassages": 2096,
+      "scoredCachedPassages": 2000,
+      "sourceCharsSent": 210207,
+      "requestBytes": 628841,
+      "responseBytes": 10491315,
+      "largestResponseBytes": 160101,
+      "residentVectorEntries": 2000,
+      "residentVectorPayloadBytes": 4096000,
+      "memory": {
+        "heapBeforeMiB": 105.084,
+        "heapAfterMiB": 112.581,
+        "sampledHeapPeakMiB": 163.181,
+        "sampledRssPeakMiB": 308.441,
+        "sampledArrayBuffersPeakMiB": 12.651,
+        "processMaxRssMiB": 308.566
+      },
+      "projectedSequentialProviderMs": {
+        "100": 6700,
+        "500": 33500,
+        "1500": 100500
+      }
+    },
+    {
+      "round": 2,
+      "state": "cold",
+      "elapsedMs": 910.605,
+      "cpuMs": 798.577,
+      "activeMsUsed": 908.29,
+      "pages": 17,
+      "resultDigest": "0963956d611fcc27f5ea3945797dfec418e2b8e4be74adccf1d932f547539267",
+      "callsAttempted": 129,
+      "guardChecks": 129,
+      "embeddedPassages": 4096,
+      "scoredCachedPassages": 0,
+      "sourceCharsSent": 411809,
+      "requestBytes": 1229498,
+      "responseBytes": 20497325,
+      "largestResponseBytes": 160101,
+      "residentVectorEntries": 2000,
+      "residentVectorPayloadBytes": 4096000,
+      "memory": {
+        "heapBeforeMiB": 104.23,
+        "heapAfterMiB": 116.09,
+        "sampledHeapPeakMiB": 165.951,
+        "sampledRssPeakMiB": 310.492,
+        "sampledArrayBuffersPeakMiB": 11.209,
+        "processMaxRssMiB": 310.617
+      },
+      "projectedSequentialProviderMs": {
+        "100": 12900,
+        "500": 64500,
+        "1500": 193500
+      }
+    },
+    {
+      "round": 2,
+      "state": "immediate-warm",
+      "elapsedMs": 511.13,
+      "cpuMs": 342.732,
+      "activeMsUsed": 509.832,
+      "pages": 9,
+      "resultDigest": "0963956d611fcc27f5ea3945797dfec418e2b8e4be74adccf1d932f547539267",
+      "callsAttempted": 67,
+      "guardChecks": 67,
+      "embeddedPassages": 2096,
+      "scoredCachedPassages": 2000,
+      "sourceCharsSent": 210207,
+      "requestBytes": 628841,
+      "responseBytes": 10491315,
+      "largestResponseBytes": 160101,
+      "residentVectorEntries": 2000,
+      "residentVectorPayloadBytes": 4096000,
+      "memory": {
+        "heapBeforeMiB": 105.233,
+        "heapAfterMiB": 155.645,
+        "sampledHeapPeakMiB": 165.267,
+        "sampledRssPeakMiB": 310.77,
+        "sampledArrayBuffersPeakMiB": 12.793,
+        "processMaxRssMiB": 310.895
+      },
+      "projectedSequentialProviderMs": {
+        "100": 6700,
+        "500": 33500,
+        "1500": 100500
+      }
+    },
+    {
+      "round": 3,
+      "state": "cold",
+      "elapsedMs": 747.522,
+      "cpuMs": 636.912,
+      "activeMsUsed": 745.992,
+      "pages": 17,
+      "resultDigest": "0963956d611fcc27f5ea3945797dfec418e2b8e4be74adccf1d932f547539267",
+      "callsAttempted": 129,
+      "guardChecks": 129,
+      "embeddedPassages": 4096,
+      "scoredCachedPassages": 0,
+      "sourceCharsSent": 411809,
+      "requestBytes": 1229498,
+      "responseBytes": 20497325,
+      "largestResponseBytes": 160101,
+      "residentVectorEntries": 2000,
+      "residentVectorPayloadBytes": 4096000,
+      "memory": {
+        "heapBeforeMiB": 104.307,
+        "heapAfterMiB": 134.401,
+        "sampledHeapPeakMiB": 168.23,
+        "sampledRssPeakMiB": 312.637,
+        "sampledArrayBuffersPeakMiB": 11.997,
+        "processMaxRssMiB": 312.762
+      },
+      "projectedSequentialProviderMs": {
+        "100": 12900,
+        "500": 64500,
+        "1500": 193500
+      }
+    },
+    {
+      "round": 3,
+      "state": "immediate-warm",
+      "elapsedMs": 492.142,
+      "cpuMs": 316.863,
+      "activeMsUsed": 490.608,
+      "pages": 9,
+      "resultDigest": "0963956d611fcc27f5ea3945797dfec418e2b8e4be74adccf1d932f547539267",
+      "callsAttempted": 67,
+      "guardChecks": 67,
+      "embeddedPassages": 2096,
+      "scoredCachedPassages": 2000,
+      "sourceCharsSent": 210207,
+      "requestBytes": 628841,
+      "responseBytes": 10491315,
+      "largestResponseBytes": 160101,
+      "residentVectorEntries": 2000,
+      "residentVectorPayloadBytes": 4096000,
+      "memory": {
+        "heapBeforeMiB": 105.401,
+        "heapAfterMiB": 151.621,
+        "sampledHeapPeakMiB": 165.384,
+        "sampledRssPeakMiB": 311.52,
+        "sampledArrayBuffersPeakMiB": 12.488,
+        "processMaxRssMiB": 312.762
+      },
+      "projectedSequentialProviderMs": {
+        "100": 6700,
+        "500": 33500,
+        "1500": 100500
+      }
+    }
+  ],
+  "limitations": [
+    "This measures Node engine, adapter JSON/number[][] parsing, typed-vector conversion and synthetic response construction. It excludes browser Worker transfer, IndexedDB source reads, editor work and real network/model delay.",
+    "Source guards verify the fixed in-memory snapshot. Their cost does not measure committed-storage hydration.",
+    "The 32MiB bound covers cached Float32 vector payload only, not the full process, JS arrays, JSON, input source text, query/batch temporaries or the index.",
+    "Dense small decimals stress JSON parsing; synthetic axes test engineering coverage, not actual embedding relevance or cross-lingual model quality.",
+    "Fresh-process high-water RSS includes fixture construction and local index build. Per-phase sampled peaks may miss sub-10ms transient allocations; checkpoints additionally sample during response construction and page completion.",
+    "Cold and immediate warm alternate. The 2000-entry limit still requires 2096 embeddings on the next full scan; this is not a no-cost warm query.",
+    "Timing samples are host-specific and not a browser SLA or paired speedup claim. Projected provider latency is arithmetic, never measured service performance."
+  ],
+  "syncMs": 1589.349,
+  "finishedAt": "2026-10-22T16:59:42.734Z",
+  "sourceChecks": 48,
+  "externalAttempts": 0,
+  "processMaxRssMiB": 312.762
+}
