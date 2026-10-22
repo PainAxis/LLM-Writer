@@ -2,12 +2,13 @@
 
 ## Continuous integration
 
-The `CI` workflow runs on pull requests targeting `main`, pushes to `main`, and manual dispatch. Its check names are `ci-quality` and `ci-browser`.
+The `CI` workflow runs on pull requests targeting `main`, pushes to `main`, and manual dispatch. In addition to `ci-quality` and `ci-browser`, it has dedicated memory capacity/cold-index/full-scan/support/stress, graph-backup/mobile and Writer jobs. All necessary jobs for the reviewed revision remain acceptance gates; the two main ruleset checks below are not an exhaustive feature-acceptance list.
 
-- `ci-quality` installs locked dependencies, rejects lint warnings, builds the app (including type checking), and runs all 64 suites in `npm run smoke:all` sequentially.
-- `ci-browser` builds the same revision and runs 35 baseline Chromium scenarios and 10 extension scenarios against a local preview and synthetic API. It uploads `artifacts/browser` and `artifacts/browser-extensions` as `browser-evidence-<attempt>` for seven days, including failure screenshots and a Playwright trace when browser execution starts.
+- `ci-quality` installs locked dependencies, rejects lint warnings, builds the app (including type checking), and runs all 91 configured suites in `npm run smoke:all` sequentially. The runner dynamically includes every `smoke:*` entry except itself, including the five new support-check suites; no manual aggregate list can omit them.
+- `ci-browser` builds the same revision and runs the baseline, extension, local-memory, hybrid-memory and fact-graph suites against a local preview and synthetic API. It uploads browser evidence (including `artifacts/browser` and `artifacts/browser-extensions`) as `browser-evidence-<attempt>` for seven days, including failure screenshots and a Playwright trace when browser execution starts.
+- `ci-memory-support` is a separate necessary job: it builds the app, runs the mocked `smoke:memory-support-code` evaluation and runs `test:browser-memory-support` with **52 scenarios**. It intentionally does not add that suite to the old `test:browser` aggregate or `ci-browser`, avoiding duplicate browser execution. Its report, screenshots and mocked code evidence are uploaded from `artifacts/browser-memory-support` and `artifacts/memory-support-code` as `memory-support-evidence-<attempt>` for seven days.
 
-Both jobs use Node 24 and read-only repository permissions. Browser regression never needs real API credentials or a public tunnel. The current CI results are the validation record for each commit.
+These jobs use Node 24 and read-only repository permissions. Browser regression never needs real API credentials or a public tunnel. The current CI results are the validation record for each commit.
 
 Run locally from the repository root:
 
@@ -16,6 +17,7 @@ npm ci
 npx playwright install --with-deps chromium
 npm run build
 npm run test:browser
+npm run test:browser-memory-support # Separate support-check acceptance, not in test:browser
 ```
 
 `test:browser` verifies the preview boundary, starts its own server on an available localhost port, runs the browser scenarios, and closes the server on completion or failure. `BROWSER_ARTIFACT_DIR` can override the output directory. The default `artifacts/` directory is ignored by Git.
@@ -52,6 +54,14 @@ The module suites additionally inject storage failures for prompt creation/editi
 Cross-tab coordination protects novels and writing goals, rather than every storage key. A conflict on one novel requires copying the retained draft, refreshing/reopening that novel and merging manually; repeatedly clicking retry does not resolve it. See [persistence coordination](../docs/persistence-coordination.md).
 
 The main ruleset requires the exact check names `ci-quality` and `ci-browser` for pull requests to `main`, with the branch up to date before merging. The existing pull-request, deletion and force-push protections remain active. These rules are repository settings, separate from the workflow file.
+
+## Optional cited-support acceptance
+
+The support suite exercises the frozen 25 semantic cases (12 supported, six insufficient, seven uncertain) and additional invalid-response, transport, current-source and lifecycle cases, for 52 browser scenarios in total. The separate `support-enabled-long-novel-v1` profile has **600 chapters / 1,388,902 UTF-16 characters** and covers Memory Lab plus chapter-body generation, continuation and polishing. It does not add cases to the frozen 25-case semantic denominator. Scenario definitions and assertions are configured coverage, not an executed result.
+
+The suite uses synthetic responses, checks actual selected-source payloads and excludes the check answer/explanation from Writer prompts. It preserves `answerability: unverified` on the original match indicators and requires separate explicit Writer approval even after a `supported` opinion. See the [English](../docs/memory-support-checks.md) and [Simplified Chinese](../docs/memory-support-checks.zh-CN.md) contracts for exact budgets, fixture hashes, source checks and interpretation limits.
+
+Local Chromium has not run in the current engineering environment; the restriction was not bypassed. Browser acceptance for this revision is pending CI, independently of any Node smoke results. Live-model observations do not establish browser-provider CORS support or replace these controlled browser gates. Historical suite counts in earlier release or measurement records are not current totals.
 
 ## Optional temporary preview
 

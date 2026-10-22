@@ -1,0 +1,10 @@
+{
+  "suite": "writer-memory-support",
+  "privateCompleteRelations": true,
+  "stalePremiseBlocks": true,
+  "independentApproval": true,
+  "noPromptInjection": true,
+  "cancellationAndSourceInvalidation": true,
+  "controlledCalls": 7,
+  "realModelCalls": 0
+}

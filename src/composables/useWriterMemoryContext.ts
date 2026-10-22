@@ -4,6 +4,8 @@ import type { MemoryChapterInput } from '@/types/memory'
 import { MemoryClient } from '@/services/memory/client'
 import { createSemanticScanUi, withMemoryAbort } from '@/services/memory/semanticScanUi'
 import { prepareWriterMemoryContext, type PreparedWriterMemoryContext, type WriterMemoryClient, type WriterMemorySelection } from '@/services/memory/writerContext'
+import { SupportCheckError } from '@/services/memory/supportCheck'
+import { useMemorySupportCheck } from './useMemorySupportCheck'
 import { stripWriterHtml } from '@/utils/writerContent'
 import { StorageKeys } from '@/utils/storage'
 import { createWriterMemoryProviders, writerMemoryRemoteOptions, type WriterMemoryPreview } from './writerMemoryUi'
@@ -29,10 +31,28 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
   const client = options.client ?? new MemoryClient()
   const prepare = options.prepare ?? prepareWriterMemoryContext
   const scan = createSemanticScanUi()
+  const support = useMemorySupportCheck({
+    canPrepare: () => !disposed && state.enabled && !state.busy && !!prepared
+      && !!state.result && !!state.query.trim()
+      && (state.selection.hitIds.length > 0 || state.selection.relationIds.length > 0),
+    prepare: prepareSupport,
+    onInvalidSource: reason => {
+      revoke('已保存原文或关系依据未通过校验，请重新检索并选择完整依据。')
+      support.invalidate(reason)
+    },
+    onStart: () => {
+      approvalAttempt += 1
+      approvalBusy = false
+      approvedSelection = null
+      state.approved = false
+      state.notice = '语义检查不会批准依据；完成或失败后仍须明确核对。'
+      for (const invalidate of invalidators) invalidate()
+    },
+  })
   const state = reactive({
     enabled: false, query: '', cutoffId: '', busy: false, error: '', notice: '', approved: false,
     selection: { hitIds: [], relationIds: [] } as WriterMemorySelection,
-    scan: scan.state, providers: createWriterMemoryProviders(), result: null as WriterMemoryPreview | null,
+    support: support.state, scan: scan.state, providers: createWriterMemoryProviders(), result: null as WriterMemoryPreview | null,
   })
   let revision = 0
   let acquisition = 0
@@ -62,6 +82,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
   })
 
   const revoke = (notice = '') => {
+    support.invalidate()
     revision += 1
     approvalAttempt += 1
     approvalBusy = false
@@ -84,6 +105,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
   }
   const cancel = () => revoke('已取消检索。')
   const selectionChanged = () => {
+    support.invalidate()
     selectionRevision += 1
     approvalAttempt += 1
     if (approvalBusy) { approvalBusy = false; state.busy = false }
@@ -130,6 +152,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
       }, { client, signal: controller.signal, searchControls: scan.controls(controller.signal) }), controller.signal)
       ensureCurrent(operation, identity)
       prepared = result
+      support.state.setQuestion(state.query)
       preparedTarget = identity
       // Do not expose the private preparation methods to the presentation layer.
       state.result = markRaw({ hits: result.hits, relations: result.relations, diagnostics: result.diagnostics,
@@ -154,9 +177,37 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
     if (candidate !== prepared) throw new Error('检索依据已失效，请重新检索并核对。')
   }
 
+  async function prepareSupport(signal: AbortSignal, assertOwner: () => void) {
+    const candidate = prepared
+    const operation = revision
+    const chosenRevision = selectionRevision
+    const question = support.state.question
+    const selection = { hitIds: [...state.selection.hitIds], relationIds: [...state.selection.relationIds] }
+    if (!candidate || state.busy || !selection.hitIds.length && !selection.relationIds.length) throw new Error('请先选择完整依据。')
+    const assertSelection = () => {
+      assertOwner()
+      ensureCurrent(operation, preparedTarget)
+      if (candidate !== prepared || chosenRevision !== selectionRevision || question !== support.state.question) throw new Error('依据选择已改变。')
+    }
+    assertSelection()
+    let selected: PreparedWriterMemoryContext
+    try {
+      await withMemoryAbort(assertPrepared(candidate, operation), signal)
+      assertSelection()
+      selected = await withMemoryAbort(candidate.selectEvidence(selection), signal)
+      assertSelection()
+    } catch {
+      assertSelection()
+      throw new SupportCheckError('source_changed')
+    }
+    // Only the private selected candidate can prepare a check. Presentation hits
+    // and model assessments never become a Writer prompt or an approval lease.
+    return selected.prepareSupportCheck(question, { signal, assertOwner: assertSelection })
+  }
+
   async function approve(): Promise<boolean> {
     const candidate = prepared
-    if (!candidate?.prompt || state.busy || !state.selection.hitIds.length && !state.selection.relationIds.length) return false
+    if (!candidate?.prompt || state.busy || support.busy || !state.selection.hitIds.length && !state.selection.relationIds.length) return false
     const operation = revision
     const chosenRevision = selectionRevision
     const attempt = ++approvalAttempt
@@ -222,6 +273,11 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
     watch(() => state.selection, selectionChanged, { deep: true, flush: 'sync' }),
     watch(() => [state.enabled, state.query, state.cutoffId, state.providers], changed, { deep: true, flush: 'sync' }),
     watch(targetIdentity, changed),
+    // Hide support output synchronously on editor/source changes, independently
+    // of the batched retrieval watcher used during chapter switching and saves.
+    watch(() => [targetIdentity(), ...options.chapters.value.flatMap(chapter => [chapter.id, chapter.title,
+      chapter.id === options.currentChapter.value?.id ? options.content.value : chapter.content,
+    ])], () => support.invalidate(), { flush: 'sync' }),
     // Reading the live editor for its chapter prevents the save operation's own
     // copyEditorContent from revoking a preview. Other source edits, including
     // edits arriving while save is pending, must still revoke. Batch Vue's
@@ -241,6 +297,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
     if (event.key === null || event.key === StorageKeys.novels) changed()
   }
   const revalidate = () => {
+    support.invalidate()
     const candidate = prepared
     const operation = revision
     if (!candidate || disposed) return
@@ -254,6 +311,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
   }
   function dispose() {
     disposed = true
+    support.dispose()
     revoke()
     for (const stop of stops) stop()
     if (typeof window !== 'undefined') {
@@ -266,7 +324,7 @@ export function useWriterMemoryContext(options: WriterMemoryOptions) {
     invalidators.clear()
   }
   return {
-    state, chapters, search, select, approve, cancel, acquire, revoke, dispose,
+    state, chapters, search, select, approve, cancel, acquire, revoke, dispose, support,
     onInvalidate(callback: () => void) { invalidators.add(callback); return () => invalidators.delete(callback) },
   }
 }

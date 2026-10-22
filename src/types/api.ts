@@ -39,6 +39,16 @@ export interface ChatMessage {
   content: string
 }
 
+/** Opt-in single-dispatch, non-streaming checks. Ordinary generation retains its defaults. */
+export interface GenerationRequestLimits {
+  maxAttempts: 1
+  /** Decoded HTTP body bytes, including provider reasoning and error bodies; at most 65,536. */
+  maxResponseBytes: number
+  /** Includes lazy setup, source guard and body consumption; at most 30,000 ms. */
+  timeoutMs: number
+  omitUsageContent: true
+}
+
 export interface GenerateOptions {
   model?: string
   maxTokens?: number | null
@@ -47,6 +57,8 @@ export interface GenerateOptions {
   signal?: AbortSignal
   /** Internal request-local source guard, run at every HTTP dispatch including SDK retries. */
   beforeRequest?: () => Promise<void>
+  /** Internal bounded non-streaming mode: no extensions; requires explicit maxTokens <= 1,200. */
+  requestLimits?: GenerationRequestLimits
   /** 系统提示词（人设）；提供时作为顶层 system 参数发送 */
   system?: string
   /** 多轮消息；提供时优先于 prompt 作为对话载荷 */

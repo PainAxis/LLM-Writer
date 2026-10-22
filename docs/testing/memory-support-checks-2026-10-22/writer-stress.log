@@ -1,0 +1,141 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 test:writer-memory-stress
+> node --expose-gc --import tsx scripts/stress-writer-memory.ts
+
+[storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:39:17)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:42:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:43:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:60:23)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:65:31)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:39:17)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:42:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:43:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:60:23)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:65:31)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+PASS million: Cold preparation of the full manuscript and thousands of source-anchored relations
+PASS million: Twenty-four distributed exact-source queries reuse the full disclosed index
+PASS million: Record mixed Chinese/code query recall without misrepresenting lexical misses as source failures
+PASS million: Distant author-marked clue alias recovers its original early-volume evidence
+PASS million: Small and large evidence budgets include metadata without splitting source quotations
+PASS million: Future identity and every confirmed inference premise remain behind the disclosure cutoff
+PASS million: Editing an old chapter invalidates prepared context and its author-confirmed graph anchors
+PASS million: Thirty-chapter revision invalidates old clue marks while unrelated distant evidence survives
+PASS million: Chapter reorder and deletion recompute disclosure from the latest narrative order
+PASS million: Changed graph state and unavailable committed source block previously prepared context
+PASS million: Controlled rerank receives current disclosed passages; changed source blocks the next outbound request
+PASS million: All twenty-four full Chinese/identifier queries retrieve the exact passage with graph and remote providers disabled
+PASS million: No-answer boundaries stay unverified and only explicitly selected current evidence enters the bounded attachment
+[storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:39:17)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:42:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:43:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:60:23)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-support-check/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:65:31)
+    at <anonymous> (/workspace/shared/LLM-Writer-support-check/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+PASS ten-million: Cold preparation of the full manuscript and thousands of source-anchored relations
+PASS ten-million: Twenty-four distributed exact-source queries reuse the full disclosed index
+PASS ten-million: Record mixed Chinese/code query recall without misrepresenting lexical misses as source failures
+PASS ten-million: Distant author-marked clue alias recovers its original early-volume evidence
+PASS ten-million: Small and large evidence budgets include metadata without splitting source quotations
+PASS ten-million: Future identity and every confirmed inference premise remain behind the disclosure cutoff
+PASS ten-million: Editing an old chapter invalidates prepared context and its author-confirmed graph anchors
+PASS ten-million: Thirty-chapter revision invalidates old clue marks while unrelated distant evidence survives
+PASS ten-million: Chapter reorder and deletion recompute disclosure from the latest narrative order
+PASS ten-million: Changed graph state and unavailable committed source block previously prepared context
+PASS ten-million: Controlled rerank receives current disclosed passages; changed source blocks the next outbound request
+PASS ten-million: All twenty-four full Chinese/identifier queries retrieve the exact passage with graph and remote providers disabled
+PASS ten-million: No-answer boundaries stay unverified and only explicitly selected current evidence enters the bounded attachment
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

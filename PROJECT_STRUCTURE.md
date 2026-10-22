@@ -11,7 +11,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/` | Application source |
 | `public/` | Static assets, including the favicon |
 | `scripts/` | Module smoke tests, browser regression, preview tools, release validation and deployment scripts |
-| `scripts/fixtures/` | Synthetic document-import fixtures |
+| `scripts/fixtures/` | Synthetic import/stress data and frozen, versioned support-check novel/code fixtures |
 | `docs/` | Data formats, editing protocols, context policies and persistence coordination |
 | `.github/workflows/` | Continuous validation, CI-gated releases and the optional temporary browser preview |
 | `package.json`, `package-lock.json` | Dependencies, locked versions and npm commands |
@@ -29,6 +29,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/components/` | Shared UI and feature components, including Writer panels, dialogs and editor |
 | `src/composables/` | Reactive workflows for writing, AI streaming, prompt selection and themes |
 | `src/services/api.ts`, `src/services/aiProviders.ts`, `src/services/apiConfig.ts` | AI SDK facade, provider adapters, model discovery and shared API configuration |
+| `src/services/aiRequestLimits.ts` | Optional request-local time/response-byte bounds before SDK parsing, with one-shot transport and no redirects; ordinary requests retain their existing behavior |
 | `src/services/novelPersistence.ts`, `src/services/blobStore.ts` | Queued novel saves, staged/versioned IndexedDB content shards and startup hydration |
 | `src/services/storageCoordination.ts`, `src/utils/novelConcurrency.ts` | Cross-tab commit coordination for novels/goals and per-novel version checks |
 | `src/services/promptCatalog.ts` | Shared prompt initialization, migration and committed updates across all five prompt entry points |
@@ -38,6 +39,8 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/stores/extensions.ts`, `src/components/extensions/` | Strictly persisted extension settings, in-memory credentials and assistant opt-in controls |
 | `src/views/MemoryLab.vue`, `src/services/memory/`, `src/types/memory.ts` | Isolated memory retrieval, Worker-owned incremental index, optional embedding/reranking providers, bounded vector cache and revision/disclosure-checked evidence; [scope](docs/memory-prototype.md) and [incremental lifecycle](docs/memory-incremental-index.md) |
 | `src/services/memory/matchSignals.ts` | Deterministic full-query/code signals and selected-evidence summaries, always leaving answerability unverified; [review contract](docs/memory-evidence-review.md) |
+| `src/services/memory/supportCheck.ts`, `src/types/memorySupport.ts` | Local-only support plans, selected-source guards, bounded chat dispatch, strict result/citation validation and non-persisted advisory outcomes; [contract and acceptance](docs/memory-support-checks.md) |
+| `src/composables/useMemorySupportCheck.ts`, `src/components/memory/MemorySupportCheck.vue` | Shared Lab/Writer preview, explicit Start, cancellation and stale-result lifecycle; no confidence badge, automatic Writer approval or answer injection |
 | `src/services/memory/identifiers.ts` | Maximal ASCII letter/digit code parsing and chunk-edge checks for local mixed-query recall; [grammar and acceptance](docs/memory-mixed-query-recall.md) |
 | `src/components/memory/`, `src/services/memory/factGraph.ts`, `src/services/memory/factGraphStore.ts`, `src/services/memory/factExtraction.ts`, `src/types/factGraph.ts` | Source-anchored fact relationships, Cytoscape.js presentation, independent project-scoped persistence and bounded optional model proposals; [graph contract](docs/memory-fact-graph.md) |
 | `src/utils/storage.ts`, `src/utils/aiRequestScope.ts` | Central storage access and isolated, cancellable AI requests |
@@ -81,13 +84,15 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 
 ## Validation and Releases
 
-- The configured CI validation set contains 80 sequential smoke suites and 134 Chromium scenarios with synthetic data and API responses, including nine long-novel stress scenarios. Use the reviewed revision’s CI results to confirm validation.
+- The configured CI validation set contains 91 sequential smoke suites, all dynamically included by `smoke:all`, plus separate synthetic production-app Chromium suites. Counts in dated reports are historical, not current totals. The new 52-scenario `ci-memory-support` job is a necessary gate and intentionally stays outside the old `test:browser` aggregate to avoid duplicate execution. It has not run locally; browser acceptance requires the reviewed revision’s CI result.
 - [Long-novel memory stress tests](docs/memory-stress-tests.md): `ci-memory-stress` runs local capacity and controlled HTTP providers; `ci-memory-browser-stress` separately runs persisted browser editing. Paid Jina workloads are optional. Reusable fixtures are under `scripts/fixtures/`, with reviewed reports under `docs/testing/`.
 - Memory increment regressions: `smoke:memory-incremental` and `smoke:memory-client`; repeated-edit/focus-return checks extend the existing stress scripts.
 - Fact graph regressions: `smoke:memory-fact-graph`, `smoke:memory-fact-store`, `smoke:memory-fact-extraction` and `test:browser-memory-fact-graph`; [source contract and limits](docs/memory-fact-graph.md).
 - Graph backup and mobile regressions: `smoke:graph-backup`, `test:browser-graph-backup` and `test:browser-mobile`; [portable source evidence and narrow-screen behavior](docs/graph-backup-mobile.md).
 - Mixed-query regression: `smoke:memory-mixed-query`; the Writer stress suite retains its original 68-preparation workload and adds 24 full-query, graph-disabled assertions per size. See [comparison and remaining limits](docs/memory-mixed-query-recall.md).
-- Capacity accounting: `scripts/benchmark-memory-capacity.ts` separates cold/recovery and semantic-cache costs; `benchmark-memory-source.mjs` runs real committed reads and Writer freshness checks. `ci-memory-capacity` compares fixed main and candidate in ABBA order; `smoke:source-hydration` protects complete body reads and storage races. See [measurements and remaining limits](docs/memory-capacity.md).
+- Capacity accounting: `scripts/benchmark-memory-capacity.ts` separates cold/recovery and semantic-cache costs; `benchmark-memory-source.mjs` runs real committed reads and Writer freshness checks. `ci-memory-capacity` compares fixed historical baseline/hydration revisions in ABBA order; `smoke:source-hydration` protects complete body reads and storage races. See [measurements and remaining limits](docs/memory-capacity.md).
+- Full-range scan regressions: the four `smoke:*full-scan*` suites and `ci-memory-full-scan` production-adapter capacity/browser checks; [scope and completed track-2 acceptance](docs/memory-full-range-semantics.md), with merge status in the [roadmap](ROADMAP.md#stage-three-completion-contract).
+- Optional support-check regressions: `smoke:memory-support`, `smoke:memory-support-transport`, `smoke:memory-support-ui`, `smoke:writer-memory-support` and mocked `smoke:memory-support-code`; `test:browser-memory-support` exercises the frozen 25 semantic cases and a separate 600-chapter / 1,388,902-character Memory Lab plus three-Writer-path profile. The long profile does not change the semantic denominator; [current acceptance limits](docs/memory-support-checks.md).
 - Evidence review regressions: `smoke:memory-match-signals` and `smoke:writer-memory-selection`, with explicit-selection and known unanswered-question cases in Writer/browser stress; [contract and measurements](docs/memory-evidence-review.md).
 - Writer memory regressions: `smoke:writer-memory`, `smoke:memory-remote-guard`, `smoke:writer-memory-lifecycle`; `ci-writer-memory` runs 21 browser flows plus 1.44M/10.5M-character stress profiles.
 - Other suites: `smoke:generation-budget`, `smoke:writer-content`, `smoke:management-correctness`, `smoke:billing-correctness` and `smoke:tools-workspace`.

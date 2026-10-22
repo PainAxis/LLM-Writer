@@ -5,7 +5,8 @@ import { PREVIOUS_CONTENT_MAX_CHARS, trimTextFromEnd } from '@/utils/tokenBudget
 import { buildCorpusInjection, recommendCorpus } from '@/utils/corpusRetrieval'
 import { AIRequestCancelledError } from '@/utils/aiRequestScope'
 import type { FinishReason } from 'ai'
-import { buildGenerationBudget } from '@/utils/generationBudget'
+import { buildGenerationBudget, getThinkingCapability } from '@/utils/generationBudget'
+import { BoundedGenerationError, createBoundedRequestScope } from './aiRequestLimits'
 import type { createExtensionSession } from './extensionsRuntime'
 
 /** 个性化生成时注入语料的字符预算 */
@@ -119,13 +120,14 @@ class APIService {
     usage: UsageInfo | undefined,
     status: 'success' | 'failed',
     type: string,
+    omitContent = false,
   ): void {
     const recordedUsage = resolveRecordedUsage(estimatedInputTokens, response, usage, status)
     billingService.recordAPICall({
       type,
       model,
-      content: prompt,
-      response,
+      content: omitContent ? '' : prompt,
+      response: omitContent ? '' : response,
       ...recordedUsage,
       status,
     })
@@ -134,6 +136,7 @@ class APIService {
   // ============ 非流式请求 ============
 
   async generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
+    if (options.requestLimits !== undefined) return this.generateBoundedText(prompt, options)
     const beforeRequest = options.beforeRequest
     this.assertConfigReady()
     const config = this.getConfig()
@@ -202,9 +205,81 @@ class APIService {
     }
   }
 
+  /** Deliberately separate from the ordinary/streaming path: bounded checks have no tools or retries. */
+  private async generateBoundedText(prompt: string, options: GenerateOptions): Promise<string> {
+    const scope = createBoundedRequestScope(options.requestLimits!, options.signal)
+    this.activeControllers.add(scope.controller)
+    let effectiveModel = ''
+    let promptForEstimate = ''
+    let estimatedInputTokens = 0
+    let content = ''
+    let usage: UsageInfo | undefined
+    let record = false
+    try {
+      scope.assertActive()
+      try { this.assertConfigReady() } catch { throw new BoundedGenerationError('settings') }
+      // Snapshot request-local primitives before lazy SDK setup. Source/config
+      // ownership is rechecked by beforeRequest immediately before HTTP dispatch.
+      const active = this.getConfig()
+      const config = { ...active, customHeaders: { ...active.customHeaders } }
+      const request = { ...options }
+      if (request.extensions || request.preparedExtensions || request.messages
+        || !Number.isInteger(request.maxTokens) || request.maxTokens! < 1 || request.maxTokens! > 1_200) {
+        throw new BoundedGenerationError('settings')
+      }
+      effectiveModel = request.model?.trim() || config.selectedModel
+      promptForEstimate = [request.system ?? '', prompt].filter(Boolean).join('\n')
+      estimatedInputTokens = billingService.estimateTokens(promptForEstimate)
+      record = true
+      const capability = getThinkingCapability({ ...config, selectedModel: effectiveModel })
+      const budgetOptions = { ...request }
+      if (capability.protocol === 'qwen') {
+        const mode = config.thinkingMode ?? 'default'
+        // DashScope bills thinking separately from its visible max_tokens cap.
+        // Never silently inherit an unbounded/default thinking allowance here.
+        if (mode === 'budget') {
+          if (!Number.isInteger(config.thinkingBudget) || config.thinkingBudget! < 1 || config.thinkingBudget! >= request.maxTokens!) {
+            throw new BoundedGenerationError('settings')
+          }
+          budgetOptions.maxTokens = request.maxTokens! - config.thinkingBudget!
+        } else if (mode !== 'disabled' && capability.modes.some(item => item.value !== 'default')) {
+          throw new BoundedGenerationError('settings')
+        }
+      }
+      let budget: ReturnType<typeof buildGenerationBudget>
+      try { budget = buildGenerationBudget(config, budgetOptions) } catch { throw new BoundedGenerationError('settings') }
+      const { generateText } = await scope.run(loadAISDK)
+      const model = await scope.run(() => resolveLanguageModel(
+        { ...config, selectedModel: effectiveModel }, request.beforeRequest, scope,
+      ))
+      const result = await scope.run(() => generateText({
+        // The support engine already serializes and validates these exact strings.
+        // Ordinary sanitization would silently change original excerpts (e.g. U+0085).
+        model, telemetry: { isEnabled: false }, prompt,
+        system: request.system,
+        ...budget, abortSignal: scope.signal, maxRetries: 0,
+      }))
+      content = result.text ?? ''
+      usage = result.usage
+      scope.assertActive()
+      if (result.finishReason !== 'stop') throw new BoundedGenerationError('output_incomplete')
+      this.recordUsage(effectiveModel, promptForEstimate, content, estimatedInputTokens, usage, 'success', request.type ?? 'generation', true)
+      return content
+    } catch (error) {
+      if (record) this.recordUsage(effectiveModel, promptForEstimate, content, estimatedInputTokens, usage, 'failed', options.type ?? 'generation', true)
+      scope.assertActive()
+      if (error instanceof BoundedGenerationError) throw error
+      throw new BoundedGenerationError('transport')
+    } finally {
+      scope.close()
+      this.activeControllers.delete(scope.controller)
+    }
+  }
+
   // ============ 流式请求 ============
 
   async generateTextStream(prompt: string, options: GenerateOptions = {}, onChunk: StreamCallback | null = null): Promise<string> {
+    if (options.requestLimits !== undefined) throw new BoundedGenerationError('invalid_limits')
     const beforeRequest = options.beforeRequest
     this.assertConfigReady()
     const config = this.getConfig()
