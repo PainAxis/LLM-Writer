@@ -1,6 +1,9 @@
 /** Private Writer selection bridge and separate author-approval lifecycle. */
 import assert from 'node:assert/strict'
-import { nextTick, ref } from 'vue'
+import { nextTick, ref, shallowRef, watch } from 'vue'
+import { useWriterMemoryOwner } from '../src/composables/useWriterMemoryOwner'
+import { useWriterChapterContentGeneration } from '../src/composables/useWriterChapterContentGeneration'
+import { createWriterMemoryStream } from '../src/composables/writerMemoryStream'
 import { MemoryIndex } from '../src/services/memory/engine'
 import { chapterRevision } from '../src/services/memory/revision'
 import type { PreparedWriterMemoryContext, WriterMemoryRequest } from '../src/services/memory/writerContext'
@@ -8,6 +11,7 @@ import type { FactGraphDocument } from '../src/types/factGraph'
 import type { MemoryProjectInput } from '../src/types/memory'
 import type { SupportGenerationRequest, SupportResponseV1 } from '../src/types/memorySupport'
 import type { WriterChapter, WriterNovel } from '../src/types/writer'
+import type { GenerateOptions } from '../src/types/api'
 
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => null } })
 const { prepareWriterMemoryContext } = await import('../src/services/memory/writerContext')
@@ -185,5 +189,341 @@ assert.equal(await memory.support.state.prepare(), false)
 await assert.rejects(() => oldLease!.assertFresh())
 memory.dispose()
 assert.equal(await memory.support.state.prepare(), false)
+
+// Exercise the actual production owner watcher with real Vue refs, private
+// memory preparation, chapter launch controller, and memory stream adapter.
+type Entry = 'chapter' | 'continue' | 'optimize'
+const entries: Entry[] = ['chapter', 'continue', 'optimize']
+async function ownerFixture() {
+  const source = await fixture()
+  const chapters = ref(source.project.chapters.map(chapter => ({
+    id: Number(chapter.id), title: chapter.title, content: chapter.text,
+  })) as WriterChapter[])
+  const currentNovel = ref<WriterNovel | null>({ id: 1, title: 'Synthetic' })
+  const currentChapter = ref<WriterChapter | null>(chapters.value[2]!)
+  const content = ref(currentChapter.value!.content!)
+  const memoryTarget = shallowRef<WriterChapter | null>(null)
+  const memory = useWriterMemoryContext({ currentNovel, chapters, currentChapter, targetChapter: memoryTarget, content,
+    saveCurrentChapter: async () => true, client: source.client,
+    prepare: async request => wrap(await prepareWriterMemoryContext({ ...request, maxChars: 16000 }, source.dependencies)),
+  })
+  assert.equal(memory.state.enabled, false, 'A new Writer instance starts with memory disabled')
+  assert.equal(memory.support.state.enabled, false, 'A new Writer instance starts with support disabled')
+  const generated = deferred<string>()
+  const generationDispatched = deferred<void>()
+  const selectionStarted = deferred<void>()
+  const selectionGate = deferred<void>()
+  const commitStarted = deferred<void>()
+  const commitGate = deferred<boolean>()
+  let holdSelection = false
+  let holdCommit = false
+  let generationCalls = 0
+  let persistCalls = 0
+  const sentPrompts: string[] = []
+  const messages: string[] = []
+  const stream = createWriterMemoryStream({
+    isStreaming: ref(false), streamingContent: ref(''), reset() {}, stop() {},
+    async generate(prompt: string, options?: GenerateOptions) {
+      await options?.beforeRequest?.()
+      generationCalls++
+      sentPrompts.push(prompt)
+      generationDispatched.resolve()
+      // Deliberately ignore abort, just like a late provider response.
+      return generated.promise
+    },
+  }, memory)
+  const controller = useWriterChapterContentGeneration({
+    currentNovel, chapters, currentChapter, content, hasUnsavedChanges: ref(false),
+    characters: ref([]), worldSettings: ref([]), corpusData: ref([]), events: ref([]),
+    prepare: () => true,
+    selectChapter: async (chapter, selection) => {
+      selectionStarted.resolve()
+      if (holdSelection) await selectionGate.promise
+      selection?.onPersisted?.(true)
+      if (selection?.isCurrent?.() === false) return false
+      currentChapter.value = chapter
+      content.value = chapter.content || ''
+      return true
+    },
+    persist: async () => {
+      persistCalls++
+      commitStarted.resolve()
+      if (holdCommit && !await commitGate.promise) return false
+      currentChapter.value!.content = content.value
+      source.project.chapters.find(chapter => chapter.id === String(currentChapter.value!.id))!.text = content.value
+      return true
+    },
+    notify: { success: message => messages.push(message), info() {}, warning: message => messages.push(message), error: message => messages.push(message) },
+    stream, formatContent: response => response,
+  })
+  const visible = { chapter: controller.visible, continue: ref(false), optimize: ref(false) }
+  // Match Writer.vue's target update, including its batched chapter switch.
+  const stopTarget = watch([controller.visible, controller.targetChapter, currentChapter], () => {
+    memoryTarget.value = controller.visible.value ? controller.targetChapter.value : currentChapter.value
+  }, { immediate: true })
+  const stopOwner = useWriterMemoryOwner({
+    chapterVisible: visible.chapter, continueVisible: visible.continue, optimizeVisible: visible.optimize,
+    isChapterLaunchClose: controller.isExpectedDialogClose,
+    hasApprovedMemory: () => memory.state.approved,
+    invalidateSupport: () => memory.support.invalidate(),
+    revoke: () => memory.revoke(),
+  })
+  const open = async (entry: Entry) => {
+    if (entry === 'chapter') assert.equal(controller.open(chapters.value[2]!), true)
+    else visible[entry].value = true
+    await nextTick()
+  }
+  const select = async () => {
+    memory.state.enabled = true
+    memory.support.state.setEnabled(true)
+    memory.state.query = '阿宁 北库 石桥'
+    memory.state.cutoffId = '22'
+    await nextTick()
+    assert.equal(await memory.search(), true, memory.state.error)
+    memory.select({ hitIds: [], relationIds: ['whole-chain'] })
+  }
+  const assess = async () => {
+    assert.equal(await memory.support.state.prepare(), true, JSON.stringify(memory.support.state.result))
+    assert.equal(await memory.support.state.run(), true, JSON.stringify(memory.support.state.result))
+  }
+  const assertCleared = (why: string) => {
+    assert.equal(memory.state.result, null, why)
+    assert.deepEqual(memory.state.selection, { hitIds: [], relationIds: [] }, why)
+    assert.equal(memory.state.approved, false, why)
+    assert.equal(memory.state.busy, false, why)
+    assert.equal(memory.support.busy, false, why)
+    assert.equal(memory.support.state.preview, null, why)
+    assert.equal(memory.support.state.result.state, 'unverified', why)
+    assert.equal(memory.support.state.phase, 'idle', why)
+    assert.equal(memory.state.enabled, true, 'Same-instance owner changes retain the author memory toggle')
+    assert.equal(memory.support.state.enabled, true, 'Same-instance owner changes retain the author support toggle')
+  }
+  const start = () => {
+    controller.selectPrompt({ id: 1, title: '生成', category: 'content', content: '继续撰写当前章。' })
+    return controller.generateChapterContentWithDialog()
+  }
+  return { memory, controller, visible, currentChapter, chapters, content, open, select, assess, assertCleared, start,
+    generated, generationDispatched, selectionStarted, selectionGate, commitStarted, commitGate, sentPrompts, messages,
+    generationCalls: () => generationCalls, persistCalls: () => persistCalls,
+    holdSelection: () => { holdSelection = true }, holdCommit: () => { holdCommit = true },
+    dispose() { stopOwner(); stopTarget(); controller.dispose(); stream.dispose(); memory.dispose() },
+  }
+}
+
+// Every entry: close synchronously revokes settled support and author approval;
+// reopening the same Writer preserves toggles, but none of its old capabilities.
+for (const entry of entries) {
+  const f = await ownerFixture()
+  await f.open(entry); await f.select(); await f.assess()
+  assert.equal(await f.memory.approve(), true)
+  const lease = await f.memory.acquire(); assert.ok(lease)
+  f.visible[entry].value = false
+  f.assertCleared(`${entry}: close must revoke immediately, without nextTick`)
+  await assert.rejects(() => lease!.assertFresh())
+  await f.open(entry)
+  f.assertCleared(`${entry}: same-instance reopen must not restore approval or assessment`)
+  assert.equal(await f.memory.support.state.prepare(), false)
+  f.dispose()
+}
+
+// Every entry: an abort-ignoring support provider cannot return into a closed
+// or reopened owner. Support busy is independent of retrieval/approval busy.
+for (const entry of entries) {
+  const f = await ownerFixture()
+  await f.open(entry); await f.select()
+  const before = calls
+  assert.equal(await f.memory.support.state.prepare(), true)
+  assert.equal(f.memory.support.state.phase, 'ready')
+  f.visible[entry].value = false
+  f.assertCleared(`${entry}: an unsent review plan loses its owner at close`)
+  await f.open(entry)
+  assert.equal(await f.memory.support.state.run(), false)
+  assert.equal(calls, before, 'Reopening cannot dispatch a previous owner review plan')
+  f.dispose()
+}
+
+for (const entry of entries) {
+  const f = await ownerFixture()
+  await f.open(entry); await f.select()
+  pending = deferred<string>(); dispatched = deferred<void>()
+  assert.equal(await f.memory.support.state.prepare(), true)
+  const running = f.memory.support.state.run(); await dispatched.promise
+  assert.equal(f.memory.state.busy, false)
+  assert.equal(f.memory.support.busy, true)
+  f.visible[entry].value = false
+  f.assertCleared(`${entry}: held support request loses its owner synchronously`)
+  await f.open(entry)
+  pending.resolve(raw)
+  assert.equal(await running, false)
+  await nextTick()
+  f.assertCleared(`${entry}: ignored-abort late result cannot survive reopen`)
+  pending = null; dispatched = null; f.dispose()
+}
+
+// Exercise every ordered owner switch, including open-new-before-close-old.
+for (const from of entries) for (const to of entries.filter(entry => entry !== from)) {
+  const f = await ownerFixture()
+  await f.open(from); await f.select(); await f.assess()
+  assert.equal(await f.memory.approve(), true)
+  f.visible[to].value = true
+  f.assertCleared(`${from} -> ${to}: opening another entry revokes old ownership`)
+  f.visible[from].value = false
+  f.assertCleared(`${from} -> ${to}: closing previous entry cannot resurrect ownership`)
+  f.dispose()
+}
+
+// Resolve the provider first, then close within the same turn before any await
+// continuation can publish the response. A default batched watcher is too late.
+for (const entry of entries) {
+  const f = await ownerFixture()
+  await f.open(entry); await f.select()
+  pending = deferred<string>(); dispatched = deferred<void>()
+  assert.equal(await f.memory.support.state.prepare(), true)
+  const running = f.memory.support.state.run(); await dispatched.promise
+  pending.resolve(raw)
+  f.visible[entry].value = false
+  f.assertCleared(`${entry}: resolve/close microtask boundary must be synchronous`)
+  assert.equal(await running, false)
+  await nextTick()
+  f.assertCleared(`${entry}: resolved-before-close support response stays discarded`)
+  pending = null; dispatched = null; f.dispose()
+}
+
+// The chapter's private synchronous launch close transfers only an approved
+// writing lease. Real memory preflight, provider dispatch, and save all succeed.
+{
+  const f = await ownerFixture()
+  await f.open('chapter'); await f.select(); await f.assess()
+  assert.equal(await f.memory.approve(), true)
+  f.holdCommit()
+  const action = f.start()
+  assert.equal(f.visible.chapter.value, false)
+  assert.equal(f.controller.isExpectedDialogClose(), false, 'Launch marker ends before the first async request step')
+  assert.equal(f.memory.state.approved, true, 'Author-approved memory survives only the launch handoff')
+  assert.equal(f.memory.support.state.result.state, 'unverified', 'Hidden support assessment does not transfer')
+  assert.equal(f.memory.support.state.preview, null)
+  await f.generationDispatched.promise
+  assert.equal(f.generationCalls(), 1)
+  assert.match(f.sentPrompts[0]!, /北库/)
+  assert.ok(!f.sentPrompts[0]!.includes('所选原文明示两个必要前提。'))
+  f.generated.resolve('已批准依据生成并保存的正文。')
+  await f.commitStarted.promise
+  assert.equal(f.controller.cancel(), false, 'Commit remains non-cancellable')
+  f.visible.continue.value = true
+  f.assertCleared('Opening another entry during commit cleans capabilities without aborting save')
+  f.commitGate.resolve(true)
+  assert.equal(await action, true)
+  assert.equal(f.persistCalls(), 1)
+  assert.equal(f.currentChapter.value!.content, '已批准依据生成并保存的正文。')
+  await nextTick()
+  f.assertCleared('Saved completion leaves no old memory or support capabilities')
+  f.visible.continue.value = false
+  f.assertCleared('User close after saved completion keeps cleanup intact')
+  f.dispose()
+}
+
+// Launch alone is not approval. A click while support is running closes the
+// dialog, fails memory acquisition, and cannot keep the hidden support owner.
+{
+  const f = await ownerFixture()
+  await f.open('chapter'); await f.select()
+  pending = deferred<string>(); dispatched = deferred<void>()
+  assert.equal(await f.memory.support.state.prepare(), true)
+  const running = f.memory.support.state.run(); await dispatched.promise
+  const originalError = console.error
+  console.error = () => undefined
+  try { assert.equal(await f.start(), false) } finally { console.error = originalError }
+  f.assertCleared('Unapproved failed chapter launch must fully revoke the hidden owner')
+  assert.equal(f.generationCalls(), 0)
+  assert.equal(f.persistCalls(), 0)
+  pending.resolve(raw)
+  assert.equal(await running, false)
+  await nextTick()
+  f.assertCleared('Late support result cannot return after failed chapter launch')
+  pending = null; dispatched = null; f.dispose()
+}
+
+// A slow chapter selection is not the synchronous author-approved launch close.
+{
+  const f = await ownerFixture()
+  f.currentChapter.value = f.chapters.value[0]!
+  f.content.value = f.currentChapter.value.content!
+  await f.open('chapter'); await f.select()
+  assert.equal(await f.memory.approve(), true)
+  f.holdSelection()
+  const action = f.start()
+  await f.selectionStarted.promise
+  assert.equal(f.controller.isBusy.value, true)
+  assert.equal(f.controller.isExpectedDialogClose(), false)
+  f.visible.chapter.value = false
+  f.assertCleared('Manual close while selecting cannot masquerade as launch handoff')
+  f.selectionGate.resolve()
+  assert.equal(await action, false)
+  assert.equal(f.generationCalls(), 0)
+  assert.equal(f.persistCalls(), 0)
+  f.dispose()
+}
+
+// Successful chapter switching preserves the approved target's exact source;
+// the narrow handoff is not limited to generating the already-current chapter.
+{
+  const f = await ownerFixture()
+  f.currentChapter.value = f.chapters.value[0]!
+  f.content.value = f.currentChapter.value.content!
+  await f.open('chapter'); await f.select()
+  assert.equal(await f.memory.approve(), true)
+  f.holdSelection()
+  const action = f.start()
+  await f.selectionStarted.promise
+  assert.equal(f.controller.isExpectedDialogClose(), false)
+  f.selectionGate.resolve()
+  await f.generationDispatched.promise
+  assert.equal(f.currentChapter.value!.id, 33)
+  assert.equal(f.memory.state.approved, true)
+  f.generated.resolve('切章后合法生成的正文。')
+  assert.equal(await action, true)
+  assert.equal(f.persistCalls(), 1)
+  assert.equal(f.currentChapter.value!.content, '切章后合法生成的正文。')
+  await nextTick()
+  f.assertCleared('Saved source change cleans up the handed-off approval without reopening a dialog')
+  f.dispose()
+}
+
+// Default-off chapter launch still dispatches and saves without requesting an
+// approval or creating a support capability as a side effect of owner cleanup.
+{
+  const f = await ownerFixture()
+  await f.open('chapter')
+  const action = f.start()
+  await f.generationDispatched.promise
+  assert.equal(f.memory.state.enabled, false)
+  assert.equal(f.memory.support.state.enabled, false)
+  assert.equal(f.memory.state.approved, false)
+  assert.ok(!f.sentPrompts[0]!.includes('WRITER_MEMORY_CONTEXT_JSON'))
+  f.generated.resolve('未启用记忆的正常正文。')
+  assert.equal(await action, true)
+  assert.equal(f.persistCalls(), 1)
+  f.dispose()
+}
+
+// The narrow handoff cannot exempt a later owner change, even in the exact
+// resolved-response/await-continuation window of chapter generation itself.
+{
+  const f = await ownerFixture()
+  await f.open('chapter'); await f.select()
+  assert.equal(await f.memory.approve(), true)
+  const original = f.content.value
+  const action = f.start()
+  await f.generationDispatched.promise
+  f.generated.resolve('不能保存的迟到正文。')
+  f.visible.optimize.value = true
+  f.assertCleared('Later entry opening revokes the handed-off writing lease synchronously')
+  assert.equal(await action, false)
+  assert.equal(f.content.value, original)
+  assert.equal(f.persistCalls(), 0)
+  f.dispose()
+}
 console.log(JSON.stringify({ suite: 'writer-memory-support', privateCompleteRelations: true, stalePremiseBlocks: true,
-  independentApproval: true, noPromptInjection: true, cancellationAndSourceInvalidation: true, controlledCalls: calls, realModelCalls: 0 }))
+  independentApproval: true, noPromptInjection: true, cancellationAndSourceInvalidation: true,
+  threeEntryOwnership: true, approvedChapterLaunchHandoff: true, resolvedResponseRace: true,
+  controlledCalls: calls, realModelCalls: 0 }))

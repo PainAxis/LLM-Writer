@@ -2,9 +2,13 @@
 
 [English](REPORT.md) | [简体中文](REPORT.zh-CN.md)
 
-> [Browser CI follow-up and test-only correction](CI-FOLLOWUP.md).
+> [Browser CI follow-up and production owner correction](CI-FOLLOWUP.md).
 
 Date: 2026-10-22. Base: merged full-scan revision `73e730a848c3272ad5a243d028cec65ad5b72c8b`. Scope: stage-three track 3, not completion of the whole stage or stage-four Agent. See the [feature contract](../../memory-support-checks.md).
+
+## Revision-bound follow-up
+
+The original local, stress and live observations below retain their original revision scope. The later owner-lifecycle correction changes three production files and has a new 366-path source/config/harness manifest: `ci-owner-fix-validation.json`. Production build, zero-warning ESLint and all 91 smoke suites passed on that unchanged snapshot. The exact current revision still requires all necessary CI, including browser and Writer stress; neither was rerun locally for this correction. The retained failure evidence (the first CI log excerpt and the second/third complete browser reports) is not a full-suite pass.
 
 ## Local regression
 

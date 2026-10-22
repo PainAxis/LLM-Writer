@@ -456,6 +456,7 @@ import WorldviewPanel from '@/components/writer/panels/WorldviewPanel.vue'
 const WriterEditor = defineAsyncComponent(() => import('@/components/writer/WriterEditor.vue'))
 import { useAIStream } from '@/composables/useAIStream'
 import { useWriterMemoryContext } from '@/composables/useWriterMemoryContext'
+import { useWriterMemoryOwner } from '@/composables/useWriterMemoryOwner'
 import { createWriterMemoryStream } from '@/composables/writerMemoryStream'
 import WriterMemoryContext from '@/components/writer/WriterMemoryContext.vue'
 import { useApiConfig } from '../services/apiConfig'
@@ -661,8 +662,14 @@ const {
 watch([showChapterGenerateDialog, targetChapter, currentChapter], () => {
   memoryTargetChapter.value = showChapterGenerateDialog.value ? targetChapter.value : currentChapter.value
 }, { immediate: true })
-watch([showChapterGenerateDialog, showNewContinueDialog, showNewOptimizeDialog], opened => {
-  if (!opened.some(Boolean) && writerMemoryState.busy) writerMemory.cancel()
+useWriterMemoryOwner({
+  chapterVisible: showChapterGenerateDialog,
+  continueVisible: showNewContinueDialog,
+  optimizeVisible: showNewOptimizeDialog,
+  isChapterLaunchClose: chapterContentGeneration.isExpectedDialogClose,
+  hasApprovedMemory: () => writerMemoryState.approved,
+  invalidateSupport: () => writerMemory.support.invalidate(),
+  revoke: () => writerMemory.revoke(),
 })
 
 const materialCrud = useWriterMaterialCrud({

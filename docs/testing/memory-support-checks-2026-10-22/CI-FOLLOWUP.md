@@ -44,3 +44,20 @@ The test supplied a dialog-rooted locator inside `filter({ has: ... })`, althoug
 同一运行已通过 46 个支持检查浏览器场景，包括真实 HTTP EOF 后的源失效、第 25 个语义用例、全部旧结果撤销与 600 章 Memory Lab 路径。第 47 个场景在首次 Writer 勾选前中止，尚无写作请求。保留报告原始字节，记录 46 通过 / 1 失败 / 5 未执行、44 次支持检查、0 次写作、0 次非模拟外部请求；页面诊断明确显示第 588/590 章准确原文及修订，因此不把此故障误报为检索漏召回。
 
 根因是 `has` 内层本应相对候选卡查找，却再次从 dialog 根节点开始。仅修正这一测试定位作用域，且增加勾选前原文完全相等断言，不改生产、源校验、作者批准或 52/25/50/62 验收分母。本轮图谱/备份/移动端 job 已完整通过。修正后精确 head 的浏览器验收仍待 CI，不以局部通过代替全部完成。
+
+
+## Third CI attempt and production owner correction
+
+Run [39836010886](https://github.com/PainAxis/LLM-Writer/actions/runs/39836010886), head `e437713f142d2f71e9c1cfbe547b0c2ff15dadf8`, passed 47 browser scenarios, including the complete 600-chapter continuation/check/author-approval/writing path. The next polishing journey failed before retrieval because repeated same-hash navigation reused the Writer route instance and its explicitly enabled memory setting. The complete, unmodified report is retained as `ci-third-browser-report.json`; 48 attempted / 47 passed / 1 failed / 4 not executed is not a full pass.
+
+Auditing all remaining scenarios uncovered a separate **production lifecycle defect**: the dialog-close watcher only cancelled retrieval-busy operations, while support checks had their own busy state. Closing a pending support check could leave its owner and approval/preview state alive. The correction must synchronously revoke all three Writer entry-point owners on user closure/entry transitions while preserving the author's enabled preferences. The existing chapter-generation controller intentionally closes its workspace before acquiring the writing lease; only that private, synchronous, already-approved launch handoff may preserve the lease, and even that handoff revokes support-check capability/output. A broad `isBusy` exception or a blanket close/revoke would be incorrect.
+
+Independent fresh-instance journeys now cross a fixture-only document before opening Writer, so both default-off assertions test real defaults. The close/reopen scenario uses only the real buttons in the same document, does not reload or reconfigure retrieval, and makes the controlled transport ignore abort and deliver HTTP 200. It then checks that candidates, selections, support preview/answer/assessment and approval remain absent while both author-enabled switches stay enabled. All 52 / 25 / 50 / 3 / 62 case, semantic, support, writing and source denominators remain unchanged. Production changes require renewed independent review, local full regression and exact-head CI, not inheritance of the earlier static approval.
+
+## 第三次 CI 与生产 owner 修复
+
+该运行通过 47 个浏览器场景，包括 600 章续写的支持核对、作者批准和真实生产写作适配链。随后润色场景尚未检索，就因同 hash 导航复用了作者已开启记忆的路由实例，错误触发“默认关闭”断言。原始报告保留 48 已执行 / 47 通过 / 1 失败 / 4 未执行，不称全套通过。
+
+完整生命周期检查另发现真实生产缺陷：关闭对话框仅取消检索 busy，未撤销独立的支持检查 owner。修复同步处理三入口用户关闭和切换，保留作者已开启的开关，但清掉批准、候选与语义输出。章节生成既有“先关工作区、再取得写作 lease”时序必须保留；只有私有同步标记确认的、已批准启动交接才保留写作 lease，且仍撤销支持检查能力/结果，不用笼统 busy 豁免。
+
+各独立业务场景明确创建新实例检查默认值；关闭重开场景只在同一文档内真实点击，不借重载或修改provider帮生产清状态，并让响应忽略取消后仍成功返回200，再验证候选、选中、预览、答案、判断与批准均未复活，两个作者开关保留。52 / 25 / 50 / 3 / 62 全部分母不减。生产已变化，须新一轮独立审阅、完整本地回归与准确head CI。

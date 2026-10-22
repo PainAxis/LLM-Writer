@@ -375,14 +375,22 @@ async function mutateCommitted(sourceId, { title = false, restore = false, stora
   }, { novelId, chapterId: idFor(ordinal), text: nextText, originalTitle: original.title, title, restore, storageEvent })
   if (!title) liveQuotes.set(idFor(ordinal), nextText)
 }
-async function openWriter(kind, { localOnly = false } = {}) {
-  cutoff = targetOrdinal
-  await page.goto(`${origin}/#/writer?novelId=${novelId}&chapterId=${idFor(targetOrdinal)}`); await dismissAnnouncement()
-  await expect(editor()).toContainText(targetText.slice(0, 10), { useInnerText: true, timeout: novelId === longNovelId ? 90_000 : 25_000 })
+async function openWriterDialog(kind) {
   if (kind === 'chapter') { await page.getByRole('button', { name: '根据大纲生成', exact: true }).click(); dialog = page.getByRole('dialog', { name: 'AI生成章节内容', exact: true }); await dialog.locator('.prompt-item-modern').first().click() }
   else if (kind === 'continue') { await page.getByRole('button', { name: '续写', exact: true }).click(); dialog = page.getByRole('dialog', { name: 'AI智能续写', exact: true }) }
   else { await page.getByRole('button', { name: '优化', exact: true }).click(); dialog = page.getByRole('dialog', { name: 'AI文本润色', exact: true }); await dialog.locator('.prompt-item').first().click() }
-  await expect(dialog).toBeVisible(); await expect(wm('enabled')).not.toBeChecked(); await wm('enabled').check()
+  await expect(dialog).toBeVisible()
+}
+async function openWriter(kind, { localOnly = false } = {}) {
+  cutoff = targetOrdinal
+  // A repeated hash navigation may reuse the live Writer owner. Independent
+  // default-off journeys deliberately create a new document, preserving saved data.
+  await page.goto(`${origin}/__support_seed`)
+  await page.goto(`${origin}/#/writer?novelId=${novelId}&chapterId=${idFor(targetOrdinal)}`); await dismissAnnouncement()
+  await expect(editor()).toContainText(targetText.slice(0, 10), { useInnerText: true, timeout: novelId === longNovelId ? 90_000 : 25_000 })
+  await openWriterDialog(kind)
+  await expect(wm('enabled')).not.toBeChecked(); await wm('enabled').check()
+  await expect(support(wm, 'enabled')).not.toBeChecked()
   if (!localOnly) await configureRetrieval(wm, 'providers')
 }
 
@@ -572,9 +580,23 @@ try {
     await page.goto(`${origin}/__support_seed`)
     await page.evaluate(longNovelId => { const novels = JSON.parse(localStorage.getItem('novels')); localStorage.setItem('novels', JSON.stringify(novels.filter(novel => novel.id !== longNovelId))) }, longNovelId)
     useScope(false); await openWriter('continue')
-    await search(wm); await selectWriter(); await support(wm, 'enabled').check(); await prepare(wm); mode = 'hold'; await send(wm)
-    await dialog.getByRole('button', { name: '取消', exact: true }).click(); await expect(dialog).toBeHidden(); await releaseHeld(); mode = 'ok'
-    await openWriter('continue'); await expect(wm('approved')).toHaveCount(0); await expect(wm('result')).toHaveCount(0)
+    await search(wm); await selectWriter(); await wm('approve').click(); await expect(wm('approved')).toBeVisible()
+    await support(wm, 'enabled').check(); await prepare(wm); await expect(wm('approved')).toHaveCount(0)
+    await page.evaluate(() => { window.__supportIgnoreAbort = true })
+    mode = 'hold'; const late = await send(wm)
+    await dialog.getByRole('button', { name: '取消', exact: true }).click(); await expect(dialog).toBeHidden()
+    // Reopen by button only: no reload/goto/provider edit may clear state for production.
+    await openWriterDialog('continue')
+    await expect(wm('enabled')).toBeChecked(); await expect(support(wm, 'enabled')).toBeChecked()
+    await expect(wm('approved')).toHaveCount(0); await expect(wm('result')).toHaveCount(0)
+    const beforeLate = requests.length
+    await releaseHeld(); mode = 'ok'; await expect.poll(() => late.status).toBe(200)
+    await quiet(beforeLate, 'Same-instance reopen cannot send again, even after ignored-abort success')
+    await expect(wm('approved')).toHaveCount(0); await expect(wm('result')).toHaveCount(0)
+    await expect(dialog.locator('input[data-testid^="writer-memory-select-"]:checked')).toHaveCount(0)
+    await expect(support(wm, 'preview')).toHaveCount(0); await expect(support(wm, 'assessment')).toHaveCount(0); await expect(support(wm, 'answer')).toHaveCount(0)
+    report.mutationControls.writerCloseIgnoredAbort = { status: late.status, newRequestsAfterReopen: requests.length - beforeLate, sameDocument: true }
+    await page.evaluate(() => { window.__supportIgnoreAbort = false })
     await dialog.getByRole('button', { name: '取消', exact: true }).click()
   })
   await step('12 Narrow mobile cancel and individual cited premises remain usable', async () => {

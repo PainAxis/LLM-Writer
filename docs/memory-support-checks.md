@@ -26,6 +26,8 @@ The result shows each model-described premise beside its exact original quotatio
 
 Starting a Writer check revokes existing generation approval and blocks approval while checking. Completion, including `supported`, never selects or approves evidence. Chapter-body generation, continuation and polishing still require explicit approval of the selected references and all existing dispatch/completion/application freshness checks. **The check's answer and explanation are not added to the writing prompt or manuscript.** An author may still use current reference material after reviewing an insufficient/uncertain/unverified warning and explicitly approving it.
 
+Closing or switching a Writer dialog synchronously revokes its pending support check, preview, candidates, selection and approval, including responses that ignore cancellation. Reopening the same route may retain the author's enabled switches; it does not retain permission or results. New Writer instances start disabled. The existing chapter-generation controller closes its dialog before requesting text: only its private, synchronous, already-approved launch handoff preserves the writing lease, and even that handoff clears the separate support-check capability and output.
+
 Checks, plans and results are route-session state, not persisted graph facts or backups. Chat credentials use the existing configuration; the feature adds no new credential store. Usage records omit question, quotes, response and reasoning content while retaining available usage metadata. A destination preview excludes URL credentials, query strings and header values; a configured proxy's origin is disclosed too.
 
 ## Explicit input and request budgets
