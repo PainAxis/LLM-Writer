@@ -2,6 +2,8 @@
 
 [English](REPORT.md) | [简体中文](REPORT.zh-CN.md)
 
+> [浏览器 CI 后续及仅测试修正](CI-FOLLOWUP.md).
+
 日期：2026-10-22。基线为已合并的全扫描修订 `73e730a848c3272ad5a243d028cec65ad5b72c8b`。范围是第三阶段第 3 项，不代表第三阶段整体或第四阶段 Agent 已完成。见[功能契约](../../memory-support-checks.zh-CN.md)。
 
 ## 本地回归

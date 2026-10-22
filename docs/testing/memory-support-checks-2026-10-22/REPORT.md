@@ -2,6 +2,8 @@
 
 [English](REPORT.md) | [简体中文](REPORT.zh-CN.md)
 
+> [Browser CI follow-up and test-only correction](CI-FOLLOWUP.md).
+
 Date: 2026-10-22. Base: merged full-scan revision `73e730a848c3272ad5a243d028cec65ad5b72c8b`. Scope: stage-three track 3, not completion of the whole stage or stage-four Agent. See the [feature contract](../../memory-support-checks.md).
 
 ## Local regression

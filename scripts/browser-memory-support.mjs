@@ -14,6 +14,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { chromium, expect as playwrightExpect } from '@playwright/test'
 import { startPreviewServer } from './browser-preview.mjs'
+import { installSupportBodyConsumptionHook } from './fixtures/support-response-consumption-hook.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const artifacts = path.join(root, 'artifacts/browser-memory-support')
@@ -475,22 +476,19 @@ try {
   })
   await step('06 Source title changes after HTTP response consumption invalidate final publication', async () => {
     await readyLab()
-    await page.evaluate(({ novelId, chapterId }) => {
-      const originals = { json: Response.prototype.json, text: Response.prototype.text }
-      window.__supportFinalReadHook = false
-      for (const method of ['json', 'text']) Response.prototype[method] = async function (...args) {
-        const value = await originals[method].apply(this, args)
-        const isFixtureResponse = method === 'json' ? typeof value?.id === 'string' && value.id.startsWith('support-browser-') : value.includes('\"id\":\"support-browser-')
-        if (isFixtureResponse && !window.__supportFinalReadHook) {
-          Response.prototype.json = originals.json; Response.prototype.text = originals.text
-          const novels = JSON.parse(localStorage.getItem('novels')); novels.find(novel => novel.id === novelId).chapterList.find(chapter => chapter.id === chapterId).title += '（响应读取后改题）'
-          localStorage.setItem('novels', JSON.stringify(novels)); window.__supportFinalReadHook = true
-        }
-        return value
-      }
-    }, { novelId, chapterId: idFor(ordinalFor('S1')) })
-    await send(lab); await expect.poll(() => page.evaluate(() => window.__supportFinalReadHook)).toBe(true)
-    await noAssessment(lab); await mutateCommitted('S1', { title: true, restore: true })
+    await page.evaluate(installSupportBodyConsumptionHook, { fixtureOrigin, novelId, chapterId: idFor(ordinalFor('S1')) })
+    const entry = await send(lab)
+    await expect.poll(() => page.evaluate(() => window.__supportFinalReadHook?.fired)).toBe(true)
+    const hook = await page.evaluate(() => window.__supportFinalReadHook)
+    assert.equal(hook.status, 200); assert.equal(hook.reachedEof, true)
+    assert.equal(hook.bytes, entry.responseBytes, 'Mutation must occur only after every actual HTTP response byte is consumed')
+    assert.ok(hook.chunks > 0)
+    report.mutationControls.responseConsumption = hook
+    await noAssessment(lab)
+    await expect(support(lab, 'unverified')).toContainText('引用来源已改变或未通过校验，请重新检索')
+    await expect(support(lab, 'preview')).toHaveCount(0)
+    await expect(page.locator('input[data-testid^="memory-support-select-"]:checked')).toHaveCount(0)
+    await mutateCommitted('S1', { title: true, restore: true })
   })
   for (const change of ['selection', 'query', 'check-question', 'cutoff', 'provider', 'cancel', 'close', 'new-search', 'navigation']) await step(`07 Late output rejected after ${change}`, async () => {
     await readyLab(); await page.evaluate(() => { window.__supportIgnoreAbort = true }); mode = 'hold'; const late = await send(lab); await expect(support(lab, 'running')).toBeVisible()
@@ -591,7 +589,7 @@ try {
     const positiveFailures = semanticCases.filter(item => item.expected.verdict === 'supported').length
     const allSupportedFailures = semanticCases.filter(item => item.expected.verdict !== 'supported').length
     assert.equal(positiveFailures, 12); assert.equal(allInsufficientFailures, 19); assert.equal(allSupportedFailures, 13)
-    report.mutationControls = { total: 25, alwaysInsufficient: { rejected: 19, positiveRecovery: '0/12' }, alwaysSupported: { rejected: 13 }, disclaimer: 'Oracle sensitivity control, not a claim that protocol validation proves semantic entailment.' }
+    Object.assign(report.mutationControls, { total: 25, alwaysInsufficient: { rejected: 19, positiveRecovery: '0/12' }, alwaysSupported: { rejected: 13 }, disclaimer: 'Oracle sensitivity control, not a claim that protocol validation proves semantic entailment.' })
   })
   assert.deepEqual(report.fixtureErrors, []); assert.deepEqual(report.browserErrors, []); assert.deepEqual(report.blockedRequests, [])
   assert.equal(report.semantic.length, 25)

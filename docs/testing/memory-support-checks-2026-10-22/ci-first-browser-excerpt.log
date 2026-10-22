@@ -1,0 +1,83 @@
+2026-10-22T18:28:16.7206460Z START 01 Default off, local retrieval/viewing does not opt in or send support
+2026-10-22T18:28:19.5446769Z PASS  01 Default off, local retrieval/viewing does not opt in or send support
+2026-10-22T18:28:19.5489595Z START 02 P01 direct-positive: exact selected-source assessment
+2026-10-22T18:28:20.7582498Z PASS  02 P01 direct-positive: exact selected-source assessment
+2026-10-22T18:28:20.7596943Z START 02 P02 paraphrase-positive: exact selected-source assessment
+2026-10-22T18:28:21.7927600Z PASS  02 P02 paraphrase-positive: exact selected-source assessment
+2026-10-22T18:28:21.7959637Z START 02 P03 explicit-negative: exact selected-source assessment
+2026-10-22T18:28:22.8586901Z PASS  02 P03 explicit-negative: exact selected-source assessment
+2026-10-22T18:28:22.8603156Z START 02 P04 two-premise-positive: exact selected-source assessment
+2026-10-22T18:28:24.1426538Z PASS  02 P04 two-premise-positive: exact selected-source assessment
+2026-10-22T18:28:24.1441177Z START 02 P05 three-premise-positive: exact selected-source assessment
+2026-10-22T18:28:25.3943059Z PASS  02 P05 three-premise-positive: exact selected-source assessment
+2026-10-22T18:28:25.3953319Z START 02 P06 conflict-report-positive: exact selected-source assessment
+2026-10-22T18:28:26.4621387Z PASS  02 P06 conflict-report-positive: exact selected-source assessment
+2026-10-22T18:28:26.4633000Z START 02 P07 exact-code-positive: exact selected-source assessment
+2026-10-22T18:28:27.3288973Z PASS  02 P07 exact-code-positive: exact selected-source assessment
+2026-10-22T18:28:27.3300730Z START 02 P08 temporal-positive: exact selected-source assessment
+2026-10-22T18:28:28.2324720Z PASS  02 P08 temporal-positive: exact selected-source assessment
+2026-10-22T18:28:28.2337429Z START 02 P09 false-premise-correction: exact selected-source assessment
+2026-10-22T18:28:29.1539540Z PASS  02 P09 false-premise-correction: exact selected-source assessment
+2026-10-22T18:28:29.1559363Z START 02 P10 injection-positive: exact selected-source assessment
+2026-10-22T18:28:30.1993887Z PASS  02 P10 injection-positive: exact selected-source assessment
+2026-10-22T18:28:30.2004134Z START 02 P11 speech-report-positive: exact selected-source assessment
+2026-10-22T18:28:31.0671577Z PASS  02 P11 speech-report-positive: exact selected-source assessment
+2026-10-22T18:28:31.0681744Z START 02 P12 future-now-disclosed-positive: exact selected-source assessment
+2026-10-22T18:28:31.9283868Z PASS  02 P12 future-now-disclosed-positive: exact selected-source assessment
+2026-10-22T18:28:31.9293380Z START 02 N01 literal-unanswered: exact selected-source assessment
+2026-10-22T18:28:32.7943516Z PASS  02 N01 literal-unanswered: exact selected-source assessment
+2026-10-22T18:28:32.7953567Z START 02 N02 unstated-event: exact selected-source assessment
+2026-10-22T18:28:33.6981222Z PASS  02 N02 unstated-event: exact selected-source assessment
+2026-10-22T18:28:33.6990276Z START 02 N03 selected-subset-not-manuscript: exact selected-source assessment
+2026-10-22T18:28:34.5887492Z PASS  02 N03 selected-subset-not-manuscript: exact selected-source assessment
+2026-10-22T18:28:34.5896639Z START 02 N04 missing-chain-premise: exact selected-source assessment
+2026-10-22T18:28:35.4343286Z PASS  02 N04 missing-chain-premise: exact selected-source assessment
+2026-10-22T18:28:35.4353478Z START 02 N05 partly-answered-multipart: exact selected-source assessment
+2026-10-22T18:28:36.3532452Z PASS  02 N05 partly-answered-multipart: exact selected-source assessment
+2026-10-22T18:28:36.3543679Z START 02 N06 future-answer-not-selected: exact selected-source assessment
+2026-10-22T18:28:37.2551163Z PASS  02 N06 future-answer-not-selected: exact selected-source assessment
+2026-10-22T18:28:37.2561138Z START 02 U01 weak-rumor: exact selected-source assessment
+2026-10-22T18:28:38.1112777Z PASS  02 U01 weak-rumor: exact selected-source assessment
+2026-10-22T18:28:38.1122669Z START 02 U02 contradictory-accounts: exact selected-source assessment
+2026-10-22T18:28:39.1235981Z PASS  02 U02 contradictory-accounts: exact selected-source assessment
+2026-10-22T18:28:39.1245497Z START 02 U03 ambiguous-pronoun: exact selected-source assessment
+2026-10-22T18:28:40.0248161Z PASS  02 U03 ambiguous-pronoun: exact selected-source assessment
+2026-10-22T18:28:40.0257439Z START 02 U04 ambiguous-time: exact selected-source assessment
+2026-10-22T18:28:40.9451112Z PASS  02 U04 ambiguous-time: exact selected-source assessment
+2026-10-22T18:28:40.9460417Z START 02 U05 speculative-motive: exact selected-source assessment
+2026-10-22T18:28:41.7969705Z PASS  02 U05 speculative-motive: exact selected-source assessment
+2026-10-22T18:28:41.7979105Z START 02 U06 speech-not-event: exact selected-source assessment
+2026-10-22T18:28:42.6607028Z PASS  02 U06 speech-not-event: exact selected-source assessment
+2026-10-22T18:28:42.6618765Z START 02 U07 single-excerpt-conflict: exact selected-source assessment
+2026-10-22T18:28:43.5388529Z PASS  02 U07 single-excerpt-conflict: exact selected-source assessment
+2026-10-22T18:28:43.5405183Z START 03 Exact question, private request survives DOM preview edit, double-click sends once
+2026-10-22T18:28:44.6904542Z PASS  03 Exact question, private request survives DOM preview edit, double-click sends once
+2026-10-22T18:28:44.6913883Z START 04 fake-reference remains unverified, never supported, no retry
+2026-10-22T18:28:45.8669816Z PASS  04 fake-reference remains unverified, never supported, no retry
+2026-10-22T18:28:45.8680869Z START 04 malformed-json remains unverified, never supported, no retry
+2026-10-22T18:28:47.0016867Z PASS  04 malformed-json remains unverified, never supported, no retry
+2026-10-22T18:28:47.0027939Z START 04 failure remains unverified, never supported, no retry
+2026-10-22T18:28:48.1983766Z PASS  04 failure remains unverified, never supported, no retry
+2026-10-22T18:28:48.1999587Z START 04 interrupt remains unverified, never supported, no retry
+2026-10-22T18:28:49.7494295Z PASS  04 interrupt remains unverified, never supported, no retry
+2026-10-22T18:28:49.7504468Z START 04 oversize remains unverified, never supported, no retry
+2026-10-22T18:28:50.8837519Z PASS  04 oversize remains unverified, never supported, no retry
+2026-10-22T18:28:50.8847787Z START 04 truncated remains unverified, never supported, no retry
+2026-10-22T18:28:52.0835585Z PASS  04 truncated remains unverified, never supported, no retry
+2026-10-22T18:28:52.0844690Z START 05 Source body changes during held response without storage event invalidate publication
+2026-10-22T18:28:52.9411995Z PASS  05 Source body changes during held response without storage event invalidate publication
+2026-10-22T18:28:52.9421847Z START 06 Source title changes after HTTP response consumption invalidate final publication
+2026-10-22T18:29:17.9696445Z Error: expect(received).toBe(expected) // Object.is equality
+2026-10-22T18:29:17.9696963Z
+2026-10-22T18:29:17.9697129Z Expected: true
+2026-10-22T18:29:17.9697504Z Received: false
+2026-10-22T18:29:17.9697725Z
+2026-10-22T18:29:17.9697866Z Call Log:
+2026-10-22T18:29:17.9698457Z - Timeout 25000ms exceeded while waiting on the predicate
+2026-10-22T18:29:17.9699540Z     at captureRawStack (/home/runner/work/LLM-Writer/LLM-Writer/node_modules/playwright-core/lib/coreBundle.js:8588:17)
+2026-10-22T18:29:17.9700512Z     at callMatcherAsStep (/home/runner/work/LLM-Writer/LLM-Writer/node_modules/playwright/lib/matchers/expect.js:13310:57)
+2026-10-22T18:29:17.9701402Z     at Object.toBe (/home/runner/work/LLM-Writer/LLM-Writer/node_modules/playwright/lib/matchers/expect.js:13302:23)
+2026-10-22T18:29:17.9702708Z     at /home/runner/work/LLM-Writer/LLM-Writer/scripts/browser-memory-support.mjs:492:98
+2026-10-22T18:29:17.9703976Z     at async step (/home/runner/work/LLM-Writer/LLM-Writer/scripts/browser-memory-support.mjs:217:9)
+2026-10-22T18:29:17.9704822Z     at async file:///home/runner/work/LLM-Writer/LLM-Writer/scripts/browser-memory-support.mjs:476:3
+2026-10-22T18:29:18.0956156Z ##[error]Process completed with exit code 1.

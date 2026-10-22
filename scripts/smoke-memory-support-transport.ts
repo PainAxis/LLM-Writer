@@ -1,5 +1,6 @@
 /** Actual SDK/adapter checks. Every HTTP destination is explicitly mocked; no keys or live calls. */
 import assert from 'node:assert/strict'
+import { installSupportBodyConsumptionHook } from './fixtures/support-response-consumption-hook.mjs'
 import type { ApiConfig, GenerateOptions } from '../src/types/api'
 import { BoundedGenerationError, createBoundedRequestScope, type BoundedGenerationErrorCode } from '../src/services/aiRequestLimits'
 
@@ -121,6 +122,29 @@ try {
     'bounded transport must not sanitize or silently alter the exact selected source payload')
   console.log('✓ Actual SDK uses one guarded dispatch, no tools, explicit output cap and content-free reported usage')
 
+  // Exercise the exact browser mutation helper against the real bounded adapter
+  // and SDK. The old Response.json/text hooks cannot observe its reader path.
+  const sourceTitle = 'synthetic source before HTTP consumption'
+  disk.set('novels', JSON.stringify([{ id: 1, chapterList: [{ id: 2, title: sourceTitle }] }]))
+  const hookedFetch = globalThis.fetch
+  const hookBody = await compatible().text()
+  mock = async () => stream(encoder.encode(hookBody))
+  installSupportBodyConsumptionHook({ fixtureOrigin: 'https://bounded-provider.invalid', novelId: 1, chapterId: 2 })
+  const beforeHook = calls
+  assert.equal(await api.generateText(prompt, { ...options, beforeRequest: async () => {
+    assert.equal(JSON.parse(disk.get('novels')!)[0].chapterList[0].title, sourceTitle, 'source changes only after HTTP, never at dispatch')
+  } }), reply)
+  const hook = (globalThis as typeof globalThis & { __supportFinalReadHook: { fired: boolean; reachedEof: boolean; bytes: number; chunks: number; status: number } }).__supportFinalReadHook
+  assert.equal(calls - beforeHook, 1)
+  assert.equal(hook.fired, true); assert.equal(hook.reachedEof, true); assert.equal(hook.status, 200)
+  assert.equal(hook.bytes, encoder.encode(hookBody).byteLength); assert.ok(hook.chunks > 1)
+  assert.equal(JSON.parse(disk.get('novels')!)[0].chapterList[0].title, `${sourceTitle}（响应读取后改题）`)
+  assert.equal(globalThis.fetch, hookedFetch, 'one-shot helper restores fetch without weakening any response or freshness assertion')
+  disk.delete('novels')
+  console.log('✓ Browser mutation helper observes complete real-SDK HTTP body consumption before final source publication')
+
+
+  const beforeFailedGuards = calls
   mock = async () => compatible()
   await fails('transport', { beforeRequest: async () => { throw new Error(secret) } }, 0)
   await fails('timeout', { requestLimits: { ...limits, timeoutMs: 20 }, beforeRequest: () => new Promise(() => {}) }, 0)
@@ -130,7 +154,7 @@ try {
     throw new Error(secret)
   } })
   await assert.rejects(guarded, error => verifySafe(error, 'cancelled'))
-  assert.equal(calls, 2)
+  assert.equal(calls, beforeFailedGuards)
 
   for (const status of [401, 403, 429, 500, 503]) {
     mock = async () => json({ error: { message: secret, type: 'server_error' } }, status)

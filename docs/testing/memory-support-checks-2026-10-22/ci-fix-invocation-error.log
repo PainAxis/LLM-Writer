@@ -1,0 +1,8 @@
+file:///workspace/shared/LLM-Writer-support-check/scripts/run-smoke.mjs:10
+if (!npm) throw new Error('Run this script through npm run smoke:all')
+                ^
+
+Error: Run this script through npm run smoke:all
+    at file:///workspace/shared/LLM-Writer-support-check/scripts/run-smoke.mjs:10:17
+
+Node.js v24.19.0
