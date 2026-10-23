@@ -383,3 +383,38 @@ jobs:
             artifacts/browser-memory-fact-graph
           if-no-files-found: warn
           retention-days: 7
+
+  writer-agent:
+    name: ci-writer-agent
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      # Ninety isolated scenarios include genuine multi-tab saves and long profiles.
+      # The first-run observation budget is not a measured timing/quality claim.
+      # Controlled local HTTP only: never discover credentials or call a live provider.
+      # Kept out of test:browser to avoid duplicate execution, like the two stage-three jobs.
+      - name: Verify the bounded author-reviewed Agent in the production build
+        run: npm run test:browser-writer-agent
+        timeout-minutes: 20
+      - name: Upload bounded Agent review evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: writer-agent-evidence-${{ github.run_attempt }}
+          path: |
+            artifacts/browser-writer-agent/report.json
+            artifacts/browser-writer-agent/desktop-reviewed-draft.png
+            artifacts/browser-writer-agent/mobile-reviewed-draft.png
+            artifacts/browser-writer-agent/failure.png
+          if-no-files-found: warn
+          retention-days: 7

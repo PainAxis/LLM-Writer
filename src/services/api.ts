@@ -1,10 +1,10 @@
 import { useApiConfig } from './apiConfig'
-import { getPreset, loadAISDK, probeProviderConnection, resolveLanguageModel, type ModelsProbeOptions } from './aiProviders'
+import { getPreset, loadAISDK, probeProviderConnection, resolveLanguageModel, type ModelsProbeOptions, type ProviderKind } from './aiProviders'
 import billingService, { resolveRecordedUsage } from './billing'
 import { PREVIOUS_CONTENT_MAX_CHARS, trimTextFromEnd } from '@/utils/tokenBudget'
 import { buildCorpusInjection, recommendCorpus } from '@/utils/corpusRetrieval'
 import { AIRequestCancelledError } from '@/utils/aiRequestScope'
-import type { FinishReason } from 'ai'
+import type { FinishReason, LanguageModelUsage } from 'ai'
 import { buildGenerationBudget, getThinkingCapability } from '@/utils/generationBudget'
 import { BoundedGenerationError, createBoundedRequestScope } from './aiRequestLimits'
 import type { createExtensionSession } from './extensionsRuntime'
@@ -16,6 +16,7 @@ import type {
   CharacterInfo,
   ChatMessage,
   GenerateOptions,
+  GenerationRequestUsage,
   NovelBasicInfo,
   StreamCallback,
   TemplateInfo,
@@ -32,6 +33,48 @@ function failedToolOutput(value: { type: string; output?: unknown }): boolean {
 interface UsageInfo {
   inputTokens?: number
   outputTokens?: number
+}
+
+const safeTokens = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER
+    ? Math.floor(value) : undefined
+
+function requestUsage(
+  estimatedInputTokens: number, response: string, reported: UsageInfo | undefined,
+  status: GenerationRequestUsage['status'],
+): GenerationRequestUsage {
+  let inputTokens = safeTokens(reported?.inputTokens)
+  let outputTokens = safeTokens(reported?.outputTokens)
+  let usageSource: GenerationRequestUsage['usageSource'] = 'unavailable'
+  if (inputTokens !== undefined || outputTokens !== undefined) usageSource = 'reported'
+  else if (status === 'success' || response.length > 0) {
+    usageSource = 'estimated'
+    inputTokens = safeTokens(estimatedInputTokens)
+    outputTokens = safeTokens(billingService.estimateTokens(response))
+  }
+  const totalTokens = inputTokens !== undefined && outputTokens !== undefined
+    ? safeTokens(inputTokens + outputTokens) : undefined
+  return { status, usageSource,
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(outputTokens !== undefined ? { outputTokens } : {}),
+    ...(totalTokens !== undefined ? { totalTokens } : {}),
+  }
+}
+
+const objectValue = (value: unknown): Record<string, unknown> | undefined =>
+  value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined
+
+/** SDK totals include thinking/cache tokens, but some adapters fill absent counts with zero. */
+function boundedReportedUsage(usage: LanguageModelUsage, kind: ProviderKind): UsageInfo {
+  const raw = objectValue(usage.raw)
+  const inputEvidence = kind === 'compatible' ? raw?.prompt_tokens
+    : kind === 'google' ? raw?.promptTokenCount : usage.inputTokens
+  const outputEvidence = kind === 'compatible' ? raw?.completion_tokens
+    : kind === 'google' ? raw?.candidatesTokenCount : usage.outputTokens
+  return {
+    inputTokens: safeTokens(inputEvidence) !== undefined ? safeTokens(usage.inputTokens) : undefined,
+    outputTokens: safeTokens(outputEvidence) !== undefined ? safeTokens(usage.outputTokens) : undefined,
+  }
 }
 
 function appendReportedUsage(total: UsageInfo | undefined, next: UsageInfo): UsageInfo | undefined {
@@ -121,7 +164,9 @@ class APIService {
     status: 'success' | 'failed',
     type: string,
     omitContent = false,
+    captureUsage?: (usage: GenerationRequestUsage) => void,
   ): void {
+    captureUsage?.(requestUsage(estimatedInputTokens, response, usage, status))
     const recordedUsage = resolveRecordedUsage(estimatedInputTokens, response, usage, status)
     billingService.recordAPICall({
       type,
@@ -136,7 +181,31 @@ class APIService {
   // ============ 非流式请求 ============
 
   async generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
-    if (options.requestLimits !== undefined) return this.generateBoundedText(prompt, options)
+    // Keep observers outside request/billing control flow. They cannot turn a
+    // success into a failed bill, trigger retries, or read another call's usage.
+    const onRequestUsage = options.onRequestUsage
+    let captured: GenerationRequestUsage | undefined
+    let status: GenerationRequestUsage['status'] = 'failed'
+    const capture = onRequestUsage ? (usage: GenerationRequestUsage) => { captured = usage } : undefined
+    try {
+      // This new metadata port is deliberately limited to the bounded path,
+      // whose provider evidence distinguishes absent usage from SDK zero defaults.
+      // Ordinary generation and streaming keep their existing public behavior.
+      if (onRequestUsage && options.requestLimits === undefined) throw new BoundedGenerationError('invalid_limits')
+      const result = options.requestLimits !== undefined
+        ? await this.generateBoundedText(prompt, options, capture)
+        : await this.generateOrdinaryText(prompt, options)
+      status = 'success'
+      return result
+    } finally {
+      if (onRequestUsage) {
+        const metadata = Object.freeze({ ...(captured ?? { usageSource: 'unavailable' as const }), status })
+        try { void Promise.resolve(onRequestUsage(metadata)).catch(() => {}) } catch { /* observational only */ }
+      }
+    }
+  }
+
+  private async generateOrdinaryText(prompt: string, options: GenerateOptions): Promise<string> {
     const beforeRequest = options.beforeRequest
     this.assertConfigReady()
     const config = this.getConfig()
@@ -206,7 +275,7 @@ class APIService {
   }
 
   /** Deliberately separate from the ordinary/streaming path: bounded checks have no tools or retries. */
-  private async generateBoundedText(prompt: string, options: GenerateOptions): Promise<string> {
+  private async generateBoundedText(prompt: string, options: GenerateOptions, captureUsage?: (usage: GenerationRequestUsage) => void): Promise<string> {
     const scope = createBoundedRequestScope(options.requestLimits!, options.signal)
     this.activeControllers.add(scope.controller)
     let effectiveModel = ''
@@ -214,6 +283,7 @@ class APIService {
     let estimatedInputTokens = 0
     let content = ''
     let usage: UsageInfo | undefined
+    let kind: ProviderKind = 'compatible'
     let record = false
     try {
       scope.assertActive()
@@ -222,6 +292,7 @@ class APIService {
       // ownership is rechecked by beforeRequest immediately before HTTP dispatch.
       const active = this.getConfig()
       const config = { ...active, customHeaders: { ...active.customHeaders } }
+      kind = getPreset(config.provider).kind
       const request = { ...options }
       if (request.extensions || request.preparedExtensions || request.messages
         || !Number.isInteger(request.maxTokens) || request.maxTokens! < 1 || request.maxTokens! > 1_200) {
@@ -258,15 +329,15 @@ class APIService {
         model, telemetry: { isEnabled: false }, prompt,
         system: request.system,
         ...budget, abortSignal: scope.signal, maxRetries: 0,
+        onLanguageModelCallEnd: step => { usage = boundedReportedUsage(step.usage, kind) },
       }))
       content = result.text ?? ''
-      usage = result.usage
       scope.assertActive()
       if (result.finishReason !== 'stop') throw new BoundedGenerationError('output_incomplete')
-      this.recordUsage(effectiveModel, promptForEstimate, content, estimatedInputTokens, usage, 'success', request.type ?? 'generation', true)
+      this.recordUsage(effectiveModel, promptForEstimate, content, estimatedInputTokens, usage, 'success', request.type ?? 'generation', true, captureUsage)
       return content
     } catch (error) {
-      if (record) this.recordUsage(effectiveModel, promptForEstimate, content, estimatedInputTokens, usage, 'failed', options.type ?? 'generation', true)
+      if (record) this.recordUsage(effectiveModel, promptForEstimate, content, estimatedInputTokens, usage, 'failed', options.type ?? 'generation', true, captureUsage)
       scope.assertActive()
       if (error instanceof BoundedGenerationError) throw error
       throw new BoundedGenerationError('transport')
@@ -279,7 +350,7 @@ class APIService {
   // ============ 流式请求 ============
 
   async generateTextStream(prompt: string, options: GenerateOptions = {}, onChunk: StreamCallback | null = null): Promise<string> {
-    if (options.requestLimits !== undefined) throw new BoundedGenerationError('invalid_limits')
+    if (options.requestLimits !== undefined || options.onRequestUsage !== undefined) throw new BoundedGenerationError('invalid_limits')
     const beforeRequest = options.beforeRequest
     this.assertConfigReady()
     const config = this.getConfig()

@@ -102,7 +102,7 @@
                   <span class="word-count">{{ contentWordCount }}字</span>
                   <el-select 
                     v-if="currentChapter.status" 
-                    v-model="currentChapter.status" 
+                    :model-value="currentChapter.status"
                     size="small" 
                     style="width: 80px;"
                     @change="updateChapterStatus"
@@ -125,6 +125,9 @@
                   <el-button size="small" @click="openContinueDialog">
                     <el-icon><ArrowRight /></el-icon>
                     续写
+                  </el-button>
+                  <el-button size="small" data-testid="writer-agent-open" @click="writerAgent.open">
+                    连续性草稿
                   </el-button>
                   <el-button size="small" @click="enhanceContent">
                     <el-icon><Tools /></el-icon>
@@ -153,6 +156,37 @@
         </el-card>
       </div>
     </div>
+
+    <WriterAgentPanel
+      v-if="writerAgent.visible.value"
+      :visible="writerAgent.visible.value"
+      :phase="writerAgent.phase.value"
+      :snapshot="writerAgent.snapshot.value"
+      :brief="writerAgent.brief.value"
+      :cutoff-id="writerAgent.cutoffId.value"
+      :granted="writerAgent.granted.value"
+      :selected-hit-ids="writerAgent.selectedHitIds.value"
+      :chapters="writerAgent.choices.value"
+      :target-title="writerAgent.targetTitle.value"
+      :can-preview="writerAgent.canPreview.value"
+      :blocker="writerAgent.blocker.value"
+      :draft-text="writerAgent.draftText.value"
+      :local-error="writerAgent.localError.value"
+      :initial-committed="writerAgent.saveHandle.value?.initialCommit === 'committed'"
+      @update:brief="writerAgent.brief.value = $event"
+      @update:cutoff-id="writerAgent.cutoffId.value = $event"
+      @update:granted="writerAgent.granted.value = $event"
+      @selection="writerAgent.select"
+      @preview="writerAgent.preview"
+      @start="writerAgent.start"
+      @approve="writerAgent.approve"
+      @cancel="writerAgent.cancel"
+      @append="writerAgent.append"
+      @retry-save="writerAgent.retrySave"
+      @copy="writerAgent.copy"
+      @copy-audit="writerAgent.copyAudit"
+      @close="writerAgent.close"
+    />
 
     <!-- 章节编辑对话框 -->
     <ChapterEditDialog
@@ -419,6 +453,8 @@ import {
   ArrowLeft, Document, Star, Tools, ArrowRight
 } from '@element-plus/icons-vue'
 import { useWriterProject } from '@/composables/useWriterProject'
+import { useWriterAgent } from '@/composables/useWriterAgent'
+import WriterAgentPanel from '@/components/writer/panels/WriterAgentPanel.vue'
 import { useWriterChapterCrud } from '@/composables/useWriterChapterCrud'
 import { useWriterChapterContentGeneration } from '@/composables/useWriterChapterContentGeneration'
 import { useWriterMaterialCrud } from '@/composables/useWriterMaterialCrud'
@@ -481,6 +517,7 @@ const {
   currentNovel, chapters, currentChapter, content, characters, worldSettings,
   corpusData, events, contentWordCount, hasUnsavedChanges, isSaving, saveError,
   saveNovelData, saveCurrentChapter, selectChapter: selectProjectChapter, initNovel, onContentChange, dispose,
+  acquireApplyLease, beginSaveCurrentChapter, captureMutationIntent, allowMutation,
 } = useWriterProject({ novelStore, notifyError: message => ElMessage.error(message) })
 const { activeConfig } = useApiConfig()
 const generatedMaterialImport = { owner: '' }
@@ -521,6 +558,15 @@ const generationArbiter = useWriterGenerationArbiter({
   notifyBlocked: message => ElMessage.warning(message),
 })
 const prepareIndependentWriterAI = (owner: string) => generationArbiter.prepare(owner)
+const writerAgent = useWriterAgent({
+  currentNovel, currentChapter, chapters, content, hasUnsavedChanges, isSaving, saveError,
+  config: activeConfig,
+  prepare: () => prepareIndependentWriterAI('writerAgent'),
+  acquireApplyLease: () => prepareIndependentWriterAI('writerAgent') ? acquireApplyLease() : null,
+  beginSaveCurrentChapter,
+  writeText: text => navigator.clipboard.writeText(text),
+  notify: message => ElMessage.warning(message),
+})
 
 const editorRef = shallowRef<InstanceType<typeof WriterEditor>>()
 const activeTab = ref('editor')
@@ -681,6 +727,8 @@ const materialCrud = useWriterMaterialCrud({
   corpusData,
   events,
   saveNovelData,
+  captureMutationIntent,
+  allowMutation,
   confirmDelete: async request => {
     try {
       await ElMessageBox.confirm(request.message, request.title, { type: 'warning' })
@@ -862,6 +910,8 @@ const chapterCrud = useWriterChapterCrud({
   currentChapter,
   content,
   persist: saveNovelData,
+  captureMutationIntent,
+  allowMutation,
   // The wrapper also cancels any generation owned by the chapter being left.
   selectChapter: chapter => selectChapter(chapter),
   confirmDelete: async chapter => {
@@ -957,6 +1007,15 @@ const interruptGeneration = (controller: { isGenerating: Readonly<Ref<boolean>>;
   ? controller.cancel()
   : true
 
+generationArbiter.registerScope('writerAgent', {
+  reset: writerAgent.reset,
+  interrupt: writerAgent.close,
+  revokeBeforeWait: writerAgent.close,
+})
+generationArbiter.registerBarrier('writerAgentApply', {
+  isPending: writerAgent.isBarrierPending,
+  wait: writerAgent.waitForCommit,
+})
 generationArbiter.registerScope('chapterContent', {
   reset: chapterContentGeneration.reset,
   interrupt: chapterContentGeneration.reset,
@@ -1001,6 +1060,10 @@ const isChapterContentPersisting = computed(
   () => chapterContentGeneration.isSelectingChapter.value
     || chapterContentGeneration.isCommitting.value,
 )
+generationArbiter.registerBarrier('chapterMutation', {
+  isPending: chapterCrud.isMutating,
+  wait: chapterCrud.waitForMutation,
+})
 generationArbiter.registerBarrier('materialMutation', {
   isPending: materialCrud.isMutating,
   wait: materialCrud.waitForMutation,
@@ -1072,8 +1135,13 @@ const corpusCategories = computed(() => {
 })
 
 // 更新章节状态
-const updateChapterStatus = async () => {
-  if (!currentChapter.value) return
+const updateChapterStatus = async (status: string) => {
+  if (!currentChapter.value || !['draft', 'completed', 'published'].includes(status)) return
+  if (!allowMutation()) {
+    ElMessage.warning('连续性草稿正在追加或等待保存，请先在面板中处理保存结果')
+    return
+  }
+  currentChapter.value.status = status
 
   // 同步更新章节列表中的状态
   const chapterIndex = chapters.value.findIndex(ch => ch.id === currentChapter.value?.id)
@@ -1154,6 +1222,7 @@ watch(() => route.query.novelId, async (id, previousId) => {
 })
 watch(() => route.query.chapterId, openRequestedChapter)
 onUnmounted(() => {
+  writerAgent.dispose()
   writerMemory.dispose()
   chapterMemoryStream.dispose()
   continueMemoryStream.dispose()

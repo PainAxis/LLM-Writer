@@ -2,7 +2,7 @@
  * 小说持久化：串行提交快照，长正文使用不可变、带版本的 IndexedDB 分片。
  * localStorage 元数据是提交点；它写入成功前，上一版引用的正文绝不修改或删除。
  */
-import { StorageKeys, registerChunkedKey, writeSerializedWithRetry, type ChunkedKeyBackend, type StorageCommitReceipt } from '@/utils/storage'
+import { StorageKeys, registerChunkedKey, writeSerializedWithRetry, type ChunkedKeyBackend, type StorageCommitReceipt, type StorageSetOptions, notifyStorageCommit } from '@/utils/storage'
 import { idbDeleteMany, idbGetMany, idbSetMany, isBlobStoreAvailable } from './blobStore'
 import { withStorageCommit } from './storageCoordination'
 import { createNovelChangeTracker, type NovelChange } from '@/utils/novelConcurrency'
@@ -33,6 +33,8 @@ type SaveRequest = {
   kind: 'save' | 'remove'; change: NovelChange<NovelLike>; publishOnSuccess?: boolean
   expectedRaw?: string | null
   onCommit?: (raw: string | null) => void
+  ordinaryOptions?: StorageSetOptions
+  explicitRetryOnly?: boolean
 }
 let cache: NovelLike[] = []
 let changes = createNovelChangeTracker<NovelLike>([])
@@ -42,6 +44,7 @@ const garbageKeys = new Set<string>()
 let queue: Promise<void> = Promise.resolve()
 let latestResult: Promise<void> = queue
 let latestRequest: SaveRequest | null = null
+let pendingExplicitSaves = 0
 let revision = 0
 let status: NovelPersistenceStatus = { phase: 'loading', blocked: true, error: null, pending: 0 }
 const listeners = new Set<(value: NovelPersistenceStatus) => void>()
@@ -165,7 +168,7 @@ async function readCommitted() {
   throw new Error('其他标签页正在频繁保存，请稍后重试；当前草稿仍保留')
 }
 
-async function persist(request: SaveRequest): Promise<void> {
+async function persist(request: SaveRequest, onActualCommit: () => void): Promise<void> {
   for (let attempt = 0; attempt < 8; attempt++) {
     const previous = await readCommitted()
     if (request.expectedRaw !== undefined && previous.raw !== request.expectedRaw) {
@@ -180,28 +183,38 @@ async function persist(request: SaveRequest): Promise<void> {
       serialized = JSON.stringify(split.metadata)
     }
     let staged = false
+    let committed = false
     try {
       await idbSetMany(blobs)
       staged = true
-      const committed = await withStorageCommit(() => {
+      await withStorageCommit(() => {
         if (localStorage.getItem(StorageKeys.novels) !== previous.raw) return false
         if (request.kind === 'remove') localStorage.removeItem(StorageKeys.novels)
         else writeSerializedWithRetry(StorageKeys.novels, serialized)
+        // This is the durable point. Lock the fact and advance our own baseline
+        // synchronously; a later gate acknowledgement cannot roll it back.
+        committed = true
+        onActualCommit()
+        changes.commit(request.change)
         request.onCommit?.(request.kind === 'remove' ? null : serialized)
+        notifyStorageCommit(request.ordinaryOptions)
         return true
       })
-      if (committed) {
-        changes.commit(request.change)
-        for (const key of previous.keys) garbageKeys.add(key)
-        await collectGarbage()
-        return
-      }
     } catch (error) {
-      if (staged) {
-        for (const { key } of blobs) garbageKeys.add(key)
-        await collectGarbage()
+      if (!committed) {
+        if (staged) {
+          for (const { key } of blobs) garbageKeys.add(key)
+          await collectGarbage()
+        }
+        throw error
       }
-      throw error
+      // A lock/IDB acknowledgement rejection after the actual localStorage
+      // commit is success, including global status and the next save's CAS base.
+    }
+    if (committed) {
+      for (const key of previous.keys) garbageKeys.add(key)
+      await collectGarbage()
+      return
     }
     for (const { key } of blobs) garbageKeys.add(key)
     await collectGarbage()
@@ -209,18 +222,42 @@ async function persist(request: SaveRequest): Promise<void> {
   throw new Error('其他标签页正在频繁保存，请稍后重试；当前草稿仍保留')
 }
 function enqueue(request: SaveRequest): Promise<void> {
+  if (request.explicitRetryOnly) pendingExplicitSaves += 1
   changes.begin(request.change)
   latestRequest = request
   const currentRevision = ++revision
-  updateStatus({ phase: 'saving', error: null, pending: status.pending + 1 })
-  const result = queue.then(() => persist(request)).then(() => {
-    if (request.publishOnSuccess && currentRevision === revision) cache = snapshot(request.change.value)
+  try {
+    updateStatus({ phase: 'saving', error: null, pending: status.pending + 1 })
+  } catch (error) {
+    // No queued operation/finally exists yet. Keep the existing notification
+    // rejection contract, but release this request's pre-dispatch bookkeeping.
+    changes.finish(request.change)
+    if (request.explicitRetryOnly) pendingExplicitSaves -= 1
+    updateStatus({ pending: status.pending - 1, phase: 'error', error: asError(error).message })
+    throw error
+  }
+  // Each enqueue attempt owns its evidence, including retries of the same request.
+  let actualCommitted = false
+  let committedExplicitSnapshot = false
+  const result = queue.then(() => persist(request, () => { actualCommitted = true })).then(() => {
+    if (request.publishOnSuccess && currentRevision === revision) {
+      cache = snapshot(request.change.value)
+      committedExplicitSnapshot = Boolean(request.explicitRetryOnly && actualCommitted)
+    }
     updateStatus({ pending: status.pending - 1, ...(currentRevision === revision ? { phase: 'saved', error: null } : {}) })
   }, (error: unknown) => {
     updateStatus({ pending: status.pending - 1, phase: 'error', error: asError(error).message })
     throw error
-  }).finally(() => { changes.finish(request.change) })
-  latestResult = observed(result)
+  }).finally(() => {
+    changes.finish(request.change)
+    if (request.explicitRetryOnly) pendingExplicitSaves -= 1
+  })
+  // Agent callers already have their request-local commit receipt. A saved-status
+  // listener rejection still reaches the caller, but cannot poison later source
+  // reads of this safely published commit. Ordinary/backup rejection is unchanged.
+  latestResult = observed(request.explicitRetryOnly ? result.catch(error => {
+    if (!committedExplicitSnapshot) throw error
+  }) : result)
   queue = result.catch(() => undefined)
   return result
 }
@@ -244,14 +281,27 @@ const backend: ChunkedKeyBackend = {
     // 调用方可以自由编辑读取结果，但不能悄悄改动排队/重试中的快照。
     return snapshot(cache)
   },
-  set(value: unknown): Promise<void> {
+  set(value: unknown, options?: StorageSetOptions): Promise<void> {
+    // A forced route teardown must not enqueue a stale ordinary collection over
+    // an unacknowledged Agent commit. Refuse before changing cache, revision,
+    // latestRequest/latestResult or global status; the original owner stays intact.
+    if (options?.retryPolicy !== 'explicit' && pendingExplicitSaves > 0) {
+      return observed(Promise.reject(new Error('连续性追加保存尚未结束，请等待其结果后再保存其他修改。')))
+    }
     try {
       if (!ready) throw new Error('小说数据仍在加载')
       if (loadError) throw loadError
       const next = snapshot(value)
       const change = changes.capture(next, cache)
-      cache = next
-      return enqueue({ kind: 'save', change })
+      const explicitRetryOnly = options?.retryPolicy === 'explicit'
+      // The applied Agent draft already lives in its route-owned editor/handle.
+      // Do not leak a failed explicit-only request into another workspace's
+      // ordinary full-collection snapshot after a forced teardown.
+      if (!explicitRetryOnly) cache = next
+      return enqueue({ kind: 'save', change, publishOnSuccess: explicitRetryOnly,
+        ordinaryOptions: options?.onCommit ? { onCommit: options.onCommit } : undefined,
+        explicitRetryOnly,
+      })
     } catch (error) {
       latestRequest = null
       revision++
@@ -312,6 +362,9 @@ export function retryNovelPersistence(): Promise<void> {
   const handlers = [...retryHandlers]
   const handler = handlers[handlers.length - 1]
   if (handler) return observed(Promise.resolve().then(handler))
+  if (latestRequest?.explicitRetryOnly) {
+    return observed(Promise.reject(new Error('追加保存须在原连续性草稿面板中显式重试保存，不能重放已关闭工作区的请求。')))
+  }
   if (latestRequest) return enqueue(latestRequest)
   return latestResult
 }

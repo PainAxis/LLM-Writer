@@ -131,7 +131,13 @@
     "smoke:memory-novel-scan-transport": "node --import tsx scripts/smoke-memory-novel-scan-transport.ts",
     "smoke:memory-novel-scan-ui": "node --import tsx scripts/smoke-memory-novel-scan-ui.ts",
     "test:browser-memory-novel-scan": "node --import tsx scripts/browser-memory-novel-scan.mjs",
-    "smoke:memory-novel-scan-capacity": "node --import tsx scripts/smoke-memory-novel-scan-capacity.ts"
+    "smoke:memory-novel-scan-capacity": "node --import tsx scripts/smoke-memory-novel-scan-capacity.ts",
+    "smoke:writer-agent": "node --import tsx scripts/smoke-writer-agent.ts",
+    "smoke:writer-agent-ui": "node --import tsx scripts/smoke-writer-agent-ui.ts",
+    "smoke:writer-agent-transport": "node --import tsx scripts/smoke-writer-agent-transport.ts",
+    "smoke:writer-save-ownership": "node --import tsx scripts/smoke-writer-save-ownership.ts",
+    "smoke:ordinary-save-receipts": "node --import tsx scripts/smoke-ordinary-save-receipts.ts",
+    "test:browser-writer-agent": "node scripts/browser-writer-agent.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

@@ -1,3 +1,4 @@
+import type { WriterMutationGate } from './writerPersistenceGate'
 import { ref, type Ref } from 'vue'
 import type { WriterChapter, WriterChapterForm, WriterEvent, WriterNovel } from '@/types/writer'
 import { remapEventChapters } from '@/utils/eventLine'
@@ -7,7 +8,7 @@ interface WriterChapterCrudNotifications {
   warning(message: string): void
 }
 
-interface UseWriterChapterCrudOptions {
+interface UseWriterChapterCrudOptions extends Partial<WriterMutationGate> {
   currentNovel: Readonly<Ref<WriterNovel | null>>
   chapters: Ref<WriterChapter[]>
   events: Ref<WriterEvent[]>
@@ -39,6 +40,8 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
   const form = ref<WriterChapterForm>(emptyChapterForm())
   const editingChapter = ref<WriterChapter | null>(null)
   let pendingCreateId: number | null = null
+  const isMutating = ref(false)
+  let pendingMutation: Promise<boolean> | null = null
 
   const createId = options.createId ?? (() => Date.now())
   const now = options.now ?? (() => new Date())
@@ -61,7 +64,8 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
     visible.value = true
   }
 
-  async function save(): Promise<boolean> {
+  async function saveImpl(): Promise<boolean> {
+    const intent = options.captureMutationIntent?.()
     const title = form.value.title.trim()
     if (!title) {
       options.notify.warning('请输入章节标题')
@@ -69,7 +73,8 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
     }
 
     const novelId = options.currentNovel.value?.id
-    if (novelId == null) return false
+    if (novelId == null || options.allowMutation?.(intent) === false) return false
+    isMutating.value = true
 
     const list = options.chapters.value
     const selectedBefore = options.currentChapter.value
@@ -137,11 +142,7 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
     return true
   }
 
-  async function remove(chapter: WriterChapter): Promise<boolean> {
-    const novelId = options.currentNovel.value?.id
-    if (novelId == null || !(await options.confirmDelete(chapter))) return false
-    if (options.currentNovel.value?.id !== novelId) return false
-
+  async function removeImpl(chapter: WriterChapter, novelId: number): Promise<boolean> {
     const list = options.chapters.value
     const index = list.findIndex(item => item.id === chapter.id)
     if (index < 0) return false
@@ -181,7 +182,33 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
     return true
   }
 
+  function track(operation: () => Promise<boolean>): Promise<boolean> {
+    if (isMutating.value) return Promise.resolve(false)
+    isMutating.value = true
+    const request = operation().finally(() => {
+      if (pendingMutation === request) {
+        isMutating.value = false
+        pendingMutation = null
+      }
+    })
+    pendingMutation = request
+    return request
+  }
+  const save = () => track(saveImpl)
+  const remove = async (chapter: WriterChapter): Promise<boolean> => {
+    if (isMutating.value) return false
+    const intent = options.captureMutationIntent?.()
+    const novel = options.currentNovel.value
+    const novelId = novel?.id
+    if (novelId == null) return false
+    try { if (!(await options.confirmDelete(chapter))) return false } catch { return false }
+    if (options.currentNovel.value !== novel || isMutating.value || options.allowMutation?.(intent) === false) return false
+    return track(() => removeImpl(chapter, novelId))
+  }
+  const waitForMutation = () => pendingMutation ?? Promise.resolve(true)
+
   return {
+    isMutating, waitForMutation,
     visible,
     form,
     editingChapter,

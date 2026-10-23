@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-23T14:59:20.367250+00:00",
+  "baseCommit": "dfc316eb2fc8f376c5ac3c77892b251ba29e6902",
+  "state": "native-validation-passed; exact-head-independent-review-and-12-job-CI-required",
+  "scope": "First bounded author-reviewed continuity Agent, not all of stage four",
+  "commands": {
+    "lint --max-warnings 0": "passed",
+    "build": "passed",
+    "smoke:all": {
+      "status": "passed",
+      "suites": 102
+    },
+    "browser-harness node --check": {
+      "status": "passed",
+      "files": 3
+    }
+  },
+  "focusedEvidence": {
+    "runtime": {
+      "controlledVariants": 98,
+      "adapter": "real MemoryIndex and private existing evidence validator",
+      "externalRequests": 0,
+      "storageWrites": 0
+    },
+    "ui": {
+      "checkpointBlocks": 15,
+      "actualVueRuntimeProject": true,
+      "actualSfcSsrPhases": 19,
+      "browserExecuted": false,
+      "note": "Checkpoint blocks and phases are not independent semantic samples."
+    },
+    "apiTransport": {
+      "actualSdkLoopbackRequests": 29,
+      "externalRequests": 0,
+      "providers": [
+        "OpenAI compatible",
+        "Anthropic",
+        "Google"
+      ],
+      "missingReportedCounts": "absent/unknown, never SDK-filled zero"
+    },
+    "writerSaveOwnership": {
+      "checkpointBlocks": 13
+    },
+    "ordinarySaveReceipts": {
+      "realBackendCheckpointBlocks": 12
+    }
+  },
+  "sourceIntegrity": {
+    "validatedNativePaths": 393,
+    "beforeAfterEqual": true,
+    "canonicalPathHashMapSha256": "d5fa09472bb011bd309041aab5a4849fabea83cd8098fec17cb3e38a5ff32382",
+    "browserHarness": "Final three harness files frozen before the final lint/build/102-suite run, independently hash-verified afterwards; syntax checks passed. No local browser execution.",
+    "changedSourceSha256": {
+      ".github/workflows/ci.yml": "821be83a7488102bd2fc52759b90382b5112c125621ed8e2170448fa9260c30c",
+      "package.json": "6998663629251d794461b7814d0e8ad1faa0880988a771d1eb337a67b265a967",
+      "scripts/browser-writer-agent.mjs": "adfd249052c4a10a911454083478e2c13899aa7480b14d14ff19572532c4b47e",
+      "scripts/fixtures/writer-agent-browser-corpus.mjs": "db9575a11d6a2bb60bc30b534d10b8b0c4557df9b566f8691500b8ff973ebd7b",
+      "scripts/fixtures/writer-agent-browser-probe.mjs": "e35c57937a6d1d262871f2afaba63428fa66d6e0828a2e061dfacd097aeb4356",
+      "scripts/fixtures/writer-agent-v1.json": "c50bae17f6a8eaf38906d181fb6307e44b81d2d5abc9fce6ad4f078991bd169f",
+      "scripts/fixtures/writer-agent-v1.sha256": "8b653035346dc4ad92569f86b5cf5571b37e348c5297ace15a0102bf8b49ec37",
+      "scripts/smoke-ordinary-save-receipts.ts": "415501cb8101096a0e09c4dca978838dd4f869ee596ac1761cd9b7acf6e8655c",
+      "scripts/smoke-writer-agent-transport.ts": "0ba47fb2170b04e4e55eb6dfed8abb98daf3b3c4a1de13db7b38ffa7180bb8be",
+      "scripts/smoke-writer-agent-ui.ts": "f6b98550cf6ebdef76b21bd7fb41bfebf65be34e786e80e3e8582d7e30848107",
+      "scripts/smoke-writer-agent.ts": "4249ddf8e2ba1557bd900752cea0953ba611e8eabecc90fc82f969728366dc19",
+      "scripts/smoke-writer-save-ownership.ts": "41a346cdfc936df3940e6fdaea68e99d5d122e8d05f0a2cdecc54139a34dbf5e",
+      "src/components.d.ts": "932a33b4c3260f0378936a64075eee8f7398669f1058e75cbbff2545075694e0",
+      "src/components/writer/panels/WriterAgentPanel.vue": "e11eb6f9ce3d92262a274f4f107266e1bee4787d92ceb6e902d1e0eb49ddd8df",
+      "src/composables/useWriterAgent.ts": "9ac07a397d3b9fa58a20667c0409b1ad67c13746ab5b15cc8eebc41a1851de14",
+      "src/composables/useWriterChapterCrud.ts": "3d762022bbac3d7c401a3f57f9177857fdf74c159973cc96ff6a95a457eaf10c",
+      "src/composables/useWriterMaterialCrud.ts": "22ccea3add35d63c9c2983239bccc977a39956e0f51656cf79bdcb1bbab49e95",
+      "src/composables/useWriterProject.ts": "84edd8b575e17c57a3596b2ba10e45f20db2ba41be01fe1b6866fd4951490127",
+      "src/composables/writerPersistenceGate.ts": "f8b6f544c8e90b48953964b76b3eb5f81f559bcb441ca88d5cb24fbd45d5b342",
+      "src/services/api.ts": "8d12d8a928ea8be5b628fcd4d4dc3d4ec119700620d02bded3d2e60fbb217a4d",
+      "src/services/novelPersistence.ts": "7e572392fbb75f574995928eaface9c3174e4a4dc879e5f2e7a87f565f73f965",
+      "src/services/writerAgent.ts": "ac3c90eded1d52c558e7a014028b7ec6c95fff557826febf657a16b3b5b2e75d",
+      "src/services/writerAgentProtocol.ts": "7a0dcab227d3c655d287b4aba1621f35fce1217ea7422683211e1e22fbaa6166",
+      "src/types/api.ts": "1024c768ef00f217570cddf437977f6b624de5b1bc1fc24a433e103f11ef9573",
+      "src/types/writerAgent.ts": "cfd2ee441a35dc24c01ad6d448be0494c7096ca36025739e8912153686d7ffe1",
+      "src/utils/storage.ts": "295dca21cddf4658e863c4f7e671ec3f3f7cfd2fb1d929176873b4d87c3f263e",
+      "src/views/Writer.vue": "bd534dbd0d480d9445a3a8c284e2b811f9db2fd512a144ae21b16a1337ac1542"
+    }
+  },
+  "localHistory": {
+    "firstFullRun": {
+      "status": "failed",
+      "suitePosition": 82,
+      "suite": "smoke:graph-backup",
+      "reason": "Global status-listener errors were swallowed; existing postcommit restore rollback assertion failed.",
+      "fix": "Restored original global listener propagation; new metadata receipt observers alone remain isolated. Existing assertion unchanged.",
+      "rawLogSha256": "fcdac20fe9bfef4649d625bd890db74c65b489d0a97426e5c72ac980e608dca3"
+    },
+    "completeRerun": {
+      "status": "passed",
+      "exitCode": 0,
+      "suites": 102,
+      "rawLogSha256": "e3c71330a3c37c3e97564a35f4af1dac25d24dffd8a69d4862989dacf48fb4e3",
+      "all393NativeAndThreeBrowserHashesUnchanged": true
+    },
+    "rawLogs": "Retained in engineering workspace, not copied into repository.",
+    "previousCandidateNativeRun": {
+      "status": "passed",
+      "exitCode": 0,
+      "suites": 102,
+      "rawLogSha256": "01be4e6435821f25ca6b4d1c61273a23fd02ebd1ebd2d8d1a9a48b6ff77ffcfe",
+      "candidateCommit": "c4f11dfd23efb96c69f39fbec4275d4f4805cdbf",
+      "notFinalAcceptance": true
+    },
+    "previousCandidateLint": {
+      "status": "passed",
+      "exitCode": 0,
+      "rawLogSha256": "2aaefb8989504521e7150961dd412099e93e0cc8fa3c8b2602bf83a96d822285"
+    },
+    "finalReviewRegressions": [
+      "Pre-dispatch status-observer failure releases tracker, explicit ownership and pending bookkeeping before rejecting.",
+      "Actual commit AND successful cache publication permit only that explicit request internal read barrier to recover after a postcommit status-observer rejection; original caller rejection and ordinary/backup semantics remain unchanged.",
+      "Browser save-method invocation count is unavailable, not inferred from coalesced saving-indicator DOM transitions.",
+      "Chapter menu synthetic mouseenter targets the actual child button, not its inert wrapper."
+    ]
+  },
+  "browserAcceptance": {
+    "status": "not_run_locally",
+    "frozenGroups": 18,
+    "registeredIsolatedScenarios": 90,
+    "largeProfile": {
+      "chapters": 600,
+      "normalizedUtf16": 1320000,
+      "targetAndDisclosureOrdinal": 400,
+      "sourceOrdinal": 2,
+      "viewportWidths": [
+        1280,
+        390
+      ]
+    },
+    "requiredJob": "ci-writer-agent",
+    "requiredTotalJobs": 12,
+    "artifactAllowlist": [
+      "report.json",
+      "desktop-reviewed-draft.png",
+      "mobile-reviewed-draft.png",
+      "failure.png"
+    ],
+    "omissions": [
+      "Private prepare/save-method entry counts are null in browser reports, with Node exact-entry coverage. Saving-indicator transitions are separately labelled UI proxies; physical write assertions are retained.",
+      "Same-page raw refs and deep active config/grant changes require real Vue Node tests; labelled browser DOM attacks are not normal author clicks.",
+      "Runtime empty-attachment check uses the production serializer, not fabricated evidence authority."
+    ]
+  },
+  "privacyAndInterpretation": {
+    "realModelRequestsThisIncrement": 0,
+    "credentialsRead": false,
+    "completeBackupTransmission": false,
+    "traceUpload": false,
+    "qualityClaim": "None. Controlled engineering validation is not semantic or novel-writing quality evidence.",
+    "earlierGoTrial": "One transport failure, six stopped; no success, invalid-credential conclusion or zero-cost claim."
+  }
+}

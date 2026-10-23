@@ -1,3 +1,4 @@
+import type { WriterMutationGate } from './writerPersistenceGate'
 import { parseCorpus, mergeCorpus } from '@/utils/corpusTransfer'
 import { computed, ref, watch, type Ref } from 'vue'
 import type {
@@ -35,7 +36,7 @@ interface WriterMaterialNotifications {
   warning(message: string): unknown
 }
 
-interface WriterMaterialCrudOptions {
+interface WriterMaterialCrudOptions extends Partial<WriterMutationGate> {
   currentNovel: Readonly<Ref<WriterNovel | null>>
   chapters: Readonly<Ref<WriterChapter[]>>
   currentChapter: Readonly<Ref<WriterChapter | null>>
@@ -196,7 +197,14 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
     return request
   }
 
-  const waitForMutation = () => pendingMutation ?? Promise.resolve(true)
+  const waitForMutation = async () => {
+    const pending = pendingMutation
+    if (!pending) return !isAnyMaterialMutation()
+    const saved = await pending
+    // Outer mutation continuations settle notifications and finally flags next.
+    await Promise.resolve()
+    return saved && !isAnyMaterialMutation()
+  }
 
   const addCharacter = () => {
     editingCharacter.value = null
@@ -221,12 +229,14 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const saveCharacter = async () => {
+    const intent = options.captureMutationIntent?.()
     if (!characterForm.value.name.trim()) {
       options.notify.warning('请输入角色姓名')
       return false
     }
     const context = characterNovelContext
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingCharacter.value = true
     try {
       const collection = options.characters.value
@@ -266,6 +276,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const deleteCharacter = async (character: WriterCharacter) => {
+    const intent = options.captureMutationIntent?.()
     const context = captureNovelContext()
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
     let confirmed = false
@@ -280,6 +291,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
     // Confirmation yields control; another resource may have started a full
     // project save while the modal was open, so acquire the global lock again.
     if (!confirmed || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingCharacter.value = true
     try {
       const collection = options.characters.value
@@ -300,10 +312,12 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const importGeneratedCharacters = async (items: readonly WriterCharacter[]) => {
+    const intent = options.captureMutationIntent?.()
     const context = captureNovelContext()
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
     if (items.length === 0) return true
 
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingCharacter.value = true
     try {
       const collection = options.characters.value
@@ -325,7 +339,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
           if (imported.has(collection[index])) collection.splice(index, 1)
         }
       }
-      return persistMutation(context, rollback)
+      return await persistMutation(context, rollback)
     } finally {
       isMutatingCharacter.value = false
     }
@@ -351,12 +365,14 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const saveWorldSetting = async () => {
+    const intent = options.captureMutationIntent?.()
     if (!worldForm.value.title.trim()) {
       options.notify.warning('请输入设定标题')
       return false
     }
     const context = worldNovelContext
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingWorldSetting.value = true
     try {
       const collection = options.worldSettings.value
@@ -392,6 +408,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const deleteWorldSetting = async (setting: WriterWorldSetting) => {
+    const intent = options.captureMutationIntent?.()
     const context = captureNovelContext()
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
     let confirmed = false
@@ -404,6 +421,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
       return false
     }
     if (!confirmed || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingWorldSetting.value = true
     try {
       const collection = options.worldSettings.value
@@ -424,8 +442,10 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const duplicateWorldSetting = async (setting: WriterWorldSetting) => {
+    const intent = options.captureMutationIntent?.()
     const context = captureNovelContext()
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingWorldSetting.value = true
     try {
       const collection = options.worldSettings.value
@@ -452,10 +472,12 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const importGeneratedWorldSettings = async (items: readonly WriterWorldSetting[]) => {
+    const intent = options.captureMutationIntent?.()
     const context = captureNovelContext()
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
     if (items.length === 0) return true
 
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingWorldSetting.value = true
     try {
       const collection = options.worldSettings.value
@@ -477,7 +499,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
           if (imported.has(collection[index])) collection.splice(index, 1)
         }
       }
-      return persistMutation(context, rollback)
+      return await persistMutation(context, rollback)
     } finally {
       isMutatingWorldSetting.value = false
     }
@@ -503,12 +525,14 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const saveCorpus = async () => {
+    const intent = options.captureMutationIntent?.()
     if (!corpusForm.value.title.trim()) {
       options.notify.warning('请输入语料标题')
       return false
     }
     const context = corpusNovelContext
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingCorpus.value = true
     try {
       const collection = options.corpusData.value
@@ -548,13 +572,14 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const importCorpusFile = (file: { text: () => Promise<string> }): Promise<boolean> => {
+    const intent = options.captureMutationIntent?.()
     const context = captureNovelContext()
     if (!context || isAnyMaterialMutation()) return Promise.resolve(false)
     isMutatingCorpus.value = true
     const request = (async () => {
       try {
         const imported = parseCorpus(JSON.parse(await file.text()))
-        if (!isCurrentNovel(context)) return false
+        if (!isCurrentNovel(context) || options.allowMutation?.(intent) === false) return false
         if (!imported.length) throw new Error('语料文件为空')
         const previous = options.corpusData.value
         options.corpusData.value = mergeCorpus(previous, imported)
@@ -578,6 +603,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const deleteCorpus = async (corpus: WriterCorpusItem) => {
+    const intent = options.captureMutationIntent?.()
     const context = captureNovelContext()
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
     let confirmed = false
@@ -590,6 +616,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
       return false
     }
     if (!confirmed || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingCorpus.value = true
     try {
       const collection = options.corpusData.value
@@ -637,12 +664,14 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const saveEvent = async () => {
+    const intent = options.captureMutationIntent?.()
     if (!eventForm.value.title.trim()) {
       options.notify.warning('请输入事件标题')
       return false
     }
     const context = eventNovelContext
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingEvent.value = true
     try {
       const collection = options.events.value
@@ -682,6 +711,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
   }
 
   const deleteEvent = async (event: WriterEvent) => {
+    const intent = options.captureMutationIntent?.()
     const context = captureNovelContext()
     if (!context || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
     let confirmed = false
@@ -694,6 +724,7 @@ export function useWriterMaterialCrud(options: WriterMaterialCrudOptions) {
       return false
     }
     if (!confirmed || !isCurrentNovel(context) || isAnyMaterialMutation()) return false
+    if (options.allowMutation?.(intent) === false) return false
     isMutatingEvent.value = true
     try {
       const collection = options.events.value

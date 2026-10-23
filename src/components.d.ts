@@ -100,6 +100,7 @@ declare module 'vue' {
     WorldGenerateDialog: typeof import('./components/writer/dialogs/WorldGenerateDialog.vue')['default']
     WorldviewEditDialog: typeof import('./components/writer/dialogs/WorldviewEditDialog.vue')['default']
     WorldviewPanel: typeof import('./components/writer/panels/WorldviewPanel.vue')['default']
+    WriterAgentPanel: typeof import('./components/writer/panels/WriterAgentPanel.vue')['default']
     WriterEditor: typeof import('./components/writer/WriterEditor.vue')['default']
     WriterMemoryContext: typeof import('./components/writer/WriterMemoryContext.vue')['default']
     WritingGoals: typeof import('./components/WritingGoals.vue')['default']
