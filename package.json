@@ -14,6 +14,7 @@
     "format": "prettier --write \"src/**/*.{vue,ts,js,css,json}\"",
     "smoke:all": "node scripts/run-smoke.mjs",
     "test:browser": "node scripts/run-browser.mjs",
+    "smoke:ci-evidence": "node scripts/smoke-ci-evidence.mjs",
     "smoke:release": "node scripts/smoke-release.mjs",
     "smoke:short-story-selection": "node --import tsx scripts/smoke-short-story-selection.ts",
     "smoke:book-analysis-library": "node --import tsx scripts/smoke-book-analysis-library.ts",
@@ -131,7 +132,14 @@
     "smoke:memory-novel-scan-transport": "node --import tsx scripts/smoke-memory-novel-scan-transport.ts",
     "smoke:memory-novel-scan-ui": "node --import tsx scripts/smoke-memory-novel-scan-ui.ts",
     "test:browser-memory-novel-scan": "node --import tsx scripts/browser-memory-novel-scan.mjs",
-    "smoke:memory-novel-scan-capacity": "node --import tsx scripts/smoke-memory-novel-scan-capacity.ts"
+    "smoke:memory-novel-scan-capacity": "node --import tsx scripts/smoke-memory-novel-scan-capacity.ts",
+    "smoke:writer-agent": "node --import tsx scripts/smoke-writer-agent.ts",
+    "smoke:writer-agent-ui": "node --import tsx scripts/smoke-writer-agent-ui.ts",
+    "smoke:writer-agent-transport": "node --import tsx scripts/smoke-writer-agent-transport.ts",
+    "smoke:writer-agent-browser-probe": "node scripts/smoke-writer-agent-browser-probe.mjs",
+    "smoke:writer-save-ownership": "node --import tsx scripts/smoke-writer-save-ownership.ts",
+    "smoke:ordinary-save-receipts": "node --import tsx scripts/smoke-ordinary-save-receipts.ts",
+    "test:browser-writer-agent": "node scripts/browser-writer-agent.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

@@ -63,6 +63,9 @@
 | `src/components/writer/dialogs/` | 生成、编辑与提示词选择对话框 |
 | `src/composables/useWriterProject.ts` | 项目加载、章节切换、自动保存与持久化重试 |
 | `src/composables/useWriterGenerationArbiter.ts` | 协调 AI 操作的归属与持久化等待边界 |
+| `src/services/writerAgent.ts`、`src/services/writerAgentProtocol.ts`、`src/types/writerAgent.ts` | 两请求／单本地工具的有限作者 Agent、严格协议、私有依据能力及无原文审计；[合同](docs/writer-author-agent.zh-CN.md) |
+| `src/composables/useWriterAgent.ts`、`src/components/writer/panels/WriterAgentPanel.vue` | 每轮明确授权、逐条原文批准、只读草稿及仅一次追加／保存恢复；WriterEditor 同步提供首次保存的规范 HTML |
+| `src/composables/writerPersistenceGate.ts`、`src/services/novelPersistence.ts` | Agent 专属应用／保存屏障与实际提交点的纯元数据回执；普通非 Agent 保存保留逐快照结果 |
 | `src/composables/useWriterMemoryContext.ts`、`src/composables/writerMemoryStream.ts`、`src/components/writer/WriterMemoryContext.vue`、`src/services/memory/writerContext.ts` | 主动启用的写作依据预览／核对、发送与应用保护，以及受预算限制的原文上下文；[约定与测试](docs/writer-memory-context.zh-CN.md) |
 | `src/composables/useChapterContentWorkspace.ts` | 章节正文对话框状态、素材选择与生成上下文 |
 | `src/composables/` | Writer 的增删改查、续写、润色、生成与提示词编排控制器 |
@@ -95,6 +98,8 @@
 - 全范围扫描回归：四组 `smoke:*full-scan*` 套件及 `ci-memory-full-scan` 生产适配器容量／浏览器检查；[范围与已完成的第 2 条工作线验收](docs/memory-full-range-semantics.zh-CN.md)，合并状态见[路线图](ROADMAP.zh-CN.md#第三阶段完成契约)。
 - 可选支持核对回归：`smoke:memory-support`、`smoke:memory-support-transport`、`smoke:memory-support-ui`、`smoke:writer-memory-support` 与完全 mock 的 `smoke:memory-support-code`；`test:browser-memory-support` 覆盖冻结的 25 个语义用例，另有 600 章／1,388,902 字符的 Memory Lab 与三个 Writer 入口场景。长篇场景不改变语义分母；[当前验收限制](docs/memory-support-checks.zh-CN.md)。
 - 候选扫描回归：`smoke:memory-novel-scan-engine`、`smoke:memory-novel-scan-fixture`、`smoke:memory-novel-scan-transport`、`smoke:memory-novel-scan-ui`、`smoke:memory-novel-scan-capacity` 与 `smoke:memory-plot-links`。`ci-memory-novel-scan` 独立调用 `test:browser-memory-novel-scan` 的 20 组生产构建场景；[验收证据](docs/testing/memory-novel-scan-2026-10-22/ACCEPTANCE.zh-CN.md)区分完整执行与两轮历史部分结果。Writer 安全桥保留原文安全 predicate、明确选择及完成态批准；图谱作者确认本身不是 Writer 批准。
+- CI 附件：`prepare-ci-evidence.mjs` 按 `ci-evidence-files.mjs` 的十三组精确白名单归档；`smoke:ci-evidence` 检验请求／诊断投影及文件系统失败关闭。[有界归档规则](docs/ci-evidence.zh-CN.md)区分派生摘要、runner 本地原报告和历史上传。
+- 作者 Agent 回归：`smoke:writer-agent`、`smoke:writer-agent-ui`、`smoke:writer-agent-transport`、`smoke:writer-agent-browser-probe`、`smoke:writer-save-ownership` 与 `smoke:ordinary-save-receipts` 进入动态聚合，覆盖运行时、Vue／SSR、实际 SDK 本地 HTTP、严格原生探针 receiver／剪贴板／EOF 合同与持久化边界。冻结合同有 18 个运行时组和 18 个浏览器组，变体数不是额外语义样本。`ci-writer-agent` 独立调用 `test:browser-writer-agent`，不属于旧 `test:browser` 聚合；[当前范围与验收状态](docs/writer-author-agent.zh-CN.md)。
 - 依据审阅回归：`smoke:memory-match-signals`、`smoke:writer-memory-selection`，并在 Writer／浏览器压力测试加入明确选择及已知未解答问题；[规则与测量](docs/memory-evidence-review.zh-CN.md)。
 - 写作记忆回归：`smoke:writer-memory`、`smoke:memory-remote-guard`、`smoke:writer-memory-lifecycle`；`ci-writer-memory` 执行 21 个浏览器流程及 144万／1050万字符压力场景。
 - 其他测试集：`smoke:generation-budget`、`smoke:writer-content`、`smoke:management-correctness`、`smoke:billing-correctness`、`smoke:tools-workspace`。

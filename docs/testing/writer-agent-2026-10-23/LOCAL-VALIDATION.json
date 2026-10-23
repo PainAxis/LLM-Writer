@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-23T17:21:20.973897+00:00",
+  "baseCommit": "dfc316eb2fc8f376c5ac3c77892b251ba29e6902",
+  "state": "native-validation-passed; exact-head-independent-review-and-12-job-CI-required",
+  "scope": "First bounded author-reviewed continuity Agent, not all of stage four",
+  "commands": {
+    "lint --max-warnings 0": "passed",
+    "build": "passed",
+    "smoke:all": {
+      "status": "passed",
+      "suites": 104
+    },
+    "browser-harness node --check": {
+      "status": "passed",
+      "files": 4
+    }
+  },
+  "focusedEvidence": {
+    "runtime": {
+      "controlledVariants": 98,
+      "adapter": "real MemoryIndex and private existing evidence validator",
+      "externalRequests": 0,
+      "storageWrites": 0
+    },
+    "ui": {
+      "checkpointBlocks": 20,
+      "actualVueRuntimeProject": true,
+      "actualSfcSsrPhases": 19,
+      "browserExecuted": false,
+      "note": "Checkpoint blocks and phases are not independent semantic samples.",
+      "editorPort": "Actual WriterEditor SFC with real Vue no-DOM lifecycle; native editor instance/Slate port simulated. Not a browser execution."
+    },
+    "apiTransport": {
+      "actualSdkLoopbackRequests": 29,
+      "externalRequests": 0,
+      "providers": [
+        "OpenAI compatible",
+        "Anthropic",
+        "Google"
+      ],
+      "missingReportedCounts": "absent/unknown, never SDK-filled zero"
+    },
+    "writerSaveOwnership": {
+      "checkpointBlocks": 13
+    },
+    "ordinarySaveReceipts": {
+      "realBackendCheckpointBlocks": 12
+    },
+    "chapterCrud": {
+      "checkpointBlocks": 11,
+      "realProjectCrudArbiter": true,
+      "covers": "create/delete fallback self-wait; held internal selection; other barriers; late owner; stale form/confirmation; pure intent"
+    },
+    "ciArchive": {
+      "groups": 13,
+      "exactEntries": 158,
+      "requestReportSchemas": 5,
+      "freeTextDiagnostics": "metadata only",
+      "rawInputMutation": false,
+      "workflowFiles": 4,
+      "uploadArtifactSteps": 15,
+      "preparedReportUploads": 14,
+      "metadataOnlyExceptions": 1
+    },
+    "clipboardProbe": {
+      "nodeVmActualProbe": true,
+      "cases": 5,
+      "browserExecuted": false
+    },
+    "browserProbe": {
+      "mode": "Actual probe installer; strict-receiver native API simulations and installed SDK; not browser acceptance",
+      "checkpointBlocks": 19,
+      "networkSockets": 0,
+      "browserExecuted": false,
+      "covers": "Previous strict native receiver/SDK/EOF/clipboard tests plus installed modal/generation/confirmation contracts, canonical baseline setup, actual serializer entity spelling and inner-dialog viewport target"
+    },
+    "editorApplication": {
+      "canonicalFirstSnapshot": true,
+      "lateEquivalentCallbackWrites": 1,
+      "genuineAuthorEditSnapshots": 2,
+      "privateDraftEntityRefusalCases": 6,
+      "sourceAndSplitLeafRefusal": true,
+      "refusalConsumesOrMutatesOrSaves": false,
+      "copyRetainsPrivateOriginal": true,
+      "scope": "Real Project and actual component lifecycle; editor native methods simulated. Installed serializer source independently evaluated; no local browser."
+    }
+  },
+  "sourceIntegrity": {
+    "validatedNativePaths": 406,
+    "beforeAfterEqual": true,
+    "canonicalPathHashMapSha256": "d6b98b805e5056277008e49b68ff891e3cf9b9e9a5f246bbcf3d5271dab33bcd",
+    "browserHarness": "Canonical-first-save, literal-entity refusal and full browser lifecycle corrections frozen before complete lint/build/104-suite run. All406 before/after hashes identical; no local browser execution.",
+    "changedSourceSha256": {
+      ".github/workflows/ci.yml": "bc8c2ae420586fc7f37dbd0ff185fad0e729514d03470a37e1d6a23530a488d0",
+      ".github/workflows/writer-browser-tunnel.yml": "371816fc466a81249bf4a86cc26e26e55e6084fd90781ce58ae5b948f5899b32",
+      "package.json": "1760041ff03bb66ed7f45ca9e2f6ff713594f6d339688b98ddea424d23523096",
+      "scripts/browser-writer-agent.mjs": "32454f756d420b4ecabb53f366f11fbc8dbcbec5a524e90270380444527ba694",
+      "scripts/ci-evidence-files.mjs": "00f34d5280cf0f209f7b7d92a19c3fcfa131738fcdcaf63bdf2cfaa3e2b7d385",
+      "scripts/fixtures/writer-agent-browser-corpus.mjs": "db9575a11d6a2bb60bc30b534d10b8b0c4557df9b566f8691500b8ff973ebd7b",
+      "scripts/fixtures/writer-agent-browser-observation.mjs": "75fded2ea77924f7772a911a7178b7f169d80324788e2bf7d7aba7b941599089",
+      "scripts/fixtures/writer-agent-browser-probe.mjs": "fb0d439c607de8f4f5b79ef956515dd74056d2a5f4495376e107943dbf6bb80a",
+      "scripts/fixtures/writer-agent-v1.json": "c50bae17f6a8eaf38906d181fb6307e44b81d2d5abc9fce6ad4f078991bd169f",
+      "scripts/fixtures/writer-agent-v1.sha256": "8b653035346dc4ad92569f86b5cf5571b37e348c5297ace15a0102bf8b49ec37",
+      "scripts/prepare-ci-evidence.mjs": "973ab7f99adcf7c2599d5f0991ce45b8cf331795cee3f3d5c7cd111a2632afa8",
+      "scripts/smoke-ci-evidence.mjs": "455ab6d20ea5c7f89e38730b2cb634b853baae161efe6a1d4f78706408669944",
+      "scripts/smoke-ordinary-save-receipts.ts": "415501cb8101096a0e09c4dca978838dd4f869ee596ac1761cd9b7acf6e8655c",
+      "scripts/smoke-writer-agent-browser-probe.mjs": "3333a2705a6185466398e9883ff27f28c652c99a2fd9f5768b02db3584012a4b",
+      "scripts/smoke-writer-agent-transport.ts": "0ba47fb2170b04e4e55eb6dfed8abb98daf3b3c4a1de13db7b38ffa7180bb8be",
+      "scripts/smoke-writer-agent-ui.ts": "26a7faef33c9dbad3bdf72f3446c9a10953b5b1752e61655fe0f37dad4c6a032",
+      "scripts/smoke-writer-agent.ts": "b97298ce8ef9d969f05fefad2d7ddb315c4ff2d4558d9eba38813286e152f79f",
+      "scripts/smoke-writer-chapter-crud.ts": "7a6b99a842b8c77bbf1c3f8c5190562be26ab9c76c179b4ca1c9c486133043aa",
+      "scripts/smoke-writer-save-ownership.ts": "41a346cdfc936df3940e6fdaea68e99d5d122e8d05f0a2cdecc54139a34dbf5e",
+      "src/components.d.ts": "932a33b4c3260f0378936a64075eee8f7398669f1058e75cbbff2545075694e0",
+      "src/components/writer/WriterEditor.vue": "56c2c458de1f081e642ba4e57510cc5ff01aed81df6f64a5a551e2726424d020",
+      "src/components/writer/panels/WriterAgentPanel.vue": "e11eb6f9ce3d92262a274f4f107266e1bee4787d92ceb6e902d1e0eb49ddd8df",
+      "src/composables/useWriterAgent.ts": "10e1372b043eccda097598cd6f429b668e38bc27457ef81e2e7e80c1e02d7e36",
+      "src/composables/useWriterChapterCrud.ts": "30c76db929e1cbd5d408ec7186197fc3a275b8c1551c8f34634b0852bda832ce",
+      "src/composables/useWriterMaterialCrud.ts": "22ccea3add35d63c9c2983239bccc977a39956e0f51656cf79bdcb1bbab49e95",
+      "src/composables/useWriterProject.ts": "c150010e3b365261190ac0b69d3ce65ec8a775d6c0c9034e5fd0d1730922afe7",
+      "src/composables/writerPersistenceGate.ts": "e96db0c67200a1902909bdb19da4c261ba508d3cc1d7f9e68e1c3cdbeadeca2f",
+      "src/services/api.ts": "8d12d8a928ea8be5b628fcd4d4dc3d4ec119700620d02bded3d2e60fbb217a4d",
+      "src/services/novelPersistence.ts": "7e572392fbb75f574995928eaface9c3174e4a4dc879e5f2e7a87f565f73f965",
+      "src/services/writerAgent.ts": "ef9306de81f0ae6e846c2e5bf9aa12e40e730e42fde3e7d485882f51750a5c78",
+      "src/services/writerAgentProtocol.ts": "7a0dcab227d3c655d287b4aba1621f35fce1217ea7422683211e1e22fbaa6166",
+      "src/types/api.ts": "1024c768ef00f217570cddf437977f6b624de5b1bc1fc24a433e103f11ef9573",
+      "src/types/writerAgent.ts": "10a1f5288609512bd86e9bcbd0f51d7bd5f4a1afff21439b42d8575429bef00a",
+      "src/utils/storage.ts": "295dca21cddf4658e863c4f7e671ec3f3f7cfd2fb1d929176873b4d87c3f263e",
+      "src/utils/writerEditorApply.ts": "cba3c9092fb77f42204105ae43ae80a0efad893e418c284884fd85cc0b5c803c",
+      "src/views/Writer.vue": "e036bd7737f4aca9d3555bc54291f8cd500d951f6344b5b1fd36ec1292049987"
+    }
+  },
+  "localHistory": {
+    "firstFullRun": {
+      "status": "failed",
+      "suitePosition": 82,
+      "suite": "smoke:graph-backup",
+      "reason": "Global status-listener errors were swallowed; existing postcommit restore rollback assertion failed.",
+      "fix": "Restored original global listener propagation; new metadata receipt observers alone remain isolated. Existing assertion unchanged.",
+      "rawLogSha256": "fcdac20fe9bfef4649d625bd890db74c65b489d0a97426e5c72ac980e608dca3"
+    },
+    "completeRerun": {
+      "status": "passed",
+      "exitCode": 0,
+      "suites": 102,
+      "rawLogSha256": "e3c71330a3c37c3e97564a35f4af1dac25d24dffd8a69d4862989dacf48fb4e3",
+      "all393NativeAndThreeBrowserHashesUnchanged": true,
+      "notFinalCurrentAcceptance": true
+    },
+    "rawLogs": "Retained in engineering workspace, not copied into repository.",
+    "previousCandidateNativeRun": {
+      "status": "passed",
+      "exitCode": 0,
+      "suites": 102,
+      "rawLogSha256": "01be4e6435821f25ca6b4d1c61273a23fd02ebd1ebd2d8d1a9a48b6ff77ffcfe",
+      "candidateCommit": "c4f11dfd23efb96c69f39fbec4275d4f4805cdbf",
+      "notFinalAcceptance": true
+    },
+    "previousCandidateLint": {
+      "status": "passed",
+      "exitCode": 0,
+      "rawLogSha256": "2aaefb8989504521e7150961dd412099e93e0cc8fa3c8b2602bf83a96d822285"
+    },
+    "finalReviewRegressions": [
+      "Pre-dispatch status-observer failure releases tracker, explicit ownership and pending bookkeeping before rejecting.",
+      "Actual commit AND successful cache publication permit only that explicit request internal read barrier to recover after a postcommit status-observer rejection; original caller rejection and ordinary/backup semantics remain unchanged.",
+      "Browser save-method invocation count is unavailable, not inferred from coalesced saving-indicator DOM transitions.",
+      "Chapter menu synthetic mouseenter targets the actual child button, not its inert wrapper."
+    ],
+    "ciFixCompleteRerun": {
+      "fileName": "full-ci-fix.log",
+      "sha256": "4413e33a3e0e3c388e8d255a422d8a02c74c2f1d8ccf8f9010d9d7066382fba6",
+      "bytes": 166756,
+      "storage": "Local engineering validation directory; no raw log attachment in this increment",
+      "exitCode": 0,
+      "suites": 103,
+      "all403NativeHashesUnchanged": true
+    },
+    "allWorkflowFinalRerun": {
+      "fileName": "full-archive-final.log",
+      "sha256": "70aec62e748bada3ada31cbd3b04a05d61c3c9a4eff2a4ad5355c53221c96fbb",
+      "bytes": 167618,
+      "storage": "Local engineering validation directory; no raw log attachment in this increment",
+      "exitCode": 0,
+      "suites": 103,
+      "all403NativeHashesUnchanged": true,
+      "changeAfterPriorRerun": "Only tunnel archive wiring and all-workflow upload smoke; nevertheless lint/build/all103 suites were rerun."
+    },
+    "probeReceiverCompleteRerun": {
+      "fileName": "full-probe-fix.log",
+      "sha256": "d1624a691d0718e662b1c73787aeb658f53674b63d9c305ef41930dff269589e",
+      "bytes": 168487,
+      "storage": "Local engineering validation directory; no raw log attachment in this increment",
+      "exitCode": 0,
+      "suites": 104,
+      "all405NativeHashesUnchanged": true,
+      "productionAndWorkflowUnchanged": true
+    },
+    "canonicalRuntimeFocusedFailure": {
+      "fileName": "writer-agent-runtime-canonical.log",
+      "sha256": "214f4ba1c26f88d0c44b071616ed4bfda006f0d3f05bdb13726907a605666b9c",
+      "bytes": 705,
+      "failure": "Expected controlled runtime boundary was not reached, scripts/smoke-writer-agent.ts:50 via :413 in R11 read-boundary loop. The log did not identify the particular boundary; no environment-cause claim.",
+      "unchangedCodeRerun": {
+        "fileName": "writer-agent-runtime-canonical-rerun.log",
+        "sha256": "604e0b47e379efaae6f4a5689a24820d28cfaf8d13512c1cdb97b8ef26b46f10",
+        "bytes": 3114,
+        "controlledVariants": 98,
+        "status": "passed"
+      },
+      "scope": "Focused historical run before the complete frozen validation, not silently relabelled as success."
+    },
+    "canonicalEditorCompleteRerun": {
+      "fileName": "full-canonical-fix.log",
+      "sha256": "9092a8dbc10147d2b7c7044338738830dfae799bc7ca18db1cf51b8e9afd7a00",
+      "bytes": 170065,
+      "storage": "Local engineering validation directory; no raw log attachment in this increment",
+      "exitCode": 0,
+      "suites": 104,
+      "all406NativeHashesUnchanged": true,
+      "productionChanged": true,
+      "workflowUnchanged": true,
+      "ordinaryPersistenceEngineUnchanged": true
+    }
+  },
+  "browserAcceptance": {
+    "status": "not_run_locally",
+    "frozenGroups": 18,
+    "registeredIsolatedScenarios": 90,
+    "largeProfile": {
+      "chapters": 600,
+      "normalizedUtf16": 1320000,
+      "targetAndDisclosureOrdinal": 400,
+      "sourceOrdinal": 2,
+      "viewportWidths": [
+        1280,
+        390
+      ]
+    },
+    "requiredJob": "ci-writer-agent",
+    "requiredTotalJobs": 12,
+    "artifactAllowlist": [
+      "manifest.json",
+      "browser-writer-agent/report.summary.json",
+      "browser-writer-agent/desktop-reviewed-draft.png",
+      "browser-writer-agent/mobile-reviewed-draft.png",
+      "browser-writer-agent/failure.png"
+    ],
+    "omissions": [
+      "Private prepare/save-method entry counts are null in browser reports, with Node exact-entry coverage. Saving-indicator transitions are separately labelled UI proxies; physical write assertions are retained.",
+      "Same-page raw refs and deep active config/grant changes require real Vue Node tests; labelled browser DOM attacks are not normal author clicks.",
+      "Runtime empty-attachment check uses the production serializer, not fabricated evidence authority."
+    ],
+    "lifecycleReview": {
+      "fileName": "agent-browser-lifecycle-canonical-fix.md",
+      "sha256": "5d8734a942df355bd7d6537008cc4aa224e2457d1c012f213632f6785bd42c3e",
+      "bytes": 20323,
+      "storage": "Local engineering validation directory",
+      "scope": "Static/Node node-lifecycle review, not browser pass. Entity-protection final verification recorded separately."
+    }
+  },
+  "privacyAndInterpretation": {
+    "realModelRequestsThisIncrement": 0,
+    "credentialsRead": false,
+    "qualityClaim": "None. Controlled engineering validation is not semantic or novel-writing quality evidence.",
+    "earlierGoTrial": "One transport failure, six stopped; no success, invalid-credential conclusion or zero-cost claim.",
+    "historicalInitialCiUploads": "Initial run39975345262 inherited directory uploads transmitted full synthetic exports, traces and raw request collections. Existing artifacts retained, not deleted. SeeCI-FOLLOWUP.json.",
+    "correctedCiArchive": "Full backups/exports/traces/reconstructable request bodies excluded. All attached reports are derived summaries, not raw. No full backup copied into this repository increment."
+  },
+  "supersedesHistoricalLocalRecord": {
+    "sha256": "307b33bf64615c9443a37c89957ec17fa0281e10c0f6e261bbcde186bc5a5c6b",
+    "originalSuites": 102,
+    "note": "Original retained in prior commit history, not relabelled as validation of current fixes."
+  },
+  "finalRunLog": {
+    "fileName": "full-canonical-fix.log",
+    "sha256": "9092a8dbc10147d2b7c7044338738830dfae799bc7ca18db1cf51b8e9afd7a00",
+    "bytes": 170065,
+    "storage": "Local engineering validation directory; no raw log attachment in this increment",
+    "exitCode": 0
+  }
+}

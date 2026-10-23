@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "completedAt": "2026-10-23T13:41:14.605Z",
+  "stage": "three",
+  "scope": "four bounded tracks; not unrestricted semantic or novel-quality validation",
+  "pr": 41,
+  "reviewedHead": "29c51daabe4cd058d98746a51404ff622ff58853",
+  "reviewedTree": "66ec72a608b7cdcd8ac5646bc0fe638ab801b6a9",
+  "mergeSha": "dfc316eb2fc8f376c5ac3c77892b251ba29e6902",
+  "mainRun": {
+    "id": 39961172049,
+    "head": "dfc316eb2fc8f376c5ac3c77892b251ba29e6902",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": 1,
+    "url": "https://github.com/PainAxis/LLM-Writer/actions/runs/39961172049",
+    "jobs": [
+      {
+        "name": "ci-memory-capacity",
+        "id": 120439239289,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:13Z",
+        "completedAt": "2026-10-23T13:40:43Z"
+      },
+      {
+        "name": "ci-memory-stress",
+        "id": 120439239549,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:12Z",
+        "completedAt": "2026-10-23T13:28:30Z"
+      },
+      {
+        "name": "ci-memory-browser-stress",
+        "id": 120439239583,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:12Z",
+        "completedAt": "2026-10-23T13:28:17Z"
+      },
+      {
+        "name": "ci-quality",
+        "id": 120439239608,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:12Z",
+        "completedAt": "2026-10-23T13:29:24Z"
+      },
+      {
+        "name": "ci-memory-cold-index",
+        "id": 120439239624,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:12Z",
+        "completedAt": "2026-10-23T13:35:21Z"
+      },
+      {
+        "name": "ci-memory-novel-scan",
+        "id": 120439239630,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:12Z",
+        "completedAt": "2026-10-23T13:38:46Z"
+      },
+      {
+        "name": "ci-memory-support",
+        "id": 120439239644,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:13Z",
+        "completedAt": "2026-10-23T13:40:11Z"
+      },
+      {
+        "name": "ci-graph-backup-mobile",
+        "id": 120439239733,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:13Z",
+        "completedAt": "2026-10-23T13:36:39Z"
+      },
+      {
+        "name": "ci-writer-memory",
+        "id": 120439239738,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:12Z",
+        "completedAt": "2026-10-23T13:35:41Z"
+      },
+      {
+        "name": "ci-memory-full-scan",
+        "id": 120439239777,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:12Z",
+        "completedAt": "2026-10-23T13:28:46Z"
+      },
+      {
+        "name": "ci-browser",
+        "id": 120439239848,
+        "conclusion": "success",
+        "startedAt": "2026-10-23T13:26:13Z",
+        "completedAt": "2026-10-23T13:36:39Z"
+      }
+    ]
+  },
+  "candidate": {
+    "artifactId": 12505502307,
+    "zipSha256": "f23352ebcd664ccacbc48695c3054f3b78d89136ebbac2e7bae2a4f0262631fe",
+    "reportSha256": "5d4691caaf1f4f8199149b8a7af3d6037c4fd37eec17aa20b3067e29da57f8a2",
+    "entries": [
+      "report.json",
+      "desktop-reviewed-bridge.png",
+      "mobile-three-premise-review.png"
+    ],
+    "passed": 20,
+    "total": 20,
+    "aCalls": 834,
+    "bCalls": 667,
+    "writerCalls": 3,
+    "sourceUtf16": 1388842,
+    "sourceSpans": 3354,
+    "proposals": 568,
+    "realModelCalls": 0
+  },
+  "backup": {
+    "localOnly": true,
+    "localRetainedSha256": "341930c856501f5783b48d992d01b4b4e5bfd35e4ffa537757172d04f2af28c5",
+    "bytes": 8156,
+    "currentCandidateArtifactContainsBackup": false,
+    "currentCandidateArtifactContainsTrace": false,
+    "existingArtifactsNotDeleted": true
+  },
+  "limitations": [
+    "No new real embedding quality measurement",
+    "Go first request transport failure; zero assessed, six stopped; cost unknown",
+    "Full text coverage is distinct from finite connection coverage and unrestricted semantic completeness",
+    "New instances rebuild; hydration and large-process memory costs remain",
+    "10.5M candidate workload measured preparation and one-call pause/cancel, not full inference"
+  ],
+  "stageFourImplementationUnblocked": true
+}

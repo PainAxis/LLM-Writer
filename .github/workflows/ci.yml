@@ -14,6 +14,9 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# Only the separate bounded archive step may populate artifact upload directories.
+# Raw reports, backups, traces and full export payloads remain runner-local (ephemeral).
+# A failed test still fails its job; derived evidence never substitutes for test success.
 jobs:
   memory-capacity:
     name: ci-memory-capacity
@@ -57,13 +60,17 @@ jobs:
           --candidate=artifacts/memory-capacity/paired/candidate-b-all.json
           --baseline-commit=760042683405760428688d1a7d7f0346e2ff77d3
           --order=ABBA --output=artifacts/memory-capacity/comparison.json
+      - name: Prepare bounded memory-capacity evidence
+        id: archive_memory_capacity
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=memory-capacity
       - name: Upload memory capacity measurements
-        if: always()
+        if: ${{ !cancelled() && steps.archive_memory_capacity.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-capacity-evidence-${{ github.run_attempt }}
-          path: artifacts/memory-capacity
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/memory-capacity
+          if-no-files-found: error
           retention-days: 7
 
   memory-cold-index:
@@ -100,13 +107,17 @@ jobs:
             node --expose-gc --import tsx scripts/benchmark-memory-capacity.ts --engine-root=.cold-index-baseline --profile=$profile --label=baseline-b --output=artifacts/memory-cold-index
             node scripts/compare-memory-cold-index.mjs --baseline=artifacts/memory-cold-index/baseline-a-$profile.json --baseline=artifacts/memory-cold-index/baseline-b-$profile.json --candidate=artifacts/memory-cold-index/candidate-a-$profile.json --candidate=artifacts/memory-cold-index/candidate-b-$profile.json --output=artifacts/memory-cold-index/comparison-$profile.json
           done
+      - name: Prepare bounded memory-cold-index evidence
+        id: archive_memory_cold_index
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=memory-cold-index
       - name: Upload cold index measurements
-        if: always()
+        if: ${{ !cancelled() && steps.archive_memory_cold_index.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-cold-index-evidence-${{ github.run_attempt }}
-          path: artifacts/memory-cold-index
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/memory-cold-index
+          if-no-files-found: error
           retention-days: 7
 
   memory-full-scan:
@@ -130,15 +141,17 @@ jobs:
             npm run test:memory-full-scan-capacity -- --dimensions=$dimensions --rounds=3
           done
       - run: npm run test:browser-memory-full-scan
+      - name: Prepare bounded memory-full-scan evidence
+        id: archive_memory_full_scan
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=memory-full-scan
       - name: Upload full-range scan measurements and browser evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_memory_full_scan.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-full-scan-evidence-${{ github.run_attempt }}
-          path: |
-            artifacts/memory-full-scan
-            artifacts/browser-memory-full-scan
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/memory-full-scan
+          if-no-files-found: error
           retention-days: 7
 
   memory-support:
@@ -163,15 +176,17 @@ jobs:
           npm run --silent smoke:memory-support-code > artifacts/memory-support-code/report.json
       - run: npm run test:browser-memory-support
         timeout-minutes: 6
+      - name: Prepare bounded memory-support evidence
+        id: archive_memory_support
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=memory-support
       - name: Upload cited-support protocol and browser evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_memory_support.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-support-evidence-${{ github.run_attempt }}
-          path: |
-            artifacts/memory-support-code
-            artifacts/browser-memory-support
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/memory-support
+          if-no-files-found: error
           retention-days: 7
 
   memory-novel-scan:
@@ -192,18 +207,17 @@ jobs:
       # All requests are deterministic local fixtures; no model credentials or live providers.
       - run: npm run test:browser-memory-novel-scan
         timeout-minutes: 12
+      - name: Prepare bounded memory-novel-scan evidence
+        id: archive_memory_novel_scan
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=memory-novel-scan
       - name: Upload whole-disclosed-source candidate scan evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_memory_novel_scan.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-novel-scan-evidence-${{ github.run_attempt }}
-          # Full backup exports and traces are runner-local only, never attachments.
-          path: |
-            artifacts/browser-memory-novel-scan/report.json
-            artifacts/browser-memory-novel-scan/desktop-reviewed-bridge.png
-            artifacts/browser-memory-novel-scan/mobile-three-premise-review.png
-            artifacts/browser-memory-novel-scan/failure.png
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/memory-novel-scan
+          if-no-files-found: error
           retention-days: 7
 
   memory-stress:
@@ -221,13 +235,17 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run test:memory-stress-local
       - run: npm run test:memory-stress-hybrid
+      - name: Prepare bounded memory-stress evidence
+        id: archive_memory_stress
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=memory-stress
       - name: Upload memory stress evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_memory_stress.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-stress-evidence-${{ github.run_attempt }}
-          path: artifacts/memory-stress/*.json
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/memory-stress
+          if-no-files-found: error
           retention-days: 7
 
   memory-browser-stress:
@@ -246,13 +264,17 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - run: npm run test:browser-memory-stress
+      - name: Prepare bounded memory-browser-stress evidence
+        id: archive_memory_browser_stress
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=memory-browser-stress
       - name: Upload browser memory stress evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_memory_browser_stress.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-browser-stress-evidence-${{ github.run_attempt }}
-          path: artifacts/browser-memory-stress
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/memory-browser-stress
+          if-no-files-found: error
           retention-days: 7
 
   graph-backup-mobile:
@@ -276,15 +298,17 @@ jobs:
       - run: npm run test:browser-mobile
         timeout-minutes: 4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+      - name: Prepare bounded graph-backup-mobile evidence
+        id: archive_graph_backup_mobile
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=graph-backup-mobile
       - name: Upload graph backup and mobile evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_graph_backup_mobile.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: graph-backup-mobile-evidence-${{ github.run_attempt }}
-          path: |
-            artifacts/browser-graph-backup
-            artifacts/browser-mobile
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/graph-backup-mobile
+          if-no-files-found: error
           retention-days: 7
 
   writer-memory:
@@ -304,23 +328,32 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - run: npm run test:browser-writer-memory
+      - name: Prepare bounded writer-memory-browser evidence
+        id: archive_writer_memory_browser
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=writer-memory-browser
       - name: Upload Writer browser evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_writer_memory_browser.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: writer-memory-browser-evidence-${{ github.run_attempt }}
-          path: artifacts/browser-writer-memory
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/writer-memory-browser
+          if-no-files-found: error
           retention-days: 7
+
       - run: npm run test:writer-memory-stress
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+      - name: Prepare bounded writer-memory-stress evidence
+        id: archive_writer_memory_stress
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=writer-memory-stress
       - name: Upload Writer memory stress evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_writer_memory_stress.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: writer-memory-stress-evidence-${{ github.run_attempt }}
-          path: artifacts/writer-memory-stress
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/writer-memory-stress
+          if-no-files-found: error
           retention-days: 7
 
   quality:
@@ -358,28 +391,65 @@ jobs:
       - run: npm run test:browser-memory
       - run: npm run test:browser-memory-hybrid
       - run: npm run test:browser-memory-fact-graph
+      - name: Prepare bounded fact-graph-review evidence
+        id: archive_fact_graph_review
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=fact-graph-review
       - name: Upload fact graph review evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_fact_graph_review.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: fact-graph-review-${{ github.run_attempt }}
-          path: |
-            artifacts/browser-memory-fact-graph/*.json
-            artifacts/browser-memory-fact-graph/*.png
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/fact-graph-review
+          if-no-files-found: error
           retention-days: 7
+
       - run: npm run test:browser-extensions
       - run: npm run test:browser
+      - name: Prepare bounded browser evidence
+        id: archive_browser
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=browser
       - name: Upload browser evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_browser.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: browser-evidence-${{ github.run_attempt }}
-          path: |
-            artifacts/browser
-            artifacts/browser-extensions
-            artifacts/browser-memory
-            artifacts/browser-memory-hybrid
-            artifacts/browser-memory-fact-graph
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/browser
+          if-no-files-found: error
+          retention-days: 7
+
+  writer-agent:
+    name: ci-writer-agent
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      # Ninety isolated scenarios include genuine multi-tab saves and long profiles.
+      # The first-run observation budget is not a measured timing/quality claim.
+      # Controlled local HTTP only: never discover credentials or call a live provider.
+      # Kept out of test:browser to avoid duplicate execution, like the two stage-three jobs.
+      - name: Verify the bounded author-reviewed Agent in the production build
+        run: npm run test:browser-writer-agent
+        timeout-minutes: 20
+      - name: Prepare bounded writer-agent evidence
+        id: archive_writer_agent
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=writer-agent
+      - name: Upload bounded Agent review evidence only
+        if: ${{ !cancelled() && steps.archive_writer_agent.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: writer-agent-evidence-${{ github.run_attempt }}
+          path: artifacts/ci-evidence/writer-agent
+          if-no-files-found: error
           retention-days: 7

@@ -49,6 +49,17 @@ export interface GenerationRequestLimits {
   omitUsageContent: true
 }
 
+/** Request-local metadata only: missing counts are unknown, never evidence of zero cost. */
+export interface GenerationRequestUsage {
+  readonly status: 'success' | 'failed'
+  readonly usageSource: 'reported' | 'estimated' | 'unavailable'
+  /** Nonnegative safe integers; partial provider reports leave missing fields absent. */
+  readonly inputTokens?: number
+  readonly outputTokens?: number
+  /** Present only when both counts and their sum are safe integers. */
+  readonly totalTokens?: number
+}
+
 export interface GenerateOptions {
   model?: string
   maxTokens?: number | null
@@ -59,6 +70,9 @@ export interface GenerateOptions {
   beforeRequest?: () => Promise<void>
   /** Internal bounded non-streaming mode: no extensions; requires explicit maxTokens <= 1,200. */
   requestLimits?: GenerationRequestLimits
+  /** generateText only: one immutable, content-free outcome; callback errors are isolated. */
+  /** Requires requestLimits and non-streaming generateText; ordinary/streaming calls reject it before dispatch. */
+  onRequestUsage?: (usage: GenerationRequestUsage) => void
   /** 系统提示词（人设）；提供时作为顶层 system 参数发送 */
   system?: string
   /** 多轮消息；提供时优先于 prompt 作为对话载荷 */

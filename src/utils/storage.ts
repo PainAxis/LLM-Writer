@@ -76,13 +76,28 @@ function resolveKey(key: StorageKey | string): string {
 /** 分片键后端：get/set 均操作内存缓存，持久化由后端自行分层 */
 export interface StorageCommitReceipt { committed: boolean; raw: string | null }
 
+/** Ordinary saves expose knowledge only, never backup/raw CAS tokens or bodies. */
+export interface StorageSetOptions {
+  /** This exact request may only be resent by its retained explicit owner. */
+  retryPolicy?: 'explicit'
+  onCommit?: (receipt: Readonly<{ committed: true }>) => void
+}
+export function notifyStorageCommit(options?: StorageSetOptions): void {
+  try {
+    const observed = options?.onCommit?.(Object.freeze({ committed: true as const }))
+    void Promise.resolve(observed).catch(() => undefined)
+  } catch {
+    // A receipt observer cannot turn an already-durable write into a failure.
+  }
+}
+
 export interface ChunkedKeyBackend {
   /** 同步读取（启动时已 hydrate 到内存） */
   get(): unknown
   /** Read committed data for backups without replacing an open editor's draft. */
   readCommitted?(): Promise<unknown>
   /** 内存立即生效；返回值可 await，只有持久化成功后才完成。 */
-  set(value: unknown): void | Promise<void>
+  set(value: unknown, options?: StorageSetOptions): void | Promise<void>
   /** Explicit full replacement, e.g. an approved backup restore. */
   replace?(value: unknown): void | Promise<void>
   /** Backup writes return their exact commit token; rollback checks it inside the commit gate. */
@@ -214,10 +229,10 @@ function isQuotaError(error: unknown): boolean {
 
 /** 序列化并写入；配额不足时先清除可再生缓存重试，仍失败则显式抛出。
  *  已注册分片后端的键整键转交后端处理。 */
-export function storageSet(key: StorageKey | string, value: unknown): void | Promise<void> {
+export function storageSet(key: StorageKey | string, value: unknown, options?: StorageSetOptions): void | Promise<void> {
   const resolved = resolveKey(key)
   const backend = chunkedBackends.get(resolved)
-  if (backend) return backend.set(value)
+  if (backend) return backend.set(value, options)
 
   let serialized: string
   try {
@@ -226,8 +241,12 @@ export function storageSet(key: StorageKey | string, value: unknown): void | Pro
     console.error(`[storage] 序列化 ${String(key)} 失败:`, error)
     throw error
   }
-  if (resolved === StorageKeys.writingGoals) return withStorageCommit(() => writeSerializedWithRetry(resolved, serialized))
-  writeSerializedWithRetry(resolved, serialized)
+  const commit = () => {
+    writeSerializedWithRetry(resolved, serialized)
+    notifyStorageCommit(options)
+  }
+  if (resolved === StorageKeys.writingGoals) return withStorageCommit(commit)
+  commit()
 }
 
 export function storageReplace(key: StorageKey | string, value: unknown): void | Promise<void> {
