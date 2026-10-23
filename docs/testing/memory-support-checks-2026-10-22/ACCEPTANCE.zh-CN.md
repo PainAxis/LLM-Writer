@@ -4,6 +4,8 @@
 
 [PR #40](https://github.com/PainAxis/LLM-Writer/pull/40) 经无阻塞独立审阅，并在 [run 39844019935 的 attempt 2](https://github.com/PainAxis/LLM-Writer/actions/runs/39844019935) **十项必要 PR 任务全部通过**后，合并为 `7e2ae7d50c96f59894a8c96c9efb5d53aac4bfb9`。这验收第三阶段第 3 项，不代表第 4 项或整个阶段完成。[合并后 main run 39848961580](https://github.com/PainAxis/LLM-Writer/actions/runs/39848961580) 单独记录；本记录于 20:29 UTC 捕获时它仍在运行，不将其冒充已通过。
 
+后续于 20:43 UTC 核对 GitHub API，确认**准确合并 head 的 main 十项任务全部成功**；独立的 `main-ci.json` 保留结果，不改写此前 20:29 的运行中快照。
+
 ## 准确修订身份
 
 - 已审本地快照：`294b5376738f4ce5a0983d836b6d4c01d6b95ccc`。
@@ -25,6 +27,6 @@ Attempt 1 已通过九项必要任务；Writer 的 Chromium 安装占用 20 分�
 
 ## 持久原始证据与限制
 
-`accepted-ci-39844019935/` 保留原始浏览器、代码和 Writer 压力 JSON、两次 Writer job 日志、派生摘要及独立的 6 文件 `SHA256SUMS`。这是在原 43 份证据之外追加；历史失败、测量和哈希没有改写。下载的支持检查归档 SHA256 为 `f88a958939078e5831f07f341b27eb62f85fce2a949231797cf2c8816bdaabed`；成功压力归档为 `d61313278d8ee439b2e1f12d68880189e47075b9b8920add0095caaa8b6968f7`；浏览器原始报告为 `e70a65ddfdd854c4a3172241029a7e240ce130b6447cd6faf390b5d38ce65aed`。
+`accepted-ci-39844019935/` 保留原始浏览器、代码和 Writer 压力 JSON、两次 Writer job 日志、派生摘要及独立的 7 文件 `SHA256SUMS`。这是在原 43 份证据之外追加；历史失败、测量和哈希没有改写。下载的支持检查归档 SHA256 为 `f88a958939078e5831f07f341b27eb62f85fce2a949231797cf2c8816bdaabed`；成功压力归档为 `d61313278d8ee439b2e1f12d68880189e47075b9b8920add0095caaa8b6968f7`；浏览器原始报告为 `e70a65ddfdd854c4a3172241029a7e240ce130b6447cd6faf390b5d38ce65aed`。
 
 浏览器均在 CI 执行，不声称运行或安装了本地浏览器。这些是工程和受控语义 fixture 结果，不证明一般模型质量。此前获准的真实 Go 请求仍是**1 次传输失败、0 个已判断输出、6 个未运行、实际用量／费用未知**，没有重试。

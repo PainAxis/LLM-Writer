@@ -1,0 +1,22 @@
+{
+  "runId": 39850088338,
+  "jobId": 120073605669,
+  "url": "https://github.com/PainAxis/LLM-Writer/actions/runs/39850088338",
+  "prHead": "9ec833968272e19a9a66a11de2a36b05ba1848a0",
+  "actualCheckout": "9020a664d34811f2714499fb600b4ed5ebeae7ab",
+  "actualCheckoutParents": [
+    "7e2ae7d50c96f59894a8c96c9efb5d53aac4bfb9",
+    "9ec833968272e19a9a66a11de2a36b05ba1848a0"
+  ],
+  "testedTree": "d64e2b449206490f156211391e6147baaee7e548",
+  "artifactId": 12457418870,
+  "artifactSHA256": "5ea1411c3f6b9799ed67864be6b6f0e234c5233cdff3020e7927115b71f0c84f",
+  "rawReportSHA256": "d7f0689f2d70189b17c81e3ce98b0e9c8ee73ac7879a9d249ed69c3f74e4d52f",
+  "passed": 1,
+  "failed": 1,
+  "notRun": 18,
+  "mockScanCalls": 25,
+  "mockWritingCalls": 0,
+  "failure": "Scenario02 read authorConfirmed=false at browser script317; disabled had only established busy, not committed confirmation. Later captured diagnostics display confirmation success.",
+  "remainingRequiredJobs": "10 success on initial head, not reused as new-head acceptance"
+}

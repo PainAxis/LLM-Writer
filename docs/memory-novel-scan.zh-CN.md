@@ -2,7 +2,7 @@
 
 [English](memory-novel-scan.md) | [简体中文](memory-novel-scan.zh-CN.md)
 
-2026-10-22 状态：第三阶段第 4 条已实现，但尚未验收完成。合入支持检查挂载修正后，生产构建、零警告 lint 与全部 97 项 smoke 再次通过；该次 383 条路径快照单列在 `post-support-mount-fix/validation.json`，见[持久证据](testing/memory-novel-scan-2026-10-22/REPORT.zh-CN.md)。准确修订的独立审阅和全部必要 CI 仍须通过。下述 20 个浏览器场景已编写，但**本地 NOT RUN（未运行）**，执行结果须由 GitHub CI 证明。这份有限产品／工程合同不证明真实模型质量或第三阶段完成，详见[路线图](../ROADMAP.zh-CN.md#第三阶段完成契约)。
+2026-10-22 状态：第三阶段第 4 条已实现，但尚未验收完成。浏览器时序预防性修正后，生产构建、零警告 lint 与全部 97 项 smoke 再次通过；该次 383 条路径快照单列在 `post-confirmation-waits/validation.json`，见[持久证据](testing/memory-novel-scan-2026-10-22/REPORT.zh-CN.md)。准确修订的独立审阅和全部必要 CI 仍须通过。下述 20 个浏览器场景已编写，但**本地 NOT RUN（未运行）**，执行结果须由 GitHub CI 证明。这份有限产品／工程合同不证明真实模型质量或第三阶段完成，详见[路线图](../ROADMAP.zh-CN.md#第三阶段完成契约)。
 
 ## 产品边界与作者流程
 

@@ -1,0 +1,73 @@
+{
+  "observedAt": "2026-10-22T20:43:15.703Z",
+  "source": "GitHub run and job APIs, derived status snapshot",
+  "runId": 39848961580,
+  "head": "7e2ae7d50c96f59894a8c96c9efb5d53aac4bfb9",
+  "attempt": 1,
+  "status": "completed",
+  "conclusion": "success",
+  "updatedAt": "2026-10-22T20:40:44Z",
+  "url": "https://github.com/PainAxis/LLM-Writer/actions/runs/39848961580",
+  "jobs": [
+    {
+      "id": 120069697256,
+      "name": "ci-memory-support",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 120069697405,
+      "name": "ci-memory-browser-stress",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 120069697467,
+      "name": "ci-memory-stress",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 120069697469,
+      "name": "ci-memory-cold-index",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 120069697483,
+      "name": "ci-browser",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 120069697504,
+      "name": "ci-memory-capacity",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 120069697539,
+      "name": "ci-memory-full-scan",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 120069697615,
+      "name": "ci-quality",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 120069697655,
+      "name": "ci-writer-memory",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 120069697870,
+      "name": "ci-graph-backup-mobile",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ]
+}

@@ -4,6 +4,8 @@
 
 [PR #40](https://github.com/PainAxis/LLM-Writer/pull/40) merged at `7e2ae7d50c96f59894a8c96c9efb5d53aac4bfb9` after blocker-free independent review and **all ten necessary PR jobs passed** in [run 39844019935, attempt 2](https://github.com/PainAxis/LLM-Writer/actions/runs/39844019935). This accepts stage-three track 3, not track 4 or the whole stage. The [post-merge run 39848961580](https://github.com/PainAxis/LLM-Writer/actions/runs/39848961580) is a separate observation; it was still running when this record was captured at 20:29 UTC and is not represented as a passed main run.
 
+A subsequent GitHub API check at 20:43 UTC verified **all ten main jobs completed successfully on the exact merge head**. The separately captured `main-ci.json` records this result without rewriting the earlier 20:29 in-progress snapshot.
+
 ## Exact identity
 
 - Reviewed local snapshot: `294b5376738f4ce5a0983d836b6d4c01d6b95ccc`.
@@ -25,6 +27,6 @@ Attempt 1 passed nine required jobs. Writer's Chromium setup used 10m24s of its 
 
 ## Durable raw evidence and limits
 
-`accepted-ci-39844019935/` retains the original browser, code and Writer stress JSON reports, both Writer job logs, a derived summary and its own six-file `SHA256SUMS`. These are additive to the earlier 43 proof files; historical failures, measurements and hashes were not rewritten. The downloaded support archive SHA256 is `f88a958939078e5831f07f341b27eb62f85fce2a949231797cf2c8816bdaabed`; the successful stress archive is `d61313278d8ee439b2e1f12d68880189e47075b9b8920add0095caaa8b6968f7`. The raw browser report SHA256 is `e70a65ddfdd854c4a3172241029a7e240ce130b6447cd6faf390b5d38ce65aed`.
+`accepted-ci-39844019935/` retains the original browser, code and Writer stress JSON reports, both Writer job logs, a derived summary and its own seven-file `SHA256SUMS`. These are additive to the earlier 43 proof files; historical failures, measurements and hashes were not rewritten. The downloaded support archive SHA256 is `f88a958939078e5831f07f341b27eb62f85fce2a949231797cf2c8816bdaabed`; the successful stress archive is `d61313278d8ee439b2e1f12d68880189e47075b9b8920add0095caaa8b6968f7`. The raw browser report SHA256 is `e70a65ddfdd854c4a3172241029a7e240ce130b6447cd6faf390b5d38ce65aed`.
 
 All browser execution was CI-hosted; no local browser installation or execution is claimed. These are engineering and controlled-semantic-fixture results, not general model quality. The earlier authorized real Go request remains **one transport failure, zero assessed outputs, six not run, actual usage/cost unknown**. It was not retried.

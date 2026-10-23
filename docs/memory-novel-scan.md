@@ -2,7 +2,7 @@
 
 [English](memory-novel-scan.md) | [简体中文](memory-novel-scan.zh-CN.md)
 
-Status, 2026-10-22: stage-three track 4 is implemented but not yet accepted. Production build, zero-warning lint and all 97 smoke suites passed again after the support-mount integration; its 383-path snapshot is recorded separately in `post-support-mount-fix/validation.json`; see [retained evidence](testing/memory-novel-scan-2026-10-22/REPORT.md). Exact-revision independent review and all necessary CI remain required. The 20 browser scenarios below are written but **NOT RUN locally**; GitHub CI must establish their result. This finite product/engineering contract does not prove real-model quality or stage-three completion. See the [roadmap](../ROADMAP.md#stage-three-completion-contract).
+Status, 2026-10-22: stage-three track 4 is implemented but not yet accepted. Production build, zero-warning lint and all 97 smoke suites passed again after the preventive browser-timing correction; its 383-path snapshot is recorded separately in `post-confirmation-waits/validation.json`; see [retained evidence](testing/memory-novel-scan-2026-10-22/REPORT.md). Exact-revision independent review and all necessary CI remain required. The 20 browser scenarios below are written but **NOT RUN locally**; GitHub CI must establish their result. This finite product/engineering contract does not prove real-model quality or stage-three completion. See the [roadmap](../ROADMAP.md#stage-three-completion-contract).
 
 ## Product boundary and author workflow
 

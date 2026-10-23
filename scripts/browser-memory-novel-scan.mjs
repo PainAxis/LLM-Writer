@@ -191,6 +191,22 @@ async function readGraph() {
     return new Promise((resolve, reject) => { const tx = db.transaction('kv', 'readonly'), request = tx.objectStore('kv').get(`memory-fact-graph:v1:${projectId}`); request.onsuccess = () => resolve(request.result ? JSON.parse(request.result) : null); request.onerror = () => reject(request.error) })
   }, current.projectId)
 }
+async function confirmFirstPlot() {
+  const before = await readGraph(), id = before.plotLinks[0].id, calls = requests.length
+  await expect(plot('item-0')).toHaveAttribute('data-confirmed', 'false')
+  await plot('confirm-0').click()
+  // Disabled alone also means busy before CAS. Observe the post-save state first.
+  await expect(plot('item-0')).toHaveAttribute('data-confirmed', 'true')
+  await expect(plot('notice')).toHaveText('作者确认已保存，所有前提仍受修订和披露校验。')
+  await expect(plot('refresh')).toBeEnabled()
+  await expect(plot('confirm-0')).toBeDisabled()
+  const saved = await readGraph(), link = saved.plotLinks.find(item => item.id === id)
+  assert.equal(link?.authorConfirmed, true)
+  assert.deepEqual(link.premises, before.plotLinks[0].premises)
+  assert.notEqual(saved.revision, before.revision)
+  assert.equal(requests.length, calls, 'Plot confirmation is transport-free')
+  return saved
+}
 async function saveAll() {
   const before = requests.length
   let clicks = 0, duplicates = 0
@@ -313,8 +329,7 @@ try {
   await step('02 Explicit saves advance only own CAS; plot confirmation and reload are separate', async () => {
     const graph = await saveAll()
     await expect(scan('saved-status')).toContainText('尚未经作者确认')
-    await plot('confirm-0').click(); await expect(plot('confirm-0')).toBeDisabled()
-    const confirmed = await readGraph(); assert.equal(confirmed.plotLinks[0].authorConfirmed, true); assert.equal(confirmed.relations[0].authorConfirmed, false)
+    const confirmed = await confirmFirstPlot(); assert.equal(confirmed.plotLinks[0].authorConfirmed, true); assert.equal(confirmed.relations[0].authorConfirmed, false)
     assert.notEqual(confirmed.revision, graph.revision)
     await page.reload(); await dismiss(); await memory('source').selectOption(current.projectId); await expect(plot('item-0')).toBeVisible()
     assert.deepEqual((await readGraph()).plotLinks[0].premises, confirmed.plotLinks[0].premises)
@@ -380,7 +395,12 @@ try {
     else if (change === 'source') await mutateSource(1)
     else if (change === 'disclosure') { cutoff--; await memory('cutoff').selectOption(String(idFor(cutoff))) }
     else if (change === 'external-graph') await externalGraphChange()
-    else await page.goto(`${origin}/#/settings`)
+    else {
+      await page.goto(`${origin}/#/settings`)
+      // Hash navigation resolving does not itself prove Vue has disposed Lab.
+      await expect(scan('panel')).toHaveCount(0)
+      await expect(page.getByRole('tab', { name: '数据管理', exact: true })).toBeVisible()
+    }
     release(); mode = 'ok'; await page.waitForTimeout(200)
     if (change !== 'navigation') await expect(cards()).toHaveCount(0)
     assert.equal(requests.length, before + 1, 'Obsolete campaign must not continue after a late response')
@@ -421,8 +441,16 @@ try {
     const a = requests.slice(before).filter(entry => entry.kind === 'collect'), b = requests.slice(before).filter(entry => entry.kind === 'connect')
     assert.equal(a.length, 599); assert.equal(a.reduce((sum, entry) => sum + entry.sourceChars, 0), 1_317_800)
     assert.equal(b.length, 9); await expect(cards()).toHaveCount(4)
-    await saveAll(); await plot('confirm-0').click(); await expect(plot('confirm-0')).toBeDisabled()
+    await saveAll(); const plotConfirmed = await confirmFirstPlot()
+    const relationId = plotConfirmed.relations[0].id, beforeConfirmCalls = requests.length
     await page.getByTestId('fact-graph-relation-0').click(); await page.getByTestId('fact-graph-confirm').click()
+    await expect(page.getByTestId('fact-graph-confirm')).toHaveText('已由作者确认')
+    await expect(page.getByTestId('fact-graph-notice')).toHaveText('作者确认已保存，原始来源类型保留。')
+    const confirmed = await readGraph()
+    assert.equal(confirmed.relations.find(item => item.id === relationId)?.authorConfirmed, true)
+    assert.equal(confirmed.plotLinks.find(item => item.id === plotConfirmed.plotLinks[0].id)?.authorConfirmed, true)
+    assert.notEqual(confirmed.revision, plotConfirmed.revision)
+    assert.equal(requests.length, beforeConfirmCalls, 'Relation confirmation is transport-free')
     report.longForm.scan = { aCalls: a.length, bCalls: b.length, aSourceCharsSent: a.reduce((sum, entry) => sum + entry.sourceChars, 0), bSourceCharsSent: b.reduce((sum, entry) => sum + entry.sourceChars, 0), actualInputChars: [...a, ...b].reduce((sum, entry) => sum + entry.inputChars, 0), actualInputBytes: [...a, ...b].reduce((sum, entry) => sum + entry.inputBytes, 0) }
   })
   for (const kind of ['continue', 'polish', 'chapter']) await step(`10 Long Writer ${kind}: plot never auto-enters, relation needs selection+approval, old/future excluded`, async () => {
