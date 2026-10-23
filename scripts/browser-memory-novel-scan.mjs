@@ -280,6 +280,23 @@ async function searchWriter(through = 599) {
   await wm('search').click(); await expect(wm('search')).toBeEnabled({ timeout: 90_000 })
   await expect(wm('result')).toBeVisible()
 }
+async function approveWriter() {
+  await wm('approve').click()
+  await expect(wm('approved')).toBeVisible()
+  await expect(wm('notice')).toHaveText('已核对。本次仅发送勾选的完整依据，答案仍须核对；发送前会重新检查修订和披露范围。')
+  await expect(wm('search')).toBeEnabled()
+}
+async function readCommittedChapter(ordinal) {
+  return page.evaluate(async ({ novelId, chapterId }) => {
+    const novels = JSON.parse(localStorage.getItem('novels'))
+    const chapter = novels.find(item => item.id === novelId).chapterList.find(item => item.id === chapterId)
+    if (typeof chapter.content === 'string') return chapter.content
+    if (!chapter.contentRef) return null
+    const db = await new Promise((resolve, reject) => { const request = indexedDB.open('llm-writer', 1); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error) })
+    try { return await new Promise((resolve, reject) => { const request = db.transaction('kv', 'readonly').objectStore('kv').get(chapter.contentRef); request.onsuccess = () => resolve(request.result ?? null); request.onerror = () => reject(request.error) }) }
+    finally { db.close() }
+  }, { novelId: current.novelId, chapterId: idFor(ordinal) })
+}
 async function closeWriter() { await dialog.getByRole('button', { name: '取消', exact: true }).click(); await expect(dialog).toBeHidden() }
 function writerEnvelope(body) {
   const marker = 'WRITER_MEMORY_CONTEXT_JSON'
@@ -457,41 +474,74 @@ try {
     await openWriter(kind); await searchWriter()
     await expect(dialog.locator('input[data-testid^="writer-memory-select-"]:checked')).toHaveCount(0)
     await expect(wm('approve')).toBeDisabled(); await expect(wm('result')).not.toContainText(PLOT_EXPLANATION_CANARY)
-    const relation = dialog.locator('[data-testid^="writer-memory-relation-"]').filter({ hasText: '委托阿宁照看渡口药铺' })
-    await expect(relation).toHaveCount(1); await relation.locator('input[type="checkbox"]').check()
-    await expect(wm('approved')).toHaveCount(0); await wm('approve').click(); await expect(wm('approved')).toBeVisible()
+    const saved = await readGraph()
+    assert.equal(saved.relations.length, 1)
+    const persisted = saved.relations[0], originalAnchor = persisted.evidence[0]
+    assert.equal(persisted.predicate, '委托阿宁照看渡口药铺')
+    assert.equal(persisted.authorConfirmed, true)
+    assert.equal(persisted.evidence.length, 1)
+    // The Writer bridge intentionally does not promote an annotation paraphrase
+    // into a source fact. Locate the actual indexed card, then verify every field.
+    const relation = wm('relation-0')
+    const assertSafeRelation = async () => {
+      await expect(dialog.locator('[data-testid^="writer-memory-relation-"]')).toHaveCount(1)
+      await expect(relation.locator(':scope > h5')).toHaveText('沈砚 → 阿宁')
+      await expect(relation.locator(':scope > p').first()).toHaveText('原文关联')
+      await expect(relation.getByTestId('writer-memory-provenance')).toHaveText('作者确认 · 原文明示 · 模型提议')
+      await expect(relation.getByTestId('writer-memory-quote')).toHaveText(originalAnchor.quote)
+      await expect(relation.getByTestId('writer-memory-revision')).toHaveText(originalAnchor.sourceRevision)
+      await expect(relation.locator('.anchor h5')).toHaveText(`第 587 章 · ${current.chapters[586].title}`)
+      await expect(relation.locator('.anchor dd').last()).toHaveText(`${originalAnchor.start}–${originalAnchor.end}`)
+      await expect(relation).not.toContainText(persisted.predicate)
+    }
+    await assertSafeRelation(); await relation.locator('input[type="checkbox"]').check()
+    await expect(wm('approved')).toHaveCount(0); await approveWriter()
     // Cutoff excludes the relation's source and clears approval, independently in each mode.
     await wm('cutoff').selectOption(String(idFor(586))); await expect(wm('approved')).toHaveCount(0); await searchWriter(586)
     await expect(dialog.locator('[data-testid^="writer-memory-relation-"]')).toHaveCount(0)
-    await searchWriter(599); await relation.locator('input[type="checkbox"]').check(); await wm('approve').click()
+    await searchWriter(599); await assertSafeRelation(); await relation.locator('input[type="checkbox"]').check(); await approveWriter()
     const before = writingRequests().length
     await dialog.getByRole('button', { name: kind === 'chapter' ? '开始生成' : kind === 'continue' ? '开始续写' : '开始润色', exact: true }).click()
     await expect.poll(() => writingRequests().length).toBe(before + 1)
     const sent = writingRequests()[before], envelope = writerEnvelope(sent.body)
     assert.equal(envelope.relations.length, 1); assert.equal(envelope.relations[0].source.label, '沈砚'); assert.equal(envelope.relations[0].target.label, '阿宁')
+    assert.equal(envelope.relations[0].id, persisted.id)
+    assert.equal(envelope.relations[0].predicate, '原文关联')
+    assert.equal(envelope.relations[0].origin, 'explicit'); assert.equal(envelope.relations[0].createdBy, 'model'); assert.equal(envelope.relations[0].authorConfirmed, true)
+    assert.ok(!JSON.stringify(sent.body.messages).includes(persisted.predicate), 'The model annotation paraphrase must not enter Writer')
+    assert.deepEqual(await readGraph(), saved, 'Writer selection and approval never rewrite the saved annotation')
     assert.equal(envelope.plotLinks, undefined)
     assert.equal(envelope.relations[0].evidence.length, 1)
     const anchor = envelope.relations[0].evidence[0], original = current.chapters[586]
     assert.equal(anchor.chapterId, original.id); assert.equal(anchor.ordinal, 587)
     assert.equal(anchor.sourceRevision, sha(JSON.stringify([original.title, original.text])))
     assert.equal(anchor.quote, original.text.slice(anchor.start, anchor.end))
+    assert.deepEqual({ chapterId: anchor.chapterId, sourceRevision: anchor.sourceRevision, start: anchor.start, end: anchor.end, quote: anchor.quote }, originalAnchor)
     assert.ok(!JSON.stringify(sent.body.messages).includes(PLOT_EXPLANATION_CANARY) && !JSON.stringify(sent.body.messages).includes(LONG_FUTURE_CANARY))
     assert.ok(envelope.sources.every(source => source.ordinal <= 599))
     report.longForm.journeys.push({ entry: kind, writingCalls: 1, selectedRelations: envelope.relations.length, sourceCount: envelope.sources.length, relationEvidenceCount: envelope.relations[0].evidence.length, relationEvidenceChars: anchor.quote.length, plotLinksSent: 0, futureSent: false })
-    if (kind === 'chapter') { await expect(dialog).toBeHidden(); await expect(page.locator('.editor-panel [contenteditable="true"]')).toContainText(completion); await expect(page.locator('.saving-indicator')).toHaveCount(0) }
+    if (kind === 'chapter') {
+      await expect(dialog).toBeHidden(); await expect(page.locator('.editor-panel [contenteditable="true"]')).toContainText(completion)
+      await expect(page.getByText('正文生成成功', { exact: true })).toBeVisible()
+      await expect(page.locator('.saving-indicator')).toHaveCount(0)
+      assert.ok((await readCommittedChapter(599))?.includes(completion), 'The generated target chapter must actually be committed before restoring the next fixture')
+    }
     else { await expect(dialog.locator('.result-content')).toContainText(completion); await closeWriter() }
   })
   await step('11 Old chapter revision removes relation and plot from every Writer mode', async () => {
     // Prepare this independent scenario outside the previous live Writer, preserving
     // its committed result until the explicit fixture restore below. Live mutation
     // invalidation remains covered without reload by scenarios 06 and 07.
+    const saved = await readGraph()
     await page.goto(`${origin}/__novel_scan_seed`)
     await mutateSource(599, { restore: true }); await mutateSource(587); await mutateSource(588)
     for (const kind of ['continue', 'polish', 'chapter']) {
       await openWriter(kind); await searchWriter(); await expect(dialog.locator('[data-testid^="writer-memory-relation-"]')).toHaveCount(0)
       await expect(wm('result')).not.toContainText(PLOT_EXPLANATION_CANARY); await expect(wm('approved')).toHaveCount(0); await closeWriter()
     }
-    await openLab(); await expect(plot('item-0')).toHaveCount(0)
+    await openLab(); await expect(plot('empty')).toBeVisible(); await expect(plot('refresh')).toBeEnabled()
+    await expect(plot('error')).toHaveCount(0); await expect(page.locator('[data-testid^="plot-links-item-"]')).toHaveCount(0)
+    assert.deepEqual(await readGraph(), saved, 'Stale source filtering must retain, not delete, the original relation and plot annotations')
   })
   await step('12 Mobile 390px: real review premises and 44px cancel stay within viewport', async () => {
     await page.setViewportSize({ width: 390, height: 844 }); await seed(); await openLab(); await prepare(); mode = 'hold'

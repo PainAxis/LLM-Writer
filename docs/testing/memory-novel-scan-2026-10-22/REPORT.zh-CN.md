@@ -64,3 +64,13 @@ A 由作者主动启动，处理全部已保存、已披露原文窗口。B 单�
 本次仅测试修正后，生产构建、零警告 lint 与全部 **97 项 smoke** 再次通过，两项 mutation 仍在 P01 按预期失败；执行前后 **383** 个源码／配置／harness 哈希不变。`post-confirmation-waits/` 新增 9 份原始日志／manifest／结果文件，本项有哈希的持久证据合计 **37** 份。早期耗时和 mutation 证据仍对应各自快照；相对紧邻的已审源码集合，只有浏览器 harness 改变。
 
 首次实际 PR run [39850088338](https://github.com/PainAxis/LLM-Writer/actions/runs/39850088338) 随后复现了已定位的场景 02 时序问题：**1 通过／1 失败／18 未运行**，25 次 mock 扫描、0 次写作。测试在 CAS 完成前读到 `authorConfirmed=false`，稍后的 diagnostics 已显示确认成功提示及已确认条目。其他十项仅在首版 head 通过，不复用于修正版验收。原始失败报告和独立 PR head／合成 checkout／tree 身份保留在 `post-confirmation-waits/ci-first-*`，没有改写实测身份；新增两份 CI 记录后，有哈希的持久文件合计 **39** 份。修正版浏览器套件仍须完整运行自身 CI。
+
+## Writer 安全桥与操作完成门槛
+
+第二轮实际运行 [39944749373](https://github.com/PainAxis/LLM-Writer/actions/runs/39944749373) 的 PR head 为 `65a64d7952854dff50ef5785057c241d5a1563fd`，Actions 检出合成 merge `2d8870de15105ec486dd166b76b5c8d4f714d818`，两者 tree 均为 `66b185e635facd342b4a2f23bb59293939a0b7be`。实际为 **15 通过 / 1 失败 / 4 未运行**，**1,475 次模拟扫描 / 0 次 Writer / 1,387,733 原文单位**，未模拟外部请求为零。长篇完整 A/B（599+9）和实际 >512 候选续批（180+537）已通过，但不能当成剩余 Writer 路径的验收。同 head 其余十项 CI 通过，不沿用至下一 head。
+
+失败定位器按模型关系摘要查找。既有 Writer 安全桥对于不逐字出现在引用原文中的 explicit predicate，即使作者确认过，也正确降为 `原文关联`。脚本改为核对唯一真实卡片、安全 predicate、端点、来源、完整原文/修订/位置，并在真实请求中核对相同持久关系 ID。生产与已保存标注都不改。已一次审完三种 Writer、旧章过滤和移动端，补齐两次批准的完成门槛、加载完成后的空态门槛，以及成功通知后独立读取已提交正文。[边界表](post-safe-writer-bridge/WRITER-BOUNDARIES.md) 保留完整节点与断言前提。
+
+原始失败 JSON 共 7,344,682 字节，以确定性 gzip **无损**保留于 `post-safe-writer-bridge/ci-second-browser-report.json.gz`，压缩后 72,821 字节；解压逐字还原 SHA256 `2895b5887aa212e0a963c439a645110d9dde3ee532a5b3a3f2a6feca52ca32ad`。独立元数据保留 artifact、实际检出、tree 和原始分母。**3,311 条实际发送原文片段**全部匹配仓库固定合成语料或确定性容量/长篇生成器，无未匹配文本，不是真实用户稿件。首轮失败报告不改。仍须新准确 head 完整 CI，不以历史通过拼接验收。
+
+2026-10-23 修正快照重新通过构建（**13,333.099 ms**）、零警告 lint（**9,074.547 ms**）、全部 **97 项 smoke**（**193,057.162 ms**）及浏览器脚本语法检查。既有 UI 套件加入真实 MemoryIndex → Writer service/composable → 实际 SFC SSR 安全 predicate 回归：图谱作者确认与本次空选择/未批准分离；来源校验挂起时不可提前批准；持久 ID 和完整依据贯穿 envelope；截止/修订过滤不删除已存标注。两项语义变异仍按预期在 P01 失败。执行期间 **383** 个源码/配置/harness 哈希不变。新日志和 manifest 位于 `post-safe-writer-bridge/`，Node/SSR 通过不替代待运行的完整浏览器门槛。

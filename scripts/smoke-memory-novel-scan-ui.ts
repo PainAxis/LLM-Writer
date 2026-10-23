@@ -7,7 +7,10 @@ import { createSSRApp, nextTick, ref, shallowRef } from 'vue'
 import { renderToString } from '@vue/server-renderer'
 import { createServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import type { FactGraphDocument, VisibleFactRelation } from '../src/types/factGraph'
+import type { MemoryProjectInput } from '../src/types/memory'
 import type { NovelScanGenerator, NovelScanPage } from '../src/types/memoryNovelScan'
+import type { WriterChapter, WriterNovel } from '../src/types/writer'
 
 const storage = new Map<string, string>()
 Object.assign(globalThis, { localStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => storage.set(key, value), removeItem: (key: string) => storage.delete(key) } })
@@ -25,6 +28,170 @@ function deferred<T>() { let resolve!: (value: T) => void; const promise = new P
 async function until(test: () => boolean) { for (let i = 0; i < 200 && !test(); i++) await new Promise(done => setTimeout(done, 0)); assert.ok(test()) }
 let checks = 0
 function check(label: string) { console.log(`✓ ${++checks}. ${label}`) }
+
+// Four unchanged chapters from the frozen long profile, not another capacity
+// run. Keep this regression in the existing UI suite and aggregate smoke entry.
+async function writerSafeRelationRoundTrip() {
+  const { buildLongProfile, LONG_FUTURE_CANARY } = await import('./fixtures/novel-candidate-long-profile.mjs')
+  const { chapterRevision } = await import('../src/services/memory/revision')
+  const { prepareWriterMemoryContext, WRITER_MEMORY_MARKER } = await import('../src/services/memory/writerContext')
+  const { useWriterMemoryContext } = await import('../src/composables/useWriterMemoryContext')
+  const profile = buildLongProfile()
+  assert.equal(profile.sourceSha256, '4cfaf40d8471e0af289016a58560792c7d1fb4f8dd572f78d41876e982ee3928')
+  const project: MemoryProjectInput = { id: 'novel:64111', title: 'Writer safe relation regression', clues: [],
+    chapters: [586, 587, 599, 600].map(ordinal => {
+      const chapter = profile.chapters[ordinal - 1]!
+      return { id: String(ordinal), title: chapter.title, text: chapter.text }
+    }),
+  }
+  const source = project.chapters[1]!
+  const quote = '沈砚将渡口药铺托付给阿宁，阿宁点头接下钥匙。'
+  const predicate = '委托阿宁照看渡口药铺'
+  assert.equal(source.text.slice(0, quote.length), quote)
+  assert.ok(!source.text.includes(predicate), 'The controlled model predicate is a paraphrase, not a source quote')
+  const graph: FactGraphDocument = { ...emptyFactGraph(project.id), revision: 'saved-novel-scan-relation', relations: [{
+    id: 'saved-long-relation-587', projectId: project.id,
+    source: { type: 'person', label: '沈砚' }, target: { type: 'person', label: '阿宁' },
+    predicate, origin: 'explicit', createdBy: 'model', authorConfirmed: true,
+    evidence: [{ chapterId: source.id, sourceRevision: await chapterRevision(source), start: 0, end: quote.length, quote }],
+    provenance: { campaignId: 'long-campaign', segmentId: 'long-segment', jobId: 'long-job-587', candidateId: 'long-candidate-587' },
+    semanticValidation: 'protocol-and-current-sources',
+  }] }
+  const persisted = JSON.stringify(graph)
+  const relation = graph.relations[0]!
+  const expected: VisibleFactRelation = { ...clone(relation), predicate: '原文关联',
+    evidence: [{ ...relation.evidence[0]!, chapterTitle: source.title, ordinal: 2 }],
+  }
+  const client = new MemoryIndex()
+  let sourceRead: ReturnType<typeof deferred<void>> | null = null
+  let sourceReadStarted: ReturnType<typeof deferred<void>> | null = null
+  const readProject = async () => {
+    sourceReadStarted?.resolve()
+    if (sourceRead) await sourceRead.promise
+    return clone(project)
+  }
+  // Return the backing object deliberately: even a mutation of a reader's
+  // in-memory return value must not rewrite the saved annotation or provenance.
+  const readGraph = async () => graph
+  const request = { projectId: project.id, query: '沈砚 阿宁 渡口药铺', throughChapterId: '599', targetChapterId: '599' }
+  const assertSaved = () => assert.equal(JSON.stringify(graph), persisted, 'Writer must not rewrite or delete the saved graph')
+  const assertEnvelope = (prompt: string) => {
+    const wire = JSON.parse(prompt.split(`${WRITER_MEMORY_MARKER}\n`)[1]!)
+    assert.equal(wire.projectId, project.id); assert.equal(wire.throughChapterId, '599')
+    assert.deepEqual(wire.sources, [], 'Selecting the relation must not silently select direct search hits')
+    assert.deepEqual(wire.relations, [{ id: relation.id, source: relation.source, target: relation.target,
+      predicate: '原文关联', origin: 'explicit', createdBy: 'model', authorConfirmed: true, evidence: expected.evidence }],
+    'The exact selected ID, complete source/revision/offsets and generation provenance must survive the envelope')
+    assert.ok(!prompt.includes(predicate) && !prompt.includes(LONG_FUTURE_CANARY))
+    assert.equal(wire.relations[0].provenance, undefined, 'Campaign metadata is not generation evidence')
+    assert.equal(wire.relations[0].semanticValidation, undefined)
+    assertSaved()
+  }
+  const prepared = await prepareWriterMemoryContext(request, { client, readProject, readGraph })
+  assert.deepEqual(prepared.relations, [expected], 'Author confirmation cannot bypass nonliteral predicate sanitization or change identity/provenance')
+  assert.ok(prepared.hits.length > 0, 'Use real MemoryIndex search, not a fabricated prepared result')
+  assert.ok(!prepared.prompt.includes(predicate))
+  assertEnvelope((await prepared.selectEvidence({ hitIds: [], relationIds: [relation.id] })).prompt)
+
+  const chapterList: WriterChapter[] = project.chapters.map(chapter => ({ id: Number(chapter.id), title: chapter.title, content: chapter.text }))
+  const current = ref(chapterList[2]!)
+  const memory = useWriterMemoryContext({ currentNovel: ref<WriterNovel>({ id: 64111, title: project.title }),
+    chapters: ref(chapterList), currentChapter: current, targetChapter: current, content: ref(current.value.content!),
+    saveCurrentChapter: async () => true, client,
+    prepare: (input, dependencies) => prepareWriterMemoryContext(input, { ...dependencies, readProject, readGraph }),
+  })
+  const root = fileURLToPath(new URL('..', import.meta.url))
+  const server = await createServer({ configFile: false, root, plugins: [vue()],
+    resolve: { alias: { '@': path.join(root, 'src') } },
+    server: { middlewareMode: true, ws: false, hmr: false, watch: null }, logLevel: 'error' })
+  try {
+    assert.equal(server.httpServer, null, 'The SSR loader must not create an HTTP listener')
+    const { default: WriterMemoryContext } = await server.ssrLoadModule('/src/components/writer/WriterMemoryContext.vue')
+    const render = () => renderToString(createSSRApp(WriterMemoryContext, { ...memory.state, chapters: memory.chapters.value }))
+    const tag = (html: string, id: string) => {
+      const tags = [...html.matchAll(new RegExp(`<[^>]+data-testid="writer-memory-${id}"[^>]*>`, 'g'))]
+      assert.equal(tags.length, 1, `Expected exactly one actual SFC ${id} control`)
+      return tags[0]![0]
+    }
+    const flag = (html: string, id: string, attribute: 'checked' | 'disabled', value: boolean) =>
+      assert.equal(new RegExp(`\\s${attribute}(?:[\\s=>])`).test(tag(html, id)), value, `${id} ${attribute}`)
+    const assertUnapproved = (html: string) => {
+      assert.equal(memory.state.approved, false)
+      assert.ok(!html.includes('data-testid="writer-memory-approved"'))
+    }
+    memory.state.enabled = true; memory.state.query = request.query; memory.state.cutoffId = request.throughChapterId
+    assert.equal(await memory.search(), true, memory.state.error)
+    assert.deepEqual(memory.state.result!.relations, [expected])
+    assert.deepEqual(memory.state.selection, { hitIds: [], relationIds: [] })
+    let html = await render()
+    const card = html.match(/<article[^>]+data-testid="writer-memory-relation-0"[^>]*>[\s\S]*?<\/article>/)?.[0]
+    assert.ok(card, 'The actual Writer SFC must render the retrieved relation')
+    assert.ok(card.includes('原文关联') && !card.includes(predicate))
+    assert.ok(card.includes(quote) && card.includes(relation.evidence[0]!.sourceRevision))
+    assert.match(card, /作者确认 · 原文明示 · 模型提议/)
+    const inputs = [...html.matchAll(/<input[^>]+data-testid="writer-memory-select-(?:hit|relation)-\d+"[^>]*>/g)]
+    assert.ok(inputs.length > 1)
+    for (const [input] of inputs) assert.doesNotMatch(input, /\schecked(?:[\s=>])/, 'No search result may start selected')
+    // A confirmed saved graph edge is not approval for this writing session.
+    flag(html, 'approve', 'disabled', true); assertUnapproved(html)
+    assert.equal(await memory.approve(), false)
+    await assert.rejects(() => memory.acquire()!, /请先检索并核对/)
+
+    memory.select({ hitIds: [], relationIds: [relation.id] })
+    assert.deepEqual(memory.state.selection, { hitIds: [], relationIds: [relation.id] })
+    assert.deepEqual(memory.state.result!.relations, [expected], 'Selecting by exact saved ID preserves quote, revision and provenance')
+    html = await render()
+    flag(html, 'select-relation-0', 'checked', true); flag(html, 'approve', 'disabled', false); assertUnapproved(html)
+    sourceRead = deferred<void>(); sourceReadStarted = deferred<void>()
+    const approval = memory.approve()
+    await sourceReadStarted.promise
+    assert.equal(memory.state.busy, true)
+    html = await render()
+    flag(html, 'approve', 'disabled', true); assertUnapproved(html)
+    await assert.rejects(() => memory.acquire()!, /请先检索并核对/)
+    sourceRead.resolve(); sourceRead = null; sourceReadStarted = null
+    assert.equal(await approval, true, memory.state.error)
+    html = await render(); tag(html, 'approved'); flag(html, 'approve', 'disabled', true)
+    const lease = await memory.acquire(); assert.ok(lease)
+    assertEnvelope(lease.prompt); await lease.assertFresh()
+
+    // A cutoff before the exact source excludes the whole edge without deleting
+    // author data. Restoring the cutoff finds the same saved ID, unselected.
+    memory.state.cutoffId = '586'
+    assert.equal(await memory.search(), true, memory.state.error)
+    assert.deepEqual(memory.state.result!.relations, [])
+    html = await render()
+    assert.ok(!html.includes('data-testid="writer-memory-relation-') && !html.includes(quote))
+    assertUnapproved(html); assertSaved()
+    memory.state.cutoffId = '599'
+    assert.equal(await memory.search(), true, memory.state.error)
+    assert.deepEqual(memory.state.result!.relations, [expected])
+    assert.deepEqual(memory.state.selection, { hitIds: [], relationIds: [] })
+    memory.select({ hitIds: [], relationIds: [relation.id] })
+    assert.equal(await memory.approve(), true, memory.state.error)
+    const currentLease = await memory.acquire(); assert.ok(currentLease)
+    assertEnvelope(currentLease.prompt)
+
+    // An eventless committed edit keeps the old quotation byte-for-byte in the
+    // source, but changes its revision. Revision validation must still hide it.
+    source.text += '提交后的章末修订。'
+    await assert.rejects(() => currentLease.assertFresh(), /已保存稿件/)
+    assert.equal(await memory.search(), true, memory.state.error)
+    assert.deepEqual(memory.state.result!.relations, [])
+    html = await render()
+    assert.ok(!html.includes('data-testid="writer-memory-relation-'))
+    assert.ok(!html.includes('data-testid="writer-memory-select-relation-'))
+    flag(html, 'approve', 'disabled', true); assertUnapproved(html); assertSaved()
+    assert.equal(networkCalls, 0); assert.equal(storage.size, 0)
+  } finally {
+    sourceRead?.resolve()
+    memory.dispose()
+    await server.close()
+  }
+  check('Writer real-index/service/composable/SFC roundtrip: safe predicate, exact selected evidence and provenance, deferred approval, cutoff/revision exclusion, unchanged saved graph; Node SSR only')
+}
+
+await writerSafeRelationRoundTrip()
 async function fixture(chapterCount = 2) {
   const project = { id: 'novel:ui', title: '测试', chapters: [
     { id: 'one', title: '铺垫', text: '阿宁持有铜铃，约定三响后开门。<script>bad()</script>' },
@@ -405,8 +572,9 @@ for (const boundary of ['first_a', 'next_segment'] as const) {
 }
 check('First A and next-segment guard budget pauses abort the operation lease, so releasing old reads cannot begin any later committed read')
 const root = fileURLToPath(new URL('..', import.meta.url))
-const server = await createServer({ configFile: false, root, plugins: [vue()], resolve: { alias: { '@': path.join(root, 'src') } }, server: { middlewareMode: true }, logLevel: 'error' })
+const server = await createServer({ configFile: false, root, plugins: [vue()], resolve: { alias: { '@': path.join(root, 'src') } }, server: { middlewareMode: true, ws: false, hmr: false, watch: null }, logLevel: 'error' })
 try {
+  assert.equal(server.httpServer, null, 'The SSR loader must not create an HTTP listener')
   const { default: Panel } = await server.ssrLoadModule('/src/components/memory/NovelCandidateScan.vue')
   const f = await fixture(); await f.review()
   const html = await renderToString(createSSRApp(Panel, { state: f.controller.state, available: true }))

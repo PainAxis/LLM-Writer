@@ -1,0 +1,204 @@
+{
+  "runId": 39944749373,
+  "jobId": 120384541233,
+  "url": "https://github.com/PainAxis/LLM-Writer/actions/runs/39944749373",
+  "prHead": "65a64d7952854dff50ef5785057c241d5a1563fd",
+  "actualCheckout": "2d8870de15105ec486dd166b76b5c8d4f714d818",
+  "actualCheckoutParents": [
+    "7e2ae7d50c96f59894a8c96c9efb5d53aac4bfb9",
+    "65a64d7952854dff50ef5785057c241d5a1563fd"
+  ],
+  "testedTree": "66b185e635facd342b4a2f23bb59293939a0b7be",
+  "artifactId": 12498016963,
+  "artifactBytes": 173951788,
+  "artifactSHA256": "4431cbcd87d3d07782e63b55a265c134a3da65e298ce01f7cc6643871a95e1db",
+  "rawReportBytes": 7344682,
+  "rawReportSHA256": "2895b5887aa212e0a963c439a645110d9dde3ee532a5b3a3f2a6feca52ca32ad",
+  "retainedReport": "ci-second-browser-report.json.gz",
+  "retainedEncoding": "lossless gzip; mtime=0; original raw JSON recovered byte-for-byte",
+  "retainedBytes": 72821,
+  "retainedSHA256": "e5c64e566f7a7d4d3b8af73db39419e293d4781ec2f3ad068345e99137305f28",
+  "tests": [
+    {
+      "name": "01 Default-off, zero-call preview, separate A/B approval, frozen three-premise bridge",
+      "status": "passed",
+      "callsBefore": 0,
+      "durationMs": 4197,
+      "callsAfter": 25
+    },
+    {
+      "name": "02 Explicit saves advance only own CAS; plot confirmation and reload are separate",
+      "status": "passed",
+      "callsBefore": 25,
+      "durationMs": 2252,
+      "callsAfter": 25
+    },
+    {
+      "name": "03 Download/restore typed plot links through actual Settings backup UI",
+      "status": "passed",
+      "callsBefore": 25,
+      "durationMs": 2538,
+      "callsAfter": 25
+    },
+    {
+      "name": "04 Partial A budget, explicit additive grant and independent B start preserve cumulative ledger",
+      "status": "passed",
+      "callsBefore": 25,
+      "durationMs": 3997,
+      "callsAfter": 50
+    },
+    {
+      "name": "04b Double-start, in-flight pause, explicit resume and B partial review never duplicate dispatch",
+      "status": "passed",
+      "callsBefore": 50,
+      "durationMs": 4070,
+      "callsAfter": 75
+    },
+    {
+      "name": "05 Failure has no retry; explicit skip/partial coverage never claims complete",
+      "status": "passed",
+      "callsBefore": 75,
+      "durationMs": 3669,
+      "callsAfter": 95
+    },
+    {
+      "name": "06 Ignored abort and late success cannot publish after cancel",
+      "status": "passed",
+      "callsBefore": 95,
+      "durationMs": 2671,
+      "callsAfter": 96
+    },
+    {
+      "name": "06 Ignored abort and late success cannot publish after source",
+      "status": "passed",
+      "callsBefore": 96,
+      "durationMs": 2668,
+      "callsAfter": 97
+    },
+    {
+      "name": "06 Ignored abort and late success cannot publish after disclosure",
+      "status": "passed",
+      "callsBefore": 97,
+      "durationMs": 2647,
+      "callsAfter": 98
+    },
+    {
+      "name": "06 Ignored abort and late success cannot publish after external-graph",
+      "status": "passed",
+      "callsBefore": 98,
+      "durationMs": 2632,
+      "callsAfter": 99
+    },
+    {
+      "name": "06 Ignored abort and late success cannot publish after navigation",
+      "status": "passed",
+      "callsBefore": 99,
+      "durationMs": 3069,
+      "callsAfter": 100
+    },
+    {
+      "name": "07 Published unsaved candidates disappear immediately after source",
+      "status": "passed",
+      "callsBefore": 100,
+      "durationMs": 3753,
+      "callsAfter": 125
+    },
+    {
+      "name": "07 Published unsaved candidates disappear immediately after external-graph",
+      "status": "passed",
+      "callsBefore": 125,
+      "durationMs": 3860,
+      "callsAfter": 150
+    },
+    {
+      "name": "08 >512 B candidates pause, explicit review/ignore then same-campaign remainder without repeat or budget reset",
+      "status": "passed",
+      "callsBefore": 150,
+      "durationMs": 115424,
+      "callsAfter": 867
+    },
+    {
+      "name": "09 Long 600-chapter fixture: full disclosed 1,317,800-character A and all retained-cue B jobs",
+      "status": "passed",
+      "callsBefore": 867,
+      "durationMs": 333762,
+      "callsAfter": 1475
+    },
+    {
+      "name": "10 Long Writer continue: plot never auto-enters, relation needs selection+approval, old/future excluded",
+      "status": "failed",
+      "callsBefore": 1475,
+      "error": "Error: expect(locator).toHaveCount(expected) failed\n\nLocator:  getByRole('dialog', { name: 'AI智能续写', exact: true }).locator('[data-testid^=\"writer-memory-relation-\"]').filter({ hasText: '委托阿宁照看渡口药铺' })\nExpected: 1\nReceived: 0\nTimeout:  30000ms\n\nCall log:\n  - Expect \"toHaveCount\" getByRole('dialog', { name: 'AI智能续写', exact: true }).locator('[data-testid^=\"writer-memory-relation-\"]').filter({ hasText: '委托阿宁照看渡口药铺' }) with timeout 30000ms\n  - waiting for getByRole('dialog', { name: 'AI智能续写', exact: true }).locator('[data-testid^=\"writer-memory-relation-\"]').filter({ hasText: '委托阿宁照看渡口药铺' })\n    61 × locator resolved to 0 elements\n       - unexpected value \"0\"\n\n    at captureRawStack (/home/runner/work/LLM-Writer/LLM-Writer/node_modules/playwright-core/lib/coreBundle.js:8588:17)\n    at callMatcherAsStep (/home/runner/work/LLM-Writer/LLM-Writer/node_modules/playwright/lib/matchers/expect.js:13310:57)\n    at Object.toHaveCount (/home/runner/work/LLM-Writer/LLM-Writer/node_modules/playwright/lib/matchers/expect.js:13302:23)\n    at /home/runner/work/LLM-Writer/LLM-Writer/scripts/browser-memory-novel-scan.mjs:461:28\n    at async step (/home/runner/work/LLM-Writer/LLM-Writer/scripts/browser-memory-novel-scan.mjs:144:9)\n    at async file:///home/runner/work/LLM-Writer/LLM-Writer/scripts/browser-memory-novel-scan.mjs:456:57",
+      "durationMs": 45283,
+      "callsAfter": 1475
+    }
+  ],
+  "totals": {
+    "tests": 16,
+    "passed": 15,
+    "writingCalls": 0,
+    "scanCalls": 1475,
+    "sourceCharsSent": 1387733,
+    "inputChars": 3364517,
+    "inputBytes": 6106487,
+    "unmockedRequests": 0
+  },
+  "expected": {
+    "tests": 20,
+    "aCalls": 834,
+    "bCalls": 667,
+    "scanCalls": 1501,
+    "writingCalls": 3,
+    "scanSourceCharsSent": 1388842,
+    "scanSourceSpansSent": 3354,
+    "controlledCandidateProposals": 568,
+    "longA": 599,
+    "longB": 9,
+    "longWriterRelationEvidenceAnchors": 3
+  },
+  "notRun": 4,
+  "longForm": {
+    "sourceSha256": "4cfaf40d8471e0af289016a58560792c7d1fb4f8dd572f78d41876e982ee3928",
+    "totalChars": 1320000,
+    "disclosedChars": 1317800,
+    "totalChapters": 600,
+    "disclosedChapters": 599,
+    "journeys": [],
+    "scan": {
+      "aCalls": 599,
+      "bCalls": 9,
+      "aSourceCharsSent": 1317800,
+      "bSourceCharsSent": 16000,
+      "actualInputChars": 1985319,
+      "actualInputBytes": 4649471
+    }
+  },
+  "capacity": {
+    "aCalls": 180,
+    "bCalls": 537,
+    "firstBatchIgnored": 511,
+    "finalAttempts": 717,
+    "campaignContinued": true
+  },
+  "failure": "Scenario10 continue selected by the annotation paraphrase, but the existing safe Writer bridge correctly displayed 原文关联; no production defect established. Remaining modes and later scenarios did not execute.",
+  "remainingRequiredJobs": "10 success on this failing head; never reused as next-head acceptance",
+  "syntheticSourceVerification": {
+    "requests": 1475,
+    "matchedSourceSpans": 3311,
+    "matchedSourceUtf16Units": 1387733,
+    "sourceSpansByProfile": {
+      "small": 246,
+      "novel-candidate-review-capacity-v1": 1252,
+      "novel-candidate-long-v1": 1813
+    },
+    "method": "Every transmitted source quote exactly matches a substring of the same-repository fixed small corpus / deterministic long profile / deterministic capacity profile; no unmatched source.",
+    "fixturePaths": [
+      "scripts/fixtures/novel-candidate-scan-v1.json",
+      "scripts/fixtures/novel-candidate-long-profile.mjs"
+    ],
+    "fixtureSha256": {
+      "scripts/fixtures/novel-candidate-scan-v1.json": "6d54c1cc1a02d0fe1b4b7580b21c8e5fb02d13f15e9f712b853e6721b67a8206",
+      "scripts/fixtures/novel-candidate-long-profile.mjs": "f2f0fec38c40426310288ef1191114ec8e9a3253e577760efc093a462d42056e"
+    }
+  }
+}
