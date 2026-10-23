@@ -7,7 +7,8 @@
 import assert from 'node:assert/strict'
 import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { createServer } from 'node:http'
 import path from 'node:path'
 import process from 'node:process'
@@ -33,7 +34,7 @@ const expect = playwrightExpect.configure({ timeout: 30_000 })
 const report = { startedAt: new Date().toISOString(), fixtureSha256, commit: process.env.GITHUB_SHA || 'local',
   semanticQuality: 'Controlled gold integration only; no real-model accuracy claim', tests: [], screenshots: [], fixtureErrors: [], browserErrors: [], blockedRequests: [], longForm: { sourceSha256: longProfile.sourceSha256, totalChars: longProfile.totalChars, disclosedChars: longProfile.disclosedChars, totalChapters: 600, disclosedChapters: 599, journeys: [] } }
 const requests = [], held = new Set()
-let preview, provider, origin, fixtureOrigin, browser, context, page, dialog
+let preview, provider, origin, fixtureOrigin, browser, context, page, dialog, localEvidence
 let current, cutoff, mode = 'ok', ignoreAbort = false
 const sha = value => createHash('sha256').update(value).digest('hex')
 const html = text => `<p>${text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('\n', '<br/>')}</p>`
@@ -308,6 +309,8 @@ function writerEnvelope(body) {
 }
 
 await mkdir(artifacts, { recursive: true })
+// Full backup exports and traces stay on this runner, outside every CI upload path.
+localEvidence = await mkdtemp(path.join(tmpdir(), 'llm-writer-novel-scan-local-'))
 try {
   preview = await startPreviewServer({ port: 0, sha: process.env.GITHUB_SHA || 'local' }); origin = `http://127.0.0.1:${preview.address().port}`
   await startProvider()
@@ -355,7 +358,7 @@ try {
     const before = await readGraph()
     await page.goto(`${origin}/#/settings`); await dismiss(); await page.getByRole('tab', { name: '数据管理', exact: true }).click()
     const downloading = page.waitForEvent('download'); await page.getByRole('button', { name: '小说数据', exact: true }).click()
-    const download = await downloading, filename = path.join(artifacts, 'novel-candidate-backup.json'); await download.saveAs(filename)
+    const download = await downloading, filename = path.join(localEvidence, 'novel-candidate-backup.json'); await download.saveAs(filename)
     const backup = JSON.parse(await readFile(filename, 'utf8')), exported = backup.data.factGraphs.find(graph => graph.projectId === current.projectId)
     assert.equal(exported.version, 2); assert.deepEqual(exported.plotLinks, before.plotLinks)
     await page.locator('.data-management input[type="file"]').setInputFiles(filename)
@@ -574,7 +577,7 @@ try {
   report.totals = { tests: report.tests.length, passed: report.tests.filter(item => item.status === 'passed').length, writingCalls: writingRequests().length,
     scanCalls: scanRequests().length, sourceCharsSent: scanRequests().reduce((sum, entry) => sum + entry.sourceChars, 0), inputChars: scanRequests().reduce((sum, entry) => sum + entry.inputChars, 0), inputBytes: scanRequests().reduce((sum, entry) => sum + entry.inputBytes, 0), unmockedRequests: report.blockedRequests.length }
   await writeFile(path.join(artifacts, 'report.json'), JSON.stringify(report, null, 2))
-  await context?.tracing.stop({ path: path.join(artifacts, 'trace.zip') }).catch(() => {})
+  await context?.tracing.stop({ path: path.join(localEvidence, 'trace.zip') }).catch(() => {})
   await browser?.close()
   for (const server of [provider, preview]) if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)) }
 }

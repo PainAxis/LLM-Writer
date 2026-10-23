@@ -2,7 +2,7 @@
 
 [English](memory-novel-scan.md) | [简体中文](memory-novel-scan.zh-CN.md)
 
-Status, 2026-10-22: stage-three track 4 is implemented but not yet accepted. Production build, zero-warning lint and all 97 smoke suites passed again after the preventive browser-timing correction; its 383-path snapshot is recorded separately in `post-confirmation-waits/validation.json`; see [retained evidence](testing/memory-novel-scan-2026-10-22/REPORT.md). Exact-revision independent review and all necessary CI remain required. The 20 browser scenarios below are written but **NOT RUN locally**; GitHub CI must establish their result. This finite product/engineering contract does not prove real-model quality or stage-three completion. See the [roadmap](../ROADMAP.md#stage-three-completion-contract).
+The stage-three track-4 implementation and harness are validated at PR #41 head `8b5ac0af7ef01c0fb29953ed3dec11f941748026`, tree `9d88d35fe13375b36f5cd57676dca968e1a7d64a`, in [run 39948664256](https://github.com/PainAxis/LLM-Writer/actions/runs/39948664256), attempt 1. The [acceptance record](testing/memory-novel-scan-2026-10-22/ACCEPTANCE.md) identifies the actual checkout, all eleven successful jobs, the complete 20-scenario browser result and the four-track gates. Both prior partial failures remain in the [historical report](testing/memory-novel-scan-2026-10-22/REPORT.md). All browser execution was CI-hosted; none was installed or run locally. Final delivery-head review/CI and actual merge/main verification remain distinct delivery requirements, not outcomes implied by this baseline. This finite engineering acceptance does not establish real-model quality or arbitrary relationship completeness.
 
 ## Product boundary and author workflow
 
@@ -99,7 +99,7 @@ The saved plot panel exposes last-validated original evidence, rechecks it on ac
 
 ## Controlled evidence and limitations
 
-The following are recorded local synthetic checks, not final-revision CI acceptance or real-model observations. The 10.5M measurements describe the recorded sample run, not an automatic rerun or performance claim for subsequent code revisions:
+The following local synthetic observations retain their original revision and measurement scope. They are separate from the later CI-hosted baseline acceptance linked above. The 10.5M sample is not an automatic rerun, a performance claim for later revisions or a full A+B model-processing measurement:
 
 | Evidence | Observed bounded result | What it does not establish |
 | --- | --- | --- |
@@ -111,7 +111,7 @@ The following are recorded local synthetic checks, not final-revision CI accepta
 
 Frozen fixture: [`novel-candidate-scan-v1.json`](../scripts/fixtures/novel-candidate-scan-v1.json), SHA-256 `6d54c1cc1a02d0fe1b4b7580b21c8e5fb02d13f15e9f712b853e6721b67a8206`. Report all three recovery denominators together: **12/18 all-story targets, 12/17 currently disclosed targets and 12/12 in-contract controlled targets**. Negative controls are separate, not extra recovered targets. Known capability misses cannot be removed from the broad denominator. An always-empty provider and a wrong-meaning response with valid anchors must fail the gold checks; valid citations alone are not semantic success.
 
-The dedicated built-app suite currently defines 20 scenarios and is **NOT RUN**. Its targets are 1,501 intercepted scan HTTP requests plus three Writer HTTP requests, including 537 B jobs across the 512-candidate pool, a 599-A/9-B long-novel path, all three Writer modes, stale-source/disclosure rejection, backup/restore and 390px review/cancellation. These are expected counts, not observed browser results. `ci-memory-novel-scan` is a necessary independent acceptance job and intentionally stays outside the old `test:browser` aggregate to avoid duplicate execution.
+The dedicated built-app contract contains 20 scenario groups. The [accepted baseline run](testing/memory-novel-scan-2026-10-22/ACCEPTANCE.md) actually passed all 20, with 1,501 intercepted scan calls (834 A + 667 B), three Writer calls, 1,388,842 original-source units, 3,354 spans and 568 candidate responses. It completed the 599-A/9-B long path, 180-A/537-B full-pool continuation, all three Writer modes, source/disclosure rejection, backup/restore and 390px review/cancellation. `ci-memory-novel-scan` remains a necessary independent job outside the old `test:browser` aggregate; neither earlier partial run is reused as its acceptance.
 
 No real model was called for this track. The earlier, separate authorized Go support-check observation had one transport failure, zero assessed cases, six not run and unknown cost; it is not candidate-scan quality evidence. There is no authorization here for another live-model attempt.
 
@@ -140,4 +140,4 @@ npm run test:browser-memory-novel-scan
 
 Final acceptance requires blocker-free independent code review and **all necessary CI on the exact reviewed revision**, including the separate candidate browser job and existing graph/backup/full-scan/support-check/Writer gates. Verify zero-request previews and separate A/B starts; exact primary coverage and all-premise payloads; six-dimensional cumulative budgets; full-pool continuation without replay/reset; precise partial/miss reporting; stale/late/failed-save/concurrent-write rejection; v1/v2/future-version behavior; and each Writer mode independently. Matching English/Chinese scope, reproduction and resource/quality limitations are part of the gate.
 
-A focused passing suite or this implementation closes only its own demonstrated scope. Tracks 1 and 2 are merged; track 3 and this track still require current-revision acceptance. Stage three remains open. Only after all four tracks and shared gates pass does the authorized stage-four draft/review loop begin using the existing models and tools, without introducing a Pi architecture.
+Each record closes only its demonstrated scope. Tracks 1–3 have their own accepted merge/main records, and track 4 has the identified code/harness baseline. The [roadmap](../ROADMAP.md#stage-three-completion-contract) separately requires review and all eleven jobs on the final delivery head, followed by actual merge/main verification, before stage-four implementation. Stage-two storage/editor/shared-summary work, optional runtimes and a new live-model evaluation are not additional prerequisites. The bounded Agent continues to use existing models and tools, without a Pi architecture.

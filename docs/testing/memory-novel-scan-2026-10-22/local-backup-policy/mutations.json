@@ -1,0 +1,19 @@
+{
+  "recordedAt": "2026-10-23T13:00:28.859589+00:00",
+  "results": [
+    {
+      "mutation": "always-empty",
+      "command": "node --import tsx scripts/smoke-memory-novel-scan-fixture.ts --mutant=always-empty",
+      "exitCode": 1,
+      "failedAt": "P01",
+      "expected": true
+    },
+    {
+      "mutation": "wrong-meaning",
+      "command": "node --import tsx scripts/smoke-memory-novel-scan-fixture.ts --mutant=wrong-meaning",
+      "exitCode": 1,
+      "failedAt": "P01",
+      "expected": true
+    }
+  ]
+}

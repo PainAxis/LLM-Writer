@@ -54,11 +54,11 @@ The full 92-preparation after runs peaked at **846 MiB / 2,062 MiB RSS**. Their 
 
 Compare cold preparation, the original 24 exact-identifier warm preparations and process peak RSS at the original 68-preparation checkpoint. Final after-run RSS includes the added graph-disabled work and is reported separately. These are single runs, not a claimed speedup or a browser/device responsiveness guarantee. The synthetic passages test exact source retrieval and provenance, not literary realism or general Chinese semantic recall.
 
-## Remaining stage-three work
+## Historical follow-up scope
 
 The subsequent [evidence-review increment](memory-evidence-review.md) adds deterministic match/missing-code indicators and individual Writer selection. It preserves the measurements above and does not claim semantic answerability.
 
 1. **No-answer and low-relevance handling:** retrieval may still return partial matches for absent codes or questions without disclosed evidence. Source validity and non-empty results are insufficient evidence of an answer; define and test abstention separately.
 2. **Indexing and semantic capacity:** cold builds, full committed-source reads/validation, recovery/compaction and bounded semantic caches remain expensive or capacity-limited. Node measurements exclude IndexedDB hydration, Worker transfer, editor rendering and real-provider latency.
 
-Whole-novel automatic extraction remains a separately designed enhancement. This increment does not expand stage-two persistence/editing or resume the stage-four Agent.
+These were the follow-up boundaries of this historical increment, not a current claim that candidate scanning is unimplemented. Current finite acceptance and delivery are tracked by the [four-track roadmap](../ROADMAP.md#stage-three-completion-contract). The measurements above and remaining answerability/capacity limitations are unchanged; stage-two persistence/editing stays separate, and stage-four implementation requires the roadmap’s delivery gates.

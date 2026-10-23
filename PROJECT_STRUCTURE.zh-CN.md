@@ -41,6 +41,8 @@
 | `src/services/memory/matchSignals.ts` | 确定性的完整查询／编号信号与所选依据汇总，始终不验证可回答性；[审阅规则](docs/memory-evidence-review.zh-CN.md) |
 | `src/services/memory/supportCheck.ts`、`src/types/memorySupport.ts` | 纯本地核对计划、所选来源保护、有界聊天发送、严格结果／引用校验及不持久化的模型辅助意见；[规则与验收](docs/memory-support-checks.zh-CN.md) |
 | `src/composables/useMemorySupportCheck.ts`、`src/components/memory/MemorySupportCheck.vue` | Lab／Writer 共用预览、明确启动、取消与过期结果生命周期；不提供置信度认证、不自动批准 Writer、不注入核对答案 |
+| `src/services/memory/novelScan.ts`, `src/services/memory/novelScanPlan.ts`, `src/services/memory/novelScanProtocol.ts`, `src/services/memory/novelScanBudget.ts`, `src/types/memoryNovelScan.ts` | 已披露原文切窗、有限 A/B 计划、六维累计预算、跨批 campaign 出处／游标及受保护的候选生命周期；[合同](docs/memory-novel-scan.zh-CN.md) |
+| `src/composables/useNovelCandidateScan.ts`, `src/components/memory/NovelCandidateScan.vue` | 分开的本地预览／A／B 授权、逐项候选审阅、分批继续及取消；提议不自动进入 Writer |
 | `src/services/memory/identifiers.ts` | 解析完整 ASCII 字母数字代码并检查分块边缘，支撑本地混合查询召回；[语法及验收](docs/memory-mixed-query-recall.zh-CN.md) |
 | `src/components/memory/`、`src/services/memory/factGraph.ts`、`src/services/memory/factGraphStore.ts`、`src/services/memory/factExtraction.ts`、`src/types/factGraph.ts` | 有原文依据的事实关系、Cytoscape.js 展示、按作品隔离的独立持久化和有明确范围的可选模型提议；[图谱约定](docs/memory-fact-graph.zh-CN.md) |
 | `src/utils/storage.ts`、`src/utils/aiRequestScope.ts` | 统一存储入口，以及可独立取消的 AI 请求作用域 |
@@ -83,7 +85,7 @@
 
 ## 校验与发布
 
-- CI 校验配置包含 91 组顺序执行的冒烟测试，由 `smoke:all` 动态全部纳入，另有独立的合成数据生产构建 Chromium 套件。带日期报告中的数量是历史记录，不是当前总数。新增 52 场景 `ci-memory-support` 是必要门槛，有意不加入旧 `test:browser` 聚合，避免重复执行。它尚未在本地运行，浏览器验收需以受审修订的 CI 结果为准。
+- CI 通过 `smoke:all` 动态纳入全部已注册冒烟测试，另有独立的合成数据生产构建 Chromium 套件。带日期的数量属于其原修订。52 场景 `ci-memory-support` 和 20 场景 `ci-memory-novel-scan` 分别是旧 `test:browser` 聚合之外的必要门槛；[支持核对](docs/testing/memory-support-checks-2026-10-22/ACCEPTANCE.zh-CN.md)与[候选扫描](docs/testing/memory-novel-scan-2026-10-22/ACCEPTANCE.zh-CN.md)保留实际 CI 基线结果。没有本地浏览器执行，最终 head 仍须通过自身全部必要检查。
 - [超长篇记忆压力测试](docs/memory-stress-tests.zh-CN.md)：`ci-memory-stress` 检验本地容量与受控 HTTP 服务，`ci-memory-browser-stress` 单独检验浏览器持久化改稿；付费 Jina 为可选测试。复用语料位于 `scripts/fixtures/`，经审查的报告位于 `docs/testing/`。
 - 记忆增量回归：`smoke:memory-incremental` 与 `smoke:memory-client`；连续改稿／返回焦点检查扩展已有压力脚本。
 - 事实图谱回归：`smoke:memory-fact-graph`、`smoke:memory-fact-store`、`smoke:memory-fact-extraction` 与 `test:browser-memory-fact-graph`；[来源约定与容量](docs/memory-fact-graph.zh-CN.md)。
@@ -92,6 +94,7 @@
 - 容量核算：`scripts/benchmark-memory-capacity.ts` 区分冷启动／恢复与语义缓存成本；`benchmark-memory-source.mjs` 执行真实已提交读取与 Writer 新鲜度校验。`ci-memory-capacity` 按 ABBA 比较固定的历史基线／正文加载修订，`smoke:source-hydration` 保护完整正文读取及存储竞争；见[测量与剩余限制](docs/memory-capacity.zh-CN.md)。
 - 全范围扫描回归：四组 `smoke:*full-scan*` 套件及 `ci-memory-full-scan` 生产适配器容量／浏览器检查；[范围与已完成的第 2 条工作线验收](docs/memory-full-range-semantics.zh-CN.md)，合并状态见[路线图](ROADMAP.zh-CN.md#第三阶段完成契约)。
 - 可选支持核对回归：`smoke:memory-support`、`smoke:memory-support-transport`、`smoke:memory-support-ui`、`smoke:writer-memory-support` 与完全 mock 的 `smoke:memory-support-code`；`test:browser-memory-support` 覆盖冻结的 25 个语义用例，另有 600 章／1,388,902 字符的 Memory Lab 与三个 Writer 入口场景。长篇场景不改变语义分母；[当前验收限制](docs/memory-support-checks.zh-CN.md)。
+- 候选扫描回归：`smoke:memory-novel-scan-engine`、`smoke:memory-novel-scan-fixture`、`smoke:memory-novel-scan-transport`、`smoke:memory-novel-scan-ui`、`smoke:memory-novel-scan-capacity` 与 `smoke:memory-plot-links`。`ci-memory-novel-scan` 独立调用 `test:browser-memory-novel-scan` 的 20 组生产构建场景；[验收证据](docs/testing/memory-novel-scan-2026-10-22/ACCEPTANCE.zh-CN.md)区分完整执行与两轮历史部分结果。Writer 安全桥保留原文安全 predicate、明确选择及完成态批准；图谱作者确认本身不是 Writer 批准。
 - 依据审阅回归：`smoke:memory-match-signals`、`smoke:writer-memory-selection`，并在 Writer／浏览器压力测试加入明确选择及已知未解答问题；[规则与测量](docs/memory-evidence-review.zh-CN.md)。
 - 写作记忆回归：`smoke:writer-memory`、`smoke:memory-remote-guard`、`smoke:writer-memory-lifecycle`；`ci-writer-memory` 执行 21 个浏览器流程及 144万／1050万字符压力场景。
 - 其他测试集：`smoke:generation-budget`、`smoke:writer-content`、`smoke:management-correctness`、`smoke:billing-correctness`、`smoke:tools-workspace`。
@@ -112,6 +115,7 @@
 - 提示词、API/配置、题材与助手管理完成存储写入后，才更新已保存状态并提示成功。保存失败保留可重试草稿或上次提交状态。
 - 小说保存先准备正文分片，再协调提交，并比较编辑器实际读取的版本。不同作品的修改可以合并；同一作品发生冲突时保留本地草稿，拒绝覆盖较新的已保存版本。需先复制草稿，再刷新页面、重新打开作品并手动合并。
 - 事实关系按作品存入独立 IndexedDB 记录，保存时原子比较版本；并发保存冲突会报错，不覆盖较新的图谱。修改来源后隐藏过期关系，不会悄悄重绑定或删除已存注释。实际作品的图谱记录随小说分类进入系统备份，批量恢复时检查并发版本并分配新的存储版本，原文锚点保持不变；详见[图谱持久化说明](docs/memory-fact-graph.zh-CN.md#持久化与容量)。
+- 图谱 v2 的 `plotLinks` 保留全部 setup／recovery／context 前提和出处，普通关系与伏笔保存互相保留。v1 读取只在内存归一化，不隐式写盘；未知未来版本在读／存／导入／备份／恢复时拒绝且不覆盖现有数据。每条前提继续受来源修订、披露和 CAS 保护；[范围](docs/memory-novel-scan.zh-CN.md)。
 - 目标增量在同一跨标签页提交边界中读取最新记录，保留并发的增量和各自历史。这一机制保护小说与写作目标，其他存储键不会因此获得跨标签页保护。详见[持久化协调说明](docs/persistence-coordination.md)。
 - 助手摘要将正文和覆盖游标一起保存，发送时使用摘要与尚未覆盖的原始消息；压缩失败或仍在进行时不会推进覆盖范围。完整本地历史与旧版摘要备份保持可用。
 - `utils/eventLine.ts` 按稳定的章节身份重映射事件关联，供章节管理、Writer 删除及思维导图编辑共同使用。章节管理在同一次保存中提交重新计算的章节字数和小说的两个总字数字段。
