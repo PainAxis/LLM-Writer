@@ -44,13 +44,17 @@ jobs:
             sleep 1
           done
           node scripts/browser-regression.mjs
+      - name: Prepare bounded browser evidence
+        id: archive_browser
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=browser
       - name: Upload browser evidence
-        if: always()
+        if: ${{ !cancelled() && steps.archive_browser.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: writer-browser-evidence
-          path: artifacts/browser
-          if-no-files-found: warn
+          path: artifacts/ci-evidence/browser
+          if-no-files-found: error
           retention-days: 7
   preview:
     if: ${{ !contains(github.event.head_commit.message, '[stop preview]') }}

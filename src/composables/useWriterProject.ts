@@ -526,6 +526,7 @@ export function useWriterProject(options: WriterProjectOptions) {
     onContentChange, autoSave, dispose, beginSaveCurrentChapter,
     acquireApplyLease: persistenceGate.acquireApplyLease,
     captureMutationIntent: persistenceGate.captureMutationIntent,
+    canMutate: persistenceGate.canMutate,
     allowMutation: persistenceGate.allowMutation,
     noteAuthorEdit: persistenceGate.noteAuthorEdit,
     isMutationBlocked: persistenceGate.isMutationBlocked,

@@ -205,7 +205,7 @@ async function fresh(options = {}) {
     localStorage.setItem('novels', JSON.stringify(novels))
     localStorage.setItem('lastReadAnnouncementVersion', '1.0.0') // Verified current source announcement, fixture setup only.
     localStorage.setItem('apiConfig', JSON.stringify({ apiKey: 'synthetic-placeholder-not-a-credential', provider: 'custom', baseURL: apiBase,
-      selectedModel: 'writer-agent-browser-fixture', maxTokens: 1200, unlimitedTokens: false, temperature: 0, thinkingProtocol: 'auto', thinkingMode: 'disabled', customHeaders: {} }))
+      selectedModel: 'writer-agent-browser-fixture', maxTokens: 1200, unlimitedTokens: false, temperature: 0, thinkingProtocol: 'auto', thinkingMode: 'default', customHeaders: {} }))
     localStorage.setItem('extensions', JSON.stringify({ enabled: Boolean(legacy), servers: [], importedSkills: [], selectedSkillIds: [],
       selectedNovelId: 910001, writingToolIds: legacy ? ['writing_search', 'writing_read_chapter'] : [], maxSteps: 5 }))
   }, { novels: profile.novels, apiBase: `${providerOrigin}/v1`, legacy: options.legacy })
@@ -347,9 +347,21 @@ async function draftReady() {
   await expect(nodes(active.page, 'draft-text')).toHaveText(active.draft)
 }
 async function happyToDraft() { await previewAgent(); await startAgent(); await draftReady() }
+async function copyThroughUi(id) {
+  const before = await currentProbe()
+  check(before.clipboardAvailable, 'Native clipboard API is available; it is not replaced with fabricated success')
+  const requestId = before.clipboardRequests + 1
+  await nodes(active.page, id).scrollIntoViewIfNeeded(); await nodes(active.page, id).click()
+  // DOM click completion does not await Vue's async handler or the native
+  // clipboard Promise. Wait for THIS real native write, not old clipboard text.
+  await expect.poll(async () => (await currentProbe()).clipboardCompletion?.requestId ?? 0).toBe(requestId)
+  const after = await currentProbe()
+  equal(after.clipboardRequests, requestId, 'One actual native clipboard request follows the author copy action')
+  if (after.clipboardCompletion.status !== 'fulfilled') throw codeError('clipboard_write_rejected', `Native clipboard rejected: ${after.clipboardCompletion.errorName}`)
+  return active.page.evaluate(() => globalThis.__writerAgentProbe.clipboard)
+}
 async function copyAudit() {
-  await nodes(active.page, 'copy-audit').scrollIntoViewIfNeeded(); await nodes(active.page, 'copy-audit').click()
-  const text = await active.page.evaluate(() => globalThis.__writerAgentProbe.clipboard)
+  const text = await copyThroughUi('copy-audit')
   const audit = JSON.parse(text)
   check(!text.includes(active.brief) && !text.includes(active.expectedTail) && !text.includes('synthetic-placeholder') && !text.includes(providerOrigin), 'Copied audit excludes source, brief, credentials and endpoint')
   equal(audit.events.length <= 32, true, 'Production audit stays within 32 events')
@@ -715,7 +727,7 @@ register('B13', 'B13.a', 'real_reader_eof_postguard_copy_discard', async () => {
   await nodes(active.page, 'approve').click(); await waitHold('post-response'); await assertPhaseNodes('drafting')
   equal((await currentProbe()).eof, 2, 'Both real HTTP bodies have been consumed before final source guard')
   await release('post-response'); await assertPhaseNodes('awaiting_author')
-  await nodes(active.page, 'copy').click(); equal(await active.page.evaluate(() => globalThis.__writerAgentProbe.clipboard), active.draft, 'Explicit Copy writes exact complete draft to actual clipboard')
+  equal(await copyThroughUi('copy'), active.draft, 'Explicit Copy writes exact complete draft to actual clipboard')
   await nodes(active.page, 'discard').click(); await terminal(['cancelled']); await counters({ http: 2, tools: 1, sync: 1, search: 1 })
   await sameDocumentZeroWindow(() => close('footer'))
 })
@@ -993,7 +1005,9 @@ async function runCase(test) {
     if (active?.page && !active.page.isClosed()) {
       const observed = await currentProbe().catch(() => null)
       if (observed) scenario.failureObserved = { phase: observed.lastPhase, sourceReads: observed.sourceReads, workerSync: observed.workerSync,
-        workerSearch: observed.workerSearch, metadataAttempts: observed.metadataAttempts, metadataCommits: observed.metadataCommits, editorAppends: observed.editorAppends }
+        workerSearch: observed.workerSearch, metadataAttempts: observed.metadataAttempts, metadataCommits: observed.metadataCommits, editorAppends: observed.editorAppends,
+        clipboardAvailable: observed.clipboardAvailable, clipboardRequests: observed.clipboardRequests, clipboardCompletion: observed.clipboardCompletion,
+        statusText: (await nodes(active.page, 'status').textContent({ timeout: 500 }).catch(() => ''))?.slice(0, 200) }
       if (!report.screenshots.some(item => item.filename === 'failure.png')) {
         await active.page.screenshot({ path: path.join(artifacts, 'failure.png'), fullPage: false }).then(() => report.screenshots.push({ filename: 'failure.png', scenario: scenario.key })).catch(() => {})
       }

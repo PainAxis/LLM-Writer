@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Fix chapter-create and current-chapter-delete self-waits introduced by the new mutation barrier. Preflight preserves other owners and rejects stale author intents; internal committed selection keeps the CRUD barrier without waiting on itself. Preserve all browser assertions and add real Project/CRUD/arbiter regressions.
+
+- Replace inherited CI directory uploads with thirteen audited evidence allowlists and separately derived summaries. Complete backup/round-trip exports, reconstructable raw request collections and traces remain local; all test assertions and required jobs remain. [Archive policy and historical boundary](docs/ci-evidence.md).
+
 - Begin stage four after the final stage-three merged-main gate: [main CI 39961172049](https://github.com/PainAxis/LLM-Writer/actions/runs/39961172049) passed all eleven jobs at `dfc316eb2fc8f376c5ac3c77892b251ba29e6902`. Add an opt-in bounded author Agent with one strict planner request, one disclosed local retrieval, individual author evidence approval, one draft request and explicit once-only append/save. Request-level usage remains unknown when unreported; actual commit receipts and Agent-only recovery barriers distinguish pending, known failure and initial-commit/later-catch-up failure. [English](docs/writer-author-agent.md) and [Simplified Chinese](docs/writer-author-agent.zh-CN.md) retain limits and pending validation, not a real-model quality claim.
 
 - Current smoke coverage is dynamically aggregated. The independent 52-scenario support and 20-scenario candidate browser gates remain outside the old `test:browser` aggregate. Accepted revision identities and observed counts are recorded in their reports, not inferred from configured coverage; no local Chromium execution is claimed.

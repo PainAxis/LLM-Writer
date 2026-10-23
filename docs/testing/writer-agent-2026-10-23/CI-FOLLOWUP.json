@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-23T15:51:23.865839+00:00",
+  "state": "Local lint/build/103 suites and independent focused review passed; final proposed head still requires all twelve CI jobs",
+  "historicalInitialRun": {
+    "runId": 39975345262,
+    "head": "0ab62c4699a838bee9315791f7d34f95c6f18157",
+    "conclusion": "cancelled",
+    "agentPartialReport": {
+      "sha256": "16c437d9e386ef25c2dba7bd79e8584129868b45a69511c0bb30ae69aaa5515a",
+      "bytes": 26199,
+      "summary": {
+        "denominator": 18,
+        "attempted": 2,
+        "passed": 0,
+        "failed": 2,
+        "notRun": 16,
+        "scenarios": {
+          "expected": 90,
+          "attempted": 5,
+          "passed": 0,
+          "failed": 5,
+          "notRun": 85
+        }
+      }
+    },
+    "knownFailures": [
+      "Ordinary chapter CRUD waited on its own commit barrier through internal selection. This is a production defect.",
+      "Agent synthetic model thinking=disabled was rejected by existing budget checks before source reads. Harness setting corrected to default, max output remains1200.",
+      "Audit was read immediately after DOM click without waiting for native clipboard completion. Empty result was observed; historical evidence does not distinguish native delay from rejection."
+    ],
+    "artifactHistory": "Inherited full-directory and raw-request uploads occurred before/during cancellation. Existing artifacts were not deleted. This is not evidence of local-only historical archives."
+  },
+  "containmentRun": {
+    "runId": 39976482217,
+    "head": "115cd1edae7d849f82a1ef73ff0a7de6433f04a1",
+    "change": "All thirteen upload steps disabled; not final acceptance.",
+    "conclusion": "failure",
+    "successfulJobs": 10,
+    "failedJobs": [
+      "ci-browser",
+      "ci-writer-agent"
+    ],
+    "uploadedArtifacts": 0,
+    "agentObservation": "The original invalid synthetic thinking setting repeatedly failed preview; the test step reached its unchanged20-minute limit. This was not a full90-scenario acceptance run.",
+    "agentLogSha256": "d3f302d53a5af7ffcae0efd345685ba3684b103fdd4c558d723f811b87296281"
+  },
+  "archiveProjection": {
+    "sourceBytes": 7338074,
+    "summaryBytes": 1139264,
+    "requests": 1504,
+    "totals": {
+      "tests": 20,
+      "passed": 20,
+      "writingCalls": 3,
+      "scanCalls": 1501,
+      "sourceCharsSent": 1388842,
+      "inputChars": 3404501,
+      "inputBytes": 6148689,
+      "unmockedRequests": 0
+    },
+    "expected": {
+      "tests": 20,
+      "aCalls": 834,
+      "bCalls": 667,
+      "scanCalls": 1501,
+      "writingCalls": 3,
+      "scanSourceCharsSent": 1388842,
+      "scanSourceSpansSent": 3354,
+      "controlledCandidateProposals": 568,
+      "longA": 599,
+      "longB": 9,
+      "longWriterRelationEvidenceAnchors": 3
+    },
+    "rawSha256": "5d4691caaf1f4f8199149b8a7af3d6037c4fd37eec17aa20b3067e29da57f8a2",
+    "summarySha256": "e709953cf1486a8bfe5589b8ec728badece5a2c7df9f30f2e38b7af32c2878c8",
+    "sourceUnchanged": true,
+    "rawBodyEntriesRetained": 0,
+    "helperSha256": "973ab7f99adcf7c2599d5f0991ce45b8cf331795cee3f3d5c7cd111a2632afa8"
+  },
+  "clipboardProbe": {
+    "mode": "Node vm; actual probe installer; simulated native API shell only; no browser/network/Worker execution",
+    "sourceSha256": "ef30de95719c4460fe0949965c7474018b927d34449fa0ac749fa46f8c418397",
+    "passed": 5,
+    "nativeRequests": 4,
+    "fulfilled": 3,
+    "rejected": 1,
+    "results": [
+      {
+        "name": "deferred native write stays pending with no fabricated clipboard text or completion",
+        "status": "passed"
+      },
+      {
+        "name": "native success records exact original text and one completion only",
+        "status": "passed"
+      },
+      {
+        "name": "consecutive write cannot consume old completion and then receives its own request ID",
+        "status": "passed"
+      },
+      {
+        "name": "native rejection is propagated and recorded without fabricating clipboard success",
+        "status": "passed"
+      },
+      {
+        "name": "a later copy never reuses the rejected completion and IDs remain monotonic",
+        "status": "passed"
+      }
+    ]
+  },
+  "archivePolicy": "Every future report attachment is a distinct derived summary with raw-source size/hash. Fixed audited UI PNGs only. Full backups, traces, full-body request collections and free-text diagnostics remain local. CI runner files are ephemeral, not durable backup.",
+  "limitations": [
+    "No local browser execution.",
+    "No new live API requests or literary-quality claim.",
+    "No passing results combined across heads."
+  ],
+  "knownNonBlockingLimitation": "An ordinary committed internal chapter selection can trigger the existing current-chapter watcher and briefly show its busy notification while the CRUD barrier is still held. The barrier is not bypassed.",
+  "archiveWorkflowAudit": {
+    "workflowFiles": 4,
+    "uploadArtifactSteps": 15,
+    "preparedReportUploads": 14,
+    "reusedEvidenceGroups": 13,
+    "metadataOnlyException": "writer-browser-tunnel preview-url.json",
+    "releaseAssets": "built dist ZIP, SHA256SUMS and build-info only; isolated build job",
+    "allWorkspaceArtifactCaches": false,
+    "tunnelCorrection": "The optional tunnel previously used a raw browser directory too; now uses the same prepared browser group. No run was triggered on that dedicated branch during this correction."
+  },
+  "finalLocalValidation": {
+    "lint": "passed with zero warnings",
+    "build": "passed",
+    "smokeSuites": 103,
+    "sourcePathsBeforeAfterEqual": 403,
+    "logSha256": "70aec62e748bada3ada31cbd3b04a05d61c3c9a4eff2a4ad5355c53221c96fbb"
+  }
+}

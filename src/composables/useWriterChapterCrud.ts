@@ -1,5 +1,5 @@
 import type { WriterMutationGate } from './writerPersistenceGate'
-import { ref, type Ref } from 'vue'
+import { ref, watch, type Ref } from 'vue'
 import type { WriterChapter, WriterChapterForm, WriterEvent, WriterNovel } from '@/types/writer'
 import { remapEventChapters } from '@/utils/eventLine'
 
@@ -14,6 +14,8 @@ interface UseWriterChapterCrudOptions extends Partial<WriterMutationGate> {
   events: Ref<WriterEvent[]>
   currentChapter: Ref<WriterChapter | null>
   content: Ref<string>
+  /** Await other workspace owners before publishing this mutation's barrier. */
+  beforeMutation?(): boolean | Promise<boolean>
   persist(): Promise<boolean>
   selectChapter(chapter: WriterChapter): Promise<boolean>
   confirmDelete(chapter: WriterChapter): Promise<boolean>
@@ -39,6 +41,8 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
   const visible = ref(false)
   const form = ref<WriterChapterForm>(emptyChapterForm())
   const editingChapter = ref<WriterChapter | null>(null)
+  let dialogEpoch = 0
+  watch(visible, () => { dialogEpoch += 1 }, { flush: 'sync' })
   let pendingCreateId: number | null = null
   const isMutating = ref(false)
   let pendingMutation: Promise<boolean> | null = null
@@ -65,7 +69,6 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
   }
 
   async function saveImpl(): Promise<boolean> {
-    const intent = options.captureMutationIntent?.()
     const title = form.value.title.trim()
     if (!title) {
       options.notify.warning('请输入章节标题')
@@ -73,7 +76,7 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
     }
 
     const novelId = options.currentNovel.value?.id
-    if (novelId == null || options.allowMutation?.(intent) === false) return false
+    if (novelId == null) return false
     isMutating.value = true
 
     const list = options.chapters.value
@@ -194,15 +197,52 @@ export function useWriterChapterCrud(options: UseWriterChapterCrudOptions) {
     pendingMutation = request
     return request
   }
-  const save = () => track(saveImpl)
+  const save = async (): Promise<boolean> => {
+    if (isMutating.value) return false
+    if (!form.value.title.trim()) {
+      options.notify.warning('请输入章节标题')
+      return false
+    }
+    const intent = options.captureMutationIntent?.()
+    const novel = options.currentNovel.value
+    if (!novel) return false
+    const list = options.chapters.value
+    const selected = options.currentChapter.value
+    const requestedForm = form.value
+    const formSnapshot = { ...requestedForm }
+    const requestedChapter = editingChapter.value
+    const requestedCanonical = list.find(chapter => chapter.id === requestedChapter?.id)
+    const requestedDialogEpoch = dialogEpoch
+    const isCurrent = () => options.currentNovel.value === novel && options.chapters.value === list
+      && options.currentChapter.value === selected && !isMutating.value
+      && dialogEpoch === requestedDialogEpoch && form.value === requestedForm
+      && form.value.title === formSnapshot.title && form.value.description === formSnapshot.description
+      && form.value.status === formSnapshot.status && editingChapter.value === requestedChapter
+      && list.find(chapter => chapter.id === requestedChapter?.id) === requestedCanonical
+    if (!isCurrent() || options.canMutate?.(intent) === false) return false
+    // This preflight must precede track(): a workspace wait that includes our
+    // own pendingMutation would otherwise wait on the very call awaiting it.
+    try { if (options.beforeMutation && !(await options.beforeMutation())) return false } catch { return false }
+    if (!isCurrent() || options.canMutate?.(intent) === false || options.allowMutation?.(intent) === false) return false
+    return track(saveImpl)
+  }
   const remove = async (chapter: WriterChapter): Promise<boolean> => {
     if (isMutating.value) return false
     const intent = options.captureMutationIntent?.()
     const novel = options.currentNovel.value
     const novelId = novel?.id
     if (novelId == null) return false
+    const list = options.chapters.value
+    const selected = options.currentChapter.value
+    const target = list.find(item => item.id === chapter.id)
+    const isCurrent = () => options.currentNovel.value === novel && options.chapters.value === list
+      && options.currentChapter.value === selected && list.find(item => item.id === chapter.id) === target
+      && !isMutating.value
     try { if (!(await options.confirmDelete(chapter))) return false } catch { return false }
-    if (options.currentNovel.value !== novel || isMutating.value || options.allowMutation?.(intent) === false) return false
+    // A late confirmation must not even revoke a newer owner's pre-apply work.
+    if (!isCurrent() || options.canMutate?.(intent) === false) return false
+    try { if (options.beforeMutation && !(await options.beforeMutation())) return false } catch { return false }
+    if (!isCurrent() || options.canMutate?.(intent) === false || options.allowMutation?.(intent) === false) return false
     return track(() => removeImpl(chapter, novelId))
   }
   const waitForMutation = () => pendingMutation ?? Promise.resolve(true)

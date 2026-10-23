@@ -517,7 +517,7 @@ const {
   currentNovel, chapters, currentChapter, content, characters, worldSettings,
   corpusData, events, contentWordCount, hasUnsavedChanges, isSaving, saveError,
   saveNovelData, saveCurrentChapter, selectChapter: selectProjectChapter, initNovel, onContentChange, dispose,
-  acquireApplyLease, beginSaveCurrentChapter, captureMutationIntent, allowMutation,
+  acquireApplyLease, beginSaveCurrentChapter, captureMutationIntent, canMutate, allowMutation,
 } = useWriterProject({ novelStore, notifyError: message => ElMessage.error(message) })
 const { activeConfig } = useApiConfig()
 const generatedMaterialImport = { owner: '' }
@@ -911,9 +911,16 @@ const chapterCrud = useWriterChapterCrud({
   content,
   persist: saveNovelData,
   captureMutationIntent,
-  allowMutation,
-  // The wrapper also cancels any generation owned by the chapter being left.
-  selectChapter: chapter => selectChapter(chapter),
+  canMutate,
+  // The final synchronous claim also revokes an owner started while preflight
+  // was resolving, without leaving a gap before CRUD publishes its barrier.
+  allowMutation: intent => canMutate(intent) && generationArbiter.resetAll()
+    && !generationArbiter.hasPendingBarrier() && !generationArbiter.isWaitingForCommits()
+    && allowMutation(intent),
+  // Settle/revoke other owners BEFORE CRUD publishes its own barrier. Internal
+  // selection must not re-enter the external wrapper and await that same CRUD.
+  beforeMutation: generationArbiter.waitForCommits,
+  selectChapter: selectProjectChapter,
   confirmDelete: async chapter => {
     try {
       await ElMessageBox.confirm(`确定要删除章节《${chapter.title}》吗？`, '确认删除', {

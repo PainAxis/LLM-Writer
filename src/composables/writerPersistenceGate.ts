@@ -39,6 +39,8 @@ export interface WriterApplyLease {
 }
 export interface WriterMutationGate {
   captureMutationIntent(): WriterMutationIntent
+  /** Side-effect-free validation before an async preflight may revoke scopes. */
+  canMutate(intent?: WriterMutationIntent): boolean
   allowMutation(intent?: WriterMutationIntent): boolean
 }
 
@@ -57,10 +59,14 @@ export function createWriterPersistenceGate(options: {
     intents.add(intent)
     return intent
   }
-  const allowMutation = (intent?: WriterMutationIntent): boolean => {
+  const canMutate = (intent?: WriterMutationIntent): boolean => {
     if (state.owner) return false
     if (intent && (!intents.has(intent) || intent.workspaceEpoch !== state.workspaceEpoch
       || intent.mutationEpoch !== state.mutationEpoch)) return false
+    return true
+  }
+  const allowMutation = (intent?: WriterMutationIntent): boolean => {
+    if (!canMutate(intent)) return false
     state.mutationEpoch += 1
     return true
   }
@@ -129,7 +135,7 @@ export function createWriterPersistenceGate(options: {
     if (state.owner && !state.owner.applied) state.owner.releaseBeforeMutation()
   }
   return {
-    acquireApplyLease, captureMutationIntent, allowMutation, noteAuthorEdit, advanceWorkspace,
+    acquireApplyLease, captureMutationIntent, canMutate, allowMutation, noteAuthorEdit, advanceWorkspace,
     captureWorkspaceIntent, allowWorkspaceChange,
     isMutationBlocked: computed(() => state.owner !== null),
     get workspaceEpoch() { return state.workspaceEpoch },

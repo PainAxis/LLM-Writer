@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-23T14:59:20.367250+00:00",
+  "recordedAt": "2026-10-23T15:51:23.864600+00:00",
   "baseCommit": "dfc316eb2fc8f376c5ac3c77892b251ba29e6902",
   "state": "native-validation-passed; exact-head-independent-review-and-12-job-CI-required",
   "scope": "First bounded author-reviewed continuity Agent, not all of stage four",
@@ -9,7 +9,7 @@
     "build": "passed",
     "smoke:all": {
       "status": "passed",
-      "suites": 102
+      "suites": 103
     },
     "browser-harness node --check": {
       "status": "passed",
@@ -45,33 +45,59 @@
     },
     "ordinarySaveReceipts": {
       "realBackendCheckpointBlocks": 12
+    },
+    "chapterCrud": {
+      "checkpointBlocks": 11,
+      "realProjectCrudArbiter": true,
+      "covers": "create/delete fallback self-wait; held internal selection; other barriers; late owner; stale form/confirmation; pure intent"
+    },
+    "ciArchive": {
+      "groups": 13,
+      "exactEntries": 158,
+      "requestReportSchemas": 5,
+      "freeTextDiagnostics": "metadata only",
+      "rawInputMutation": false,
+      "workflowFiles": 4,
+      "uploadArtifactSteps": 15,
+      "preparedReportUploads": 14,
+      "metadataOnlyExceptions": 1
+    },
+    "clipboardProbe": {
+      "nodeVmActualProbe": true,
+      "cases": 5,
+      "browserExecuted": false
     }
   },
   "sourceIntegrity": {
-    "validatedNativePaths": 393,
+    "validatedNativePaths": 403,
     "beforeAfterEqual": true,
-    "canonicalPathHashMapSha256": "d5fa09472bb011bd309041aab5a4849fabea83cd8098fec17cb3e38a5ff32382",
-    "browserHarness": "Final three harness files frozen before the final lint/build/102-suite run, independently hash-verified afterwards; syntax checks passed. No local browser execution.",
+    "canonicalPathHashMapSha256": "57ddf793b4d7693d247ef640106069215cdd52cddb5abd83d419a25b9229fa49",
+    "browserHarness": "Final harness and CI archive scripts frozen before complete lint/build/103-suite run. Before/after native manifest identical. No local browser execution.",
     "changedSourceSha256": {
-      ".github/workflows/ci.yml": "821be83a7488102bd2fc52759b90382b5112c125621ed8e2170448fa9260c30c",
-      "package.json": "6998663629251d794461b7814d0e8ad1faa0880988a771d1eb337a67b265a967",
-      "scripts/browser-writer-agent.mjs": "adfd249052c4a10a911454083478e2c13899aa7480b14d14ff19572532c4b47e",
+      ".github/workflows/ci.yml": "bc8c2ae420586fc7f37dbd0ff185fad0e729514d03470a37e1d6a23530a488d0",
+      ".github/workflows/writer-browser-tunnel.yml": "371816fc466a81249bf4a86cc26e26e55e6084fd90781ce58ae5b948f5899b32",
+      "package.json": "d307454b7ea526f2c79586f05e3c87ff5a9e499d0fa13f7d6e174d1e93eab2af",
+      "scripts/browser-writer-agent.mjs": "707e06f7d063ccf985b66af9e303df297ba3128cf7ff1ae5cf47a86be45f1a71",
+      "scripts/ci-evidence-files.mjs": "00f34d5280cf0f209f7b7d92a19c3fcfa131738fcdcaf63bdf2cfaa3e2b7d385",
       "scripts/fixtures/writer-agent-browser-corpus.mjs": "db9575a11d6a2bb60bc30b534d10b8b0c4557df9b566f8691500b8ff973ebd7b",
-      "scripts/fixtures/writer-agent-browser-probe.mjs": "e35c57937a6d1d262871f2afaba63428fa66d6e0828a2e061dfacd097aeb4356",
+      "scripts/fixtures/writer-agent-browser-probe.mjs": "ef30de95719c4460fe0949965c7474018b927d34449fa0ac749fa46f8c418397",
       "scripts/fixtures/writer-agent-v1.json": "c50bae17f6a8eaf38906d181fb6307e44b81d2d5abc9fce6ad4f078991bd169f",
       "scripts/fixtures/writer-agent-v1.sha256": "8b653035346dc4ad92569f86b5cf5571b37e348c5297ace15a0102bf8b49ec37",
+      "scripts/prepare-ci-evidence.mjs": "973ab7f99adcf7c2599d5f0991ce45b8cf331795cee3f3d5c7cd111a2632afa8",
+      "scripts/smoke-ci-evidence.mjs": "455ab6d20ea5c7f89e38730b2cb634b853baae161efe6a1d4f78706408669944",
       "scripts/smoke-ordinary-save-receipts.ts": "415501cb8101096a0e09c4dca978838dd4f869ee596ac1761cd9b7acf6e8655c",
       "scripts/smoke-writer-agent-transport.ts": "0ba47fb2170b04e4e55eb6dfed8abb98daf3b3c4a1de13db7b38ffa7180bb8be",
       "scripts/smoke-writer-agent-ui.ts": "f6b98550cf6ebdef76b21bd7fb41bfebf65be34e786e80e3e8582d7e30848107",
       "scripts/smoke-writer-agent.ts": "4249ddf8e2ba1557bd900752cea0953ba611e8eabecc90fc82f969728366dc19",
+      "scripts/smoke-writer-chapter-crud.ts": "7a6b99a842b8c77bbf1c3f8c5190562be26ab9c76c179b4ca1c9c486133043aa",
       "scripts/smoke-writer-save-ownership.ts": "41a346cdfc936df3940e6fdaea68e99d5d122e8d05f0a2cdecc54139a34dbf5e",
       "src/components.d.ts": "932a33b4c3260f0378936a64075eee8f7398669f1058e75cbbff2545075694e0",
       "src/components/writer/panels/WriterAgentPanel.vue": "e11eb6f9ce3d92262a274f4f107266e1bee4787d92ceb6e902d1e0eb49ddd8df",
       "src/composables/useWriterAgent.ts": "9ac07a397d3b9fa58a20667c0409b1ad67c13746ab5b15cc8eebc41a1851de14",
-      "src/composables/useWriterChapterCrud.ts": "3d762022bbac3d7c401a3f57f9177857fdf74c159973cc96ff6a95a457eaf10c",
+      "src/composables/useWriterChapterCrud.ts": "30c76db929e1cbd5d408ec7186197fc3a275b8c1551c8f34634b0852bda832ce",
       "src/composables/useWriterMaterialCrud.ts": "22ccea3add35d63c9c2983239bccc977a39956e0f51656cf79bdcb1bbab49e95",
-      "src/composables/useWriterProject.ts": "84edd8b575e17c57a3596b2ba10e45f20db2ba41be01fe1b6866fd4951490127",
-      "src/composables/writerPersistenceGate.ts": "f8b6f544c8e90b48953964b76b3eb5f81f559bcb441ca88d5cb24fbd45d5b342",
+      "src/composables/useWriterProject.ts": "c150010e3b365261190ac0b69d3ce65ec8a775d6c0c9034e5fd0d1730922afe7",
+      "src/composables/writerPersistenceGate.ts": "e96db0c67200a1902909bdb19da4c261ba508d3cc1d7f9e68e1c3cdbeadeca2f",
       "src/services/api.ts": "8d12d8a928ea8be5b628fcd4d4dc3d4ec119700620d02bded3d2e60fbb217a4d",
       "src/services/novelPersistence.ts": "7e572392fbb75f574995928eaface9c3174e4a4dc879e5f2e7a87f565f73f965",
       "src/services/writerAgent.ts": "ac3c90eded1d52c558e7a014028b7ec6c95fff557826febf657a16b3b5b2e75d",
@@ -79,7 +105,7 @@
       "src/types/api.ts": "1024c768ef00f217570cddf437977f6b624de5b1bc1fc24a433e103f11ef9573",
       "src/types/writerAgent.ts": "cfd2ee441a35dc24c01ad6d448be0494c7096ca36025739e8912153686d7ffe1",
       "src/utils/storage.ts": "295dca21cddf4658e863c4f7e671ec3f3f7cfd2fb1d929176873b4d87c3f263e",
-      "src/views/Writer.vue": "bd534dbd0d480d9445a3a8c284e2b811f9db2fd512a144ae21b16a1337ac1542"
+      "src/views/Writer.vue": "4ad31da34464c66d4f5177189322b14eaa4010ffbc8f32f06c81129456d07485"
     }
   },
   "localHistory": {
@@ -96,7 +122,8 @@
       "exitCode": 0,
       "suites": 102,
       "rawLogSha256": "e3c71330a3c37c3e97564a35f4af1dac25d24dffd8a69d4862989dacf48fb4e3",
-      "all393NativeAndThreeBrowserHashesUnchanged": true
+      "all393NativeAndThreeBrowserHashesUnchanged": true,
+      "notFinalCurrentAcceptance": true
     },
     "rawLogs": "Retained in engineering workspace, not copied into repository.",
     "previousCandidateNativeRun": {
@@ -117,7 +144,26 @@
       "Actual commit AND successful cache publication permit only that explicit request internal read barrier to recover after a postcommit status-observer rejection; original caller rejection and ordinary/backup semantics remain unchanged.",
       "Browser save-method invocation count is unavailable, not inferred from coalesced saving-indicator DOM transitions.",
       "Chapter menu synthetic mouseenter targets the actual child button, not its inert wrapper."
-    ]
+    ],
+    "ciFixCompleteRerun": {
+      "fileName": "full-ci-fix.log",
+      "sha256": "4413e33a3e0e3c388e8d255a422d8a02c74c2f1d8ccf8f9010d9d7066382fba6",
+      "bytes": 166756,
+      "storage": "Local engineering validation directory; no raw log attachment in this increment",
+      "exitCode": 0,
+      "suites": 103,
+      "all403NativeHashesUnchanged": true
+    },
+    "allWorkflowFinalRerun": {
+      "fileName": "full-archive-final.log",
+      "sha256": "70aec62e748bada3ada31cbd3b04a05d61c3c9a4eff2a4ad5355c53221c96fbb",
+      "bytes": 167618,
+      "storage": "Local engineering validation directory; no raw log attachment in this increment",
+      "exitCode": 0,
+      "suites": 103,
+      "all403NativeHashesUnchanged": true,
+      "changeAfterPriorRerun": "Only tunnel archive wiring and all-workflow upload smoke; nevertheless lint/build/all103 suites were rerun."
+    }
   },
   "browserAcceptance": {
     "status": "not_run_locally",
@@ -136,10 +182,11 @@
     "requiredJob": "ci-writer-agent",
     "requiredTotalJobs": 12,
     "artifactAllowlist": [
-      "report.json",
-      "desktop-reviewed-draft.png",
-      "mobile-reviewed-draft.png",
-      "failure.png"
+      "manifest.json",
+      "browser-writer-agent/report.summary.json",
+      "browser-writer-agent/desktop-reviewed-draft.png",
+      "browser-writer-agent/mobile-reviewed-draft.png",
+      "browser-writer-agent/failure.png"
     ],
     "omissions": [
       "Private prepare/save-method entry counts are null in browser reports, with Node exact-entry coverage. Saving-indicator transitions are separately labelled UI proxies; physical write assertions are retained.",
@@ -150,9 +197,21 @@
   "privacyAndInterpretation": {
     "realModelRequestsThisIncrement": 0,
     "credentialsRead": false,
-    "completeBackupTransmission": false,
-    "traceUpload": false,
     "qualityClaim": "None. Controlled engineering validation is not semantic or novel-writing quality evidence.",
-    "earlierGoTrial": "One transport failure, six stopped; no success, invalid-credential conclusion or zero-cost claim."
+    "earlierGoTrial": "One transport failure, six stopped; no success, invalid-credential conclusion or zero-cost claim.",
+    "historicalInitialCiUploads": "Initial run39975345262 inherited directory uploads transmitted full synthetic exports, traces and raw request collections. Existing artifacts retained, not deleted. SeeCI-FOLLOWUP.json.",
+    "correctedCiArchive": "Full backups/exports/traces/reconstructable request bodies excluded. All attached reports are derived summaries, not raw. No full backup copied into this repository increment."
+  },
+  "supersedesHistoricalLocalRecord": {
+    "sha256": "307b33bf64615c9443a37c89957ec17fa0281e10c0f6e261bbcde186bc5a5c6b",
+    "originalSuites": 102,
+    "note": "Original retained in prior commit history, not relabelled as validation of current fixes."
+  },
+  "finalRunLog": {
+    "fileName": "full-archive-final.log",
+    "sha256": "70aec62e748bada3ada31cbd3b04a05d61c3c9a4eff2a4ad5355c53221c96fbb",
+    "bytes": 167618,
+    "storage": "Local engineering validation directory; no raw log attachment in this increment",
+    "exitCode": 0
   }
 }

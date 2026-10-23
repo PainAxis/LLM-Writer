@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { ref } from 'vue'
 import { useWriterChapterCrud } from '../src/composables/useWriterChapterCrud'
+import { useWriterProject } from '../src/composables/useWriterProject'
+import { useWriterGenerationArbiter } from '../src/composables/useWriterGenerationArbiter'
 import type { WriterChapter, WriterEvent, WriterNovel } from '../src/types/writer'
 
 function fixture() {
@@ -62,6 +65,193 @@ function fixture() {
     setPersistenceResult(value: boolean | 'throw') { persistenceResult = value },
     setConfirmResult(value: boolean) { confirmResult = value },
   }
+}
+
+const flush = async () => { for (let i = 0; i < 100; i++) await Promise.resolve() }
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>(done => { resolve = done })
+  return { promise, resolve }
+}
+
+async function workspaceFixture(empty = false) {
+  let disk: WriterNovel[] = [{ id: 1, title: '测试小说', chapterList: empty ? [] : [
+    { id: 1, title: '第一章', content: '原文', status: 'draft' },
+    { id: 2, title: '第二章', content: '后文', status: 'draft' },
+  ] }]
+  const writes: WriterNovel[][] = []
+  const heldWrites = new Map<number, ReturnType<typeof deferred<void>>>()
+  const project = useWriterProject({ novelStore: { worldSettings: [] }, notifyError() {}, beforeUnloadTarget: null,
+    persistence: { load: () => JSON.parse(JSON.stringify(disk)), save: async value => {
+      const snapshot = JSON.parse(JSON.stringify(value)) as WriterNovel[]
+      writes.push(snapshot)
+      await heldWrites.get(writes.length)?.promise
+      disk = snapshot
+    } },
+  })
+  await project.initNovel('1')
+  const arbiter = useWriterGenerationArbiter({ checkApiReady: () => true, notifyBlocked() {} })
+  const otherPending = ref(false)
+  let otherWait: Promise<boolean> | null = null
+  let confirmation: Promise<boolean> | null = null
+  let afterPreflight: (() => void) | undefined
+  let activeOwner = false
+  arbiter.registerScope('otherGenerator', { reset: () => { activeOwner = false; return true } })
+  arbiter.registerBarrier('otherCommit', { isPending: otherPending, wait: () => otherWait ?? true })
+  const crud = useWriterChapterCrud({ ...project, persist: project.saveNovelData,
+    beforeMutation: async () => { const ready = await arbiter.waitForCommits(); afterPreflight?.(); return ready },
+    allowMutation: intent => project.canMutate(intent) && arbiter.resetAll()
+      && !arbiter.hasPendingBarrier() && !arbiter.isWaitingForCommits() && project.allowMutation(intent),
+    selectChapter: project.selectChapter, confirmDelete: () => confirmation ?? Promise.resolve(true),
+    notify: { success() {}, warning() {} }, createId: () => 10,
+  })
+  arbiter.registerBarrier('chapterMutation', { isPending: crud.isMutating, wait: crud.waitForMutation })
+  return { project, crud, arbiter, writes, disk: () => disk,
+    holdWrite(index: number) { const hold = deferred<void>(); heldWrites.set(index, hold); return hold },
+    holdOther() {
+      const hold = deferred<boolean>(); otherPending.value = true; otherWait = hold.promise
+      return (result = true) => { otherPending.value = false; hold.resolve(result); otherWait = null }
+    },
+    afterPreflight(callback: () => void) { afterPreflight = callback },
+    holdConfirmation() { const hold = deferred<boolean>(); confirmation = hold.promise; return hold },
+    claimLateOwner() { const claimed = arbiter.prepare('otherGenerator'); if (claimed) activeOwner = true; return claimed },
+    ownerActive: () => activeOwner,
+  }
+}
+
+async function testWorkspaceMutationBoundaries() {
+  for (const action of ['create', 'delete_current'] as const) {
+    const f = await workspaceFixture(action === 'create')
+    const selectionWrite = f.holdWrite(2)
+    f.crud.openCreate()
+    f.crud.form.value.title = '第一章：约定'
+    f.crud.form.value.description = '林遥交出银钥匙并约定重逢。'
+    let result: boolean | 'pending' = 'pending'
+    const mutation = action === 'create' ? f.crud.save() : f.crud.remove(f.project.currentChapter.value!)
+    void mutation.then(value => { result = value })
+    await flush()
+    assert.equal(f.writes.length, 2, `${action}: internal selection reaches the real project save, never its own barrier`)
+    assert.equal(f.crud.isMutating.value, true)
+    assert.equal(f.arbiter.prepare('writerAgent'), false, 'Agent cannot start while internal chapter selection is held')
+    let navigated = false
+    const navigation = f.arbiter.waitForCommits().then(value => { navigated = value; return value })
+    await flush()
+    assert.equal(navigated, false)
+    selectionWrite.resolve()
+    await flush()
+    assert.equal(result, true)
+    assert.equal(await mutation, true)
+    assert.equal(await navigation, true, 'external navigation still waits for the complete CRUD selection')
+    assert.equal(f.crud.isMutating.value, false)
+    assert.equal(f.project.currentChapter.value?.id, action === 'create' ? 10 : 2)
+    assert.equal(f.crud.visible.value, action === 'create' ? false : true)
+    assert.deepEqual(f.disk()[0].chapterList!.map(chapter => chapter.id), [action === 'create' ? 10 : 2])
+    f.arbiter.dispose()
+  }
+  console.log('✓ real Project/CRUD/arbiter create and delete-fallback complete without self-wait; held selection still blocks Agent and navigation')
+
+  for (const succeeds of [true, false]) {
+    const f = await workspaceFixture(true)
+    const releaseOther = f.holdOther()
+    const earlierNavigation = f.arbiter.waitForCommits()
+    f.crud.openCreate(); f.crud.form.value.title = '等待其他提交的新章'
+    let result: boolean | 'pending' = 'pending'
+    const mutation = f.crud.save().then(value => { result = value; return value })
+    await flush()
+    assert.equal(f.writes.length, 0)
+    assert.equal(f.crud.isMutating.value, false, 'preflight cannot publish a barrier awaited by an earlier activeWait')
+    releaseOther(succeeds)
+    await flush()
+    assert.equal(await earlierNavigation, succeeds)
+    assert.equal(result, succeeds)
+    assert.equal(await mutation, succeeds)
+    assert.equal(f.writes.length, succeeds ? 2 : 0)
+    assert.equal(f.crud.visible.value, !succeeds)
+    f.arbiter.dispose()
+  }
+  console.log('✓ an already-active workspace wait is shared before CRUD begins; another owner failure prevents all mutation')
+
+  const late = await workspaceFixture(true)
+  let claimedInGap = false
+  late.afterPreflight(() => queueMicrotask(() => { claimedInGap = late.claimLateOwner() }))
+  const lateWrite = late.holdWrite(1)
+  late.crud.openCreate(); late.crud.form.value.title = '同步撤销新owner'
+  const lateMutation = late.crud.save()
+  await flush()
+  assert.equal(claimedInGap, true, 'fixture injects a real owner in the preflight resolution microtask gap')
+  assert.equal(late.ownerActive(), false, 'the final synchronous claim revokes the new cancellable owner before mutation')
+  assert.equal(late.crud.isMutating.value, true)
+  assert.equal(late.arbiter.prepare('writerAgent'), false)
+  lateWrite.resolve()
+  assert.equal(await lateMutation, true)
+  late.arbiter.dispose()
+  console.log('✓ final synchronous claim closes the preflight-to-mutation microtask gap')
+
+  for (const change of ['cancel', 'new_dialog', 'edit_dialog', 'form', 'chapter', 'lease'] as const) {
+    const f = await workspaceFixture()
+    const releaseOther = f.holdOther()
+    f.crud.openCreate(); f.crud.form.value.title = '旧保存意图'
+    const mutation = f.crud.save()
+    await flush()
+    if (change === 'cancel') f.crud.visible.value = false
+    if (change === 'new_dialog') { f.crud.openCreate(); f.crud.form.value.title = '新弹窗草稿' }
+    if (change === 'edit_dialog') f.crud.openEdit(f.project.chapters.value[1])
+    if (change === 'form') f.crud.form.value.title = '等待期间新草稿'
+    if (change === 'chapter') f.project.loadChapter(f.project.chapters.value[1])
+    if (change === 'lease') { const lease = f.project.acquireApplyLease()!; assert.ok(lease); lease.releaseBeforeMutation() }
+    releaseOther()
+    assert.equal(await mutation, false, `${change}: stale preflight cannot commit another dialog or target`)
+    assert.equal(f.writes.length, 0)
+    assert.equal(f.project.chapters.value.length, 2)
+    f.arbiter.dispose()
+  }
+  console.log('✓ preflight retains dialog/form/chapter and mutation intents; cancel, replacement and temporary leases revoke old saves')
+
+  const pure = await workspaceFixture()
+  const pureIntent = pure.project.captureMutationIntent()
+  assert.equal(pure.project.canMutate(pureIntent), true)
+  assert.equal(pure.project.canMutate(pureIntent), true)
+  assert.equal(pure.project.allowMutation(pureIntent), true, 'pure checks cannot consume the captured mutation epoch')
+  assert.equal(pure.project.canMutate(pureIntent), false, 'only the real claim advances the mutation epoch')
+  const confirmation = pure.holdConfirmation()
+  const lateDelete = pure.crud.remove(pure.project.chapters.value[0])
+  const applyLease = pure.project.acquireApplyLease()!
+  assert.ok(applyLease)
+  let revokedAgent = 0
+  pure.arbiter.registerScope('writerAgent', { reset: () => { revokedAgent++; applyLease.releaseBeforeMutation(); return true },
+    revokeBeforeWait: () => { revokedAgent++; applyLease.releaseBeforeMutation(); return true } })
+  assert.equal(pure.project.canMutate(), false)
+  assert.equal(pure.project.canMutate(), false)
+  assert.equal(applyLease.valid, true, 'pure checks cannot revoke a live apply lease')
+  confirmation.resolve(true)
+  assert.equal(await lateDelete, false)
+  assert.equal(revokedAgent, 0, 'late delete confirmation is rejected BEFORE preflight can revoke the newer Agent')
+  assert.equal(applyLease.valid, true)
+  pure.crud.openCreate(); pure.crud.form.value.title = 'Agent保护期间的旧保存'
+  assert.equal(await pure.crud.save(), false)
+  assert.equal(revokedAgent, 0)
+  assert.equal(applyLease.valid, true)
+  assert.equal(pure.writes.length, 0)
+  applyLease.releaseBeforeMutation()
+  pure.arbiter.dispose()
+  console.log('✓ pure intent checks preserve epochs and leases; late delete/save cannot revoke a newer pre-apply Agent')
+
+  const resetRace = await workspaceFixture(true)
+  let releaseResetBarrier: (() => void) | undefined
+  resetRace.arbiter.registerScope('resetRace', { reset: () => { releaseResetBarrier = resetRace.holdOther(); return true } })
+  resetRace.crud.openCreate(); resetRace.crud.form.value.title = '同步reset启动了其他提交'
+  assert.equal(await resetRace.crud.save(), false)
+  assert.equal(resetRace.writes.length, 0)
+  assert.equal(resetRace.crud.isMutating.value, false)
+  releaseResetBarrier!()
+  resetRace.arbiter.dispose()
+  console.log('✓ a barrier started synchronously by scope reset is rechecked before the CRUD claim')
+
+  const writer = readFileSync(new URL('../src/views/Writer.vue', import.meta.url), 'utf8')
+  const wiring = writer.slice(writer.indexOf('const chapterCrud ='), writer.indexOf('const showChapterDialog ='))
+  assert.match(wiring, /beforeMutation: generationArbiter\.waitForCommits/)
+  assert.match(wiring, /allowMutation: intent => canMutate\(intent\) && generationArbiter\.resetAll\(\)[\s\S]*!generationArbiter\.hasPendingBarrier\(\)[\s\S]*!generationArbiter\.isWaitingForCommits\(\)[\s\S]*&& allowMutation\(intent\)/)
+  assert.match(wiring, /selectChapter: selectProjectChapter/)
 }
 
 async function main() {
@@ -133,6 +323,8 @@ async function main() {
   assert.equal(cancelled.chapters.value.length, 2)
   assert.deepEqual(cancelled.messages, [])
   console.log('✓ 取消确认不改变章节状态')
+
+  await testWorkspaceMutationBoundaries()
 
   console.log('\n=== WRITER CHAPTER CRUD TESTS PASSED ===')
 }

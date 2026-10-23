@@ -8,7 +8,8 @@ export function installWriterAgentProbe({ providerOrigin }) {
     workerSync: 0, workerSearch: 0, workerCreated: 0, sourceReads: 0, oracleReads: 0,
     graphReads: 0, graphWrites: 0, metadataAttempts: 0, metadataCommits: 0,
     hiddenWrites: 0, contentWrites: 0, commitGates: 0, editorAppends: 0,
-    savingIndicatorTransitions: 0, eof: 0, clipboard: '', lastEditor: '', lastSaving: false,
+    savingIndicatorTransitions: 0, eof: 0, clipboard: '', clipboardRequests: 0, clipboardCompletion: null,
+    clipboardAvailable: Boolean(navigator.clipboard?.writeText), lastEditor: '', lastSaving: false,
     expectedDraft: '', failMetadata: 0, afterEof: null, lastPhase: null,
   }
   const originals = { get: IDBObjectStore.prototype.get, put: IDBObjectStore.prototype.put,
@@ -48,7 +49,8 @@ export function installWriterAgentProbe({ providerOrigin }) {
     if (state.holds.length) throw new Error('Cannot reset a probe with held real callbacks')
     state.rules = []; state.events = []; state.sequence = 0
     for (const key of ['workerSync', 'workerSearch', 'workerCreated', 'sourceReads', 'oracleReads', 'graphReads', 'graphWrites', 'metadataAttempts', 'metadataCommits', 'hiddenWrites', 'contentWrites', 'commitGates', 'editorAppends', 'savingIndicatorTransitions', 'eof']) state[key] = 0
-    state.expectedDraft = draft; state.clipboard = ''; state.failMetadata = 0; state.afterEof = null
+    state.expectedDraft = draft; state.clipboard = ''; state.clipboardRequests = 0; state.clipboardCompletion = null
+    state.failMetadata = 0; state.afterEof = null
     state.lastEditor = document.querySelector('.editor-panel [contenteditable="true"]')?.textContent ?? ''
     state.lastSaving = Boolean(document.querySelector('.saving-indicator')); state.lastPhase = phase(); state.enabled = true
   }
@@ -187,6 +189,18 @@ export function installWriterAgentProbe({ providerOrigin }) {
   // Observe the genuine clipboard action while forwarding it to the native API.
   if (navigator.clipboard?.writeText) {
     const writeText = navigator.clipboard.writeText.bind(navigator.clipboard)
-    navigator.clipboard.writeText = async value => { await writeText(value); state.clipboard = value; log('clipboard-write') }
+    navigator.clipboard.writeText = async value => {
+      const requestId = ++state.clipboardRequests
+      try {
+        await writeText(value)
+        state.clipboard = value
+        state.clipboardCompletion = { requestId, status: 'fulfilled' }
+        log('clipboard-write', { requestId })
+      } catch (error) {
+        state.clipboardCompletion = { requestId, status: 'rejected', errorName: error?.name ?? 'Error' }
+        log('clipboard-write-failed', { requestId, errorName: error?.name ?? 'Error' })
+        throw error
+      }
+    }
   }
 }
