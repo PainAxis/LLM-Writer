@@ -124,7 +124,14 @@
     "smoke:memory-support-ui": "node --import tsx scripts/smoke-memory-support-ui.ts",
     "smoke:writer-memory-support": "node --import tsx scripts/smoke-writer-memory-support.ts",
     "smoke:memory-support-code": "node --import tsx scripts/eval-memory-support-code.mjs",
-    "test:browser-memory-support": "node --import tsx scripts/browser-memory-support.mjs"
+    "test:browser-memory-support": "node --import tsx scripts/browser-memory-support.mjs",
+    "smoke:memory-plot-links": "node --import tsx scripts/smoke-memory-plot-links.ts",
+    "smoke:memory-novel-scan-engine": "node --import tsx scripts/smoke-memory-novel-scan-engine.ts",
+    "smoke:memory-novel-scan-fixture": "node --import tsx scripts/smoke-memory-novel-scan-fixture.ts",
+    "smoke:memory-novel-scan-transport": "node --import tsx scripts/smoke-memory-novel-scan-transport.ts",
+    "smoke:memory-novel-scan-ui": "node --import tsx scripts/smoke-memory-novel-scan-ui.ts",
+    "test:browser-memory-novel-scan": "node --import tsx scripts/browser-memory-novel-scan.mjs",
+    "smoke:memory-novel-scan-capacity": "node --import tsx scripts/smoke-memory-novel-scan-capacity.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

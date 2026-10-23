@@ -1,0 +1,36 @@
+{
+  "scope": "Static output-policy identity and existing artifact payload inspection; no browser executed",
+  "browserAssertionsAndBehaviorByteEquivalentAfterReversingOnlyOutputPathChanges": true,
+  "ciArtifactAllowlist": [
+    "artifacts/browser-memory-novel-scan/report.json",
+    "artifacts/browser-memory-novel-scan/desktop-reviewed-bridge.png",
+    "artifacts/browser-memory-novel-scan/mobile-three-premise-review.png",
+    "artifacts/browser-memory-novel-scan/failure.png"
+  ],
+  "backupAndTraceOutsideAllUploadPaths": true,
+  "localRetainedBackup": {
+    "bytes": 8156,
+    "sha256": "341930c856501f5783b48d992d01b4b4e5bfd35e4ffa537757172d04f2af28c5",
+    "payloadCommitted": false
+  },
+  "reportFullBackupMarkersAbsent": [
+    "llm-writer-backup",
+    "exportTime",
+    "factGraphs",
+    "chapterList",
+    "contentRef"
+  ],
+  "rawReportSHA256": "1a9bd5c6df6e5e0a7c6e828872efd6292941b46def5107b182acc9c0851dee34",
+  "actualRawCounts": {
+    "tests": 20,
+    "passed": 20,
+    "writingCalls": 3,
+    "scanCalls": 1501,
+    "sourceCharsSent": 1388842,
+    "inputChars": 3404501,
+    "inputBytes": 6148689,
+    "unmockedRequests": 0
+  },
+  "historicalRemoteArtifactsDeleted": false,
+  "futureRunnerTemporaryFilesAreNotLongTermRetention": true
+}

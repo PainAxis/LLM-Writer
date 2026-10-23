@@ -1,0 +1,18 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: P01
+
+false !== true
+
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-memory-novel-scan-fixture.ts:164:10) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

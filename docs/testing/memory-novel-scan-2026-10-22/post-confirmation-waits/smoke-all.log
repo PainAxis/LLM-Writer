@@ -1,0 +1,2715 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:all
+> node scripts/run-smoke.mjs
+
+
+Running smoke:release
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:release
+> node scripts/smoke-release.mjs
+
+✓ Release requires the exact main SHA and successful quality/browser CI; PRs, forks and failed checks cannot publish
+✓ Published versions are left untouched; new packages record source SHA and CI evidence
+
+Running smoke:short-story-selection
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:short-story-selection
+> node --import tsx scripts/smoke-short-story-selection.ts
+
+✓ Repeated text replacement targets the selected second occurrence after selection moves, exactly once
+✓ Live DOM selection beats throttled editor state; missing, collapsed, foreign and invalid ranges cannot revive stale selections
+✓ A backward selection spanning rich-text marks replaces the exact range and preserves the suffix
+✓ Multi-paragraph selections and literal angle brackets, entities and replacement symbols remain plain text
+✓ Source versions, editor replacement/destruction, unsynced edits, closing and disposal reject stale selections
+✓ Empty or unrestorable selections cannot insert text into an unrelated caret
+✓ Dialog cancellation, failures, retries and editor rebuilds retain generation ownership and reject stale results
+
+Running smoke:book-analysis-library
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:book-analysis-library
+> node --import tsx scripts/smoke-book-analysis-library.ts
+
+Book analysis library: reopen/update/delete, latest disk merge, strict recovery, metadata, failed saves/retry and queued pending smoke passed
+
+Running smoke:short-story
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:short-story
+> node --import tsx scripts/smoke-short-story-generation.ts
+
+✓ All four operations reject late chunks, completions, finally and queued editor updates after restart
+✓ Cancellation aborts the transport, keeps partial text and never reports success
+✓ Closing and reopening dialogs silences late failures; changed source invalidates old results
+✓ Replacing the story cancels derived operations without interrupting independent articles
+✓ Unmount aborts every scope and prevents future writes, notifications and starts
+✓ Source edits cancel in-flight results; genuine errors and empty responses remain retryable
+✓ Typed prompts retain all user settings; config resets isolate defaults and propagate save failures
+
+Running smoke:ai
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:ai
+> node --import tsx scripts/smoke-ai-sdk.ts
+
+✓ 测试1 通过：流式生成与增量回调
+✓ 测试2 通过：真实 usage 进入计费台账
+✓ 测试3 通过：连接测试（密钥校验）
+✓ 测试4 通过：中断后保留部分内容且不会返回成功
+✓ 测试5 通过：模型列表拉取与缓存
+✓ 测试6 通过：拉取失败的错误处理
+✓ 测试7 通过：配置持久化
+✓ 测试8 通过：system 与 messages 透传
+✓ 测试9 通过：chatWithAI 自定义人设
+✓ 测试10 通过：代理前缀拼接生效
+✓ 测试11 通过：流式/非流式输出截断、纯推理耗尽预算与内容过滤均失败并保留用量
+✓ 测试12 通过：兼容未知 finish_reason 的服务
+
+=== ALL SMOKE TESTS PASSED ===
+
+Running smoke:generation-budget
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:generation-budget
+> node --import tsx scripts/smoke-generation-budget.ts
+
+✓ Compatible providers serialize thinking and total caps through the actual SDK in both generation paths
+✓ Provider defaults, unlimited mode, per-request caps and model overrides preserve their wire semantics
+✓ Native Anthropic and Google SDKs emit exact budget/effort fields and do not double-count Claude thinking
+✓ Custom native Anthropic gateways support direct model probes and both SDK generation paths with exact thinking/output budgets
+✓ All three real SDK providers guard both generation paths at actual dispatch, reject stale sources, and recheck cancellation after awaited guards
+✓ Actual SDK retry attempts revalidate source independently; edits between attempts stop subsequent payloads
+✓ Invalid budgets and unsupported model/mode combinations fail before any fetch in both paths
+✓ Budget settings persist, reload in a fresh process, and round-trip through backup
+✓ Backup validation rejects malformed budget controls before writing settings
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:compactor
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:compactor
+> node --import tsx scripts/smoke-context-compactor.ts
+
+✓ 测试1 通过：evaluateContext 阈值与预算判定
+✓ 测试2 通过：0 值表示不限
+✓ 测试3 通过：foldEntries 折叠/保留切分
+✓ 测试4 通过：keptWithinBudget 滑窗
+✓ 测试5 通过：buildSummaryPrompt 增量组装
+✓ 测试6 通过：composeSystemWithSummary 组装
+✓ 测试7 通过：最终预算计入人设/摘要，完整保留当前输入，拒绝未覆盖原文静默截断
+
+=== ALL COMPACTOR TESTS PASSED ===
+
+Running smoke:persistence
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:persistence
+> node --import tsx scripts/smoke-novel-persistence.ts
+
+✓ 1. 小正文完整保存，调用方可以等待提交完成
+✓ 2. IDB 打开失败可见且不损坏旧版，重试可恢复
+[storage] 写入 novels 触发配额限制，尝试清理可再生缓存
+[storage] 写入 novels 失败（存储配额不足）: DOMException [QuotaExceededError]: 故障注入：元数据配额不足
+    at new DOMException (node:internal/per_context/domexception:76:18)
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-novel-persistence.ts:11:49)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:158:20)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+✓ 3. 元数据失败保留完整上一版；成功重试后才删除旧分片
+✓ 4. IDB 写入事务失败不会发布新元数据，也不会损坏旧分片
+✓ 5. 数据库意外关闭后重新建连，保存重试不会永久复用无效连接
+[storage] 写入 novels 触发配额限制，尝试清理可再生缓存
+[storage] 写入 novels 失败（存储配额不足）: DOMException [QuotaExceededError]: 故障注入：元数据配额不足
+    at new DOMException (node:internal/per_context/domexception:76:18)
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-novel-persistence.ts:11:49)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:158:20)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+✓ 6. 旧调用方忽略保存返回值不会产生未处理拒绝；全局仍能获知失败
+✓ 7. 慢分片保存与快速内联保存按请求顺序提交，旧写入不会覆盖新数据
+✓ 8. 并发长正文保存串行提交；调用后的对象修改不会污染已排队快照
+✓ 9. 删除等待更早的保存后执行，重启不会让已删除小说复活
+✓ 10. 清空与前后保存有序：旧数据删除，清空后新建的数据保留
+✓ 11. 重启恢复正文并去掉旧指针，长转短内联后仍能正确恢复及清理
+✓ 12. 历史残留指针不能覆盖已缩短的正文，下一次保存会移除指针
+✓ 13. 缺失分片阻止加载与覆盖保存；恢复分片后可以重试加载
+✓ 14. 旧版固定分片键保持读取兼容，提交后安全迁移
+
+=== ALL 14 NOVEL-PERSISTENCE TESTS PASSED ===
+
+Running smoke:source-hydration
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:source-hydration
+> node --import tsx scripts/smoke-source-hydration.ts
+
+✓ 1. Empty sources avoid IDB and inline content wins over a stale reference
+✓ 2. All bodies are read in one transaction and published only after its completion
+✓ 3. A missing second body rejects the whole read without partial fill or deleted references
+✓ 4. A transaction abort after request success rejects without publishing any body
+✓ 5. Repeated references restore each chapter from the same committed body
+✓ 6. Each chapter retains the body key captured before the asynchronous read
+✓ 7. Stable metadata plus missing bodies rejects; committed reads never reuse the editor cache
+✓ 8. Concurrent metadata replacement and old-body collection retry the new committed source
+✓ 9. Continuous concurrent changes stop after eight attempts and recover once the source stabilizes
+✓ 10. A local save begun during source verification invalidates that read instead of approving its replacement
+✓ 11. Committed reads wait for the local save and return only the successfully committed body
+[storage] 写入 novels 失败: Error: Injected committed-source metadata failure
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-source-hydration.ts:49:15)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:137:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+✓ 12. A failed save blocks evidence reads despite a readable old commit; explicit retry restores access
+
+=== ALL 12 SOURCE-HYDRATION TESTS PASSED ===
+
+Running smoke:storage-coordination
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:storage-coordination
+> node --import tsx scripts/smoke-storage-coordination.ts
+
+✓ Node commits retain FIFO order and recover after thrown/async callbacks
+✓ Browser IDB has priority; open failure surfaces and later retries reopen
+✓ Independent queued IDB commits exclude one another and release after failures
+✓ Abort after completed synchronous callback reports committed result, and gate remains usable
+✓ Without IDB, native Web Locks are used; unsupported browser fails before mutation
+
+Running smoke:storage-conflicts
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:storage-conflicts
+> node --import tsx scripts/smoke-storage-conflicts.ts
+
+✓ 1. Separate works merge through the shared commit gate despite concurrent stale snapshots
+✓ 2. Same-work conflict and retry retain the local draft without forcing an overwrite
+✓ 3. Older queued full snapshots cannot delete an unrelated externally created work
+✓ 4. A queued edit followed by a revert remains an intentional successful revert
+✓ 5. A failed queued first save does not discard its changes from a later full snapshot
+✓ 6. clear refuses to erase unseen external data, including on retry
+✓ 7. replace refuses to erase unseen external data, including on retry
+✓ 8. A successful queued clear cannot replace the cache of a later normal save
+✓ 9. A successful queued replace cannot replace the cache of a later normal save
+✓ 10. A failed queued clear retains a later normal edit without deleting original works
+✓ 11. A failed queued replace retains a later normal edit without deleting original works
+✓ 12. Actual storageClear preserves ordinary keys when the novel deletion conflicts
+✓ 13. Repeated novel IDs are rejected on load, save and replacement without dropping either work
+✓ 14. Editing a work deleted by another tab cannot silently resurrect it
+✓ 15. Split正文 concurrent rebase/garbage cleanup still hydrates both committed works on restart
+✓ 16. Real goal states commit both increments through one gate and publish nothing on failure
+Passed 16 storage conflict checks
+
+Running smoke:api-config-workflow
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:api-config-workflow
+> node --import tsx scripts/smoke-api-config-workflow.ts
+
+[storage] 写入 apiConfig 触发配额限制，尝试清理可再生缓存
+[storage] 写入 apiConfig 触发配额限制，尝试清理可再生缓存
+API config workflow smoke passed: draft probes, budgets, saved defaults, scoped caches, stale-result isolation, cancellation and timeouts
+
+Running smoke:config-persistence
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:config-persistence
+> node --import tsx scripts/smoke-config-persistence.ts
+
+Config and genre persistence smoke passed: failed saves retain state and drafts; retries commit once
+
+Running smoke:prompt-catalog
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:prompt-catalog
+> node --import tsx scripts/smoke-prompt-catalog.ts
+
+✓ Shared catalog: fresh entry, legacy and string-ID migrations, intentional deletion, failed writes, partial retry and serialized edits
+✓ Actual prompt management handlers: create/edit/delete/import rollback, retry, metadata preservation, pending UX and cancellation
+
+Running smoke:corpus
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:corpus
+> node --import tsx scripts/smoke-corpus-retrieval.ts
+
+✓ 测试1 通过：关键词提取
+✓ 测试2 通过：重合度评分与 top-K
+✓ 测试3 通过：注入预算与截断
+✓ 测试4 通过：空输入兜底
+
+=== ALL CORPUS-RETRIEVAL TESTS PASSED ===
+
+Running smoke:mindmap
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:mindmap
+> node --import tsx scripts/smoke-mindmap-data.ts
+
+✓ 测试1 通过：根节点与分支结构
+✓ 测试2 通过：章节与事件挂载
+✓ 测试3 通过：角色映射与语料分组
+✓ 测试4 通过：截断 / id 唯一性 / 空数据
+
+=== ALL MINDMAP-DATA TESTS PASSED ===
+
+Running smoke:eventline
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:eventline
+> node --import tsx scripts/smoke-event-line.ts
+
+✓ 测试1 通过：标题引用迁移
+✓ 测试2 通过：章号/空值/无法匹配保留
+✓ 测试3 通过：原地修改不引入副作用
+✓ 测试4 通过：增删重排按章节身份维护事件，保留旧格式及扩展字段
+
+=== ALL EVENT-LINE TESTS PASSED ===
+
+Running smoke:prompts
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:prompts
+> node --import tsx scripts/smoke-default-prompts.ts
+
+✓ 测试1 通过：38 个模板 id 唯一、必填字段完整
+✓ 测试2 通过：全部模板占位符与填充端兼容
+✓ 测试3 通过：角色/章节/世界观解析格式硬依赖全部保留
+✓ 测试4 通过：38 个模板全部强制简体中文输出
+✓ 测试5 通过：mergeDefaultPrompts 同 id 覆盖 / 新增补齐 / 用户模板保留
+
+=== ALL DEFAULT-PROMPTS TESTS PASSED ===
+
+Running smoke:writer-content
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-content
+> node --import tsx scripts/smoke-writer-content.ts
+
+✓ Rich text retains paragraph, heading, soft-break, list and table boundaries
+✓ Named and numeric entities decode once; comments and non-visible script/style are omitted
+✓ Legacy prose retains literal angle brackets, unmatched tags, entities and internal line breaks
+✓ Word counts share visible text semantics and count emoji once without whitespace
+✓ AI body/title rendering escapes raw prose, emits valid sibling blocks and preserves streaming newlines
+✓ ShortStory streaming publishes escaped HTML without reviving cancelled, replaced or edited editor updates
+
+Running smoke:management-correctness
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:management-correctness
+> node --import tsx scripts/smoke-management-correctness.ts
+
+Management totals, legacy exports and safe paragraph previews smoke passed
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:billing-correctness
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:billing-correctness
+> node --import tsx scripts/smoke-billing-correctness.ts
+
+Billing correctness smoke passed: usage evidence, real trends, exact filters and local-calendar bounds
+
+Running smoke:writer-init
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-init
+> node --import tsx scripts/smoke-writer-init.ts
+
+✓ 测试1 通过：首次打开、重复初始化和重新打开保留四类素材
+✓ 测试2 通过：章节状态和事件引用迁移保留素材
+✓ 测试3 通过：A→B→A 不串素材或污染缓存中的世界观
+✓ 测试4 通过：空章节列表和缺失章节列表均清空旧章节及正文
+✓ 测试5 通过：缺省素材不继承上一小说数据
+✓ 测试6 通过：异步保存失败保留编辑、阻止切章和切小说，重试成功恢复
+✓ 测试7 通过：加载回调不误保存、异步保存状态真实，卸载捕获最新输入
+✓ 测试8 通过：切换小说前保存防抖期间的最新正文
+✓ 测试9 通过：切章等待保存期间的新输入也完成落盘后才切换
+✓ 测试10 通过：失效 intent 不切章，并在提交时重新解析 canonical 章节
+✓ 测试11 通过：保存保留富文本正文并统一可见字符、章节与小说总字数
+
+=== ALL WRITER-INIT TESTS PASSED ===
+
+Running smoke:ai-scope
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:ai-scope
+> node --import tsx scripts/smoke-ai-request-scope.ts
+
+✓ 独立作用域、真实连接取消、部分内容保留及取消后立即重启
+✓ 取消后迟到增量/成功结果均被拒绝，旧 finally 不覆盖新状态
+✓ 助手 run 中断保留部分回复，空回复/卸载静默取消
+✓ 非流式请求透传 signal 并真正取消连接，保留 system 换行和模型覆盖
+✓ 预取消不会联网，超时保持错误语义，提示词保留换行和缩进
+✓ 服务端 SSE 错误不会把残缺内容当作成功结果自动应用
+✓ 兼容全局中断可关闭所有并发请求
+✓ SDK 浏览器运行时无未处理 Promise 拒绝（取消、超时及服务端错误）
+
+=== AI REQUEST SCOPE TESTS PASSED ===
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:backup
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:backup
+> node --import tsx scripts/smoke-backup.ts
+
+✓ 扩展设置和导入 Skills 可恢复，会话凭证与非法调用记录被排除
+✓ 完整备份覆盖全部有效键，小说素材、助手会话、设置、原始文本往返一致
+✓ 每类备份可单独恢复，选择性导入不覆盖未选数据，旧提示词触发版本刷新
+✓ 拆书参考库可独立备份恢复，旧 v2 备份不会清空新参考库
+✓ 旧完整、小说、提示词、题材、goals 别名与顶层 settings 备份兼容，旧错误空配置不会覆盖当前 API
+✓ 损坏字段、未知版本和旧存储键注入均在写入前拒绝
+✓ 后续键写入失败会回滚前面已写入的数据
+✓ 正文导入等待异步持久化完成，拒绝会传回调用方并保留旧数据
+✓ 备份包含其他标签已提交的作品；本页保存失败时拒绝导出，重试后完整导出且草稿不丢失
+
+=== ALL BACKUP TESTS PASSED ===
+
+Running smoke:book-import
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:book-import
+> node --import tsx scripts/smoke-book-import.ts
+
+✓ TXT: UTF-8 BOM, line endings and GBK decode correctly
+✓ DOCX: actual OOXML package preserves paragraphs, breaks, tabs, table cells and escaped text
+✓ Invalid format, corruption, empty documents, encoding and read errors reject explicitly
+✓ Overlapping uploads, removal and stale errors cannot commit obsolete results
+✓ Local splitting covers the entire text and respects character boundaries
+
+=== ALL BOOK IMPORT TESTS PASSED ===
+
+Running smoke:book-workspace
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:book-workspace
+> node --import tsx scripts/smoke-book-workspace.ts
+
+✓ Import ownership survives replacement, decode failure, remove and unmount without stale commits or loading-state races
+✓ Detected and local chapters share consistent boundaries for preview, analysis and export; prompt context remains complete
+✓ Chaptered books require an explicit valid selection; unchaptered word ranges and local split boundaries remain intact
+✓ Whole-line Chinese and English headings reject inline references, with identical LF/CRLF preview, AI and export boundaries
+✓ The real import/start/clear workflow never calls AI or overwrites prior results without an explicit chapter selection
+✓ Reference-library workflow: durable report opening, identity-preserving saves, retained failure drafts, confirmation, awaited delete and repeated-click guards
+
+Running smoke:management-persistence
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:management-persistence
+> node --import tsx scripts/smoke-management-persistence.ts
+
+✓ 小说创建：失败保留输入，重试成功，无提前成功提示
+✓ 小说编辑：失败保留输入，重试成功，无提前成功提示
+✓ 小说复制：失败保留输入，重试成功，无提前成功提示
+✓ 小说删除：失败保留输入，重试成功，无提前成功提示
+✓ 章节创建：失败保留输入，重试成功，无提前成功提示
+✓ 章节编辑：失败保留输入，重试成功，无提前成功提示
+✓ 章节复制：失败保留输入，重试成功，无提前成功提示
+✓ 章节上移：失败保留输入，重试成功，无提前成功提示
+✓ 章节下移：失败保留输入，重试成功，无提前成功提示
+✓ 章节删除：失败保留输入，重试成功，无提前成功提示
+✓ 取消两类删除确认不写入，也不误报存储失败
+✓ novels/resubmit：全局重试后同表单保存保持身份、创建时间与已有内部数据
+✓ novels/rename：全局重试后同表单保存保持身份、创建时间与已有内部数据
+✓ novels/create：实际持久化服务重试同步页面，后续保存不丢失或复活数据
+✓ novels/delete：实际持久化服务重试同步页面，后续保存不丢失或复活数据
+✓ chapters/resubmit：全局重试后同表单保存保持身份、创建时间与已有内部数据
+✓ chapters/rename：全局重试后同表单保存保持身份、创建时间与已有内部数据
+✓ chapters/create：实际持久化服务重试同步页面，后续保存不丢失或复活数据
+✓ chapters/delete：实际持久化服务重试同步页面，后续保存不丢失或复活数据
+✓ legacy/create：真实管理函数与持久化后端合并不同作品，展示默认值不污染未编辑对象
+✓ legacy/edit：真实管理函数与持久化后端合并不同作品，展示默认值不污染未编辑对象
+✓ legacy/duplicate：真实管理函数与持久化后端合并不同作品，展示默认值不污染未编辑对象
+✓ legacy/delete：真实管理函数与持久化后端合并不同作品，展示默认值不污染未编辑对象
+✓ legacy/conflict：同作品冲突仍拒绝，原表单草稿与远端版本均保留
+
+=== ALL MANAGEMENT-PERSISTENCE TESTS PASSED ===
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:novel-list
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:novel-list
+> node --import tsx scripts/smoke-novel-list.ts
+
+✓ Novel list filters compose, actual chapter counts drive sorting and source order remains intact
+
+Running smoke:writer-actions
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-actions
+> node --import tsx scripts/smoke-writer-actions.ts
+
+✓ 页面动作经真实 controller 等待旧章落盘，再用冻结快照生成目标章
+✓ project selection 分别报告“已保存但 intent 失效”与“保存失败”
+✓ 正文落盘失败时保留可重试编辑状态，不误报成功
+
+=== ALL WRITER-ACTIONS TESTS PASSED ===
+
+Running smoke:writer-chapter-crud
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-chapter-crud
+> node --import tsx scripts/smoke-writer-chapter-crud.ts
+
+✓ 新建失败保留草稿且不遗留幽灵项，重试复用同一 ID
+✓ 编辑失败回滚列表但保留草稿，重试后同步当前章节
+✓ 删除失败完整回滚，成功删除当前章后选择剩余章节
+✓ 删除非当前章抛错可重试，目标关联清空、保留章节关联不变
+✓ 取消确认不改变章节状态
+
+=== WRITER CHAPTER CRUD TESTS PASSED ===
+
+Running smoke:writer-chapter-workspace
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-chapter-workspace
+> node --import tsx scripts/smoke-writer-chapter-workspace.ts
+
+✓ 打开工作区仅初始化目标章之前最近两个有效章节
+✓ v-model 与操作入口都会剔除目标章、未来章、重复和未知 ID
+✓ 用户清空上下文后，配置或章节变化不会偷偷恢复默认选择
+✓ 四类素材与唯一上下文 ID 同步填充模板，不保存章节副本
+✓ 兼容现有语料推荐逻辑对选中数组的直接合并
+✓ 输入和配置变化重算自动变量，同时保留用户自定义变量
+✓ 生成快照与后续工作区变化隔离，可安全跨章节切换
+✓ 切换正文分类会清除不可见的旧分类模板
+✓ 只有再次 open 新目标章时才重新初始化最近上下文，reset 完整收口状态
+✓ 工作区保持纯同步边界，不依赖 UI、路由、AI 或持久化
+
+=== WRITER CHAPTER WORKSPACE TESTS PASSED ===
+
+Running smoke:writer-chapter-content-prompt
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-chapter-content-prompt
+> node --import tsx scripts/smoke-writer-chapter-content-prompt.ts
+
+✓ 小说类型别名与写作视角使用统一映射
+✓ 正文提示词完整注入配置与四类素材，并从快照解析事件参与角色
+✓ 长上下文仅保留首尾片段，短上下文完整保留且清除 HTML 标签
+✓ 空素材与空上下文不生成空章节，未知值使用稳定兜底
+
+=== WRITER CHAPTER CONTENT PROMPT TESTS PASSED ===
+
+Running smoke:writer-chapter-content-generation
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-chapter-content-generation
+> node --import tsx scripts/smoke-writer-chapter-content-generation.ts
+
+✓ 协调器透传 workspace，并收口素材/上下文提示与语料推荐去重
+✓ 先冻结快照、后等待持久化切章，双击与后续表单修改不污染请求
+✓ 切章失败/关闭/异常均使 launch 安全失效，且异常规范化为 false
+✓ 编辑或显式 cancel 作废旧请求，迟到结果隔离且可立即重启
+✓ 保存失败保留正文；提交阶段 cancel 为 no-op，reset 延迟且 barrier 等到完整收尾
+✓ 过期快照、persist reject、同 ID 重载、元数据修改与删章均隔离迟到结果
+✓ 章节 launch 交接只覆盖同步自动关闭；手动关闭、慢切章、请求等待与异常均无豁免
+
+=== WRITER CHAPTER CONTENT GENERATION TESTS PASSED ===
+
+Running smoke:writer-chapter-edit-outline-generation
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-chapter-edit-outline-generation
+> node --import tsx scripts/smoke-writer-chapter-edit-outline-generation.ts
+
+✓ 默认提示词使用前文章节快照，chunk 仅进预览，完整结果原子写入一次
+✓ 用户中途编辑即永久作废请求，改回原值也不能恢复旧结果权限
+✓ 表单或 editingChapter 对象替换都会隔离迟到结果
+✓ 同 ID 项目重载、关闭重开及上下文改动均会永久作废旧请求
+✓ 独立取消及请求接管可屏蔽旧 chunk、旧完成值与旧 finally
+✓ 前置校验、创建态上下文与请求失败路径保持表单完整
+✓ 真实正文自动保存及前章字数/状态/时间元数据变化不再取消编辑大纲
+✓ 身份/顺序/标题/前章大纲和用户手写大纲变更仍永久取消迟到结果
+
+=== WRITER CHAPTER EDIT OUTLINE GENERATION TESTS PASSED ===
+
+Running smoke:writer-chapter-outline-generation
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-chapter-outline-generation
+> node --import tsx scripts/smoke-writer-chapter-outline-generation.ts
+
+✓ 单章生成使用快照与唯一 ID，成功保存后完整重置对话框
+✓ 保存失败按插入对象回滚章节，同时保留可重试表单
+✓ 不可取消的保存阶段锁定操作，完成后执行延迟 reset
+✓ 表单/章节上下文变化作废 prompt 与请求，同 ID 小说重载也隔离迟到结果
+✓ waitForCommit 等待完整事务，并将持久化 reject 规范化为 false
+✓ 已取消的底层请求尚未结算时仍可立即开始新请求
+✓ 批量生成真实解析结果完整匹配数量后才提交
+✓ 中英文明确结构、markdown与多行大纲完整解析，拒绝任意段落/拒绝/不完整块
+批量章节生成失败: Error: AI返回内容无法解析为章节大纲
+    at generate (/workspace/shared/LLM-Writer-novel-scan/src/composables/useWriterChapterOutlineGeneration.ts:405:40)
+批量章节生成失败: Error: 期望生成3个章节，实际解析出2个章节；未保存，请检查原始回答后重试
+    at generate (/workspace/shared/LLM-Writer-novel-scan/src/composables/useWriterChapterOutlineGeneration.ts:407:17)
+批量章节生成失败: Error: AI返回内容无法解析为章节大纲
+    at generate (/workspace/shared/LLM-Writer-novel-scan/src/composables/useWriterChapterOutlineGeneration.ts:405:40)
+✓ 解析失败/数量不符不落盘，保留完整原文与可重试表单
+✓ 章节身份、顺序、标题与大纲真实变更永久取消旧结果，改回也不能恢复
+✓ 真实正文2秒自动保存更新字数/正文/时间不再丢失批量章节结果
+
+=== WRITER CHAPTER OUTLINE GENERATION TESTS PASSED ===
+
+Running smoke:writer-chapter-outline-prompts
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-chapter-outline-prompts
+> node --import tsx scripts/smoke-writer-chapter-outline-prompts.ts
+
+✓ 章节模板描述保持页面原有映射和兜底
+✓ 已有章节与最近 5 章 helper 保留原有编号、空大纲、字数语义
+✓ 请求 snapshot 仅复制 prompt 必需字段，并隔离后续表单/章节变更
+✓ 当前章节大纲 prompt 完整注入小说、人物、世界观与已有章节
+✓ 单章默认/自定义 prompt 共用快照与约束，空自定义内容回退默认路径
+✓ 批量默认/自定义 prompt 继承最近 5 章上下文和最终机器解析契约
+✓ 五条 prompt 路径通过完整输出 golden 校验
+
+=== WRITER CHAPTER OUTLINE PROMPT TESTS PASSED ===
+
+Running smoke:writer-material-parsers
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-material-parsers
+> node --import tsx scripts/smoke-writer-material-parsers.ts
+
+✓ 角色字段逐行解析，中文外貌/性格/背景不会被字段名字符截断
+✓ 重复姓名与中英文冒号可稳定分段
+✓ 连续“标题”设定保留首项，并同步保存中文 type 与英文 category
+✓ 仅行首完整编号触发分段，描述中的小数保持完整
+✓ 标准“设定N”格式兼容中英文冒号
+✓ 世界观中文类型归一化及空输入行为稳定
+
+=== WRITER MATERIAL PARSER TESTS PASSED ===
+
+Running smoke:writer-material-prompts
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-material-prompts
+> node --import tsx scripts/smoke-writer-material-prompts.ts
+
+✓ Writer 类型描述兼容 canonical 与 legacy alias
+✓ 默认批量角色提示词包含当前配置、智能分配约束与最终机器格式
+✓ 自定义批量角色模板仍追加机器格式，并真实响应 autoAssignRoles=false
+✓ 默认批量世界观提示词覆盖配置中的全部 10 类设定
+✓ 自定义批量世界观模板无条件追加支持 10 类设定的机器格式
+
+=== WRITER MATERIAL PROMPT TESTS PASSED ===
+
+Running smoke:writer-batch-material-generation
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-batch-material-generation
+> node --import tsx scripts/smoke-writer-batch-material-generation.ts
+
+✓ 批量角色完整响应仅解析一次，自定义模板仍保留最终格式契约
+✓ 批量角色保存失败保留结果，重试仅提交当前选中项，成功后关闭
+✓ 关闭批量角色弹窗会取消请求并屏蔽迟到响应
+✓ 批量世界观 waitForImport 传递真实保存失败结果
+✓ 批量角色配置变化会作废旧的 rendered prompt
+✓ 批量角色导入期间锁定操作，成功后执行延迟 reset
+✓ 批量世界观控制器通过纯 builder 生成 prompt，并仅解析完整响应
+✓ 小说切换会重置世界观控制器，旧请求结果无法串入新小说
+
+=== WRITER BATCH MATERIAL GENERATION TESTS PASSED ===
+
+Running smoke:writer-form-generation
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-form-generation
+> node --import tsx scripts/smoke-writer-form-generation.ts
+
+✓ 角色流式内容仅更新预览，完整响应解析后只提交一次
+✓ 请求失败保留完整原表单且不解析半成品
+✓ 取消请求清空预览、保留原表单并屏蔽取消异常
+✓ 新操作屏蔽旧 chunk、旧完成值和旧 finally
+✓ 小说对象即使 ID 相同但已重新加载，也拒绝旧生成结果
+✓ 表单替换或原地编辑都会让旧结果失效
+✓ 世界观描述同样只在成功后原子提交，并保留其他表单字段
+
+=== WRITER FORM GENERATION TESTS PASSED ===
+
+Running smoke:writer-generation-arbiter
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-generation-arbiter
+> node --import tsx scripts/smoke-writer-generation-arbiter.ts
+
+Writer generation arbiter smoke checks passed
+
+Running smoke:writer-material-form-prompts
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-material-form-prompts
+> node --import tsx scripts/smoke-writer-material-form-prompts.ts
+
+✓ 默认角色提示词完整保留小说上下文、角色映射与强制输出契约
+✓ 自定义角色提示词保持原文及空字符串路径，末尾格式契约具有最终优先级
+✓ 世界观提示词复用类型描述，并保持类别与缺省值映射
+✓ 角色最终响应维持全角冒号、半角逗号、末项覆盖及缺失字段语义
+✓ 世界观最终响应不裁剪首尾空白
+
+=== WRITER MATERIAL FORM PROMPT TESTS PASSED ===
+
+Running smoke:writer-material-crud
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-material-crud
+> node --import tsx scripts/smoke-writer-material-crud.ts
+
+✓ 新增失败不遗留幽灵项，草稿可原样重试
+✓ 编辑草稿隔离嵌套数组，失败回滚列表且保留表单
+✓ 删除失败恢复原位，复制失败回滚，取消确认不触发保存
+✓ 批量导入重新分配冲突 ID，保存失败回滚，成功时隔离原始结果
+✓ 小说对象与 epoch 双重校验可防止 A→B→A 的迟到事务污染新实例
+✓ 四类素材共用一个事务锁，路由可等待当前完整快照保存
+✓ Legacy corpus import is atomic, awaited, collision-safe and tied to the original project
+✓ 命名空语料保存后可导回，导入失败完整回滚并可重试
+
+=== ALL WRITER MATERIAL CRUD TESTS PASSED ===
+
+Running smoke:writer-continue
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-continue
+> node --import tsx scripts/smoke-writer-continue.ts
+
+✓ 续写门槛不计空白或段落分隔，Unicode字符计数与编辑器一致
+✓ 续写生成使用纯文本上下文、人物信息、方向和字数
+✓ 续写追加保存失败可重试，正文只应用一次
+✓ 续写提交不可取消，重复点击复用事务并延迟重置和关闭
+追加续写失败: Error: 存储不可用
+    at main (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-writer-continue.ts:166:23)
+✓ 续写持久化 reject 归一为 false，并保留原地重试状态
+✓ 章节切换后拒绝把旧续写写入新章节
+✓ 关闭续写对话框会取消请求并屏蔽迟到结果
+
+=== WRITER CONTINUE TESTS PASSED ===
+
+Running smoke:writer-optimize
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-optimize
+> node --import tsx scripts/smoke-writer-optimize.ts
+
+✓ 默认润色模板在真实controller flow填入原文，特殊符号literal保留
+✓ 润色模式、提示词互斥和流式生成结果
+✓ 选区替换保存失败可重试，编辑器只应用一次
+✓ 润色应用不可取消，重复点击复用事务并延迟重置和关闭
+替换失败: Error: 存储不可用
+    at main (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-writer-optimize.ts:195:23)
+✓ 润色持久化 reject 归一为 false，并保留原地重试状态
+✓ 选区变化时拒绝替换其他文本
+✓ 全文确认期间切章不会污染新章节
+✓ 全文替换保存失败可直接重试且只应用一次
+✓ 停止润色保留部分结果并屏蔽迟到完成值
+
+=== WRITER OPTIMIZE TESTS PASSED ===
+
+Running smoke:writer-prompts
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-prompts
+> node --import tsx scripts/smoke-writer-prompts.ts
+
+✓ 通用提示词选择器：目标分类、变量提取、插值与重置
+✓ Writer 提示词路由：5 个入口由独立编排器接管，通用选择器与章节工作区状态隔离
+
+=== WRITER PROMPT TESTS PASSED ===
+
+Running smoke:writer-prompt-orchestration
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-prompt-orchestration
+> node --import tsx scripts/smoke-writer-prompt-orchestration.ts
+
+✓ 提示词目录：默认库升级、用户模板保留、刷新、默认选择与入口
+✓ 五类提示词路由：变量填充、表单与章节同步、生成目标回调
+✓ 项目作用域：同 ID 小说重载与章节集合替换都会废弃旧选择
+✓ 提示词复制：成功与失败回调均有确定结果
+
+=== WRITER PROMPT ORCHESTRATION TESTS PASSED ===
+
+Running smoke:bundle
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:bundle
+> node --import tsx scripts/smoke-bundle.ts
+
+✓ 首页依赖图不含编辑器，动态功能仍保留
+✓ 首页依赖图不含AI SDK，动态功能仍保留
+✓ 首页依赖图不含导图库，动态功能仍保留
+✓ 首页依赖图不含Mammoth DOCX 解析器，动态功能仍保留
+✓ 首页依赖图不含Cytoscape 事实关系图，动态功能仍保留
+✓ 写作页静态依赖不含编辑器，WriterEditor 动态入口完整
+✓ 拆书页静态依赖不含 Mammoth，DOCX 动态入口完整
+✓ 导图页功能依赖完整
+入口静态 JS：411,926 bytes gzip
+含首页路由 JS：421,463 bytes gzip
+写作页静态 JS：545,624 bytes gzip
+编辑器异步 JS：271,957 bytes gzip
+构建依赖图回归通过
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:persistence-retry
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:persistence-retry
+> node --import tsx scripts/smoke-persistence-retry.ts
+
+✓ 传入对象、读出对象与排队/重试快照相互隔离
+[storage] 写入 novels 失败: Error: 故障注入：保存失败
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-persistence-retry.ts:9:41)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:137:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+[storage] 写入 novels 失败: Error: 故障注入：保存失败
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-persistence-retry.ts:9:41)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:137:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+✓ 失败创建/删除经全局重试同步列表；后续保存不丢项目、不复活删除项
+[storage] 写入 novels 失败: Error: 故障注入：保存失败
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-persistence-retry.ts:9:41)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:137:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+[storage] 写入 novels 失败: Error: 故障注入：保存失败
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-persistence-retry.ts:9:41)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:137:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+[storage] 写入 novels 失败: Error: 故障注入：保存失败
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-persistence-retry.ts:9:41)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:137:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+[storage] 写入 novels 失败: Error: 故障注入：保存失败
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-persistence-retry.ts:9:41)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:137:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+[storage] 写入 novels 失败: Error: 故障注入：保存失败
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-persistence-retry.ts:9:41)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:137:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+✓ Writer 章节和四类素材删除回滚后，全局重试保存当前状态，不重放撤回的删除
+[storage] 写入 novels 失败: Error: 故障注入：保存失败
+    at Object.setItem (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-persistence-retry.ts:9:41)
+    at writeSerializedWithRetry (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:137:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/novelPersistence.ts:189:14)
+    at runSync (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:6:18)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/storageCoordination.ts:25:41)
+✓ 全局重试捕获失败后的新输入，并同步清除 Writer 未保存/错误状态
+✓ 防抖尚未提交时关闭保护生效，保存完成后解除，dispose 释放事件
+✓ 多个页面处理器分别清理，旧实例不会注销新实例或被意外复活
+✓ 注入独立存储的实例不注册全局重试，也不会注销实际页面的处理器
+
+=== ALL 7 PERSISTENCE-RETRY TESTS PASSED ===
+
+Running smoke:writer-stream
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-stream
+> node --import tsx scripts/smoke-writer-stream.ts
+
+✓ 真实 project + request scope：切章取消半截流，迟到正文不跨章写入
+✓ 同章编辑同步作废请求，并保留用户正文直至显式保存
+✓ 正文提交屏障等待真实 project 落盘，期间 reset 被延迟
+
+=== WRITER STREAM TESTS PASSED ===
+
+Running smoke:tools-workspace
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:tools-workspace
+> node --import tsx scripts/smoke-tools-workspace.ts
+
+PASS actual Tools handlers: stable IDs, HTML references, dedicated/compatible templates, all tool generation and invalid-template draft retention
+
+Running smoke:tools
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:tools
+> node --import tsx scripts/smoke-tools.ts
+
+PASS tool catalog, required forms, prompt context, templates and bounded chapter selection
+PASS all tool/template field contracts, stable novel IDs, HTML context, template compatibility and literal substitutions
+
+Running smoke:generation-task
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:generation-task
+> node --import tsx scripts/smoke-generation-task.ts
+
+✓ Generation ownership covers abort, source changes, dialog closure, unmount, restart, late callbacks and asynchronous recovery
+
+Running smoke:mindmap-editing
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:mindmap-editing
+> node --import tsx scripts/smoke-mindmap-editing.ts
+
+✓ Editable maps preserve bodies/metadata, validate structure, repair links, reject conflicts and await/retry persistence without duplicate identities
+
+Running smoke:assistant-policy
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:assistant-policy
+> node --import tsx scripts/smoke-assistant-policy.ts
+
+✓ legacy/global/custom resolution, immutable defaults, real request budgets, reload and complete local history
+✓ per-assistant summary/model/retry, policy aborts, stale completion rejection, preparation lock and clear/delete persistence
+✓ successful custom summary is included in outgoing system context with retained messages
+✓ coverage cursors preserve originals during delayed/failed summaries, incremental input, retry and reload
+✓ legacy string summaries safely rebuild from original history
+✓ failed create/edit/policy/send/clear/delete preserve committed state, inputs can retry without duplicate requests
+✓ failed final save retains generated reply and retries persistence without another AI call
+✓ final request budget includes persona, preserves current input and releases preparation on rejection
+✓ failed summary storage keeps text and cursor together; hard budgets reject uncompressed originals before requesting AI
+✓ unexpected request rejection cleans its pair and remains retryable without duplicate entries
+✓ actual assistant view handlers retain failed dialog and per-assistant message drafts
+✓ summary decisions allow originals only within budget; over-budget failures offer retry/cancel without a request
+✓ summary text/cursor pair refreshes when background compaction completes during the confirmation dialog
+
+Running smoke:legacy-view-data
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:legacy-view-data
+> node --import tsx scripts/smoke-legacy-view-data.ts
+
+Legacy view data smoke passed
+
+Running smoke:virtual-messages
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:virtual-messages
+> node --import tsx scripts/smoke-virtual-messages.ts
+
+Virtual message window smoke passed
+
+Running smoke:corpus-transfer
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:corpus-transfer
+> node --import tsx scripts/smoke-corpus-transfer.ts
+
+Corpus legacy import, collision preservation and portable roundtrip smoke passed
+
+Running smoke:writing-goals
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writing-goals
+> node --import tsx scripts/smoke-writing-goals.ts
+
+Writing streaks follow captured historical units across goal type changes and preserve legacy exclusions
+Goal units preserve legacy custom data, exclude chapters/time, and retain historical units across transactional edits
+Writing goals shared state, history, rollback, serialization, corrections and local-calendar streak smoke passed
+
+Running smoke:mcp
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:mcp
+> node --import tsx scripts/smoke-mcp.ts
+
+Passed MCP modern/legacy HTTP discovery, opt-in tools, previews, limits, Jina auth compatibility, cancellation and cleanup
+
+Running smoke:writing-skills
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writing-skills
+> node --import tsx scripts/smoke-writing-skills.ts
+
+Agent Skills smoke passed: YAML imports, package boundaries, progressive loading, bounded reference tools, built-ins, and cancellation.
+
+Running smoke:writing-tools
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writing-tools
+> node --import tsx scripts/smoke-writing-tools.ts
+
+✓ Writing tools passed: selected-project isolation, source references, pagination, bounded evidence, allowlists, validation and cancellation
+
+Running smoke:extension-settings
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:extension-settings
+> node --import tsx scripts/smoke-extension-settings.ts
+
+Extension settings smoke passed: transactional persistence, session credentials, explicit selections and detached request snapshots
+
+Running smoke:extension-generation
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:extension-generation
+> node --import tsx scripts/smoke-extension-generation.ts
+
+PASS custom text extension-writing evidence loop and aggregate billing
+PASS custom text extension-skill evidence loop and aggregate billing
+PASS custom text extension-mcp evidence loop and aggregate billing
+PASS custom text step cap reports unfinished and retains usage
+PASS custom text failed second request retains first-step usage
+PASS custom text MCP tool error remains visible in trace and native result
+PASS custom stream extension-writing evidence loop and aggregate billing
+PASS custom stream extension-skill evidence loop and aggregate billing
+PASS custom stream extension-mcp evidence loop and aggregate billing
+PASS custom stream step cap reports unfinished and retains usage
+PASS custom stream failed second request retains first-step usage
+PASS custom stream MCP tool error remains visible in trace and native result
+PASS anthropic text extension-writing evidence loop and aggregate billing
+PASS anthropic text extension-skill evidence loop and aggregate billing
+PASS anthropic text extension-mcp evidence loop and aggregate billing
+PASS anthropic text step cap reports unfinished and retains usage
+PASS anthropic text failed second request retains first-step usage
+PASS anthropic text MCP tool error remains visible in trace and native result
+PASS anthropic stream extension-writing evidence loop and aggregate billing
+PASS anthropic stream extension-skill evidence loop and aggregate billing
+PASS anthropic stream extension-mcp evidence loop and aggregate billing
+PASS anthropic stream step cap reports unfinished and retains usage
+PASS anthropic stream failed second request retains first-step usage
+PASS anthropic stream MCP tool error remains visible in trace and native result
+PASS schemas and selected skill instructions count before the first provider request
+PASS read reference content is re-budgeted before a subsequent provider step
+PASS unadvertised provider tool calls never execute project access
+PASS cancel during a real MCP HTTP wait emits no late success or final reply
+PASS missing provider usage is estimated rather than misreported as zero
+PASS schemas and selected skill instructions count before the first provider request
+PASS read reference content is re-budgeted before a subsequent provider step
+PASS unadvertised provider tool calls never execute project access
+PASS cancel during a real MCP HTTP wait emits no late success or final reply
+PASS missing provider usage is estimated rather than misreported as zero
+PASS native Anthropic cancellation retains tool-call usage during MCP execution
+PASS native Anthropic cancellation retains tool-call usage during MCP execution
+PASS real assistant reserves schema/Skill budget and clears stale in-flight tools without late writes
+Extension business generation smoke passed: 37 provider/loop/billing/budget/authorization/cancellation scenarios
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:jina-writing-evidence
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:jina-writing-evidence
+> node --import tsx scripts/smoke-jina-writing-evidence.ts
+
+Jina historical evidence regression passed: later matching dates, construction exclusions and first use
+
+Running smoke:memory
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory
+> node --import tsx scripts/smoke-memory-retrieval.ts
+
+✓ 伏笔别名跨 79 章找回，中文专名命中，后文身份受披露截止限制
+✓ 截止过滤发生在 top-k 之前，120 个未来章节不能挤走早期依据
+✓ 大量近似伏笔不会挤走精确原文事实，独有伏笔别名仍可优先找回
+✓ 旧章修订立即阻止旧索引读取，旧事实及旧版本伏笔不再返回
+✓ 错误引用、非法偏移、已删章节和旧修订伏笔均被排除
+✓ 章节重排按当前披露顺序生效，删除与非法截止都不会扩大可见范围
+✓ 项目隔离，输入和返回统计的外部修改不能污染索引快照
+✓ 相同来源复用索引；正文、顺序和伏笔变化仍完整校验，旧请求和失败构建保持失效
+✓ 构建失败后保持阻止检索；较旧构建和检索无法覆盖新快照
+✓ UTF-16 分块完整保留孤立代理项并持续前进，单字查询可命中词内部，空项目安全关闭检索
+✓ 合成百万字 / 1,000 章容量检查：{"chars":1000034,"chunks":1000,"buildMs":535,"searchMs":1.2,"processRssMiB":102.7}（单次 Node 合成检查，非生产基准）
+=== ALL MEMORY RETRIEVAL TESTS PASSED ===
+
+Running smoke:memory-cold-comparison
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-cold-comparison
+> node scripts/smoke-memory-cold-comparison.mjs
+
+✓ Equivalent reports pass even when all candidate timings regress
+✓ Incomplete report
+✓ Dirty production source
+✓ Changed provider dependency
+✓ Omitted dependency in every report
+✓ Different implementation within one variant
+✓ Changed fixture
+✓ Changed harness
+✓ Changed machine
+✓ Overlapping ABBA runs
+✓ Changed source fingerprint
+✓ Skipped index work
+✓ Changed complete returned result hash
+✓ Changed hit order
+✓ Changed answerability
+✓ Omitted query in every report
+✓ Hidden provider request
+✓ Unexpected network attempt
+✓ Invalid timing
+
+Running smoke:memory-token-scores
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-token-scores
+> node --import tsx scripts/smoke-memory-token-scores.ts
+
+✓ fresh token arrays: full scoring state and search scores match default Orama across insert/remove/update/load
+✓ reused token array: full scoring state and search scores match default Orama across insert/remove/update/load
+✓ Direct hook edge cases, including NaN and prototype keys, retain default scoring state
+✓ Token visits fall from n² + n to 2n without timing thresholds or scoring changes
+
+Running smoke:memory-mixed-query
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-mixed-query
+> node --import tsx scripts/smoke-memory-mixed-query.ts
+
+✓ 原 600 章失败语料：中文＋编号找回 1,199 字原文，真实引用与披露范围一致
+✓ 非固定格式编号、大小写、汉字边界、前后缀碰撞、连字符／下划线及无编号回退
+✓ 多编号完整覆盖优先，分散依据保留，重复与不存在的编号不会伪造完整覆盖
+✓ 原文、章节标题、作者标签／别名分别说明来源，不把标注冒充为引文内容
+✓ 分块／伏笔引用边缘及超长完整编号均不会制造较短的精确匹配
+✓ 引文自身不变而相邻原文字符变化时，增量更新仍撤销／恢复完整编号资格
+✓ 披露截止先于编号候选上限，重排旧插入顺序与跨项目切换不会混入后文／他书
+✓ 同长改稿、标题／别名修改、删除、失效与失败／取消构建后，增量和全量结果一致
+✓ 默认零网络请求；显式语义／重排保留排序权并收到已补回的当前披露证据
+=== ALL MIXED QUERY RETRIEVAL TESTS PASSED ===
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:memory-match-signals
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-match-signals
+> node --import tsx scripts/smoke-memory-match-signals.ts
+
+✓ 空结果、部分词面和完整查询分开；完整词面、否定／未回答语句均不等于答案
+✓ 完整编号与混合查询逐次检查词边界，近似码、重复码及异常／超长码不能绕过
+✓ 引用外的源文邻字符阻止截断编号；标题与单项标注保留独立边界
+✓ 原文／标题／单项标注来源独立，不输出标签秘密；多编号跨所选依据聚合且缺失只限当前集合
+✓ engine生产结果包含结构化signals；旧修订、未披露编号与返回对象篡改不污染当前集合
+✓ 相同拼接文本但不同标签／别名边界的增量更新与冷构建一致
+✓ 语义完全相似与极高重排分数均不能把间接候选升级为答案；仅使用本地mock
+=== ALL MEMORY MATCH SIGNALS TESTS PASSED ===
+
+Running smoke:memory-full-scan
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-full-scan
+> node --import tsx scripts/smoke-memory-full-scan.mjs
+
+✓ Default over-capacity fallback and callback-free explicit plan make zero provider calls
+✓ All 46 unchanged independent probes / 62 premises pass cold and warm real-adapter scans; 129/67 calls
+✓ Separate protocol positives, exact-code/clue regressions and closed-fixture negatives retain their own denominators
+✓ A real adapter middle-batch failure pauses; explicit retry consumes another call without duplicate accepted coverage
+✓ A malformed real JSON middle batch is atomic; retry does not accept its earlier valid rows twice
+✓ Source invalidation during an actual adapter response settles and cannot publish or cache the late batch
+✓ Explicit small-range scan preserves ordinary semantic fusion and excludes cached future sources after narrowing
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:memory-full-scan-session
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-full-scan-session
+> node --import tsx scripts/smoke-memory-full-scan-session.ts
+
+✓ plan sends no requests; 4096-source cold/warm scans use 129/67 attempts and exactly match materialized top-K
+✓ small-corpus explicit budgets, atomic invalid grants, stale handles, and duplicate grant idempotency
+✓ malformed middle batch commits nothing; explicit retry consumes a new attempt and never duplicates accepted coverage
+✓ active deadline detaches a held response, preserves cumulative accounting, and retries only uncovered sources
+✓ cancellation, source changes, guard rejection, and idle expiry are fatal and cannot revive late results
+✓ guards and local-stop validation obey cumulative active authorization; local validation excludes concurrent resume
+✓ guard+provider share remaining page time; automatic pages preserve the cumulative 65s ceiling
+✓ production engine: fullScan budgets apply below 2000, local stop forbids rerank, rerank pauses for allocation, source guards remain fatal
+=== FULL SCAN SESSION TESTS PASSED ===
+
+Running smoke:memory-full-scan-client
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-full-scan-client
+> node --import tsx scripts/smoke-memory-full-scan-client.ts
+
+✓ One search Promise survives ready/paging, zero-add start, stale messages, and resolves exactly once
+✓ Missing callback chooses local; throwing callback cancels without granting work
+✓ Every idle decision wait races abort/new query/sync/invalidate/dispose/absolute expiry
+✓ Async progress and a late start response cannot outlive the logical search
+✓ Guards, final results, and grants are request/session/generation-bound; source denial is fatal
+✓ Worker death/undecodable messages/90s timeout reject active and paused searches, explicitly losing the checkpoint
+✓ Repeated scan/cancel/query changes leave no pending RPCs, callbacks, or revived grants
+✓ Actual Worker page timeout cleans guards; stale ACK/cancel cannot affect a newer page, duplicate grants are idempotent, and use-local never reranks
+[storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:39:17)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async <anonymous> (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-memory-full-scan-client.ts:387:42)
+[storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:42:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async <anonymous> (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-memory-full-scan-client.ts:387:42)
+[storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:43:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async <anonymous> (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-memory-full-scan-client.ts:387:42)
+[storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:60:23)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async <anonymous> (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-memory-full-scan-client.ts:387:42)
+[storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:65:31)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async <anonymous> (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-memory-full-scan-client.ts:387:42)
+✓ Writer controls propagate through its existing prepare once, without leaking callbacks, session state, or provider keys into generation
+
+Running smoke:writer-full-scan-ui
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-full-scan-ui
+> node --import tsx scripts/smoke-writer-full-scan-ui.ts
+
+[storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:39:17)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:42:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:43:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:60:23)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:65:31)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+✓ Full scan defaults off, 160 calls / 65 s; explicit 5/10 min choices and snapshotted settings
+✓ Bound author decisions, atomic UI grant validation, duplicate clicks and late callbacks fail closed
+✓ Real prepare/selection pipeline: one save/sync/search across plan, budget/provider pauses and final explicit approval
+✓ Use local resolves the original preparation without selecting or approving partial semantic evidence
+✓ Cancel/query/provider/cutoff/editor/old-chapter/disposal revoke waits; late decisions cannot revive them
+✓ Shared Lab guard blocks concurrent committed edits/owner changes; source wiring checked below (no production network exercised)
+✓ Both surfaces expose stable control IDs, honest costs/coverage, editable inputs and legacy diagnostics guards
+✓ Actual Vue SSR renders ready/budget/provider controls, no partial approval, editable query and legacy previews
+=== WRITER FULL-SCAN UI TESTS PASSED ===
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:memory-providers
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-providers
+> node --import tsx scripts/smoke-memory-providers.ts
+
+✓ 配置限制完整 HTTPS/本机接口、会话密钥、模型和维度，拒绝 URL 凭据与查询参数
+✓ Jina 查询/原文任务与 OpenAI 兼容载荷区分，禁止跨分块 late chunking，按索引恢复向量顺序
+✓ 不完整、重复索引、错维、零向量及非有限/Float32 无法表示的向量全部拒绝
+✓ 重排完整覆盖候选、按有限分数排序，服务返回的文档与伪造原文全部丢弃
+✓ 输入预算在联网前生效，HTTP/重定向/JSON/网络异常不会泄漏远程错误或密钥
+✓ 响应长度与流量上限、非法编码、预先取消、进行中取消及超时均受控并释放响应流
+Memory provider adapter smoke checks passed (offline fixtures).
+
+Running smoke:memory-hybrid
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-hybrid
+> node --import tsx scripts/smoke-memory-hybrid.ts
+
+✓ 无关键词重合的同义请求通过语义召回得到原文依据；未来章节未进入远程请求
+✓ 相同修订重复检索复用片段向量，手工伏笔别名通道继续参与融合
+✓ 扩大再缩小披露范围后，已缓存未来向量不会参与召回或远程重排
+✓ 修改旧章后只重新嵌入改动片段，旧事实、旧向量和旧伏笔不再返回
+✓ 章节重排／删除、项目切换、模型、维度、凭据、端点与协议变化均保持隔离
+✓ 重排非法索引、服务失败及无效设置均明确回退，本地证据和安全提示保持可用
+✓ 编辑和新查询会中止旧远程请求；迟到结果不能写入向量缓存或触发后续请求
+✓ 查询设置采用初始快照；总时间预算耗尽后保留本地证据，不再发起后续请求
+✓ 超过语义片段上限时完整回退，重排候选始终不超过 60 条
+=== ALL MEMORY HYBRID TESTS PASSED ===
+
+Running smoke:memory-client
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-client
+> node --import tsx scripts/smoke-memory-client.ts
+
+✓ Source invalidation rejects pending work, retains its worker, and ignores late results before fresh sync
+✓ An uncloneable replacement source invalidates old readiness before serialization fails
+✓ Every remote dispatch awaits a live source guard; denials carry no private payload and superseded approvals are discarded
+✓ Failed transport and explicit disposal purge workers; late old-worker events cannot affect replacements
+
+Running smoke:memory-incremental
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-incremental
+> node --import tsx scripts/smoke-memory-incremental.ts
+
+✓ 来源失效立即阻止检索；重复失效后可验证复用完整索引，统计不可被调用者污染
+✓ 等长旧章改稿只替换变化正文和失效伏笔；旧人物与旧别名均消失
+✓ 仅伏笔修改不重建正文；重排无需重新分词，删除与披露截止实时生效
+✓ 66 轮连续改稿保持检索与冷构建一致，超过删除阈值后压实退休词项
+✓ 真正执行部分移除后抛错，失败索引不会再发布或复用，后续冷构建可恢复
+✓ 增量更新途中失效及相互覆盖的构建均无法发布部分索引或旧快照
+✓ 10,000 章披露过滤与整书反转保持正确，重排零正文分词
+memory incremental smoke: 7 scenario groups passed
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:memory-fact-graph
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-fact-graph
+> node --import tsx scripts/smoke-memory-fact-graph.ts
+
+✓ 1. 人物、事件、物件、地点均有原文依据；作者确认保留模型推断的原始来源
+✓ 2. 多依据推断必须等全部前提披露；未来身份不能污染早期节点或查询结果
+✓ 3. 同长度正文修改、章名修改、引文移位及删章立即排除旧事实；作者确认不能绕过版本失效
+✓ 4. 披露顺序随章节重排更新；缺失截止、跨作品数据和错配清单全部关闭可见范围
+✓ 5. 相同引文不会跨章自动重挂；错误修订、偏移、引用和无原文支撑的身份标签均被排除
+✓ 6. UTF-16 引文边界保持完整；特殊键名不会污染映射，相同名称的不同实体类型保持区分
+✓ 7. 严格文档校验拒绝 30 组损坏或越界输入，返回值不会反向污染原数据
+✓ 8. 单条引文与总体引文容量分别受限，合法小条目也不能累积绕过文档预算
+✓ 9. 长篇业务压力：600 章 / 1411959 UTF-16 字符 / 5400 条关系；先披露和查询过滤，再限制画布数量
+✓ 10. 百万字长篇中修订旧章排除全部旧版关联；章节移动到未来后伏笔隐藏，再披露时才恢复
+{
+  "fixture": {
+    "version": 1,
+    "chapters": 600,
+    "relations": 5400,
+    "chars": 1411959,
+    "description": "Synthetic 600-chapter fiction with 5,400 source-anchored relations; no LLM or provider requests."
+  },
+  "scenarios": 10,
+  "exactEvidenceChecks": 241,
+  "networkRequests": 0,
+  "measurements": {
+    "fixtureMs": 121.6644,
+    "syncMs": 1401.3461300000001,
+    "boundedSelectionMs": 20.39692500000001,
+    "distantQueryMs": 34.14436100000012
+  },
+  "runtime": {
+    "node": "v24.19.0",
+    "generatedAt": "2026-10-22T20:44:21.377Z"
+  },
+  "limits": [
+    "Deterministic synthetic source-integrity and graph workload tests; not model extraction or literary quality evaluation.",
+    "Single-process single-run timings include no browser canvas and impose no timing assertions.",
+    "The selector consumes completed sync manifests; UI freshness and real canvas interaction are covered separately by browser tests."
+  ]
+}
+
+Running smoke:memory-fact-extraction
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-fact-extraction
+> node --import tsx scripts/smoke-memory-fact-extraction.ts
+
+✓ Selected disclosed excerpts alone reach the transport; exact anchors and unconfirmed provenance belong to the application
+✓ Untrusted output cannot choose revisions, forge author confirmation, invent labels or exceed response bounds
+✓ Future, stale, missing and malformed source references fail before any external request
+✓ Late cancelled responses are discarded; provider diagnostics do not leak into displayed errors
+Fact extraction source contract passed (deterministic transport; no paid API calls)
+
+Running smoke:memory-fact-store
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-fact-store
+> node --import tsx scripts/smoke-memory-fact-store.ts
+
+✓ Empty reads do not write; committed graph revision and independent provenance survive reload
+✓ Legacy reads are read-only; the first explicit write upgrades in place and later relation writes retain every typed premise
+✓ Two independent tabs reading one revision produce exactly one winner; stale revisions preserve the winner
+✓ Mutating a queued input or returned document cannot modify the committed annotation snapshot
+✓ Conditional compare and write occur in one exclusive transaction and reject a competing writer
+✓ Held and aborted writes never report an uncommitted revision or leave partial graph data
+✓ Invalid JSON, missing revision, project mismatch, and oversized stored JSON stay untouched
+✓ Project keys and expected revisions remain isolated; invalid saves create no storage
+✓ Future schemas reject read/save/restore even with forged capture; known-version corrupt v2 remains explicitly repairable
+
+Running smoke:graph-backup
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:graph-backup
+> node --import tsx scripts/smoke-graph-backup.ts
+
+✓ Clean restore preserves exact sources, all provenance, distant clues and every inference premise; future facts stay hidden
+✓ Backup and restore never rebase old anchors onto edited prose, including author-confirmed facts
+✓ Legacy absence preserves annotations; explicit empty sidecar clears paired graphs and invalidates open-tab tokens
+✓ Malformed, mismatched and ambiguous bundles fail before writes; valid backup can repair corrupt storage
+✓ Unknown future schemas fail distinctly before any import write; known-version corruption remains explicitly repairable
+✓ Multi-project graph failures roll back novel writes; concurrent graph annotations win without partial graph replacement
+✓ Concurrent novel edits are retained on failed rollback, and queued restore inputs are isolated from caller mutation
+✓ Export retries source/graph races; failures in another selected category leave graph storage unchanged
+✓ 600 chapters, 1411959 source characters, 5,400 relations round-trip exactly (3700914 backup characters)
+✓ Real split-content backend rolls back a failed graph restore with different input/hydrated field order and fresh blob references
+✓ Real metadata commit receipt detects an edit before async save returns, preserving the concurrent source and original graph
+✓ Postcommit notification rejection still rolls back the actual committed source via its captured receipt
+✓ Generic rollback compare and replacement preserve a queued concurrent winner without an async read/write gap
+
+=== ALL GRAPH BACKUP TESTS PASSED ===
+
+Running smoke:writer-memory
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-memory
+> node --import tsx scripts/smoke-writer-memory.ts
+
+[storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:39:17)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:42:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:43:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:60:23)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:65:31)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+✓ Default local-only bundle exposes exact current evidence, distant clues and independent inference/confirmation provenance; edited old facts expire
+✓ Target/cutoff, saved-editor equality, every graph premise and graph modifications are checked independently of timestamps
+✓ Budgets include framing and full provenance; whole oversized items are omitted, and no-answer retrieval produces no injected memory
+✓ Ungrounded clue labels and graph predicates cannot leak later identities; hit revisions are independently verified before serialization
+✓ Explicit semantic/rerank settings dispatch only disclosed source text, with credentials absent from the approved bundle
+✓ Edits between embedding batches block further requests; graph edits during the final rerank reject the preview
+✓ Already-cancelled and mid-retrieval operations never publish a bundle or start unrequested external work
+✓ A delayed obsolete preview cannot invalidate its successor or acknowledge another operation’s provider guard
+
+=== ALL WRITER MEMORY TESTS PASSED ===
+
+Running smoke:writer-memory-selection
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-memory-selection
+> node --import tsx scripts/smoke-writer-memory-selection.ts
+
+[storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:39:17)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:42:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:43:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:60:23)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:65:31)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+✓ 私有来源快照抵御预览篡改；仅选中引用入上下文，匹配概况不借用未选依据
+✓ 关系按全部前提整体选取，作者确认不把推断变成原文明示，多项编号覆盖可合并
+✓ 空选择不生成附件；未知、重复及跨类别 ID 均拒绝
+✓ 弱匹配可以由作者选作待核对参考，但不升级已回答；无候选仍产生空附件
+✓ 选择参数在调用时捕获，来源／图谱在初次复验后改变也无法发布附件
+✓ 新预览默认零选择；空选不能批准，改选保留候选并立即撤销旧审批／租约
+✓ 异步旧审批晚返回不能批准旧选择，也不能清除已批准的新选择
+✓ 流期间改选阻止迟到输出及应用；真实本地来源变化同时清除候选、选择和审批
+=== WRITER MEMORY SELECTION TESTS PASSED ===
+
+Running smoke:memory-remote-guard
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-remote-guard
+> node --import tsx scripts/smoke-memory-remote-guard.ts
+
+✓ Actual worker requests independent source approvals for passage/query transport and ignores forged request IDs
+✓ Source invalidation rejects a waiting worker guard and late approval cannot resurrect provider traffic
+
+Running smoke:writer-memory-lifecycle
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-memory-lifecycle
+> node --import tsx scripts/smoke-writer-memory-lifecycle.ts
+
+[storage] 读取 apiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:39:17)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:42:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 officialApiConfig 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:43:9)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 customModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:60:23)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+[storage] 读取 providerModels 失败，返回默认值: ReferenceError: localStorage is not defined
+    at storageGet (/workspace/shared/LLM-Writer-novel-scan/src/utils/storage.ts:119:17)
+    at loadFromStorage (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:65:31)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/services/apiConfig.ts:124:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+✓ Default-off keeps the existing synchronous request without saving, indexing or attaching context
+✓ Preview requires saved current text; local editor/other-chapter edits during saving revoke preparation
+✓ A cancelled delayed preview cannot republish evidence or approval
+✓ Cancelling delayed freshness preflight immediately clears busy and never starts a late model request
+✓ Before-wire, active-stream and completed-result invalidation all reject old evidence and late output
+✓ Final freshness failure clears output; late old preflight failures cannot reset a newer stream
+✓ Continuation own-apply invalidation preserves a failed-save retry without duplicate append
+替换失败: Error: 生成所用依据已失效，请重新检索并生成后再应用。
+    at Object.assertApplicationFresh (/workspace/shared/LLM-Writer-novel-scan/src/composables/writerMemoryStream.ts:112:49)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/composables/useWriterOptimize.ts:308:50)
+    at async <anonymous> (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-writer-memory-lifecycle.ts:341:14)
+替换失败: Error: 生成所用依据已失效，请重新检索并生成后再应用。
+    at Object.assertApplicationFresh (/workspace/shared/LLM-Writer-novel-scan/src/composables/writerMemoryStream.ts:112:49)
+    at <anonymous> (/workspace/shared/LLM-Writer-novel-scan/src/composables/useWriterOptimize.ts:263:50)
+    at async <anonymous> (/workspace/shared/LLM-Writer-novel-scan/scripts/smoke-writer-memory-lifecycle.ts:363:14)
+✓ Polish rechecks after confirmation, retries applied drafts once, and cannot reuse an unused stale application grant
+
+=== WRITER MEMORY LIFECYCLE TESTS PASSED ===
+
+Running smoke:memory-support
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-support
+> node --import tsx scripts/smoke-memory-support.ts
+
+{"suite":"memory-support-controlled","fixtureSha256":"ebf0a7ea662e6ddd3e2079598954888cd553c72ae74c666691ae822704b20c2d","semanticCases":25,"recovered":{"supported":12,"insufficient":6,"uncertain":7},"supportedRecovery":"12/12","appropriateInsufficiency":"6/6","appropriateUncertainty":"7/7","requiredPremises":26,"validCitations":27,"operationalBlocks":"8/8","allRefusalFailures":19,"allSupportedFailures":13,"attemptedControlledCalls":25,"realModelCalls":0,"maxInputChars":2443,"maxInputBytes":2579,"maxResponseChars":255,"maxResponseBytes":369,"failureCategories":{"source_changed":4,"invalid_response":2,"owner_changed":1,"cancelled":1},"elapsedMs":162,"note":"Controlled replies validate protocol, sources and lifecycle, not real-model quality."}
+
+Running smoke:memory-support-transport
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-support-transport
+> node --import tsx scripts/smoke-memory-support-transport.ts
+
+✓ Actual SDK uses one guarded dispatch, no tools, explicit output cap and content-free reported usage
+✓ Browser mutation helper observes complete real-SDK HTTP body consumption before final source publication
+✓ Failed guards make zero calls; authentication/rate-limit/server/JSON/network/redirect failures never retry or expose diagnostics
+✓ Exact decoded-byte limit passes; one-over, lying/missing lengths, compressed/multibyte bodies, oversized error bodies and broken streams fail before SDK parsing
+✓ Timeouts and aborts settle despite ignored signals/stalled fetch/read/cancel; monotonic boundary checks reject delayed dispatch
+✓ Truncated/filtered/tool/incomplete output stays failed with usage preserved; invalid limits/extensions/streaming fail closed before dispatch
+✓ Compatible, native Anthropic/Google and proxied routes keep model-specific ceilings; bounded Qwen combines budgets or blocks while ordinary behavior is unchanged
+Memory support transport bounds passed (real SDK, mocked HTTP only; zero paid/model/provider calls)
+
+Running smoke:memory-support-ui
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-support-ui
+> node --import tsx scripts/smoke-memory-support-ui.ts
+
+✓ Initial off, zero-call prepare, explicit send, duplicate clicks, every async boundary, close/cancel/navigation and late promise ownership
+✓ Real Writer selection/source bridge: failed saves, lease revocation, no implicit approval, no model text in prompt, source changes without events and explicit local reapproval
+✓ Actual Vue SSR: cited verdicts, missing premises, safe failures, escaped text, disabled approval, Lab compilation and all three Writer modes
+=== MEMORY SUPPORT UI TESTS PASSED ===
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:writer-memory-support
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:writer-memory-support
+> node --import tsx scripts/smoke-writer-memory-support.ts
+
+✓ Node-only actual-SFC SSR mount lifecycle: default off, result gate, selection/review gates and clean reopen; NOT browser acceptance
+{"suite":"writer-memory-support","privateCompleteRelations":true,"stalePremiseBlocks":true,"independentApproval":true,"noPromptInjection":true,"cancellationAndSourceInvalidation":true,"threeEntryOwnership":true,"approvedChapterLaunchHandoff":true,"resolvedResponseRace":true,"controlledCalls":25,"realModelCalls":0}
+
+Running smoke:memory-support-code
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-support-code
+> node --import tsx scripts/eval-memory-support-code.mjs
+
+{
+  "evaluation": "small synthetic code/document integration observation",
+  "mode": "mock-only",
+  "liveSuccessClaim": false,
+  "purpose": "Protocol/adapter/current-source integration, not novel quality, model truth, or stage-three acceptance.",
+  "target": "https://opencode.ai/inference/go/v1/chat/completions",
+  "model": "glm-5.3-flash",
+  "thinkingMode": "default",
+  "routeCaveat": "User-supplied /go/v1 route retained; documented /go/openai/v1 route is different and is not probed.",
+  "identification": "llm-writer-support-eval/1.0",
+  "browserCompatibilityTested": false,
+  "scope": "GO01 then GO02–GO07 only if valid",
+  "limits": {
+    "attempts": 7,
+    "requestedOutputTokens": 5400,
+    "firstOutputTokens": 600,
+    "otherOutputTokens": 800,
+    "outputBudgetIncludesReasoning": true,
+    "responseDecodedBytes": 32768,
+    "perCaseMs": 30000,
+    "totalMs": 210000,
+    "continuationMs": 180000,
+    "retries": 0,
+    "redirects": false,
+    "tools": false,
+    "proxies": false
+  },
+  "mockFailure": null,
+  "trials": [
+    {
+      "id": "GO01",
+      "category": "paraphrase-positive",
+      "expectedVerdict": "supported",
+      "requiredSourceIds": [
+        "C2"
+      ],
+      "requiredCitationReferences": [
+        1
+      ],
+      "verdictAgreement": true,
+      "reasonAllowed": true,
+      "requiredCitationsPresent": true,
+      "exactCurrentSources": true,
+      "requiredAnswerFactsForManualReview": [
+        "最多一次。"
+      ],
+      "forbiddenConclusionsForManualReview": [],
+      "actualVerdict": "supported",
+      "status": "assessed",
+      "failureCategory": null,
+      "attemptedRequestCount": 1,
+      "elapsedMs": 801,
+      "requestBytes": 2672,
+      "responseBytes": 554,
+      "usage": {
+        "inputTokens": 80,
+        "outputTokens": 50,
+        "source": "reported",
+        "status": "success",
+        "realCost": null,
+        "costNote": "Reported tokens if available; local pricing estimates are not provider charges."
+      },
+      "maxRequestedOutputTokens": 600,
+      "citedSourceIds": [
+        "C2"
+      ],
+      "parsedResult": {
+        "state": "assessed",
+        "requestId": "2445a7d8-97fb-4667-9d58-c86597e552b0",
+        "selectionFingerprint": "frozen-code-GO01-6012bdccee930f3e8a260c430043d8b13fd08e44ae8cf1fc939b478878de9f1e",
+        "throughChapterId": "doc-C9",
+        "semanticOrigin": "model",
+        "validation": "protocol-and-current-sources",
+        "scope": "selected-excerpts",
+        "manuscriptAbsenceEstablished": false,
+        "providerLabel": "OpenAI 兼容（自定义地址）",
+        "modelId": "glm-5.3-flash",
+        "completedAt": 1792701894387,
+        "verdict": "supported",
+        "reason": "direct_statement",
+        "answer": "最多一次。",
+        "explanation": "所选工程文档明确限制每次点击最多一次。",
+        "missing": [],
+        "premises": [
+          {
+            "text": "Each click permits at most one HTTP generation request.",
+            "citations": [
+              {
+                "chapterId": "doc-C2",
+                "sourceRevision": "c6863f9a2fc616c069a4b2377e99101efc7e709dd6fdf333fbe738edc89ff466",
+                "start": 0,
+                "end": 109,
+                "quote": "The support checker sends at most one HTTP generation request per user click. Automatic retries are disabled.",
+                "chapterTitle": "Synthetic engineering evidence C2",
+                "ordinal": 2
+              }
+            ]
+          }
+        ]
+      },
+      "continuationGatePassed": true,
+      "httpStatus": 200,
+      "dispatchAllowlistPassed": true,
+      "inputChars": 2454,
+      "inputBytes": 2490,
+      "systemSha256": "184c45fe87111a52e139ee3b53ceb2ff8a28f2ca33a5dfcc73bda1b3bc50fa3a",
+      "promptSha256": "68a3549414ef20e9938ff551d8f9119120c7a612e2ee56a5fd526c69b32f51ef"
+    },
+    {
+      "id": "GO02",
+      "category": "code-direct-positive",
+      "expectedVerdict": "supported",
+      "requiredSourceIds": [
+        "C1"
+      ],
+      "requiredCitationReferences": [
+        1
+      ],
+      "verdictAgreement": true,
+      "reasonAllowed": true,
+      "requiredCitationsPresent": true,
+      "exactCurrentSources": true,
+      "requiredAnswerFactsForManualReview": [
+        "30,000 毫秒。"
+      ],
+      "forbiddenConclusionsForManualReview": [],
+      "actualVerdict": "supported",
+      "status": "assessed",
+      "failureCategory": null,
+      "attemptedRequestCount": 1,
+      "elapsedMs": 567,
+      "requestBytes": 2609,
+      "responseBytes": 524,
+      "usage": {
+        "inputTokens": 80,
+        "outputTokens": 50,
+        "source": "reported",
+        "status": "success",
+        "realCost": null,
+        "costNote": "Reported tokens if available; local pricing estimates are not provider charges."
+      },
+      "maxRequestedOutputTokens": 800,
+      "citedSourceIds": [
+        "C1"
+      ],
+      "parsedResult": {
+        "state": "assessed",
+        "requestId": "53ae447c-7322-45b4-8e79-da79730eca84",
+        "selectionFingerprint": "frozen-code-GO02-6012bdccee930f3e8a260c430043d8b13fd08e44ae8cf1fc939b478878de9f1e",
+        "throughChapterId": "doc-C9",
+        "semanticOrigin": "model",
+        "validation": "protocol-and-current-sources",
+        "scope": "selected-excerpts",
+        "manuscriptAbsenceEstablished": false,
+        "providerLabel": "OpenAI 兼容（自定义地址）",
+        "modelId": "glm-5.3-flash",
+        "completedAt": 1792701894957,
+        "verdict": "supported",
+        "reason": "direct_statement",
+        "answer": "30,000 毫秒。",
+        "explanation": "常量值和毫秒单位均已给出。",
+        "missing": [],
+        "premises": [
+          {
+            "text": "SUPPORT_TIMEOUT_MS is 30_000 milliseconds.",
+            "citations": [
+              {
+                "chapterId": "doc-C1",
+                "sourceRevision": "1e81a7b56d0c47280db4b3176efbac57a12e863c80f78acac02081d5b2c8fe38",
+                "start": 0,
+                "end": 57,
+                "quote": "export const SUPPORT_TIMEOUT_MS = 30_000; // milliseconds",
+                "chapterTitle": "Synthetic engineering evidence C1",
+                "ordinal": 1
+              }
+            ]
+          }
+        ]
+      },
+      "httpStatus": 200,
+      "dispatchAllowlistPassed": true,
+      "inputChars": 2407,
+      "inputBytes": 2427,
+      "systemSha256": "184c45fe87111a52e139ee3b53ceb2ff8a28f2ca33a5dfcc73bda1b3bc50fa3a",
+      "promptSha256": "189c8de0c649ff223e3b2d190e633120e2191adb236fb45e4d15002b5a4d02c2"
+    },
+    {
+      "id": "GO03",
+      "category": "explicit-negative-positive",
+      "expectedVerdict": "supported",
+      "requiredSourceIds": [
+        "C3"
+      ],
+      "requiredCitationReferences": [
+        1
+      ],
+      "verdictAgreement": true,
+      "reasonAllowed": true,
+      "requiredCitationsPresent": true,
+      "exactCurrentSources": true,
+      "requiredAnswerFactsForManualReview": [
+        "不会自动重试；用户可以手动开始新请求。"
+      ],
+      "forbiddenConclusionsForManualReview": [],
+      "actualVerdict": "supported",
+      "status": "assessed",
+      "failureCategory": null,
+      "attemptedRequestCount": 1,
+      "elapsedMs": 491,
+      "requestBytes": 2699,
+      "responseBytes": 579,
+      "usage": {
+        "inputTokens": 80,
+        "outputTokens": 50,
+        "source": "reported",
+        "status": "success",
+        "realCost": null,
+        "costNote": "Reported tokens if available; local pricing estimates are not provider charges."
+      },
+      "maxRequestedOutputTokens": 800,
+      "citedSourceIds": [
+        "C3"
+      ],
+      "parsedResult": {
+        "state": "assessed",
+        "requestId": "80ee2b69-2bee-4cbd-a801-0f6f0dd70595",
+        "selectionFingerprint": "frozen-code-GO03-6012bdccee930f3e8a260c430043d8b13fd08e44ae8cf1fc939b478878de9f1e",
+        "throughChapterId": "doc-C9",
+        "semanticOrigin": "model",
+        "validation": "protocol-and-current-sources",
+        "scope": "selected-excerpts",
+        "manuscriptAbsenceEstablished": false,
+        "providerLabel": "OpenAI 兼容（自定义地址）",
+        "modelId": "glm-5.3-flash",
+        "completedAt": 1792701895448,
+        "verdict": "supported",
+        "reason": "explicit_negative",
+        "answer": "不会自动重试；用户可以手动开始新请求。",
+        "explanation": "文档明确否定客户端自动重试。",
+        "missing": [],
+        "premises": [
+          {
+            "text": "Failed support checks are not retried automatically.",
+            "citations": [
+              {
+                "chapterId": "doc-C3",
+                "sourceRevision": "c07bfd8e059261523637ee431d7df2b61bf5c213c030917cf6836403b27aff80",
+                "start": 0,
+                "end": 136,
+                "quote": "The integration guide explicitly says: the client does not retry failed support-check requests. A user may start a new request manually.",
+                "chapterTitle": "Synthetic engineering evidence C3",
+                "ordinal": 3
+              }
+            ]
+          }
+        ]
+      },
+      "httpStatus": 200,
+      "dispatchAllowlistPassed": true,
+      "inputChars": 2477,
+      "inputBytes": 2517,
+      "systemSha256": "184c45fe87111a52e139ee3b53ceb2ff8a28f2ca33a5dfcc73bda1b3bc50fa3a",
+      "promptSha256": "6c0887dd557499a3b007e0e98f3129136c3db5c0de9111a9a339c50d633f9b95"
+    },
+    {
+      "id": "GO04",
+      "category": "missing-documentation",
+      "expectedVerdict": "insufficient",
+      "requiredSourceIds": [],
+      "requiredCitationReferences": [],
+      "verdictAgreement": true,
+      "reasonAllowed": true,
+      "requiredCitationsPresent": true,
+      "exactCurrentSources": true,
+      "requiredAnswerFactsForManualReview": [],
+      "forbiddenConclusionsForManualReview": [
+        "It never saves responses.",
+        "Name a storage location absent from the excerpt."
+      ],
+      "actualVerdict": "insufficient",
+      "status": "assessed",
+      "failureCategory": null,
+      "attemptedRequestCount": 1,
+      "elapsedMs": 465,
+      "requestBytes": 2692,
+      "responseBytes": 527,
+      "usage": {
+        "inputTokens": 80,
+        "outputTokens": 50,
+        "source": "reported",
+        "status": "success",
+        "realCost": null,
+        "costNote": "Reported tokens if available; local pricing estimates are not provider charges."
+      },
+      "maxRequestedOutputTokens": 800,
+      "citedSourceIds": [],
+      "parsedResult": {
+        "state": "assessed",
+        "requestId": "2e49d7c4-8b4f-4a69-a230-897622f1e1be",
+        "selectionFingerprint": "frozen-code-GO04-6012bdccee930f3e8a260c430043d8b13fd08e44ae8cf1fc939b478878de9f1e",
+        "throughChapterId": "doc-C9",
+        "semanticOrigin": "model",
+        "validation": "protocol-and-current-sources",
+        "scope": "selected-excerpts",
+        "manuscriptAbsenceEstablished": false,
+        "providerLabel": "OpenAI 兼容（自定义地址）",
+        "modelId": "glm-5.3-flash",
+        "completedAt": 1792701895913,
+        "verdict": "insufficient",
+        "reason": "missing_premise",
+        "answer": null,
+        "explanation": "所选文档未说明是否保存原始响应或保存位置。",
+        "missing": [
+          "是否保存原始模型响应。",
+          "若保存，保存位置。"
+        ],
+        "premises": []
+      },
+      "httpStatus": 200,
+      "dispatchAllowlistPassed": true,
+      "inputChars": 2474,
+      "inputBytes": 2510,
+      "systemSha256": "184c45fe87111a52e139ee3b53ceb2ff8a28f2ca33a5dfcc73bda1b3bc50fa3a",
+      "promptSha256": "b6cbc6d752f6babaccc11f50e51451941f6530705dbf9ce99f646c0cb5814868"
+    },
+    {
+      "id": "GO05",
+      "category": "conflicting-contracts",
+      "expectedVerdict": "uncertain",
+      "requiredSourceIds": [
+        "C5",
+        "C6"
+      ],
+      "requiredCitationReferences": [
+        1,
+        2
+      ],
+      "verdictAgreement": true,
+      "reasonAllowed": true,
+      "requiredCitationsPresent": true,
+      "exactCurrentSources": true,
+      "requiredAnswerFactsForManualReview": [],
+      "forbiddenConclusionsForManualReview": [
+        "Pick 0 or 2 as established."
+      ],
+      "actualVerdict": "uncertain",
+      "status": "assessed",
+      "failureCategory": null,
+      "attemptedRequestCount": 1,
+      "elapsedMs": 570,
+      "requestBytes": 2815,
+      "responseBytes": 636,
+      "usage": {
+        "inputTokens": 80,
+        "outputTokens": 50,
+        "source": "reported",
+        "status": "success",
+        "realCost": null,
+        "costNote": "Reported tokens if available; local pricing estimates are not provider charges."
+      },
+      "maxRequestedOutputTokens": 800,
+      "citedSourceIds": [
+        "C5",
+        "C6"
+      ],
+      "parsedResult": {
+        "state": "assessed",
+        "requestId": "92667056-0a2a-46e4-adb4-f84b4dee8810",
+        "selectionFingerprint": "frozen-code-GO05-6012bdccee930f3e8a260c430043d8b13fd08e44ae8cf1fc939b478878de9f1e",
+        "throughChapterId": "doc-C9",
+        "semanticOrigin": "model",
+        "validation": "protocol-and-current-sources",
+        "scope": "selected-excerpts",
+        "manuscriptAbsenceEstablished": false,
+        "providerLabel": "OpenAI 兼容（自定义地址）",
+        "modelId": "glm-5.3-flash",
+        "completedAt": 1792701896475,
+        "verdict": "uncertain",
+        "reason": "conflicting_sources",
+        "answer": null,
+        "explanation": "同版本合同段落冲突且无优先级，不能裁定。",
+        "missing": [],
+        "premises": [
+          {
+            "text": "One Release 1 contract sets maxRetries to 0.",
+            "citations": [
+              {
+                "chapterId": "doc-C5",
+                "sourceRevision": "38cf11d7e51555ac44d2f948545e2e3f854b2d3bf14ddfda4cfb56e482179c3e",
+                "start": 0,
+                "end": 78,
+                "quote": "Release 1 transport contract: automatic retries are disabled; maxRetries is 0.",
+                "chapterTitle": "Synthetic engineering evidence C5",
+                "ordinal": 5
+              }
+            ]
+          },
+          {
+            "text": "Another Release 1 contract sets maxRetries to 2 without precedence.",
+            "citations": [
+              {
+                "chapterId": "doc-C6",
+                "sourceRevision": "d59ac7f5739d94b2e97f9dcb784a5e43a4adfe19dc9445d5bd622b77078c4106",
+                "start": 0,
+                "end": 141,
+                "quote": "Release 1 transport contract: automatic retries are enabled; maxRetries is 2. No precedence between these two contract sections is specified.",
+                "chapterTitle": "Synthetic engineering evidence C6",
+                "ordinal": 6
+              }
+            ]
+          }
+        ]
+      },
+      "httpStatus": 200,
+      "dispatchAllowlistPassed": true,
+      "inputChars": 2597,
+      "inputBytes": 2627,
+      "systemSha256": "184c45fe87111a52e139ee3b53ceb2ff8a28f2ca33a5dfcc73bda1b3bc50fa3a",
+      "promptSha256": "ade3d764efc1f6edd1bdbe299241b29aba672ad9af52cf66c62799bf4b0b1774"
+    },
+    {
+      "id": "GO06",
+      "category": "multi-premise-code",
+      "expectedVerdict": "supported",
+      "requiredSourceIds": [
+        "C7",
+        "C8"
+      ],
+      "requiredCitationReferences": [
+        1,
+        2
+      ],
+      "verdictAgreement": true,
+      "reasonAllowed": true,
+      "requiredCitationsPresent": true,
+      "exactCurrentSources": true,
+      "requiredAnswerFactsForManualReview": [
+        "会抛出错误，因为 9 大于 MAX_SOURCES 的值 8。"
+      ],
+      "forbiddenConclusionsForManualReview": [],
+      "actualVerdict": "supported",
+      "status": "assessed",
+      "failureCategory": null,
+      "attemptedRequestCount": 1,
+      "elapsedMs": 575,
+      "requestBytes": 2781,
+      "responseBytes": 652,
+      "usage": {
+        "inputTokens": 80,
+        "outputTokens": 50,
+        "source": "reported",
+        "status": "success",
+        "realCost": null,
+        "costNote": "Reported tokens if available; local pricing estimates are not provider charges."
+      },
+      "maxRequestedOutputTokens": 800,
+      "citedSourceIds": [
+        "C7",
+        "C8"
+      ],
+      "parsedResult": {
+        "state": "assessed",
+        "requestId": "102b9649-dd50-49a3-8a82-2e2b81683b96",
+        "selectionFingerprint": "frozen-code-GO06-6012bdccee930f3e8a260c430043d8b13fd08e44ae8cf1fc939b478878de9f1e",
+        "throughChapterId": "doc-C9",
+        "semanticOrigin": "model",
+        "validation": "protocol-and-current-sources",
+        "scope": "selected-excerpts",
+        "manuscriptAbsenceEstablished": false,
+        "providerLabel": "OpenAI 兼容（自定义地址）",
+        "modelId": "glm-5.3-flash",
+        "completedAt": 1792701897057,
+        "verdict": "supported",
+        "reason": "combined_premises",
+        "answer": "会抛出错误，因为 9 大于 MAX_SOURCES 的值 8。",
+        "explanation": "需要常量定义和校验函数两个前提。",
+        "missing": [],
+        "premises": [
+          {
+            "text": "MAX_SOURCES equals 8.",
+            "citations": [
+              {
+                "chapterId": "doc-C7",
+                "sourceRevision": "e77d6683752e86b84e7b19df0aaf79e13bf73de4bd1046e2cda969d994dc8c7d",
+                "start": 0,
+                "end": 29,
+                "quote": "export const MAX_SOURCES = 8;",
+                "chapterTitle": "Synthetic engineering evidence C7",
+                "ordinal": 7
+              }
+            ]
+          },
+          {
+            "text": "validateSources throws when sources.length exceeds MAX_SOURCES.",
+            "citations": [
+              {
+                "chapterId": "doc-C8",
+                "sourceRevision": "5612064fee3f6fac60efc7498c425667c03c9f783ead97ba2a287a4d0f7a7ee3",
+                "start": 0,
+                "end": 121,
+                "quote": "function validateSources(sources) { if (sources.length > MAX_SOURCES) throw new Error(\"too many sources\"); return true; }",
+                "chapterTitle": "Synthetic engineering evidence C8",
+                "ordinal": 8
+              }
+            ]
+          }
+        ]
+      },
+      "httpStatus": 200,
+      "dispatchAllowlistPassed": true,
+      "inputChars": 2547,
+      "inputBytes": 2589,
+      "systemSha256": "184c45fe87111a52e139ee3b53ceb2ff8a28f2ca33a5dfcc73bda1b3bc50fa3a",
+      "promptSha256": "e4067a8a405cc780c943ce62f2d23c94120fd5ef4625220f7fd9927f4f9a183d"
+    },
+    {
+      "id": "GO07",
+      "category": "injection-positive",
+      "expectedVerdict": "supported",
+      "requiredSourceIds": [
+        "C2"
+      ],
+      "requiredCitationReferences": [
+        2
+      ],
+      "verdictAgreement": true,
+      "reasonAllowed": true,
+      "requiredCitationsPresent": true,
+      "exactCurrentSources": true,
+      "requiredAnswerFactsForManualReview": [
+        "最多一次。"
+      ],
+      "forbiddenConclusionsForManualReview": [
+        "Follow adversarial comments.",
+        "Reveal credentials.",
+        "Call another endpoint."
+      ],
+      "actualVerdict": "supported",
+      "status": "assessed",
+      "failureCategory": null,
+      "attemptedRequestCount": 1,
+      "elapsedMs": 612,
+      "requestBytes": 2885,
+      "responseBytes": 588,
+      "usage": {
+        "inputTokens": 80,
+        "outputTokens": 50,
+        "source": "reported",
+        "status": "success",
+        "realCost": null,
+        "costNote": "Reported tokens if available; local pricing estimates are not provider charges."
+      },
+      "maxRequestedOutputTokens": 800,
+      "citedSourceIds": [
+        "C2"
+      ],
+      "parsedResult": {
+        "state": "assessed",
+        "requestId": "bf6293c4-4ed2-4b0f-a174-0725b74f6a1d",
+        "selectionFingerprint": "frozen-code-GO07-6012bdccee930f3e8a260c430043d8b13fd08e44ae8cf1fc939b478878de9f1e",
+        "throughChapterId": "doc-C9",
+        "semanticOrigin": "model",
+        "validation": "protocol-and-current-sources",
+        "scope": "selected-excerpts",
+        "manuscriptAbsenceEstablished": false,
+        "providerLabel": "OpenAI 兼容（自定义地址）",
+        "modelId": "glm-5.3-flash",
+        "completedAt": 1792701897667,
+        "verdict": "supported",
+        "reason": "direct_statement",
+        "answer": "最多一次。",
+        "explanation": "代码注释中的恶意指令不是执行许可；上限来自文档。",
+        "missing": [],
+        "premises": [
+          {
+            "text": "The engineering document limits each click to one HTTP generation request.",
+            "citations": [
+              {
+                "chapterId": "doc-C2",
+                "sourceRevision": "c6863f9a2fc616c069a4b2377e99101efc7e709dd6fdf333fbe738edc89ff466",
+                "start": 0,
+                "end": 109,
+                "quote": "The support checker sends at most one HTTP generation request per user click. Automatic retries are disabled.",
+                "chapterTitle": "Synthetic engineering evidence C2",
+                "ordinal": 2
+              }
+            ]
+          }
+        ]
+      },
+      "httpStatus": 200,
+      "dispatchAllowlistPassed": true,
+      "inputChars": 2644,
+      "inputBytes": 2696,
+      "systemSha256": "184c45fe87111a52e139ee3b53ceb2ff8a28f2ca33a5dfcc73bda1b3bc50fa3a",
+      "promptSha256": "f057c2942d927cb12824a62e90972718560a1c8babef73680fcbad4ea0c6525e"
+    }
+  ],
+  "fatalCategory": null,
+  "before": {
+    "sourceTreeSha256": "c86a0f51bc76d662e3fd3f0c93d565644585f3e0649fcaa1e30bdf240369ef33",
+    "fileCount": 214,
+    "harnessSha256": "2525cd01691a2d99b76bcf4c2f74e48e66190d5b941c5602dd72d93532e6a8e2",
+    "fixtureSha256": "6012bdccee930f3e8a260c430043d8b13fd08e44ae8cf1fc939b478878de9f1e"
+  },
+  "exactSettingsPreflight": "passed",
+  "after": {
+    "sourceTreeSha256": "c86a0f51bc76d662e3fd3f0c93d565644585f3e0649fcaa1e30bdf240369ef33",
+    "fileCount": 214,
+    "harnessSha256": "2525cd01691a2d99b76bcf4c2f74e48e66190d5b941c5602dd72d93532e6a8e2",
+    "fixtureSha256": "6012bdccee930f3e8a260c430043d8b13fd08e44ae8cf1fc939b478878de9f1e"
+  },
+  "sourceUnchanged": true,
+  "summary": {
+    "attemptedRequests": 7,
+    "externalRequests": 0,
+    "deniedNetworkAttempts": 0,
+    "requestedOutputTokens": 5400,
+    "assessed": 7,
+    "unverified": 0,
+    "notRun": 0,
+    "elapsedMs": 4097,
+    "forbiddenStorageWrites": 0,
+    "persistentStorageWrites": 0,
+    "credentialStored": false,
+    "usageStorage": "memory-only",
+    "suppressedLogs": 0,
+    "unhandledFailures": 0
+  },
+  "interpretation": "Verdict agreement and required-citation coverage are fixture comparisons only. Review answer/explanation/premise entailment manually; no string-equality semantic scoring. All invalid, refused, failed and skipped cases remain in the report."
+}
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:memory-plot-links
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-plot-links
+> node --import tsx scripts/smoke-memory-plot-links.ts
+
+✓ Model proposals stay unconfirmed, retain all roles, and do not become relations or MemoryClues
+✓ Every setup/context/recovery premise is independently gated; confirmation cannot preserve stale or future information
+✓ Typed validators reject bad roles, duplicated premises, oversized fields and unsupported versions without mutating inputs
+✓ Shared 8M quote/24M serialized limits and 2,000-link capacity are explicit; source filtering precedes the display budget
+
+=== ALL TYPED PLOT LINK TESTS PASSED ===
+
+Running smoke:memory-novel-scan-engine
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-novel-scan-engine
+> node --import tsx scripts/smoke-memory-novel-scan-engine.ts
+
+{"suite":"novel-scan-engine-controlled","tests":27,"semanticAccuracyClaim":false}
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:memory-novel-scan-fixture
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-novel-scan-fixture
+> node --import tsx scripts/smoke-memory-novel-scan-fixture.ts
+
+{
+  "fixtureSha256": "6d54c1cc1a02d0fe1b4b7580b21c8e5fb02d13f15e9f712b853e6721b67a8206",
+  "mode": "controlled-provider-production-pipeline",
+  "realModelQuality": "not measured",
+  "cases": [
+    {
+      "id": "P01",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 45,
+      "processedChars": 45
+    },
+    {
+      "id": "P02",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 44,
+      "processedChars": 44
+    },
+    {
+      "id": "P03",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 48,
+      "processedChars": 48
+    },
+    {
+      "id": "P04",
+      "category": "positive",
+      "route": "shared_key",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 4,
+      "bCalls": 10,
+      "eligibleChars": 106,
+      "processedChars": 106
+    },
+    {
+      "id": "P05",
+      "category": "positive",
+      "route": "adjacent",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 61,
+      "processedChars": 61
+    },
+    {
+      "id": "P06",
+      "category": "positive",
+      "route": "bridge",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 5,
+      "bCalls": 15,
+      "eligibleChars": 111,
+      "processedChars": 111
+    },
+    {
+      "id": "P07",
+      "category": "positive",
+      "route": "adjacent",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 58,
+      "processedChars": 58
+    },
+    {
+      "id": "P08",
+      "category": "positive",
+      "route": "adjacent",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 51,
+      "processedChars": 51
+    },
+    {
+      "id": "P09",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 50,
+      "processedChars": 50
+    },
+    {
+      "id": "P10",
+      "category": "positive",
+      "route": "adjacent",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 66,
+      "processedChars": 66
+    },
+    {
+      "id": "P11",
+      "category": "positive",
+      "route": "shared_key",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 4,
+      "bCalls": 10,
+      "eligibleChars": 93,
+      "processedChars": 93
+    },
+    {
+      "id": "P12",
+      "category": "positive",
+      "route": "singleton",
+      "recovered": true,
+      "candidates": 1,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 49,
+      "processedChars": 49
+    },
+    {
+      "id": "N01",
+      "category": "negative",
+      "route": "singleton",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 46,
+      "processedChars": 46
+    },
+    {
+      "id": "N02",
+      "category": "negative",
+      "route": "adjacent",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 41,
+      "processedChars": 41
+    },
+    {
+      "id": "N03",
+      "category": "negative",
+      "route": "singleton",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 42,
+      "processedChars": 42
+    },
+    {
+      "id": "N04",
+      "category": "negative",
+      "route": "shared_key",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 4,
+      "bCalls": 10,
+      "eligibleChars": 76,
+      "processedChars": 76
+    },
+    {
+      "id": "N05",
+      "category": "negative",
+      "route": "singleton",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 1,
+      "bCalls": 1,
+      "eligibleChars": 49,
+      "processedChars": 49
+    },
+    {
+      "id": "N06",
+      "category": "negative",
+      "route": "adjacent",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 45,
+      "processedChars": 45
+    },
+    {
+      "id": "U01",
+      "category": "unsupported",
+      "route": "distant_no_key",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 5,
+      "bCalls": 12,
+      "eligibleChars": 86,
+      "processedChars": 86,
+      "knownMiss": "真实目标仍计入总召回分母；有限路由不包含远距无共同key的这对前提。"
+    },
+    {
+      "id": "U02",
+      "category": "unsupported",
+      "route": "four_premise",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 4,
+      "bCalls": 9,
+      "eligibleChars": 78,
+      "processedChars": 78,
+      "knownMiss": "目标需要四个独立cue，B最多三cue；完整前提不可能进入一个job，计为真实漏召回。"
+    },
+    {
+      "id": "U03",
+      "category": "unsupported",
+      "route": "a_missing_cue",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 4,
+      "bCalls": 6,
+      "eligibleChars": 77,
+      "processedChars": 77,
+      "knownMiss": "A完成原文覆盖但没有产出必要cue；不得将该目标从总分母删除或把空输出算作正确拒绝。"
+    },
+    {
+      "id": "U04",
+      "category": "unsupported",
+      "route": "a_missing_key",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 4,
+      "bCalls": 9,
+      "eligibleChars": 67,
+      "processedChars": 67,
+      "knownMiss": "必要cue均存在却缺共同key且非相邻，属于表示缺口；精确引用校验不能补回路由遗漏。"
+    },
+    {
+      "id": "U05",
+      "category": "unsupported",
+      "route": "implicit_alias",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 5,
+      "bCalls": 12,
+      "eligibleChars": 100,
+      "processedChars": 100,
+      "knownMiss": "不以常识或隐含身份构造未提供的桥；两端未被有限路由组合，仍按目标计漏召回。"
+    },
+    {
+      "id": "U06",
+      "category": "unsupported",
+      "route": "future_premise",
+      "recovered": false,
+      "candidates": 0,
+      "aCalls": 2,
+      "bCalls": 3,
+      "eligibleChars": 40,
+      "processedChars": 40,
+      "knownMiss": "含未来前提的目标作为边界负控单列，同时留在18个全故事目标分母；不得泄露未来原文来提高召回。"
+    }
+  ],
+  "mutationControls": {
+    "alwaysEmpty": {
+      "rejected": 12,
+      "recoveredTargets": "0/18"
+    },
+    "validCitationWrongMeaning": "rejected by semantic gold, not parser",
+    "protocolForgeries": 5
+  },
+  "geometry": [
+    {
+      "profile": "novel-candidate-long-v1",
+      "disclosedChapters": 599,
+      "eligibleChars": 1317800,
+      "windows": 599,
+      "atoms": 1797,
+      "cpuOnlyMs": 1243,
+      "heapDeltaBytes": 24024896,
+      "rssBytes": 201289728,
+      "providerCalls": 0
+    },
+    {
+      "profile": "novel-candidate-escaping-v1",
+      "disclosedChapters": 12,
+      "eligibleChars": 156554,
+      "windows": 38,
+      "atoms": 186,
+      "cpuOnlyMs": 94,
+      "heapDeltaBytes": -12726056,
+      "rssBytes": 201420800,
+      "providerCalls": 0
+    }
+  ],
+  "summary": {
+    "recoveredAllStoryTargets": "12/18",
+    "recoveredDisclosedTargets": "12/17",
+    "recoveredInContractTargets": "12/12",
+    "negativeControls": "6/6",
+    "knownMisses": "6/6 honestly retained",
+    "productionCasWrites": 12,
+    "networkRequests": 0,
+    "browser": "not run",
+    "realModel": "not run"
+  }
+}
+PASS frozen novel-candidate semantic gold, production parsing/anchors/review/CAS-v2 pipeline and exact long/escaping geometry
+
+Running smoke:memory-novel-scan-transport
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-novel-scan-transport
+> node --import tsx scripts/smoke-memory-novel-scan-transport.ts
+
+{
+  "adapter": "production generateNovelScan → api bounded branch → actual SDK",
+  "httpMockCalls": 9,
+  "liveNetworkRequests": 0,
+  "phasesPassed": [
+    "collect",
+    "connect"
+  ],
+  "cases": [
+    "exact escaped prose",
+    "no tools/history/stream/retries",
+    "1200 output cap",
+    "fresh dispatch guard",
+    "503",
+    "redirect",
+    "oversized success/error",
+    "incomplete output",
+    "failed/stalled guard",
+    "stalled provider",
+    "late cancelled result"
+  ],
+  "usageContent": "omitted"
+}
+PASS novel-scan production HTTP adapter with zero live traffic
+
+Running smoke:memory-novel-scan-ui
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-novel-scan-ui
+> node --import tsx scripts/smoke-memory-novel-scan-ui.ts
+
+✓ 1. Default off, zero-call preview, independent A/B starts, no save before stopped review, future source excluded
+✓ 2. Twenty lifecycle races: cancel/disable/config/disclosure/unmount during prepare, ready, running and review
+✓ 3. Own actual-CAS baseline only, two independent typed saves default unconfirmed, no dropped opposite type, explicit ignore and zero-call next segment
+✓ 4. Eventless committed source/external graph/unsupported graph reads clear stale review without writing
+✓ 5. Source changes after actual CAS retain author data and show saved-but-invalid, never rollback
+✓ 6. Cancellation during pending CAS never lies that nothing saved; late commit is retained and surfaced
+✓ 7. Provider failures pause, explicit retry is charged, skip enters miss ledger, raw errors never leak
+✓ 8. First provider request exposes pause and cancel, pause returns immediately and settles at checkpoint
+✓ 9. Committed source changes during graph read are rejected by the post-graph source guard before any write
+✓ 10. Invalid grants preserve paused campaign and ledger; finite additive grants neither reset nor implicitly dispatch
+✓ 11. Real 90-chapter/267-job UI campaign stops at 512 review capacity and resumes B in new segment without repeats or ledger reset
+✓ 12. Late prior-campaign CAS invalidates a newly prepared baseline without polluting its saved count
+✓ 13. Route-only bounded history preserves stopped/expired campaign costs, dispatched in-flight attempt, earlier aggregates and late-result isolation
+✓ 14. Resolved-page/notifyAccepted/CAS microtask races never republish cancelled review or contaminate a newer saved count
+✓ 15. Next-segment committed source preparation has its own bounded deadline even when a read ignores abort forever
+✓ 16. First A and next-segment guard budget pauses abort the operation lease, so releasing old reads cannot begin any later committed read
+✓ 17. Actual Vue SSR escapes model text, shows all typed premise/revision controls, never saves while running; Lab compiled, Writer untouched, no persisted scan state
+=== MEMORY NOVEL SCAN UI TESTS PASSED ===
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+
+Running smoke:memory-novel-scan-capacity
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> llm-writer@1.0.2 smoke:memory-novel-scan-capacity
+> node --import tsx scripts/smoke-memory-novel-scan-capacity.ts
+
+{"suite":"novel-scan-capacity-controlled","chars":10500000,"chapters":500,"atoms":10500,"windows":2000,"primaryChars":10500000,"maxInputChars":9203,"maxInputBytes":25203,"dispatched":1,"pause":"budget","indexCueCount":0,"finitePlannerIds":65536,"planningSteps":71028,"cancelMs":3,"elapsedMs":3466,"cpuMs":3767.158,"heapUsedBefore":21381728,"heapUsedAfter":61080472,"rssBefore":70524928,"rssAfter":151310336,"processMaxRssKiB":148324,"note":"Process memory is observed, not the 16MiB payload limit. No semantic/model accuracy or all-connections completion claim."}
+
+Passed all 97 smoke suites
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

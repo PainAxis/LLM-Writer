@@ -4,6 +4,8 @@
 
 Stage-three track 3 adds an optional, explicitly started chat-model check of **one question against individually selected, current, disclosed original excerpts**. It works with ordinary local retrieval and completed optional semantic retrieval. It is not another retrieval mode, a whole-novel absence detector, or the stage-four Agent.
 
+Accepted and merged in [PR #40](https://github.com/PainAxis/LLM-Writer/pull/40): blocker-free review and all ten exact-head PR CI jobs passed, including all 52 production-browser scenarios and Writer stress. [Durable acceptance evidence](testing/memory-support-checks-2026-10-22/ACCEPTANCE.md) separates the successful same-head retry, original failures, post-merge validation and unchanged real-model limitations. This does not complete stage-three track 4.
+
 ## Three judgments, not a verification badge
 
 | Model judgment | Meaning within the selected excerpts |
@@ -81,7 +83,7 @@ npm run test:browser-memory-support
 npm run smoke:all
 ```
 
-CI includes the separate necessary `ci-memory-support` job plus all previous jobs. The dynamic `smoke:all` runner includes all 91 registered smoke suites. `test:browser-memory-support` is intentionally a separate browser runner invoked by that CI job, not part of the older generic `test:browser` runner; do not treat running the latter alone as support-check acceptance. The reviewed revision's CI result is the browser/merge acceptance record. Local Chromium execution remains unavailable in the current engineering environment; that restriction was not bypassed. Controlled fixtures establish engineering behavior, not live model accuracy, browser-provider CORS support or general novel-writing quality.
+CI includes the separate necessary `ci-memory-support` job plus all previous jobs. The dynamic `smoke:all` runner includes every registered smoke suite; revision-bound counts are recorded with each validation report. `test:browser-memory-support` is intentionally a separate browser runner invoked by that CI job, not part of the older generic `test:browser` runner; do not treat running the latter alone as support-check acceptance. The reviewed revision's CI result is the browser/merge acceptance record. Local Chromium execution remains unavailable in the current engineering environment; that restriction was not bypassed. Controlled fixtures establish engineering behavior, not live model accuracy, browser-provider CORS support or general novel-writing quality.
 
 The [retained evidence](testing/memory-support-checks-2026-10-22/REPORT.md) distinguishes controlled results and the separately authorized real-provider attempt.
 

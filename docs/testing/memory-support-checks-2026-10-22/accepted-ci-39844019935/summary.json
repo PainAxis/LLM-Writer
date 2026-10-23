@@ -1,0 +1,106 @@
+{
+  "runId": 39844019935,
+  "runURL": "https://github.com/PainAxis/LLM-Writer/actions/runs/39844019935",
+  "prHead": "e6402cd4c6b87b18c585c8bd5ad3a2d287278073",
+  "checkoutCommit": "56cc874d85519614c5977b7b18f152e4fb5d51c9",
+  "testedAndReviewedTree": "8f3b7d00c735ec79529483d70b29ebce67f133d5",
+  "artifactId": 12455640578,
+  "artifactSHA256": "f88a958939078e5831f07f341b27eb62f85fce2a949231797cf2c8816bdaabed",
+  "rawReportSHA256": "e70a65ddfdd854c4a3172241029a7e240ce130b6447cd6faf390b5d38ce65aed",
+  "totals": {
+    "tests": 52,
+    "passed": 52,
+    "failed": 0,
+    "expectedTests": 52,
+    "expectedSupportCalls": 50,
+    "expectedWritingCalls": 3,
+    "expectedSelectedSourcesSent": 62,
+    "expectedSemanticCitations": 27,
+    "semanticCompleted": 25,
+    "semanticExpected": 25,
+    "supportCalls": 50,
+    "writingCalls": 3,
+    "retrievalCalls": 101,
+    "selectedSourcesSent": 62,
+    "validCitations": 27,
+    "retrievalAllPremiseRecovery": "21/21",
+    "endToEndSupportedRecovery": "12/12",
+    "supportedRecoveryGivenCompleteSelection": "12/12",
+    "appropriateInsufficiency": "6/6",
+    "appropriateUncertainty": "7/7",
+    "requiredPremiseCompleteness": "26/26",
+    "unmockedExternalRequests": 0
+  },
+  "mutationControls": {
+    "responseConsumption": {
+      "fired": true,
+      "reachedEof": true,
+      "bytes": 504,
+      "chunks": 1,
+      "status": 200
+    },
+    "writerCloseIgnoredAbort": {
+      "status": 200,
+      "newRequestsDuringCloseReopen": 0,
+      "sameDocument": true
+    },
+    "total": 25,
+    "alwaysInsufficient": {
+      "rejected": 19,
+      "positiveRecovery": "0/12"
+    },
+    "alwaysSupported": {
+      "rejected": 13
+    },
+    "disclaimer": "Oracle sensitivity control, not a claim that protocol validation proves semantic entailment."
+  },
+  "browserErrors": [],
+  "fixtureErrors": [],
+  "blockedRequests": [],
+  "mergeGate": "All 10 necessary jobs passed on the same exact head; run attempt 2 completed success 2026-10-22T20:25:28Z",
+  "liveModelCalls": 0,
+  "note": "Controlled production-browser engineering evidence, not model quality.",
+  "writerRetryJobId": 120063850325,
+  "writerRetryReason": "Attempt 1 exhausted 20-minute job budget after 10m24s Chromium installation; no assertion failure. One same-head single-job retry succeeded without workflow/test changes.",
+  "mergeCommit": "7e2ae7d50c96f59894a8c96c9efb5d53aac4bfb9",
+  "postMergeCI": {
+    "runId": 39848961580,
+    "observedAt": "2026-10-22T20:29:00Z",
+    "status": "in_progress",
+    "url": "https://github.com/PainAxis/LLM-Writer/actions/runs/39848961580"
+  },
+  "writerStressArtifact": {
+    "id": 12456012180,
+    "sha256": "d61313278d8ee439b2e1f12d68880189e47075b9b8920add0095caaa8b6968f7"
+  },
+  "writerStressSummary": [
+    {
+      "profile": "million",
+      "status": "passed",
+      "characters": 1440000,
+      "preparations": 103,
+      "evidenceChecks": 578,
+      "externalRequests": 0,
+      "elapsedMs": 19728.882,
+      "memory": {
+        "sampledHeapPeakMiB": 747.864,
+        "sampledRssPeakMiB": 934.594,
+        "processMaxRssMiB": 946.766
+      }
+    },
+    {
+      "profile": "ten-million",
+      "status": "passed",
+      "characters": 10500000,
+      "preparations": 103,
+      "evidenceChecks": 581,
+      "externalRequests": 0,
+      "elapsedMs": 130742.087,
+      "memory": {
+        "sampledHeapPeakMiB": 2655.754,
+        "sampledRssPeakMiB": 3208.137,
+        "processMaxRssMiB": 3237.063
+      }
+    }
+  ]
+}

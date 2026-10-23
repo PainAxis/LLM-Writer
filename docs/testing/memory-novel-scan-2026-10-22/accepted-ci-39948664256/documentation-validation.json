@@ -1,0 +1,58 @@
+{
+  "recordedAt": "2026-10-23T13:01:06.569222+00:00",
+  "scope": "Final documentation/evidence plus narrow runner-local backup/trace and explicit report/screenshot attachment policy. Final exact-head CI remains required.",
+  "comparedLocalBaseline": "2817825b5775d705a45655abe5122af22665fd3b",
+  "functionalRemoteBaseline": "8b5ac0af7ef01c0fb29953ed3dec11f941748026",
+  "functionalTree": "9d88d35fe13375b36f5cd57676dca968e1a7d64a",
+  "functionalRun": 39948664256,
+  "sourceManifestCount": 383,
+  "changedSourceHarnessWorkflowPackageFixturePaths": [
+    ".github/workflows/ci.yml",
+    "scripts/browser-memory-novel-scan.mjs"
+  ],
+  "sourceManifest": "../local-backup-policy/validation.json",
+  "markdownFiles": {
+    "CHANGELOG.md": "0c416734032117587c1f1828b017bdc8e26a1cf0a2888e58d7ea888cedc3207c",
+    "PROJECT_STRUCTURE.md": "5d080fe95e61148d5e2a7f1ddedd8eaad048fd3c68bf7981b09f3d1212ef4d20",
+    "PROJECT_STRUCTURE.zh-CN.md": "bd45d4663081347e78e93d66e1c11e8874923c335eff5809382310613b2aeb67",
+    "README.md": "a3d813b901d8546aeec02336aae75152db58e45bebc600bcc734472a3e9725c1",
+    "README.zh-CN.md": "7b46841ded80fbb7c0e644061d53acd3b4199d16e18562b78102b2f1b150c367",
+    "ROADMAP.md": "4cb0f790bba0664c1ae5f6e13a76259ece63583812dfe0bdeaae3615af0afbf6",
+    "ROADMAP.zh-CN.md": "b67b71b1bf0ae6bbadf014b6e8267537e7b6c2afaf28965258424fe43a8105e5",
+    "docs/memory-evidence-review.md": "848be2c4c2a3b3c86a5d314303e821779ed68e57c6d5047f14f26c20b97fd389",
+    "docs/memory-evidence-review.zh-CN.md": "a4c8524b664216aaa3f04b3c4c4a1976d10318b21c738e470e4aee88be82e322",
+    "docs/memory-full-range-semantics.md": "2c2af5a48fad3840e85c982acd076a9ba266d5be31ba9f634f402f7ca5ecaa9c",
+    "docs/memory-full-range-semantics.zh-CN.md": "f739f1cee675726d3f4956b55bb9ce996466b2e6b9007f79f64bc230730e4ecd",
+    "docs/memory-mixed-query-recall.md": "ea73dc192c95b38e5e253ab6c348cd83253b8eb1364c5159078200c7efe09e97",
+    "docs/memory-mixed-query-recall.zh-CN.md": "33956f447cf278cd7d0d73c94349ebbbc4c0d16961689306dd3a1cebf5c7c0ca",
+    "docs/memory-novel-scan.md": "1dc72ffdf37a9969e465348211be8649bc7ee2774587097c02e080d481e1a417",
+    "docs/memory-novel-scan.zh-CN.md": "b73df4e7c144d2daf93e17e7c54d6da3197462c99ea2981bbfa2b2c2ec97c797",
+    "docs/testing/memory-novel-scan-2026-10-22/ACCEPTANCE.md": "68b99e96668dca8d43417365cc56eaf6e1504319d0c68407db9f0e51a18207f2",
+    "docs/testing/memory-novel-scan-2026-10-22/ACCEPTANCE.zh-CN.md": "12346a3148726e0ca0cd2b6ec1fdad7424b49df83cc90d12d517dbd345be33f9",
+    "docs/testing/memory-novel-scan-2026-10-22/REPORT.md": "d4441c992a354b84ab596347bddb4cef11d3817ff7e856b0cbab544071081e75",
+    "docs/testing/memory-novel-scan-2026-10-22/REPORT.zh-CN.md": "db76c0aafbba96a854ee9389f1719cf676e20ac2507ce77bf767ebfcf6b3ad6b"
+  },
+  "relativeLinkTargetsChecked": 327,
+  "brokenRelativeLinkTargets": [],
+  "previousNonReportEvidencePreserved": 50,
+  "historicalRawFailuresPreserved": true,
+  "localBrowser": "Not run; successful browser evidence is CI-hosted.",
+  "localHeavyTests": "Build, zero-warning lint, all97 smoke, syntax and both expected P01 mutants passed for the output-policy revision. 383 source/config/harness hashes stayed unchanged during execution. Exact final head still requires all eleven CI jobs.",
+  "localOnlyBackup": {
+    "bytes": 8156,
+    "sha256": "341930c856501f5783b48d992d01b4b4e5bfd35e4ffa537757172d04f2af28c5",
+    "committed": false,
+    "persistentEngineeringCopyRetained": true,
+    "futureCIRunnerCopyIsTemporary": true
+  },
+  "sourceChangesFromFunctionalBaseline": {
+    ".github/workflows/ci.yml": {
+      "baselineSHA256": "d4c512ca099035612a56998cccb451c0c2fb7490053b7a9ad389eb613870a18c",
+      "currentSHA256": "1e4284e03e8b2342b5b3758ffd477d76a9d785cf40dfbe33e208a34ba8009f7e"
+    },
+    "scripts/browser-memory-novel-scan.mjs": {
+      "baselineSHA256": "848cb7ddcfa1a50500284704d3de5a4763fcd5466329fff50ce8d8a0a4667e48",
+      "currentSHA256": "94eb39cefb3389c8f27c73829741a148dfc633a704eeffff5157764a50f91c23"
+    }
+  }
+}

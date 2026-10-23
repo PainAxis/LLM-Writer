@@ -2,10 +2,12 @@ import type { MemoryIndexStats, MemoryProjectInput } from '../../types/memory'
 import type {
   FactAnchor, FactEntity, FactEntityType, FactGraphDocument, FactGraphNode,
   FactGraphSelection, FactRelation, VisibleFactAnchor, VisibleFactRelation,
+  FactCandidateProvenance, FactPlotLink, FactPlotPremise, FactPlotLinkSelection, VisibleFactPlotLink,
 } from '../../types/factGraph'
 import { chapterRevision } from './revision'
 
 export const FACT_GRAPH_MAX_RELATIONS = 10_000
+export const FACT_GRAPH_MAX_PLOT_LINKS = 2_000
 export const FACT_GRAPH_VISIBLE_LIMIT = 200
 export const FACT_GRAPH_MAX_QUOTE_CHARS = 8_000_000
 export const FACT_GRAPH_MAX_DOCUMENT_CHARS = 24_000_000
@@ -19,8 +21,28 @@ function string(value: unknown, maximum: number, allowEmpty = false): value is s
   return typeof value === 'string' && value.length <= maximum && (allowEmpty || value.trim().length > 0)
 }
 
+export class FactGraphValidationError extends Error {
+  constructor(readonly code: 'invalid-data' | 'unsupported-version', message: string) {
+    super(message)
+    this.name = 'FactGraphValidationError'
+  }
+}
+
 function invalid(): never {
-  throw new Error('事实关系图格式无效或超过容量上限；原有数据不会被自动覆盖。')
+  throw new FactGraphValidationError('invalid-data', '事实关系图格式无效或超过容量上限；原有数据不会被自动覆盖。')
+}
+
+/** Future formats are not corrupt legacy data and must never be repaired over. */
+export function assertFactGraphSupportedVersion(value: unknown): void {
+  if (record(value) && Object.hasOwn(value, 'version') && value.version !== 1 && value.version !== 2) {
+    throw new FactGraphValidationError('unsupported-version', '不支持的事实关系图版本（unsupported-version）；请使用支持该版本的应用，原有数据不会被覆盖。')
+  }
+}
+
+function provenance(value: unknown): FactCandidateProvenance {
+  if (!record(value) || !string(value.campaignId, 256) || !string(value.segmentId, 256)
+    || !string(value.jobId, 256) || !string(value.candidateId, 256)) return invalid()
+  return { campaignId: value.campaignId, segmentId: value.segmentId, jobId: value.jobId, candidateId: value.candidateId }
 }
 
 function entity(value: unknown): FactEntity {
@@ -40,36 +62,98 @@ function anchor(value: unknown): FactAnchor {
   }
 }
 
-/** Validate untrusted storage/model input and discard fields that are not in this schema. */
+/** Validate one typed proposal, retaining every premise role and source revision. */
+export function validateFactPlotLink(value: unknown, expectedProjectId?: string): FactPlotLink {
+  if (!record(value) || !string(value.id, 256) || !string(value.projectId, 256)
+    || (expectedProjectId !== undefined && value.projectId !== expectedProjectId)
+    || (value.mode !== 'setup_candidate' && value.mode !== 'possible_recovery')
+    || !string(value.title, 120) || !string(value.explanation, 240)
+    || (value.origin !== 'explicit' && value.origin !== 'inferred')
+    || (value.createdBy !== 'author' && value.createdBy !== 'model')
+    || typeof value.authorConfirmed !== 'boolean'
+    || value.semanticValidation !== 'protocol-and-current-sources'
+    || !Array.isArray(value.premises) || value.premises.length < 1 || value.premises.length > 4) return invalid()
+  const references = new Set<string>()
+  const premises = value.premises.map((premise): FactPlotPremise => {
+    if (!record(premise) || !['setup', 'recovery', 'context'].includes(String(premise.role))
+      || !Array.isArray(premise.evidence) || premise.evidence.length < 1 || premise.evidence.length > 8) return invalid()
+    const evidence = premise.evidence.map(anchor)
+    for (const reference of evidence) {
+      const key = JSON.stringify([reference.chapterId, reference.sourceRevision, reference.start, reference.end])
+      if (references.has(key)) return invalid()
+      references.add(key)
+    }
+    return { role: premise.role as FactPlotPremise['role'], evidence }
+  })
+  if (references.size > 8 || !premises.some(item => item.role === 'setup')
+    || (value.mode === 'possible_recovery' && !premises.some(item => item.role === 'recovery'))
+    || premises.flatMap(item => item.evidence).reduce((total, item) => total + item.quote.length, 0) > 8_000) return invalid()
+  return {
+    id: value.id, projectId: value.projectId, mode: value.mode, title: value.title, explanation: value.explanation,
+    origin: value.origin, createdBy: value.createdBy, authorConfirmed: value.authorConfirmed,
+    semanticValidation: 'protocol-and-current-sources', provenance: provenance(value.provenance), premises,
+  }
+}
+
+/** Caller supplies application-assigned provenance; model flags can never confirm a proposal. */
+export function createFactPlotLink(
+  input: Omit<FactPlotLink, 'id' | 'createdBy' | 'authorConfirmed' | 'semanticValidation'> & { id?: string },
+): FactPlotLink {
+  return validateFactPlotLink({
+    ...input, id: input.id ?? crypto.randomUUID(), createdBy: 'model', authorConfirmed: false,
+    semanticValidation: 'protocol-and-current-sources',
+  })
+}
+
+/** Read v1 without writing; normalize to v2 only in memory until an explicit save. */
 export function validateFactGraphDocument(value: unknown, expectedProjectId?: string): FactGraphDocument {
-  if (!record(value) || value.version !== 1 || !string(value.projectId, 256)
+  assertFactGraphSupportedVersion(value)
+  if (!record(value) || (value.version !== 1 && value.version !== 2) || !string(value.projectId, 256)
     || (expectedProjectId !== undefined && value.projectId !== expectedProjectId)
     || !string(value.revision, 128, true) || !Array.isArray(value.relations)
-    || value.relations.length > FACT_GRAPH_MAX_RELATIONS) return invalid()
+    || value.relations.length > FACT_GRAPH_MAX_RELATIONS
+    || (value.version === 2 && (!Array.isArray(value.plotLinks) || value.plotLinks.length > FACT_GRAPH_MAX_PLOT_LINKS))
+    // A mislabeled v1 payload must not silently discard v2 annotations.
+    || (value.version === 1 && Object.hasOwn(value, 'plotLinks'))) return invalid()
   const ids = new Set<string>()
   let quoteChars = 0
+  const addQuotes = (evidence: FactAnchor[]) => {
+    quoteChars += evidence.reduce((total, reference) => total + reference.quote.length, 0)
+    if (quoteChars > FACT_GRAPH_MAX_QUOTE_CHARS) return invalid()
+  }
   const relations = value.relations.map((item): FactRelation => {
     if (!record(item) || !string(item.id, 256) || ids.has(item.id) || item.projectId !== value.projectId
       || !string(item.predicate, 200) || (item.origin !== 'explicit' && item.origin !== 'inferred')
       || (item.createdBy !== 'author' && item.createdBy !== 'model')
       || typeof item.authorConfirmed !== 'boolean' || !Array.isArray(item.evidence)
-      || item.evidence.length < 1 || item.evidence.length > 8) return invalid()
+      || item.evidence.length < 1 || item.evidence.length > 8
+      || (item.semanticValidation !== undefined && item.semanticValidation !== 'protocol-and-current-sources')) return invalid()
     ids.add(item.id)
     const evidence = item.evidence.map(anchor)
-    quoteChars += evidence.reduce((total, reference) => total + reference.quote.length, 0)
-    if (quoteChars > FACT_GRAPH_MAX_QUOTE_CHARS) return invalid()
+    addQuotes(evidence)
     return {
       id: item.id, projectId: item.projectId as string, source: entity(item.source), target: entity(item.target),
       predicate: item.predicate, origin: item.origin, createdBy: item.createdBy, authorConfirmed: item.authorConfirmed,
       evidence,
+      ...(item.provenance === undefined ? {} : { provenance: provenance(item.provenance) }),
+      ...(item.semanticValidation === undefined ? {} : { semanticValidation: item.semanticValidation }),
     }
   })
-  return { version: 1, projectId: value.projectId, revision: value.revision, relations }
+  const plotLinks = (value.version === 2 ? value.plotLinks as unknown[] : []).map(item => {
+    const link = validateFactPlotLink(item, value.projectId as string)
+    if (ids.has(link.id)) return invalid()
+    ids.add(link.id)
+    for (const premise of link.premises) addQuotes(premise.evidence)
+    return link
+  })
+  const document: FactGraphDocument = { version: 2, projectId: value.projectId, revision: value.revision, relations, plotLinks }
+  if (JSON.stringify(document).length > FACT_GRAPH_MAX_DOCUMENT_CHARS) return invalid()
+  return document
 }
 
 export function emptyFactGraph(projectId: string): FactGraphDocument {
   if (!string(projectId, 256)) return invalid()
-  return { version: 1, projectId, revision: '', relations: [] }
+  return { version: 2, projectId, revision: '', relations: [], plotLinks: [] }
 }
 
 /** IDs encode occurrence labels, not a cross-chapter canonical name or alias. */
@@ -165,6 +249,53 @@ export function selectFactGraph(
     }
   }
   return { relations, nodes: [...nodes.values()], truncated }
+}
+
+function resolvePlotLink(context: SourceContext, link: FactPlotLink): VisibleFactPlotLink | null {
+  const premises: VisibleFactPlotLink['premises'] = []
+  for (const premise of link.premises) {
+    const evidence = resolveAnchors(context, premise.evidence)
+    if (!evidence) return null
+    premises.push({ role: premise.role, evidence })
+  }
+  return { ...link, premises }
+}
+
+/** Filter all premises before any query or display budget. Nothing undisclosed leaks. */
+export function selectFactPlotLinks(
+  project: MemoryProjectInput, stats: MemoryIndexStats, document: FactGraphDocument,
+  throughChapterId: string, query = '',
+): FactPlotLinkSelection {
+  const accepted = validateFactGraphDocument(document, project.id)
+  if (!string(query, 500, true)) throw new Error('伏笔检索内容最多 500 字符。')
+  const context = sourceContext(project, stats, throughChapterId)
+  const needle = query.trim().toLocaleLowerCase()
+  const plotLinks: VisibleFactPlotLink[] = []
+  let truncated = false
+  for (const link of accepted.plotLinks) {
+    const visible = resolvePlotLink(context, link)
+    if (!visible) continue
+    if (needle && ![visible.title, visible.explanation,
+      ...visible.premises.flatMap(item => item.evidence.flatMap(reference => [reference.quote, reference.chapterTitle])),
+    ].some(text => text.toLocaleLowerCase().includes(needle))) continue
+    if (plotLinks.length >= FACT_GRAPH_VISIBLE_LIMIT) { truncated = true; break }
+    plotLinks.push(visible)
+  }
+  return { plotLinks, truncated }
+}
+
+/** Pure author decision. Caller must explicitly save with the graph CAS revision. */
+export function confirmFactPlotLink(
+  project: MemoryProjectInput, stats: MemoryIndexStats, document: FactGraphDocument,
+  throughChapterId: string, id: string,
+): FactGraphDocument {
+  const accepted = validateFactGraphDocument(document, project.id)
+  const link = accepted.plotLinks.find(item => item.id === id)
+  if (!link || !resolvePlotLink(sourceContext(project, stats, throughChapterId), link)) {
+    throw new Error('伏笔提议的全部原文前提必须仍然有效且已披露，不能确认旧版本或未来信息。')
+  }
+  link.authorConfirmed = true
+  return accepted
 }
 
 /** Seed ONLY from the original demo and its completed sync, never an edited copy. */

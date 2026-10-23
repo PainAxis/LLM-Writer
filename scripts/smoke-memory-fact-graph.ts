@@ -201,7 +201,7 @@ const validClone = validateFactGraphDocument(document, project.id)
 validClone.relations[0]!.evidence[0]!.quote = '调用者修改'
 assert.notEqual(document.relations[0]!.evidence[0]!.quote, '调用者修改', 'validation must return an independent document')
 const invalidDocuments: unknown[] = [
-  null, [], {}, { ...document, version: 2 }, { ...document, projectId: '' }, { ...document, revision: 5 },
+  null, [], {}, { ...document, version: 3 }, { ...document, projectId: '' }, { ...document, revision: 5 },
   { ...document, relations: {} }, { ...document, relations: [explicit, explicit] },
   { ...document, revision: 'r'.repeat(129) },
   { ...document, relations: Array.from({ length: 10_001 }, (_, i) => ({ ...explicit, id: `over-capacity-${i}` })) },

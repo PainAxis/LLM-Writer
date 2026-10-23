@@ -4,6 +4,8 @@
 
 第三阶段第 3 项增加一项可选、由作者明确启动的聊天模型核对：针对**一个问题，以及逐项选中的、当前修订且已披露的原文**给出意见。普通本地检索与已完成的可选语义检索都可使用。它不是另一种检索模式、全书无答案检测器，也不是第四阶段 Agent。
 
+已在 [PR #40](https://github.com/PainAxis/LLM-Writer/pull/40) 验收并合并：独立审阅无阻塞，准确 head 的十项必要 PR CI 全过，包括完整 52 场景生产构建浏览器及 Writer 压力测试。[持久验收证据](testing/memory-support-checks-2026-10-22/ACCEPTANCE.zh-CN.md)区分同 head 的成功重跑、原始失败、合并后验证和未改变的真实模型限制；这不代表第三阶段第 4 项完成。
+
 ## 三种模型意见，不是事实认证
 
 | 模型意见 | 仅在所选原文范围内的含义 |
@@ -81,7 +83,7 @@ npm run test:browser-memory-support
 npm run smoke:all
 ```
 
-动态 `smoke:all` 聚合器纳入全部 91 组冒烟测试；`test:browser-memory-support` 刻意由独立必要 CI 任务 `ci-memory-support` 调用，不属于旧通用 `test:browser` 聚合器。只运行旧入口不能代替支持检查的浏览器验收。 CI 包含 `ci-memory-support` 及之前全部必要任务。被审修订的 CI 结果是浏览器与合并验收记录。本轮工程环境的本地 Chromium 仍不可运行，没有绕过该限制。受控固定集验证工程行为，不能证明真实模型准确率、浏览器到服务商的 CORS 支持或普遍小说写作质量。
+动态 `smoke:all` 聚合器纳入全部已注册冒烟测试，各修订的具体数量随验证报告记录；`test:browser-memory-support` 刻意由独立必要 CI 任务 `ci-memory-support` 调用，不属于旧通用 `test:browser` 聚合器。只运行旧入口不能代替支持检查的浏览器验收。 CI 包含 `ci-memory-support` 及之前全部必要任务。被审修订的 CI 结果是浏览器与合并验收记录。本轮工程环境的本地 Chromium 仍不可运行，没有绕过该限制。受控固定集验证工程行为，不能证明真实模型准确率、浏览器到服务商的 CORS 支持或普遍小说写作质量。
 
 [保留证据](testing/memory-support-checks-2026-10-22/REPORT.zh-CN.md)区分受控结果与单独授权的真实服务尝试。
 

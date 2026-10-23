@@ -1,0 +1,24 @@
+{
+  "adapter": "production generateNovelScan → api bounded branch → actual SDK",
+  "httpMockCalls": 9,
+  "liveNetworkRequests": 0,
+  "phasesPassed": [
+    "collect",
+    "connect"
+  ],
+  "cases": [
+    "exact escaped prose",
+    "no tools/history/stream/retries",
+    "1200 output cap",
+    "fresh dispatch guard",
+    "503",
+    "redirect",
+    "oversized success/error",
+    "incomplete output",
+    "failed/stalled guard",
+    "stalled provider",
+    "late cancelled result"
+  ],
+  "usageContent": "omitted"
+}
+PASS novel-scan production HTTP adapter with zero live traffic
