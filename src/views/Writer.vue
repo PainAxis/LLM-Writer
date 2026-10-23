@@ -558,17 +558,22 @@ const generationArbiter = useWriterGenerationArbiter({
   notifyBlocked: message => ElMessage.warning(message),
 })
 const prepareIndependentWriterAI = (owner: string) => generationArbiter.prepare(owner)
+const editorRef = shallowRef<InstanceType<typeof WriterEditor>>()
 const writerAgent = useWriterAgent({
   currentNovel, currentChapter, chapters, content, hasUnsavedChanges, isSaving, saveError,
   config: activeConfig,
   prepare: () => prepareIndependentWriterAI('writerAgent'),
   acquireApplyLease: () => prepareIndependentWriterAI('writerAgent') ? acquireApplyLease() : null,
+  prepareEditorApply: () => {
+    const editor = editorRef.value
+    if (!editor) throw new Error('编辑器尚未就绪')
+    return editor.prepareHtmlApply()
+  },
   beginSaveCurrentChapter,
   writeText: text => navigator.clipboard.writeText(text),
   notify: message => ElMessage.warning(message),
 })
 
-const editorRef = shallowRef<InstanceType<typeof WriterEditor>>()
 const activeTab = ref('editor')
 
 const promptCatalog = useWriterPromptCatalog({

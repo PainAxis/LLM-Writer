@@ -121,7 +121,10 @@ export interface WriterAgentOptions {
 
 /** An opaque, once-only closure. Never serialize this or recover it from UI metadata.
  * Acquire the Writer apply barrier first; call consume immediately before first mutation. */
-export interface WriterAgentApplyLease { consume(): string }
+export interface WriterAgentApplyLease {
+  /** The synchronous validator sees the private draft before consumption. */
+  consume(beforeConsume?: (text: string) => boolean): string
+}
 export interface WriterAgentController {
   snapshot(): WriterAgentSnapshot
   preview(): Promise<void>

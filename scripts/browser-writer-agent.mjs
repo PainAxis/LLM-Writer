@@ -42,7 +42,8 @@ const report = { schemaVersion: 1, startedAt: new Date().toISOString(), commit: 
 }
 const sourceFiles = [
   'src/services/writerAgent.ts', 'src/services/writerAgentProtocol.ts', 'src/types/writerAgent.ts',
-  'src/composables/useWriterAgent.ts', 'src/components/writer/panels/WriterAgentPanel.vue', 'src/views/Writer.vue',
+  'src/composables/useWriterAgent.ts', 'src/components/writer/panels/WriterAgentPanel.vue', 'src/components/writer/WriterEditor.vue', 'src/views/Writer.vue',
+  'src/utils/writerEditorApply.ts',
   'src/composables/useWriterProject.ts', 'src/composables/writerPersistenceGate.ts',
   'src/services/novelPersistence.ts', 'src/services/api.ts', 'src/services/aiRequestLimits.ts',
   'src/services/memory/client.ts', 'src/services/memory/writerContext.ts', 'src/services/memory/labData.ts',
@@ -272,12 +273,22 @@ async function restageCommittedBaseline(page) {
   scenario.baselineIdentities ??= []; scenario.baselineIdentities.push(identity)
 }
 
-async function openWriter(page, { novelId = active.profile.novelId, chapterId = active.profile.targetId, title = active.profile.target.title } = {}) {
+async function openWriter(page, { novelId = active.profile.novelId, title = active.profile.target.title, text = active.profile.target.text } = {}) {
   await page.goto(`${origin}/#/writer?novelId=${novelId}`); await dismiss(page)
   const chapter = page.locator('.chapter-item').filter({ has: page.locator('.chapter-info > p', { hasText: title }) }).first()
-  await chapter.click()
+  await expect(chapter).toBeVisible()
+  // initNovel already selects chapter one. Clicking it again starts a real
+  // asynchronous ordinary save while its existing text stays visible. Do not
+  // start that redundant save and race the following baseline restaging.
+  if (!/\bactive\b/.test(await chapter.getAttribute('class') ?? '')) await chapter.click()
+  // A different chapter becomes active only after selectChapter's save settles.
+  // Visibility alone (especially for another novel's first chapter) is not that
+  // boundary. No canonical-content comparison is relaxed or retried.
+  await expect(chapter).toHaveClass(/\bactive\b/)
   await expect(editor(page)).toBeVisible()
-  if (chapterId === active.profile.targetId) await expect(editor(page)).toHaveText(active.profile.target.text, { useInnerText: true })
+  await expect(editor(page)).toHaveText(text, { useInnerText: true })
+  await expect(page.locator('.saving-indicator')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '保存失败，点击重试', exact: true })).toHaveCount(0)
 }
 async function currentProbe(page = active.page) { return page.evaluate(() => globalThis.__writerAgentProbe.snapshot()) }
 async function arm(rule, page = active.page) { await page.evaluate(rule => globalThis.__writerAgentProbe.arm(rule), rule) }
@@ -408,7 +419,9 @@ async function close(entry = 'footer') {
   else if (entry === 'footer') await nodes(page, 'close').click()
   else if (entry === 'x') await dialogs(page).locator('.el-dialog__headerbtn').click()
   else if (entry === 'escape') await page.keyboard.press('Escape')
-  else if (entry === 'overlay') await page.locator('.el-overlay-dialog').filter({ has: dialogs(page) }).click({ position: { x: 2, y: 2 } })
+  // Installed Element Plus puts role=dialog on the overlay itself, not a child.
+  // A real down/up/click on its corner exercises useSameTarget/onModalClick.
+  else if (entry === 'overlay') await dialogs(page).click({ position: { x: 2, y: 2 } })
   else throw new Error(`Unknown close entry ${entry}`)
   if (entry === 'stop') await terminal(['cancelled'])
   else await expect(panel(page)).toHaveCount(0)
@@ -445,7 +458,7 @@ async function committed(page = active.page) {
 async function otherPage({ otherNovel = false } = {}) {
   const page = await active.context.newPage()
   const novel = otherNovel ? fixture.novelB : fixture.novelA, chapter = otherNovel ? novel.chapters[0] : novel.chapters[1]
-  await openWriter(page, { novelId: Number(novel.id), chapterId: chapter.id, title: chapter.title })
+  await openWriter(page, { novelId: Number(novel.id), title: chapter.title, text: chapter.text })
   await restageCommittedBaseline(page)
   await page.evaluate(draft => { globalThis.__writerAgentProbe.reset(draft); globalThis.__writerAgentProbe.actor = 'other-author' }, active.draft)
   return { page, novel, chapter }
@@ -745,7 +758,18 @@ register('B14', 'B14.a', 'double_apply_escape_reload', async () => {
   await assertPhaseNodes('applied'); await active.page.waitForTimeout(2200)
   await counters({ http: 2, tools: 1, sync: 1, search: 1, append: 1, savingTransitions: 1, commits: 1 })
   const saved = await committed(), target = saved.find(novel => novel.id === active.profile.novelId).chapterList.find(chapter => chapter.id === Number(active.profile.targetId))
-  check(target.content.includes('&lt;木门&gt;') && target.content.includes('&amp;'), 'Dangerous-looking draft prose is escaped in durable HTML')
+  // wangEditor legally canonicalizes a standalone & without spelling &amp;.
+  // Parse the genuinely committed HTML into an inert, unattached template and
+  // verify literal semantics/safety instead of one serializer's entity spelling.
+  const durable = await active.page.evaluate(({ html, draft }) => {
+    const template = document.createElement('template'); template.innerHTML = html
+    const text = template.content.textContent ?? '', elements = [...template.content.querySelectorAll('*')]
+    return { exactDraftOccurrences: text.split(draft).length - 1,
+      dangerousElements: template.content.querySelectorAll('木门, script').length,
+      unexpectedElements: elements.filter(element => !['p', 'br'].includes(element.localName)).length,
+      eventAttributes: elements.flatMap(element => [...element.attributes]).filter(attribute => /^on/i.test(attribute.name)).length }
+  }, { html: target.content, draft: active.draft })
+  equal(durable, { exactDraftOccurrences: 1, dangerousElements: 0, unexpectedElements: 0, eventAttributes: 0 }, 'Durable HTML preserves the complete literal draft exactly once with only safe paragraph nodes and no event attributes')
   equal(saved.find(novel => novel.id === Number(fixture.novelB.id)), originalOther, 'Other novel remains byte-equivalent after ordinary save')
   const timeOrigin = await active.page.evaluate(() => performance.timeOrigin)
   await active.page.reload(); await dismiss(active.page)
@@ -831,16 +855,34 @@ for (const otherNovel of [false, true]) register('B16', otherNovel ? 'B16.b' : '
     equal((await currentProbe()).metadataCommits, before.metadataCommits, 'Conflict is not permission to refresh CAS baseline or overwrite')
   }
 })
+async function requestOrdinaryGeneration() {
+  // Opening the ordinary workspace is not an arbiter claim. Its actual start
+  // handler calls prepare only after a real template has been selected.
+  // Only this overlapping-modal launcher is a labeled adversarial DOM click.
+  await active.page.getByRole('button', { name: '根据大纲生成', exact: true }).evaluate(button => button.click())
+  const dialog = active.page.getByRole('dialog', { name: 'AI生成章节内容', exact: true })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.locator('.prompt-item-modern').first()).toBeVisible()
+  await dialog.getByRole('button', { name: '使用默认', exact: true }).click()
+  const generate = dialog.getByRole('button', { name: '开始生成', exact: true })
+  await expect(generate).toBeEnabled()
+  await generate.click()
+  scenario.ordinaryInteraction = 'Actual ordinary workspace/default-template/start handlers; only opening the overlapping modal uses a DOM click. A workspace open alone is not an arbiter claim.'
+  return dialog
+}
+const ordinaryRequests = () => requests.filter(request => request.scenario === scenario.key && request.kind === 'ordinary')
 register('B17', 'B17.a', 'real_generation_arbiter_claim', async () => {
   await happyToDraft(); await counters({ http: 2, tools: 1, sync: 1, search: 1 })
-  // Real ordinary chapter generation launcher reaches the shared arbiter. The
-  // fixed target is shorter than old Continue's 50-character precondition.
-  await active.page.getByRole('button', { name: '根据大纲生成', exact: true }).evaluate(button => button.click())
+  const dialog = await requestOrdinaryGeneration()
   await expect(panel(active.page)).toHaveCount(0)
-  await expect(active.page.getByRole('dialog', { name: 'AI生成章节内容', exact: true })).toBeVisible()
+  await expect(dialog).toBeHidden()
+  // The ordinary response stays genuinely pending at the loopback provider so
+  // it cannot replace the editor or save while the Agent's revocation is checked.
+  await expect.poll(() => ordinaryRequests().length).toBe(1)
   equal(scenarioRequests().length, 2, 'Ordinary generation claim revokes Agent without a third Agent request')
+  equal((await currentProbe()).editorAppends, 0, 'Ordinary generation claim does not append the Agent draft')
   equal((await currentProbe()).metadataCommits, 0, 'Arbiter claim does not append or save Agent draft')
-  scenario.ordinaryProviderHttpDispatches = requests.filter(request => request.scenario === scenario.key && request.kind === 'ordinary').length
+  scenario.ordinaryProviderHttpDispatches = ordinaryRequests().length
 })
 for (const variant of ['x', 'back', 'forward', 'chapter_switch']) register('B17', 'B17.b', variant, async () => {
   if (variant === 'back' || variant === 'forward') {
@@ -891,7 +933,14 @@ register('B17', 'B17.c', 'known_failure_recovery_blocks_new_owners', async () =>
   for (const action of [
     () => nodes(active.page, 'close').click(),
     () => nodes(active.page, 'open').evaluate(button => button.click()),
-    () => active.page.getByRole('button', { name: '根据大纲生成', exact: true }).evaluate(button => button.click()),
+    async () => {
+      const dialog = await requestOrdinaryGeneration()
+      await phase('applied_unsaved')
+      await expect(dialog).toBeVisible()
+      equal(ordinaryRequests().length, 0, 'Known-failure barrier rejects an actual ordinary generation start before HTTP')
+      await dialog.locator('.el-dialog__headerbtn').click()
+      await expect(dialog).toBeHidden()
+    },
     () => active.page.locator('.chapter-item').first().evaluate(item => item.click()),
     () => active.page.getByRole('button', { name: '返回列表', exact: true }).evaluate(button => button.click()),
   ]) { await action(); await phase('applied_unsaved') }
@@ -916,7 +965,10 @@ for (const kind of ['chapter', 'material']) register('B17', 'B17.extra', `held_$
   await arm({ kind: 'source-complete', phase: 'applying', label: 'apply-with-delete-intent' })
   await nodes(active.page, 'apply').evaluate(button => button.click()); await waitHold('apply-with-delete-intent')
   const before = await committed()
-  await confirm.getByRole('button', { name: '确定', exact: true }).click()
+  // No app locale override is installed. Select the actual primary confirm
+  // action (Element Plus handleAction('confirm')), not a guessed Chinese label.
+  const accept = confirm.locator('.el-message-box__btns button.el-button--primary')
+  await expect(accept).toHaveCount(1); await expect(accept).toBeEnabled(); await accept.click()
   await active.page.waitForTimeout(100)
   equal((await committed()).map(novel => [novel.id, novel.chapterList.length, novel.characters.length]), before.map(novel => [novel.id, novel.chapterList.length, novel.characters.length]), 'Delayed delete intent cannot mutate after Agent Apply lease acquisition')
   await release('apply-with-delete-intent'); await assertPhaseNodes('applied')
@@ -927,8 +979,18 @@ for (const width of [1280, 390]) register('B18', 'B18.a', width === 390 ? 'mobil
   const started = Date.now(); await previewAgent(); scenario.timings = { previewMs: Date.now() - started }
   const retrieval = Date.now(); await startAgent(); scenario.timings.retrievalMs = Date.now() - retrieval
   const draft = Date.now(); await draftReady(); scenario.timings.draftMs = Date.now() - draft
-  const bounds = await dialogs(active.page).boundingBox()
+  // role=dialog is the full-screen overlay in installed Element Plus. Measure
+  // the actual inner review frame, not the viewport-sized mask.
+  const frame = dialogs(active.page).locator('.el-dialog')
+  await expect(frame).toHaveCount(1)
+  const bounds = await frame.boundingBox()
   check(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width + 1, 'Actual review dialog fits the tested viewport without horizontal clipping')
+  const overflow = await frame.evaluate(element => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
+    bodyClientWidth: element.querySelector('[data-testid="writer-agent-panel"]').clientWidth,
+    bodyScrollWidth: element.querySelector('[data-testid="writer-agent-panel"]').scrollWidth }))
+  check(overflow.clientWidth > 0 && overflow.scrollWidth <= overflow.clientWidth
+    && overflow.bodyClientWidth > 0 && overflow.bodyScrollWidth <= overflow.bodyClientWidth, 'Actual inner review frame and scrolling body have no horizontal overflow')
+  scenario.viewportGeometry = { viewportWidth: width, x: bounds.x, width: bounds.width, ...overflow }
   if (width === 390) await screenshot('mobile-reviewed-draft.png')
   await nodes(active.page, 'apply').scrollIntoViewIfNeeded(); await nodes(active.page, 'apply').click(); await assertPhaseNodes('applied')
   await active.page.waitForTimeout(2200)

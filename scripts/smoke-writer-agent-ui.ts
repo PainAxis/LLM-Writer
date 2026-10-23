@@ -4,7 +4,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createSSRApp, defineComponent, h, nextTick, ref, watch } from 'vue'
+import * as Vue from 'vue'
+import { compileScript, parse } from '@vue/compiler-sfc'
 import { renderToString } from '@vue/server-renderer'
+import ts from 'typescript'
 import { createServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { useWriterAgent, writerAgentAuditText, type WriterAgentUiPhase } from '../src/composables/useWriterAgent'
@@ -14,6 +17,7 @@ import { useWriterChapterCrud } from '../src/composables/useWriterChapterCrud'
 import { useWriterMaterialCrud } from '../src/composables/useWriterMaterialCrud'
 import { MemoryIndex } from '../src/services/memory/engine'
 import { formatGeneratedBody, stripWriterHtml } from '../src/utils/writerContent'
+import { assertWriterEditorTextRoundTrip, WriterEditorApplyBlockedError } from '../src/utils/writerEditorApply'
 import type { WriterNovel } from '../src/types/writer'
 import type { ApiConfig } from '../src/types/api'
 import type { MemoryProjectInput } from '../src/types/memory'
@@ -58,7 +62,7 @@ async function advanceAutosaveWindow() {
   for (const [token, callback] of [...autosaveTimers]) { autosaveTimers.delete(token); callback() }
   await flush()
 }
-async function fixture() {
+async function fixture(draftText = fixed.escapedDraftText) {
   let disk: WriterNovel[] = [fixed.novelA, fixed.novelB].map(novel => ({
     id: Number(novel.id), title: novel.title,
     chapterList: novel.chapters.map(chapter => ({ id: Number(chapter.id), title: chapter.title,
@@ -79,6 +83,7 @@ async function fixture() {
   const copies: string[] = []
   const messages: string[] = []
   let notifyEditorChanges = true
+  let prepareEditorApply = () => (html: string) => html
   const project = useWriterProject({ novelStore: { worldSettings: [] }, beforeUnloadTarget: null,
     notifyError: text => messages.push(text), persistence: { rejectsBeforeCommit: true, load: () => clone(disk), save: (novels, options) => {
       calls.saves++
@@ -101,6 +106,7 @@ async function fixture() {
   const agent = useWriterAgent({ ...project, config, eventTarget: null,
     prepare: () => arbiter.prepare('writerAgent'),
     acquireApplyLease: () => arbiter.prepare('writerAgent') ? project.acquireApplyLease() : null,
+    prepareEditorApply: () => prepareEditorApply(),
     writeText: async text => { copies.push(text) }, notify: text => messages.push(text),
     runtimePorts: {
       getConfig: () => config.value,
@@ -124,7 +130,7 @@ async function fixture() {
         await options.beforeRequest?.()
         assert.equal(options.signal?.aborted, false)
         calls.dispatch++
-        const result = options.type === 'writer-agent-plan' ? fixed.validPlanText : fixed.escapedDraftText
+        const result = options.type === 'writer-agent-plan' ? fixed.validPlanText : draftText
         if (nextModel) { waitingModel = nextModel; nextModel = null; modelResult = result; return waitingModel.promise }
         return result
       },
@@ -152,6 +158,7 @@ async function fixture() {
     assert.equal(agent.phase.value, 'awaiting_author')
   }
   return { agent, project, arbiter, calls, config, copies, messages, pending, prepare, evidence, review,
+    setEditorApply(prepare: typeof prepareEditorApply) { prepareEditorApply = prepare },
     setEditorChangeNotifications(value: boolean) { notifyEditorChanges = value },
     setMode(value: typeof mode) { mode = value },
     holdRead() { nextRead = deferred(); return nextRead }, readWaiting: () => Boolean(waitingRead),
@@ -300,6 +307,170 @@ console.log('✓ R14.b both pre-append guard cancellation schedules release barr
   await f.dispose()
 }
 console.log('✓ R14.a real runtime→private original→escaped append→real Writer save exactly once, double click idempotent')
+
+// Model the installed editor wrapper's actual ordering: synchronous setHtml /
+// getHtml, followed by onChange reading CURRENT editor HTML. The serializer
+// examples are source-derived, not a replacement browser/DOM editor assertion.
+for (const authorEdits of [false, true]) {
+  const draft = `${fixed.escapedDraftText}\n“我们会再见。”`
+  const f = await fixture(draft); await f.review(); f.setMode('hold')
+  const before = f.project.content.value
+  let editorHtml = before
+  let applications = 0
+  const emitEditorChange = () => { f.project.content.value = editorHtml; f.project.onContentChange() }
+  f.setEditorApply(() => html => {
+    applications++
+    assert.equal(f.project.isMutationBlocked.value, true)
+    assert.equal(f.calls.saves, 0, 'Serialization must precede the first save snapshot')
+    assert.equal(html, `${before}\n${formatGeneratedBody(draft)}`)
+    assert.ok(html.includes('class="dialogue"'))
+    assert.ok(html.includes('&lt;木门&gt; &amp; 铜铃'))
+    editorHtml = html.replace(/>\n</g, '><').replaceAll(' class="dialogue"', '').replaceAll('&amp;', '&')
+    emitEditorChange() // A synchronous onChange is already post-apply, not lease revocation.
+    queueMicrotask(emitEditorChange)
+    return editorHtml
+  })
+  const appended = f.agent.append()
+  await until(() => f.pending.length === 1)
+  const canonical = editorHtml
+  const initial = f.pending[0].novels[0].chapterList!.find(chapter => String(chapter.id) === fixed.novelA.targetChapterId)!
+  assert.equal(initial.content, canonical)
+  assert.equal(f.calls.saves, 1)
+  const handle = f.agent.saveHandle.value!
+  if (authorEdits) {
+    // Even a raw formatting-only edit is real: do not compare stripped text or
+    // replay a cached normalization callback over the author's current content.
+    editorHtml = `${canonical.replace('<p>', '<p class="author-format">')}<p>作者后续修改。</p>`
+    queueMicrotask(emitEditorChange)
+    await flush()
+  }
+  f.commit(0)
+  if (authorEdits) {
+    await until(() => f.pending.length === 2)
+    assert.equal(f.agent.saveHandle.value, handle)
+    assert.equal(f.pending[1].novels[0].chapterList!.find(chapter => String(chapter.id) === fixed.novelA.targetChapterId)!.content, editorHtml)
+    f.commit(1)
+  }
+  assert.equal(await appended, true)
+  emitEditorChange() // A later equal notification after clean also stays clean.
+  await advanceAutosaveWindow()
+  assert.equal(applications, 1)
+  assert.deepEqual([f.calls.saves, f.calls.commits], authorEdits ? [2, 2] : [1, 1])
+  assert.equal(f.project.content.value, editorHtml)
+  assert.equal(f.agent.phase.value, 'applied')
+  await f.dispose()
+}
+console.log('✓ Canonical editor HTML is the first snapshot; delayed equal onChange is zero-write, real author changes still drain')
+
+// An unavailable editor is known not to have been touched and fails before
+// consuming the draft. Once the one-shot mutation begins, any throw is unknown.
+{
+  const f = await fixture(); await f.review()
+  const before = f.project.content.value
+  f.setEditorApply(() => { throw new Error('synthetic unavailable editor') })
+  assert.equal(await f.agent.append(), false)
+  assert.equal(f.project.content.value, before)
+  assert.equal(f.project.isMutationBlocked.value, false)
+  assert.equal(f.agent.snapshot.value.audit.some(event => event.kind === 'apply_consumed'), false)
+  assert.deepEqual([f.calls.writes, f.calls.saves], [0, 0])
+  assert.equal(f.agent.close(), true)
+  await f.dispose()
+}
+for (const partialMutation of [false, true]) {
+  const f = await fixture(); await f.review()
+  const before = f.project.content.value
+  let applications = 0
+  f.setEditorApply(() => html => {
+    applications++
+    if (partialMutation) f.project.content.value = html
+    throw new Error('synthetic editor mutation failure')
+  })
+  assert.equal(await f.agent.append(), false)
+  assert.equal(f.agent.phase.value, 'commit_unknown')
+  assert.equal(f.agent.draftText.value, fixed.escapedDraftText)
+  assert.equal(f.project.isMutationBlocked.value, true)
+  assert.equal(f.agent.close(), false)
+  assert.equal(await f.agent.append(), false)
+  assert.equal(await f.agent.retrySave(), false)
+  assert.equal(applications, 1)
+  assert.equal(f.calls.saves, 0)
+  assert.equal(f.project.content.value === before, !partialMutation)
+  assert.match(f.agent.localError.value, /追加或保存状态尚未明确，草稿已保留/)
+  await f.dispose()
+}
+console.log('✓ Editor readiness fails before consume; mutation throws before/after changes remain unknown without re-append or save')
+
+for (const literal of ['&lt;木门&gt;', '&#60;木门&#62;', '&#x3c;木门&#x3e;', '&amp;', '&copy', '&#60']) {
+  const draft = `${fixed.escapedDraftText}\n纸上写着 ${literal}`
+  const f = await fixture(draft); await f.review()
+  const before = f.project.content.value
+  let applications = 0
+  f.agent.snapshot.value.proposal!.text = '修改展示副本也不能绕过私有原稿校验。'
+  f.setEditorApply(() => html => { applications++; return html })
+  assert.equal(await f.agent.append(), false)
+  assert.equal(f.agent.phase.value, 'awaiting_author')
+  assert.equal(f.agent.draftText.value, draft)
+  assert.match(f.agent.localError.value, /草稿含有编辑器暂不能原样保存的实体字面文本/)
+  assert.equal(f.agent.snapshot.value.audit.some(event => event.kind === 'apply_consumed'), false)
+  assert.equal(f.project.isMutationBlocked.value, false)
+  assert.equal(f.project.content.value, before)
+  assert.deepEqual([applications, f.calls.saves], [0, 0])
+  assert.equal(await f.agent.copy(), true)
+  assert.equal(f.copies.at(-1), draft)
+  assert.equal(await f.agent.append(), false, 'Repeated refusal cannot consume or modify')
+  assert.equal(f.agent.close(), true)
+  await f.dispose()
+}
+{
+  const f = await fixture(); await f.review()
+  f.setEditorApply(() => { assertWriterEditorTextRoundTrip('&lt;既有正文&gt;', '当前正文'); return html => html })
+  assert.equal(await f.agent.append(), false)
+  assert.equal(f.agent.phase.value, 'awaiting_author')
+  assert.match(f.agent.localError.value, /当前正文含有/)
+  assert.equal(f.agent.snapshot.value.audit.some(event => event.kind === 'apply_consumed'), false)
+  assert.equal(await f.agent.copy(), true)
+  assert.equal(f.copies.at(-1), fixed.escapedDraftText)
+  assert.equal(f.calls.saves, 0)
+  await f.dispose()
+}
+{
+  const f = await fixture()
+  f.project.content.value += '<p>&amp;lt;已导入的实体字面正文&amp;gt;</p>'
+  assert.equal(await f.project.saveCurrentChapter(), true)
+  await f.review()
+  const saves = f.calls.saves
+  let prepared = false
+  f.setEditorApply(() => { prepared = true; return html => html })
+  assert.equal(await f.agent.append(), false)
+  assert.equal(f.agent.phase.value, 'awaiting_author')
+  assert.match(f.agent.localError.value, /当前正文含有/)
+  assert.equal(prepared, false, 'Imported HTML semantic text is checked before touching the editor')
+  assert.equal(f.calls.saves, saves)
+  assert.equal(await f.agent.copy(), true)
+  assert.equal(f.copies.at(-1), fixed.escapedDraftText)
+  await f.dispose()
+}
+console.log('✓ Literal named/numeric/hex/semicolon-less entities in private draft or existing text fail before consume; Copy remains exact')
+
+{
+  const f = await fixture(); await f.review()
+  const original = f.project.content.value
+  f.setEditorApply(() => html => {
+    // Synthetic teardown/target replacement during a synchronous editor callback
+    // must not redirect the canonical assignment into the new target.
+    f.project.currentChapter.value = f.project.chapters.value[0]
+    f.project.content.value = '<p>新目标自己的正文</p>'
+    return html
+  })
+  assert.equal(await f.agent.append(), false)
+  assert.equal(f.agent.phase.value, 'commit_unknown')
+  assert.equal(f.project.content.value, '<p>新目标自己的正文</p>')
+  assert.notEqual(f.project.content.value, original)
+  assert.equal(f.calls.saves, 0)
+  assert.equal(await f.agent.append(), false)
+  await f.dispose()
+}
+console.log('✓ Synchronous editor target replacement cannot redirect canonical HTML or acquire a new append')
 
 // R16.a/R17.b failure retains applied token even with no pending promise; only panel retry.
 {
@@ -605,6 +776,7 @@ try {
   await f.dispose()
 } finally { await server.close() }
 const writer = fs.readFileSync(path.join(root, 'src/views/Writer.vue'), 'utf8')
+assert.match(writer, /prepareEditorApply: \(\) => \{[\s\S]*?if \(!editor\) throw[\s\S]*?return editor.prepareHtmlApply\(\)/)
 assert.match(writer, /:model-value="currentChapter.status"/)
 assert.doesNotMatch(writer, /v-model="currentChapter.status"/)
 assert.match(writer, /if \(!allowMutation\(\)\)[\s\S]*?currentChapter.value.status = status/)
@@ -614,4 +786,75 @@ assert.match(writer, /registerBarrier\('writerAgentApply'/)
 assert.match(writer, /acquireApplyLease: \(\) => prepareIndependentWriterAI\('writerAgent'\) \? acquireApplyLease\(\) : null/)
 assert.match(writer, /v-if="writerAgent.visible.value"/)
 console.log('✓ R18 actual SFC SSR phase/absence/disabled matrix, source-free audit export, Writer controlled status and barriers')
+
+// Execute the actual WriterEditor SFC with Vue's no-DOM renderer. Only the
+// third-party editor API and destroy helper are synthetic; component setup,
+// exposed methods, instance capture and unmount hooks are production code.
+{
+  const source = fs.readFileSync(path.join(root, 'src/components/writer/WriterEditor.vue'), 'utf8')
+  const script = compileScript(parse(source).descriptor, { id: 'writer-editor-apply', inlineTemplate: true }).content
+  const compiled = ts.transpileModule(script, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
+  const renderer = Vue.createRenderer({ createElement: () => ({}), createText: () => ({}), createComment: () => ({}),
+    insert() {}, remove() {}, setText() {}, setElementText() {}, parentNode: () => null, nextSibling: () => null, patchProp() {} })
+  function mountEditor(instance?: { isDestroyed: boolean; children?: Array<{ children: Array<{ text: string }> }>; setHtml(html: string): void; getHtml(): string }) {
+    if (instance && !instance.children) instance.children = []
+    const exports: { default?: Parameters<typeof renderer.createApp>[0] } = {}
+    const editorModule = { Toolbar: defineComponent(() => () => null), Editor: defineComponent({
+      emits: ['onCreated'], setup(_props, { emit }) { if (instance) emit('onCreated', instance); return () => null },
+    }) }
+    const require = (id: string) => {
+      if (id === 'vue') return Vue
+      if (id === '@wangeditor/editor-for-vue') return editorModule
+      if (id === '@wangeditor/editor') return { SlateNode: { string: (block: { children: Array<{ text: string }> }) =>
+        block.children.map(leaf => leaf.text).join('') } }
+      if (id === '@/utils/writerEditorApply') return { assertWriterEditorTextRoundTrip }
+      if (id === '@/utils/destroyEditor') return { destroyEditor: (editor?: typeof instance) => { if (editor) editor.isDestroyed = true } }
+      if (id.endsWith('.css')) return {}
+      throw new Error(`Unexpected component import: ${id}`)
+    }
+    new Function('require', 'exports', compiled)(require, exports)
+    const app = renderer.createApp(exports.default!, { modelValue: '<p>原文</p>' })
+    const exposed = app.mount({}) as unknown as { prepareHtmlApply(): (html: string) => string }
+    return { app, exposed }
+  }
+  const unavailable = mountEditor()
+  assert.throws(() => unavailable.exposed.prepareHtmlApply(), /尚未就绪/)
+  unavailable.app.unmount()
+  const destroyed = mountEditor({ isDestroyed: true, setHtml() { assert.fail('Destroyed editor cannot be written') }, getHtml: () => '' })
+  assert.throws(() => destroyed.exposed.prepareHtmlApply(), /尚未就绪/)
+  destroyed.app.unmount()
+  for (const text of ['&lt;既有正文&gt;', '&#60;既有正文&#62;', '&amp;', '&copy']) {
+    const unsafe = mountEditor({ isDestroyed: false, children: [{ children: [{ text: text.slice(0, 2) }, { text: text.slice(2) }] }],
+      setHtml() { assert.fail('Existing literal entity must be refused without mutation') }, getHtml: () => '' })
+    assert.throws(() => unsafe.exposed.prepareHtmlApply(), WriterEditorApplyBlockedError)
+    unsafe.app.unmount()
+  }
+  const events: string[] = []
+  const instance = { isDestroyed: false, children: [{ children: [{ text: '<木门> & 铜铃' }] }, { children: [{ text: '&zzzz;' }] }], setHtml: (html: string) => { events.push(`set:${html}`) },
+    getHtml: () => { events.push('get'); return '<p>canonical</p>' } }
+  const mounted = mountEditor(instance)
+  const apply = mounted.exposed.prepareHtmlApply()
+  assert.deepEqual(events, [], 'Preparation is non-mutating')
+  assert.equal(apply('<p>candidate</p>'), '<p>canonical</p>')
+  assert.deepEqual(events, ['set:<p>candidate</p>', 'get'])
+  assert.throws(() => apply('<p>again</p>'), /已使用/)
+  const late = mounted.exposed.prepareHtmlApply()
+  mounted.app.unmount()
+  assert.throws(() => late('<p>late</p>'), /已关闭/)
+  assert.equal(events.length, 2)
+  const partial = mountEditor({ isDestroyed: false, setHtml: () => partial.app.unmount(),
+    getHtml: () => { assert.fail('Unmount during setHtml must not yield stale HTML') } })
+  assert.throws(() => partial.exposed.prepareHtmlApply()('<p>partial</p>'), /已关闭/)
+  for (const step of ['set', 'get']) {
+    const throwing = mountEditor({ isDestroyed: false,
+      setHtml: () => { if (step === 'set') throw new Error('synthetic set failure') },
+      getHtml: () => { throw new Error('synthetic get failure') },
+    })
+    const oneShot = throwing.exposed.prepareHtmlApply()
+    assert.throws(() => oneShot('<p>candidate</p>'), /synthetic/)
+    assert.throws(() => oneShot('<p>candidate</p>'), /已使用/)
+    throwing.app.unmount()
+  }
+}
+console.log('✓ Actual WriterEditor SFC: readiness is non-mutating, one-shot set/get is synchronous, unmount rejects stale application')
 console.log('=== WRITER AGENT UI TESTS PASSED (R14/R16/R17/R18 integration; R15 durable CAS is separate) ===')

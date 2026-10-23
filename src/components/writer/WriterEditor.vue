@@ -18,7 +18,9 @@
 import { onBeforeUnmount, shallowRef } from 'vue'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import type { IDomEditor, IEditorConfig } from '@wangeditor/editor'
+import { SlateNode } from '@wangeditor/editor'
 import { destroyEditor } from '@/utils/destroyEditor'
+import { assertWriterEditorTextRoundTrip } from '@/utils/writerEditorApply'
 import '@wangeditor/editor/dist/css/style.css'
 
 const content = defineModel<string>({ required: true })
@@ -41,13 +43,37 @@ function handleCreated(instance: IDomEditor) {
   editor.value = instance
 }
 
+// Prepare without mutating so an unavailable editor can fail before the Agent
+// consumes its append capability. The returned one-shot operation is synchronous:
+// its actual serializer, not a later v-model watcher, defines the saved HTML.
+function prepareHtmlApply(): (html: string) => string {
+  const instance = editor.value
+  if (!instance || instance.isDestroyed) throw new Error('编辑器尚未就绪')
+  // Check per block, including entities split over adjacent formatting leaves.
+  for (const block of instance.children) assertWriterEditorTextRoundTrip(SlateNode.string(block), '当前正文')
+  let used = false
+  return (html: string) => {
+    if (used) throw new Error('编辑器追加操作已使用')
+    used = true
+    if (editor.value !== instance || instance.isDestroyed) throw new Error('编辑器已关闭')
+    instance.setHtml(html)
+    if (editor.value !== instance || instance.isDestroyed) throw new Error('编辑器已关闭')
+    return instance.getHtml()
+  }
+}
+
 defineExpose({
+  prepareHtmlApply,
   getSelectionText: () => editor.value?.getSelectionText() ?? '',
   getHtml: () => editor.value?.getHtml() ?? '',
   insertText: (text: string) => editor.value?.insertText(text),
 })
 
-onBeforeUnmount(() => destroyEditor(editor.value))
+onBeforeUnmount(() => {
+  const instance = editor.value
+  editor.value = undefined
+  destroyEditor(instance)
+})
 </script>
 
 <style scoped>

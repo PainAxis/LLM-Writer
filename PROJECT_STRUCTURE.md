@@ -65,7 +65,7 @@ This overview describes the current source layout. Planned work is tracked in th
 | `src/composables/useWriterProject.ts` | Project loading, chapter switching, autosave and persistence retry |
 | `src/composables/useWriterGenerationArbiter.ts` | Coordinate AI operation ownership and persistence barriers |
 | `src/services/writerAgent.ts`, `src/services/writerAgentProtocol.ts`, `src/types/writerAgent.ts` | Finite two-request/single-local-tool author Agent, strict protocol, private evidence leases and source-free audit; [contract](docs/writer-author-agent.md) |
-| `src/composables/useWriterAgent.ts`, `src/components/writer/panels/WriterAgentPanel.vue` | Explicit run grant, individual source approval, review-only draft and once-only append/save recovery |
+| `src/composables/useWriterAgent.ts`, `src/components/writer/panels/WriterAgentPanel.vue` | Explicit run grant, individual source approval, review-only draft and once-only append/save recovery; WriterEditor supplies synchronous canonical HTML for the first save |
 | `src/composables/writerPersistenceGate.ts`, `src/services/novelPersistence.ts` | Agent-owned apply/save barriers and metadata-only actual-commit receipts; ordinary non-Agent saves retain per-snapshot results |
 | `src/composables/useWriterMemoryContext.ts`, `src/composables/writerMemoryStream.ts`, `src/components/writer/WriterMemoryContext.vue`, `src/services/memory/writerContext.ts` | Opt-in evidence preview/approval, generation/application guards and bounded source context; [contract and tests](docs/writer-memory-context.md) |
 | `src/composables/useChapterContentWorkspace.ts` | Chapter-content dialog state, selected materials and generation context |

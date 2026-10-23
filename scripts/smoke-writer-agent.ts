@@ -257,6 +257,12 @@ try {
     assert.deepEqual(f.state().usage.map(row => [row.phase, row.inputTokens, row.outputTokens]), [['plan', 111, 22], ['draft', 333, 44]])
     assert.equal(f.count.dispatch, 2); assert.equal(f.count.search, 1); assert.equal(f.count.sync, 1)
     const lease = await f.controller.assertBeforeApply()
+    const refusal = new Error('synthetic non-mutating editor validation refusal')
+    assert.throws(() => lease.consume(text => { assert.equal(text, gold.draftText); throw refusal }), error => error === refusal)
+    assert.equal(f.state().phase, 'awaiting_author')
+    assert.equal(f.state().audit.some(event => event.kind === 'apply_consumed'), false)
+    assert.throws(() => lease.consume(() => false), WriterAgentError)
+    assert.throws(() => lease.consume((() => Promise.resolve(true)) as unknown as () => boolean), WriterAgentError)
     assert.equal(lease.consume(), gold.draftText)
     assert.throws(() => lease.consume(), WriterAgentError)
     await assert.rejects(f.controller.assertBeforeApply(), WriterAgentError)
@@ -619,6 +625,18 @@ try {
     f.owner.editorHtml = f.owner.editorHtml.replace('<p>', '<p class="author-format">')
     assert.throws(() => lease.consume(), WriterAgentError); assert.equal(f.state().phase, 'stale')
     assert.equal(f.count.model, 2)
+    for (const change of ['cancel', 'owner', 'reenter']) {
+      const guarded = harness(); await guarded.ready()
+      const capability = await guarded.controller.assertBeforeApply()
+      assert.throws(() => capability.consume(() => {
+        if (change === 'cancel') guarded.controller.cancel()
+        if (change === 'owner') guarded.owner.editorHtml += '<p>changed</p>'
+        if (change === 'reenter') assert.equal(capability.consume(), gold.draftText)
+        return true
+      }), WriterAgentError)
+      assert.equal(guarded.state().audit.filter(event => event.kind === 'apply_consumed').length, change === 'reenter' ? 1 : 0)
+      assert.throws(() => capability.consume(), WriterAgentError)
+    }
   })
   await scenario('R18.a', async () => {
     const f = harness()

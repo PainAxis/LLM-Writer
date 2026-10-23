@@ -481,11 +481,15 @@ export function createWriterAgent(options: WriterAgentOptions): WriterAgentContr
       await assertSelected(run)
       assertLive(run)
       let used = false
-      return Object.freeze({ consume(): string {
+      return Object.freeze({ consume(beforeConsume?: (text: string) => boolean): string {
         if (used || run.consumed || run.state.phase !== 'awaiting_author') throw new WriterAgentError('stale')
         assertLive(run)
         // Consume synchronously before content watchers can cancel the run.
         const text = run.proposal!
+        if (beforeConsume && beforeConsume(text) !== true) throw new WriterAgentError('stale')
+        // Validation cannot create authority or consume twice through a callback.
+        if (used || run.consumed || run.state.phase !== 'awaiting_author') throw new WriterAgentError('stale')
+        assertLive(run)
         audit(run, { kind: 'apply_consumed' })
         used = true; run.consumed = true
         stopTimers(run)

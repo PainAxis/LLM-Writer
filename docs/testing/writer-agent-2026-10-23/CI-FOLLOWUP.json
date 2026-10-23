@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-23T16:31:59.511995+00:00",
-  "state": "Final probe-correction native lint/build/104 suites and independent focused review passed; next exact published head still requires all twelve CI jobs.",
+  "recordedAt": "2026-10-23T17:21:20.973897+00:00",
+  "state": "Canonical-first-save and pre-consumption entity refusal independently reviewed; frozen lint/build/all104 native suites passed. Next exact published head still requires all twelve CI jobs.",
   "historicalInitialRun": {
     "runId": 39975345262,
     "head": "0ab62c4699a838bee9315791f7d34f95c6f18157",
@@ -129,8 +129,8 @@
     "lint": "passed with zero warnings",
     "build": "passed",
     "smokeSuites": 104,
-    "sourcePathsBeforeAfterEqual": 405,
-    "logSha256": "d1624a691d0718e662b1c73787aeb658f53674b63d9c305ef41930dff269589e"
+    "sourcePathsBeforeAfterEqual": 406,
+    "logSha256": "9092a8dbc10147d2b7c7044338738830dfae799bc7ca18db1cf51b8e9afd7a00"
   },
   "safeArchiveRun": {
     "runId": 39982647437,
@@ -186,6 +186,88 @@
       "frozenGroups": 18,
       "frozenScenarios": 90,
       "failFast": "Only unexpected terminal phase while awaiting evidence fails promptly; all other waits/production deadlines/assertions retain original bounds."
+    }
+  },
+  "canonicalEditorFailureRun": {
+    "runId": 39988026209,
+    "head": "766128cb8132a7641cd9098d00ca13d81dd9dde0",
+    "tree": "7deaabdc1f9e0a42f1e161dc5c3a427748ea4ae1",
+    "checkoutCommit": "5d883e7d0645fecff392a37cb86efd6a02eb0b6d",
+    "conclusion": "failure",
+    "successfulJobs": 11,
+    "failedJobs": [
+      "ci-writer-agent"
+    ],
+    "agentSummary": {
+      "denominator": 18,
+      "attempted": 18,
+      "passed": 12,
+      "failed": 6,
+      "notRun": 0,
+      "scenarios": {
+        "expected": 90,
+        "attempted": 90,
+        "passed": 75,
+        "failed": 15,
+        "notRun": 0
+      }
+    },
+    "agentDerivedSummarySha256": "b5bc3704f97396abcfa0cda163a9415d423323ff6d85458619cc718f1c48a9a2",
+    "agentDerivedSummaryBytes": 782752,
+    "agentLogSha256": "9ef10059a9bd96b3b9415575358fa0364caea3abbb2dfb8f8a871d7bb197855a",
+    "failureCategories": [
+      {
+        "scenarios": 9,
+        "kind": "production",
+        "observation": "Real extra metadata writes after one editor append. The old raw HTML first snapshot differs from installed-editor canonical HTML; the subsequent model/change callback drains a second snapshot.",
+        "correction": "Prepare a one-use actual editor port before capability consumption, then synchronously setHtml/getHtml and use canonical HTML for the first save. Preserve actual new author-edit catch-up and ordinary receipt/CAS behavior."
+      },
+      {
+        "scenarios": 5,
+        "kind": "harness",
+        "observation": "One overlay locator treated the role=dialog overlay as its own descendant; ordinary generation open was mistaken for a real start; a rejected ordinary start left its modal blocking Agent audit; two delayed confirmations guessed a translated label.",
+        "correction": "Use actual overlay click, template/start entry point, explicit rejected-modal exit, and unique genuine primary confirmation action."
+      },
+      {
+        "scenarios": 1,
+        "kind": "harness",
+        "observation": "Unrelated-project setup restaged while an unnecessary same-chapter selection save could still be pending. A real Project held-save reproduction confirms visible existing text is not a completed selection boundary; the exact CI interleaving was not directly observed.",
+        "correction": "Skip already active target; otherwise wait for actual target active/text/save completion. Keep one-shot canonical equality, no restaging retry."
+      }
+    ],
+    "additionalAssertionReview": [
+      "Installed wangEditor may serialize literal ampersand without &amp;. Assert complete draft literal text exactly once in inert committed DOM, only allowed paragraph nodes and no dangerous nodes/event attributes, plus real reload.",
+      "Measure actual inner dialog and panel horizontal overflow at both frozen viewport widths, not the full-screen overlay.",
+      "No one-commit/metadata-attempt assertions or 90-scenario denominator removed."
+    ],
+    "archiveAudit": {
+      "artifacts": 13,
+      "zipEntries": 157,
+      "derivedSummaries": 42,
+      "uiPngsVisuallyReviewed": 102,
+      "manifests": 13,
+      "requestRowsProjected": 1702,
+      "missingReports": 0,
+      "optionalScreenshotsMissing": 14,
+      "zipAndEntryHashesMatch": true,
+      "fullBackupsTracesRawBodiesPresent": false,
+      "localAuditRecordSha256": "446790242df40914d525a6db0f6baa55db02f555eb95d53aa7498d67b2f2f704",
+      "limitation": "Derived entries and archive manifests verified; runner raw bodies are local/ephemeral and were not re-uploaded."
+    },
+    "acceptance": "Historical failed run, not acceptance of the subsequent production and harness correction.",
+    "correctionLocalEvidence": {
+      "sourcePaths": 406,
+      "lint": "passed",
+      "build": "passed",
+      "smokeSuites": 104,
+      "uiCheckpointBlocks": 20,
+      "browserProbeCheckpointBlocks": 19,
+      "logSha256": "9092a8dbc10147d2b7c7044338738830dfae799bc7ca18db1cf51b8e9afd7a00",
+      "entityLimitation": "Private draft or current editor text containing decodable literal HTML entities is refused before consumption/mutation/write; exact Copy retained. Ordinary ampersands and actual angle-bracket prose remain allowed. No global serializer fix.",
+      "frozenGroups": 18,
+      "frozenScenarios": 90,
+      "browserNotExecutedLocally": true,
+      "ordinaryPersistenceAndWorkflowUnchanged": true
     }
   }
 }

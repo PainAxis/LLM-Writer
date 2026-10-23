@@ -1,6 +1,7 @@
 import { computed, ref, shallowRef, watch, type Ref } from 'vue'
 import { createWriterAgent } from '@/services/writerAgent'
-import { formatGeneratedBody } from '@/utils/writerContent'
+import { formatGeneratedBody, stripWriterHtml } from '@/utils/writerContent'
+import { assertWriterEditorTextRoundTrip, WriterEditorApplyBlockedError } from '@/utils/writerEditorApply'
 import type { WriterChapter, WriterNovel } from '@/types/writer'
 import type { WriterAgentController, WriterAgentOptions, WriterAgentPhase, WriterAgentSnapshot } from '@/types/writerAgent'
 import type { WriterApplyLease, WriterSaveHandle, WriterSaveOutcome } from './writerPersistenceGate'
@@ -20,6 +21,8 @@ interface WriterAgentUiOptions {
   config: Readonly<Ref<unknown>>
   prepare(): boolean
   acquireApplyLease(): WriterApplyLease | null
+  /** Prepare before consume; returned one-shot editor mutation/serialization must be synchronous. */
+  prepareEditorApply(): (html: string) => string
   beginSaveCurrentChapter(options: { applyLease: WriterApplyLease; retry?: boolean }): WriterSaveHandle
   writeText(text: string): Promise<void>
   notify(message: string): unknown
@@ -323,25 +326,40 @@ export function useWriterAgent(options: WriterAgentUiOptions) {
       try {
         const capability = await controller.assertBeforeApply()
         if (!stillCurrent()) return false
-        const originalDraft = capability.consume()
+        assertWriterEditorTextRoundTrip(stripWriterHtml(originalHtml), '当前正文')
+        const applyHtml = options.prepareEditorApply()
+        if (typeof applyHtml !== 'function') throw new Error('编辑器尚未就绪')
+        if (!stillCurrent()) return false
+        const originalDraft = capability.consume(text => { assertWriterEditorTextRoundTrip(text, '草稿'); return true })
         consumedDraft = originalDraft
         // consume may notify presentation observers. Recheck, then no await separates the latch and write.
         if (!stillCurrent() || !lease.markApplied()) return false
         applied = true
-        options.content.value = `${originalHtml}\n${formatGeneratedBody(originalDraft)}`
+        const canonicalHtml = applyHtml(`${originalHtml}\n${formatGeneratedBody(originalDraft)}`)
+        // Synchronous editor change observers may update content/dirty normally,
+        // but must not redirect this application into another workspace.
+        if (disposed || !currentLeaseTarget(lease) || typeof canonicalHtml !== 'string' || !canonicalHtml) {
+          throw new Error('编辑器追加状态尚未明确')
+        }
+        options.content.value = canonicalHtml
         appliedTargetTitle.value = originalTitle
         appliedDraft.value = originalDraft
         snapshot.value = controller.snapshot()
         options.hasUnsavedChanges.value = true
         return await beginSave(lease)
-      } catch {
+      } catch (error) {
+        if (!applied && error instanceof WriterEditorApplyBlockedError && stillCurrent()) {
+          snapshot.value = controller.snapshot() // Restore the private original for Copy, not a mutable UI projection.
+          localError.value = error.message
+          return false // Known untouched: keep review/copy and do not consume or cancel the draft.
+        }
         // A synchronous editor observer can throw after its ref has changed.
         // Never let that turn a consumed application into fresh Append authority.
         if (applied && !appliedDraft.value) {
           appliedTargetTitle.value = originalTitle
           appliedDraft.value = consumedDraft
           saveStartUnknown.value = true
-          localError.value = '追加后的保存状态尚未明确，正文与草稿已保留；请勿重复追加。'
+          localError.value = '追加或保存状态尚未明确，草稿已保留；请勿重复追加，可以复制草稿。'
         }
         if (!applied && ticket === lifecycle) {
           localError.value = '追加前校验未通过；正文未修改，请重新预览。'

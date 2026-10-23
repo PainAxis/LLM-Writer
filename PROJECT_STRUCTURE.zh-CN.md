@@ -64,7 +64,7 @@
 | `src/composables/useWriterProject.ts` | 项目加载、章节切换、自动保存与持久化重试 |
 | `src/composables/useWriterGenerationArbiter.ts` | 协调 AI 操作的归属与持久化等待边界 |
 | `src/services/writerAgent.ts`、`src/services/writerAgentProtocol.ts`、`src/types/writerAgent.ts` | 两请求／单本地工具的有限作者 Agent、严格协议、私有依据能力及无原文审计；[合同](docs/writer-author-agent.zh-CN.md) |
-| `src/composables/useWriterAgent.ts`、`src/components/writer/panels/WriterAgentPanel.vue` | 每轮明确授权、逐条原文批准、只读草稿及仅一次追加／保存恢复 |
+| `src/composables/useWriterAgent.ts`、`src/components/writer/panels/WriterAgentPanel.vue` | 每轮明确授权、逐条原文批准、只读草稿及仅一次追加／保存恢复；WriterEditor 同步提供首次保存的规范 HTML |
 | `src/composables/writerPersistenceGate.ts`、`src/services/novelPersistence.ts` | Agent 专属应用／保存屏障与实际提交点的纯元数据回执；普通非 Agent 保存保留逐快照结果 |
 | `src/composables/useWriterMemoryContext.ts`、`src/composables/writerMemoryStream.ts`、`src/components/writer/WriterMemoryContext.vue`、`src/services/memory/writerContext.ts` | 主动启用的写作依据预览／核对、发送与应用保护，以及受预算限制的原文上下文；[约定与测试](docs/writer-memory-context.zh-CN.md) |
 | `src/composables/useChapterContentWorkspace.ts` | 章节正文对话框状态、素材选择与生成上下文 |
