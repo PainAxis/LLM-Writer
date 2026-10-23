@@ -58,7 +58,7 @@ jobs:
           --baseline-commit=760042683405760428688d1a7d7f0346e2ff77d3
           --order=ABBA --output=artifacts/memory-capacity/comparison.json
       - name: Upload memory capacity measurements
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-capacity-evidence-${{ github.run_attempt }}
@@ -101,7 +101,7 @@ jobs:
             node scripts/compare-memory-cold-index.mjs --baseline=artifacts/memory-cold-index/baseline-a-$profile.json --baseline=artifacts/memory-cold-index/baseline-b-$profile.json --candidate=artifacts/memory-cold-index/candidate-a-$profile.json --candidate=artifacts/memory-cold-index/candidate-b-$profile.json --output=artifacts/memory-cold-index/comparison-$profile.json
           done
       - name: Upload cold index measurements
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-cold-index-evidence-${{ github.run_attempt }}
@@ -131,7 +131,7 @@ jobs:
           done
       - run: npm run test:browser-memory-full-scan
       - name: Upload full-range scan measurements and browser evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-full-scan-evidence-${{ github.run_attempt }}
@@ -164,7 +164,7 @@ jobs:
       - run: npm run test:browser-memory-support
         timeout-minutes: 6
       - name: Upload cited-support protocol and browser evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-support-evidence-${{ github.run_attempt }}
@@ -193,7 +193,7 @@ jobs:
       - run: npm run test:browser-memory-novel-scan
         timeout-minutes: 12
       - name: Upload whole-disclosed-source candidate scan evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-novel-scan-evidence-${{ github.run_attempt }}
@@ -222,7 +222,7 @@ jobs:
       - run: npm run test:memory-stress-local
       - run: npm run test:memory-stress-hybrid
       - name: Upload memory stress evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-stress-evidence-${{ github.run_attempt }}
@@ -247,7 +247,7 @@ jobs:
       - run: npm run build
       - run: npm run test:browser-memory-stress
       - name: Upload browser memory stress evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: memory-browser-stress-evidence-${{ github.run_attempt }}
@@ -277,7 +277,7 @@ jobs:
         timeout-minutes: 4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
       - name: Upload graph backup and mobile evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: graph-backup-mobile-evidence-${{ github.run_attempt }}
@@ -305,7 +305,7 @@ jobs:
       - run: npm run build
       - run: npm run test:browser-writer-memory
       - name: Upload Writer browser evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: writer-memory-browser-evidence-${{ github.run_attempt }}
@@ -315,7 +315,7 @@ jobs:
       - run: npm run test:writer-memory-stress
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - name: Upload Writer memory stress evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: writer-memory-stress-evidence-${{ github.run_attempt }}
@@ -359,7 +359,7 @@ jobs:
       - run: npm run test:browser-memory-hybrid
       - run: npm run test:browser-memory-fact-graph
       - name: Upload fact graph review evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: fact-graph-review-${{ github.run_attempt }}
@@ -371,7 +371,7 @@ jobs:
       - run: npm run test:browser-extensions
       - run: npm run test:browser
       - name: Upload browser evidence
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: browser-evidence-${{ github.run_attempt }}
@@ -407,7 +407,7 @@ jobs:
         run: npm run test:browser-writer-agent
         timeout-minutes: 20
       - name: Upload bounded Agent review evidence only
-        if: always()
+        if: ${{ false }} # Temporary containment: artifact allowlists are being audited.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: writer-agent-evidence-${{ github.run_attempt }}
