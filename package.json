@@ -136,6 +136,7 @@
     "smoke:writer-agent": "node --import tsx scripts/smoke-writer-agent.ts",
     "smoke:writer-agent-ui": "node --import tsx scripts/smoke-writer-agent-ui.ts",
     "smoke:writer-agent-transport": "node --import tsx scripts/smoke-writer-agent-transport.ts",
+    "smoke:writer-agent-browser-probe": "node scripts/smoke-writer-agent-browser-probe.mjs",
     "smoke:writer-save-ownership": "node --import tsx scripts/smoke-writer-save-ownership.ts",
     "smoke:ordinary-save-receipts": "node --import tsx scripts/smoke-ordinary-save-receipts.ts",
     "test:browser-writer-agent": "node scripts/browser-writer-agent.mjs"

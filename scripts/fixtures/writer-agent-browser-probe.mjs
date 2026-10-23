@@ -14,7 +14,7 @@ export function installWriterAgentProbe({ providerOrigin }) {
   }
   const originals = { get: IDBObjectStore.prototype.get, put: IDBObjectStore.prototype.put,
     set: Storage.prototype.setItem, storageGet: Storage.prototype.getItem,
-    tx: IDBDatabase.prototype.transaction, fetch: globalThis.fetch, Worker: globalThis.Worker }
+    tx: IDBDatabase.prototype.transaction, fetch: globalThis.fetch.bind(globalThis), Worker: globalThis.Worker }
   const txInfo = new WeakMap()
   const phase = () => document.querySelector('[data-testid="writer-agent-panel"]')?.getAttribute('data-phase') ?? 'closed'
   const log = (kind, extra = {}) => {

@@ -14,6 +14,7 @@ import { chromium, expect as playwrightExpect } from '@playwright/test'
 import { startPreviewServer } from './browser-preview.mjs'
 import { installWriterAgentProbe } from './fixtures/writer-agent-browser-probe.mjs'
 import { writerAgentProfile, hash } from './fixtures/writer-agent-browser-corpus.mjs'
+import { classifyWriterAgentPhase } from './fixtures/writer-agent-browser-observation.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const artifacts = path.join(root, 'artifacts/browser-writer-agent')
@@ -46,6 +47,7 @@ const sourceFiles = [
   'src/services/novelPersistence.ts', 'src/services/api.ts', 'src/services/aiRequestLimits.ts',
   'src/services/memory/client.ts', 'src/services/memory/writerContext.ts', 'src/services/memory/labData.ts',
   'scripts/browser-writer-agent.mjs', 'scripts/fixtures/writer-agent-browser-probe.mjs', 'scripts/fixtures/writer-agent-browser-corpus.mjs',
+  'scripts/fixtures/writer-agent-browser-observation.mjs', 'scripts/smoke-writer-agent-browser-probe.mjs',
 ]
 report.sourceHashes = Object.fromEntries(await Promise.all(sourceFiles.map(async file => [file, hash(await readFile(path.join(root, file)))])))
 report.timeControl = 'Normal scenarios fix only Date for deterministic baseline timestamps and retain native performance/timeOrigin/timers. B12 and B15 pending scenarios install Playwright clock before the app and explicitly verify both wall and monotonic advancement.'
@@ -285,7 +287,13 @@ async function waitHold(label, page = active.page) {
 }
 async function release(label, page = active.page) { return page.evaluate(label => globalThis.__writerAgentProbe.release(label), label) }
 async function phase(value, page = active.page) {
-  await expect(panel(page)).toHaveAttribute('data-phase', value, { timeout: value === 'awaiting_evidence' ? 100_000 : 30_000 })
+  if (value === 'awaiting_evidence') {
+    // A terminal run cannot legally become ready without a fresh author action.
+    // Stop observing it immediately, but keep the exact expected-phase failure.
+    // Legitimate planning/tool work retains the original 100-second allowance.
+    await expect.poll(async () => classifyWriterAgentPhase(value, await panel(page).getAttribute('data-phase')), { timeout: 100_000 }).not.toBe('pending')
+    equal(await panel(page).getAttribute('data-phase'), value, 'Actual phase must be awaiting_evidence; observed terminal phase is a failure')
+  } else await expect(panel(page)).toHaveAttribute('data-phase', value, { timeout: 30_000 })
   scenario.assertions.push(`Actual mounted phase: ${value}`)
 }
 async function absent(ids, page = active.page) { for (const id of ids) await expect(nodes(page, id)).toHaveCount(0) }

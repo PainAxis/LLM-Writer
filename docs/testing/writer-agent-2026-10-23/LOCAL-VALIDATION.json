@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-23T15:51:23.864600+00:00",
+  "recordedAt": "2026-10-23T16:31:59.511995+00:00",
   "baseCommit": "dfc316eb2fc8f376c5ac3c77892b251ba29e6902",
   "state": "native-validation-passed; exact-head-independent-review-and-12-job-CI-required",
   "scope": "First bounded author-reviewed continuity Agent, not all of stage four",
@@ -9,7 +9,7 @@
     "build": "passed",
     "smoke:all": {
       "status": "passed",
-      "suites": 103
+      "suites": 104
     },
     "browser-harness node --check": {
       "status": "passed",
@@ -66,21 +66,28 @@
       "nodeVmActualProbe": true,
       "cases": 5,
       "browserExecuted": false
+    },
+    "browserProbe": {
+      "mode": "Actual probe installer; strict-receiver native API simulations and installed SDK; not browser acceptance",
+      "checkpointBlocks": 12,
+      "networkSockets": 0,
+      "browserExecuted": false,
+      "covers": "Old-bug mutation fails before dispatch; exact native receiver/input/init/signal/response; unchanged rejection; actual stream EOF; SDK wire/response/usage; five clipboard boundaries; terminal phase classifier"
     }
   },
   "sourceIntegrity": {
-    "validatedNativePaths": 403,
+    "validatedNativePaths": 405,
     "beforeAfterEqual": true,
-    "canonicalPathHashMapSha256": "57ddf793b4d7693d247ef640106069215cdd52cddb5abd83d419a25b9229fa49",
-    "browserHarness": "Final harness and CI archive scripts frozen before complete lint/build/103-suite run. Before/after native manifest identical. No local browser execution.",
+    "canonicalPathHashMapSha256": "26d260ae379fe9403b19af40a9b743489980839095b8f44b091d64eb9ffbb496",
+    "browserHarness": "Final native-fetch probe correction and durable Node probe suite frozen before complete lint/build/104-suite run. All405 before/after hashes identical. No local browser execution.",
     "changedSourceSha256": {
       ".github/workflows/ci.yml": "bc8c2ae420586fc7f37dbd0ff185fad0e729514d03470a37e1d6a23530a488d0",
       ".github/workflows/writer-browser-tunnel.yml": "371816fc466a81249bf4a86cc26e26e55e6084fd90781ce58ae5b948f5899b32",
-      "package.json": "d307454b7ea526f2c79586f05e3c87ff5a9e499d0fa13f7d6e174d1e93eab2af",
-      "scripts/browser-writer-agent.mjs": "707e06f7d063ccf985b66af9e303df297ba3128cf7ff1ae5cf47a86be45f1a71",
+      "package.json": "1760041ff03bb66ed7f45ca9e2f6ff713594f6d339688b98ddea424d23523096",
+      "scripts/browser-writer-agent.mjs": "3afc1ab3e8e25e83ab560d7ebe1668d4bb542fc6940ba615cfd56b1240bf4829",
       "scripts/ci-evidence-files.mjs": "00f34d5280cf0f209f7b7d92a19c3fcfa131738fcdcaf63bdf2cfaa3e2b7d385",
       "scripts/fixtures/writer-agent-browser-corpus.mjs": "db9575a11d6a2bb60bc30b534d10b8b0c4557df9b566f8691500b8ff973ebd7b",
-      "scripts/fixtures/writer-agent-browser-probe.mjs": "ef30de95719c4460fe0949965c7474018b927d34449fa0ac749fa46f8c418397",
+      "scripts/fixtures/writer-agent-browser-probe.mjs": "fb0d439c607de8f4f5b79ef956515dd74056d2a5f4495376e107943dbf6bb80a",
       "scripts/fixtures/writer-agent-v1.json": "c50bae17f6a8eaf38906d181fb6307e44b81d2d5abc9fce6ad4f078991bd169f",
       "scripts/fixtures/writer-agent-v1.sha256": "8b653035346dc4ad92569f86b5cf5571b37e348c5297ace15a0102bf8b49ec37",
       "scripts/prepare-ci-evidence.mjs": "973ab7f99adcf7c2599d5f0991ce45b8cf331795cee3f3d5c7cd111a2632afa8",
@@ -105,7 +112,9 @@
       "src/types/api.ts": "1024c768ef00f217570cddf437977f6b624de5b1bc1fc24a433e103f11ef9573",
       "src/types/writerAgent.ts": "cfd2ee441a35dc24c01ad6d448be0494c7096ca36025739e8912153686d7ffe1",
       "src/utils/storage.ts": "295dca21cddf4658e863c4f7e671ec3f3f7cfd2fb1d929176873b4d87c3f263e",
-      "src/views/Writer.vue": "4ad31da34464c66d4f5177189322b14eaa4010ffbc8f32f06c81129456d07485"
+      "src/views/Writer.vue": "4ad31da34464c66d4f5177189322b14eaa4010ffbc8f32f06c81129456d07485",
+      "scripts/fixtures/writer-agent-browser-observation.mjs": "75fded2ea77924f7772a911a7178b7f169d80324788e2bf7d7aba7b941599089",
+      "scripts/smoke-writer-agent-browser-probe.mjs": "c8197bcb3cade16ce66f3de05f3ab89a94b93667678393cd999c1e477e9aacb2"
     }
   },
   "localHistory": {
@@ -163,6 +172,16 @@
       "suites": 103,
       "all403NativeHashesUnchanged": true,
       "changeAfterPriorRerun": "Only tunnel archive wiring and all-workflow upload smoke; nevertheless lint/build/all103 suites were rerun."
+    },
+    "probeReceiverCompleteRerun": {
+      "fileName": "full-probe-fix.log",
+      "sha256": "d1624a691d0718e662b1c73787aeb658f53674b63d9c305ef41930dff269589e",
+      "bytes": 168487,
+      "storage": "Local engineering validation directory; no raw log attachment in this increment",
+      "exitCode": 0,
+      "suites": 104,
+      "all405NativeHashesUnchanged": true,
+      "productionAndWorkflowUnchanged": true
     }
   },
   "browserAcceptance": {
@@ -208,9 +227,9 @@
     "note": "Original retained in prior commit history, not relabelled as validation of current fixes."
   },
   "finalRunLog": {
-    "fileName": "full-archive-final.log",
-    "sha256": "70aec62e748bada3ada31cbd3b04a05d61c3c9a4eff2a4ad5355c53221c96fbb",
-    "bytes": 167618,
+    "fileName": "full-probe-fix.log",
+    "sha256": "d1624a691d0718e662b1c73787aeb658f53674b63d9c305ef41930dff269589e",
+    "bytes": 168487,
     "storage": "Local engineering validation directory; no raw log attachment in this increment",
     "exitCode": 0
   }

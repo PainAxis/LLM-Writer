@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-23T15:51:23.865839+00:00",
-  "state": "Local lint/build/103 suites and independent focused review passed; final proposed head still requires all twelve CI jobs",
+  "recordedAt": "2026-10-23T16:31:59.511995+00:00",
+  "state": "Final probe-correction native lint/build/104 suites and independent focused review passed; next exact published head still requires all twelve CI jobs.",
   "historicalInitialRun": {
     "runId": 39975345262,
     "head": "0ab62c4699a838bee9315791f7d34f95c6f18157",
@@ -128,8 +128,64 @@
   "finalLocalValidation": {
     "lint": "passed with zero warnings",
     "build": "passed",
-    "smokeSuites": 103,
-    "sourcePathsBeforeAfterEqual": 403,
-    "logSha256": "70aec62e748bada3ada31cbd3b04a05d61c3c9a4eff2a4ad5355c53221c96fbb"
+    "smokeSuites": 104,
+    "sourcePathsBeforeAfterEqual": 405,
+    "logSha256": "d1624a691d0718e662b1c73787aeb658f53674b63d9c305ef41930dff269589e"
+  },
+  "safeArchiveRun": {
+    "runId": 39982647437,
+    "head": "ff62bce36eba3424419b4512d1a4ec1f22511d5e",
+    "tree": "4e9e031b0960b1c58f0b3bcbf48dbee34b4839ac",
+    "checkoutCommit": "b7931dd831ca65584dbc7c3f6805d679a27f0619",
+    "conclusion": "failure",
+    "successfulJobs": 11,
+    "failedJobs": [
+      "ci-writer-agent"
+    ],
+    "testStepLimitMinutes": 20,
+    "agentPartialSummary": {
+      "denominator": 18,
+      "attempted": 8,
+      "passed": 1,
+      "failed": 7,
+      "notRun": 10,
+      "scenarios": {
+        "expected": 90,
+        "attempted": 40,
+        "passed": 5,
+        "failed": 35,
+        "notRun": 50
+      }
+    },
+    "agentDerivedSummarySha256": "0ba17612d4599dbbf6c6c4a843af924bacbb3fcfed5982fc29d9d199dd1ad989",
+    "agentLogSha256": "af060be0fee6c8b7f71585e4b5d078dfa6d444e89cdedeee3959ac7a3bb6f339",
+    "providerHttpArrivals": 0,
+    "failureBoundary": "First attempted model dispatch: planning became failed/transport after the source guard; provider saw zero requests. Sanitized historical report does not expose the original native exception.",
+    "confirmedProbeDefect": "The harness invoked saved native fetch as a method of an ordinary object. An independent strict-receiver Node reproduction rejects before dispatch; binding globalThis fixes that simulated receiver violation without modifying production. Actual browser confirmation remains pending.",
+    "archiveAudit": {
+      "artifacts": 13,
+      "zipEntries": 155,
+      "derivedSummaries": 42,
+      "uiPngsVisuallyReviewed": 100,
+      "manifests": 13,
+      "requestRowsProjected": 1702,
+      "missingReports": 0,
+      "optionalScreenshotsMissing": 16,
+      "zipAndEntryHashesMatch": true,
+      "fullBackupsTracesRawBodiesPresent": false,
+      "localAuditRecordSha256": "5a2bcdf86efb29fe5024d04f1a02ffe75bfa0997719c384b4bec1b61697e1408",
+      "limitation": "Runner raw reports are not uploaded, so their source digests cannot be independently recomputed from the archive. Derived entries and manifest hashes were independently verified."
+    },
+    "correctionLocalEvidence": {
+      "durableProbeSmokeCheckpointBlocks": 12,
+      "oldBugMutationRejectedBeforeNativeDispatch": true,
+      "actualInstalledSdkAndReadableStream": true,
+      "nativeBrowserApiSimulated": true,
+      "browserNotExecuted": true,
+      "productionAndWorkflowUnchanged": true,
+      "frozenGroups": 18,
+      "frozenScenarios": 90,
+      "failFast": "Only unexpected terminal phase while awaiting evidence fails promptly; all other waits/production deadlines/assertions retain original bounds."
+    }
   }
 }
