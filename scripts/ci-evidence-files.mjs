@@ -79,6 +79,8 @@ export const CI_EVIDENCE_GROUPS = Object.freeze(Object.fromEntries(Object.entrie
     ...factGraph,
   ],
   'writer-agent': files('browser-writer-agent', ['report.json', 'desktop-reviewed-draft.png', 'mobile-reviewed-draft.png', 'failure.png']),
+  // Only a closed-schema derived summary. No screenshots or Campaign exports.
+  'writer-campaign': files('browser-writer-campaign', ['report.json']),
 }).map(([group, sources]) => [group, Object.freeze(sources)])))
 
 // Only these five reports contain raw request collections. Graph-backup rows are

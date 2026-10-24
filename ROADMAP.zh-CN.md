@@ -76,7 +76,9 @@
 
 上述四轨审阅、准确 head CI 及合并后 main 门槛已于 2026-10-23 全部通过。随后首个[受限作者 Agent](docs/writer-author-agent.zh-CN.md)已在 [PR #42](https://github.com/PainAxis/LLM-Writer/pull/42) 验收，合并提交 `266ca856396c46780512f1293725aeefef4a9bfe`（tree `f78cc175da84023cd73ab6e7afb6dfc0be82de69`）。[main run 39998090341](https://github.com/PainAxis/LLM-Writer/actions/runs/39998090341) 首次 attempt 十二项全过，其中 Agent 18/18 组、90/90 浏览器场景通过。有限闭环仍为**本次明确授权 → 一次严格检索工具计划 → 一次私有已披露来源检索 → 作者逐条批准依据 → 一次草稿 → 可选明确追加／保存**，最多两次模型请求、一次本地工具执行；不是自主长篇系统，也不表示第四阶段完成。
 
-当前聚焦增量是[评估就绪](docs/writer-agent-evaluation.zh-CN.md)：八个冻结合成故事任务贯穿实际控制器、检索引擎和 SDK，将 gold 辅助固定选据与人工质量判断明确区分。默认零外部调用，保留漏召回、拒答、故意负例与未运行条目。详细评阅包留本地，可分享摘要不含正文。零真实调用可以完成工具就绪，不能证明真实写作质量。本项仍须独立审阅、完整原生回归和准确 head 的十二项 CI；不增加工具权限或重复 refine 循环。
+[PR #43](https://github.com/PainAxis/LLM-Writer/pull/43) 已验收[评估就绪](docs/writer-agent-evaluation.zh-CN.md)：八个冻结合成故事任务贯穿实际控制器、检索引擎和 SDK，将 gold 辅助固定选据与人工质量判断明确区分。默认零外部调用，保留漏召回、拒答、故意负例与未运行条目。详细评阅包留本地，可分享摘要不含正文。零真实调用可以完成工具就绪，不能证明真实写作质量。独立审阅、107 组原生 smoke 和准确 head 的十二项 CI 已通过；合并后的 [main run 40117724563](https://github.com/PainAxis/LLM-Writer/actions/runs/40117724563) 在 `70b453c6ae4c5b3d19b6fb9637f592510bbd043f` 首次 attempt 全绿。PR CI 曾在断言完成后的清理阶段超时，同 head 单次重跑通过，首轮 job 不算成功。未得到真实模型质量结果或人工评分。
+
+下一项聚焦实现是独立的 [Campaign 持久基础](docs/writer-campaign-foundation.zh-CN.md)：可复用的任务／依赖引擎、不可变本地产物、累计预算预留与可恢复检查点，配合仅离线的 QA 页面。持久 dispatch intent 是授权边界；不重放未知请求，取消也不能撤回此前已授权的在途调用。该基础须通过真实 IndexedDB 重启、跨标签和故障 CI 才能验收。配置百万字符目标不代表已测容量或小说完成。事实／上下文构造、真实供应商校准、自主编排、全书审计与有界修复仍是未完成层。
 
 ### 第四阶段最终验收：两部自主百万字符小说
 

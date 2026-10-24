@@ -92,6 +92,11 @@
           <template #title>记忆检索 · 原型</template>
         </el-menu-item>
 
+        <el-menu-item index="/campaigns" tabindex="0" data-testid="campaign-navigation" @keydown.enter.prevent="handleMenuSelect('/campaigns')" @keydown.space.prevent="handleMenuSelect('/campaigns')">
+          <el-icon><Notebook /></el-icon>
+          <template #title>Campaign · 离线验证</template>
+        </el-menu-item>
+
         <el-menu-item index="/settings" tabindex="0" @keydown.enter.prevent="handleMenuSelect('/settings')" @keydown.space.prevent="handleMenuSelect('/settings')">
           <el-icon><Setting /></el-icon>
           <template #title>系统设置</template>

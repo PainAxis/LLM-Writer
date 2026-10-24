@@ -453,3 +453,22 @@ jobs:
           path: artifacts/ci-evidence/writer-agent
           if-no-files-found: error
           retention-days: 7
+
+      # Production restart checks plus a separately labelled offline-host fault build.
+      # No credentials, traces, screenshots, complete store dumps or request collections.
+      - name: Verify the isolated Campaign durability foundation
+        if: ${{ !cancelled() }}
+        run: npm run test:browser-writer-campaign
+        timeout-minutes: 8
+      - name: Prepare closed Campaign evidence
+        id: archive_writer_campaign
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=writer-campaign
+      - name: Upload source-free Campaign summary only
+        if: ${{ !cancelled() && steps.archive_writer_campaign.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: writer-campaign-evidence-${{ github.run_attempt }}
+          path: artifacts/ci-evidence/writer-campaign
+          if-no-files-found: error
+          retention-days: 7
