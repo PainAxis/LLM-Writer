@@ -2,7 +2,7 @@
 
 [English](writer-author-agent.md) | [简体中文](writer-author-agent.zh-CN.md)
 
-Status: implementation and acceptance in progress. Stage three's four bounded tracks passed their merged-main gate at `dfc316eb2fc8f376c5ac3c77892b251ba29e6902`; see the [compact handoff](testing/writer-agent-2026-10-23/stage-three-handoff.json). This document defines the new feature's acceptance contract, not a claim of completed browser validation or real-model writing quality.
+Status: the first finite loop was accepted in [PR #42](https://github.com/PainAxis/LLM-Writer/pull/42), merged as `266ca856396c46780512f1293725aeefef4a9bfe`. Its [main CI](https://github.com/PainAxis/LLM-Writer/actions/runs/39998090341) passed all twelve jobs on attempt 1, including 18/18 Agent groups and 90/90 browser scenarios. Stage three was completed earlier; stage four still requires the [two autonomous million-character novels](writer-agent-longform-acceptance.md). The [evaluation tool](writer-agent-evaluation.md) is a prerequisite only; real-model writing quality remains unverified. Historical execution notes below retain their original temporal status.
 
 ## One finite outcome, not a general tool loop
 
@@ -98,6 +98,10 @@ Local browser installation/execution is not performed in this environment. Built
 ### Evidence boundaries
 
 Browser counters distinguish actual HTTP arrivals, Worker sync/search, metadata write attempts, durable commits and editor insertions. A browser cannot independently observe entry into private `prepareWriterMemoryContext` before its first read, so that counter is `null`, supplemented by exact-entry Node tests rather than fabricated as one. Likewise, a saving-indicator transition is a UI proxy, not a save-method invocation: `novelSaveAttempts` is `null`, `savingIndicatorTransitions` is reported separately, and exact call ownership uses Node integration tests. Actual metadata attempts, commit-gate entries and durable commits retain their browser assertions. Disabled/unmounted active configuration controls and same-page raw-ref races use real Vue Node integration tests; browser DOM attacks are labelled and are not described as normal author clicks. Runtime R08 empty attachments are tested at the production serializer boundary rather than by inventing an evidence capability.
+
+### Historical execution notes (retained as recorded)
+
+The following observations describe frozen pre-acceptance revisions. See the opening status for the completed delivery and exact merged-main identity.
 
 The 90 scenarios and both 600-chapter viewport profiles remain **not run locally**. A passing native suite or a frozen scenario registration is not browser acceptance. The first full native run exposed a global status-listener exception regression in the existing graph-backup restore case; the listener semantics were restored without weakening that assertion, and the resulting source snapshot passed a complete rerun: lint with zero warnings, production build and all 102 smoke suites. The [compact native evidence](testing/writer-agent-2026-10-23/LOCAL-VALIDATION.json) separates this successful rerun from the retained historical failure. Subsequent CI exposed a chapter-CRUD self-wait and two harness setup/observation mistakes. Those fixes, the new archive policy and all unchanged safety assertions passed a fresh lint/build/**103-suite** run with 403 source hashes unchanged. [CI follow-up](testing/writer-agent-2026-10-23/CI-FOLLOWUP.json) preserves the partial failures and historical uploads. Exact-head CI is still required.
 

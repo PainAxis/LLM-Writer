@@ -139,7 +139,12 @@
     "smoke:writer-agent-browser-probe": "node scripts/smoke-writer-agent-browser-probe.mjs",
     "smoke:writer-save-ownership": "node --import tsx scripts/smoke-writer-save-ownership.ts",
     "smoke:ordinary-save-receipts": "node --import tsx scripts/smoke-ordinary-save-receipts.ts",
-    "test:browser-writer-agent": "node scripts/browser-writer-agent.mjs"
+    "test:browser-writer-agent": "node scripts/browser-writer-agent.mjs",
+    "eval:writer-agent": "node --import tsx scripts/eval-writer-agent.ts",
+    "eval:writer-agent-review": "node --import tsx scripts/review-writer-agent-evaluation.ts",
+    "smoke:writer-agent-evaluation": "node --import tsx scripts/smoke-writer-agent-evaluation.ts",
+    "smoke:writer-agent-eval-fixture": "node --import tsx scripts/smoke-writer-agent-eval-fixture.ts",
+    "smoke:writer-agent-eval-review": "node --import tsx scripts/smoke-writer-agent-eval-review.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
