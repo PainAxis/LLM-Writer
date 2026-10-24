@@ -144,7 +144,15 @@
     "eval:writer-agent-review": "node --import tsx scripts/review-writer-agent-evaluation.ts",
     "smoke:writer-agent-evaluation": "node --import tsx scripts/smoke-writer-agent-evaluation.ts",
     "smoke:writer-agent-eval-fixture": "node --import tsx scripts/smoke-writer-agent-eval-fixture.ts",
-    "smoke:writer-agent-eval-review": "node --import tsx scripts/smoke-writer-agent-eval-review.ts"
+    "smoke:writer-agent-eval-review": "node --import tsx scripts/smoke-writer-agent-eval-review.ts",
+    "smoke:writer-campaign-store": "node --import tsx scripts/smoke-writer-campaign-store.ts",
+    "smoke:writer-campaign-engine": "node --import tsx scripts/smoke-writer-campaign-engine.ts",
+    "smoke:writer-campaign-ui": "node --import tsx scripts/smoke-writer-campaign-ui.ts",
+    "smoke:writer-campaign-evidence": "node --import tsx scripts/smoke-writer-campaign-evidence.mjs",
+    "test:browser-writer-campaign": "node scripts/browser-writer-campaign.mjs",
+    "profile:writer-campaign-capacity": "node --import tsx scripts/profile-writer-campaign-capacity.ts",
+    "smoke:writer-campaign-browser-lifecycle": "node scripts/smoke-writer-campaign-browser-lifecycle.mjs",
+    "smoke:writer-campaign-browser-probe": "node scripts/smoke-writer-campaign-browser-probe.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

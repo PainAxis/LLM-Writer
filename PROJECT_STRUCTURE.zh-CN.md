@@ -128,3 +128,5 @@
 - `services/billing.ts` 标记服务商返回、估算及无法取得的用量，统一请求类型并计算精确筛选和本地日历趋势；`TokenBilling.vue` 展示实际趋势/分布数据，并在用量变化后刷新。
 - 批量大纲控制器保留无效原始回答，数量符合要求后才保存；来源校验忽略无关自动保存元数据，实际来源变化仍会拒绝迟到结果。
 - API 连接测试和模型同步使用可取消的表单快照；模型缓存按服务商端点和代理隔离，仅显式保存配置才修改当前生效设置。
+
+- `services/writerCampaign/`、`useWriterCampaign` 与独立 `CampaignLab.vue` 提供仅离线的持久任务／检查点基础。`smoke:writer-campaign-{store,engine,ui,evidence}` 加入 `smoke:all`；`test:browser-writer-campaign` 在现有 Agent CI job 单独运行。Campaign 数据不纳入普通 Writer 备份／恢复；见[合同](docs/writer-campaign-foundation.zh-CN.md)。
