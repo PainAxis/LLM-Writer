@@ -69,7 +69,7 @@ This document will be updated with measured limits and exact evidence after the 
 
 ## Reproduction
 
-- `npm run smoke:writer-campaign-store`, `smoke:writer-campaign-engine`, `smoke:writer-campaign-ui` and `smoke:writer-campaign-evidence` are included in `npm run smoke:all`.
+- `npm run smoke:writer-campaign-store`, `smoke:writer-campaign-engine`, `smoke:writer-campaign-ui`, `smoke:writer-campaign-evidence`, `smoke:writer-campaign-browser-lifecycle` and `smoke:writer-campaign-browser-probe` are included in `npm run smoke:all`.
 - `npm run test:browser-writer-campaign` is a separate bounded step in the existing `ci-writer-agent` job, not silently added to the older aggregate browser runner. All twelve prior required CI jobs remain.
 - The Campaign archive includes only `report.summary.json` and its manifest, projected from a dedicated closed report schema. Unknown fields fail preparation; no screenshot or raw report directory is uploaded.
 
@@ -84,3 +84,11 @@ The roughly 60.11 / 59.01 MB gap between reserved and cumulatively written bytes
 Total reads during these bounded Node profiles were 570,635,858 bytes / 10,577 batches (Chinese) and 997,803,343 bytes / 26,957 batches (English). Bounded individual batches do not bound aggregate repeated history verification to linear work. The next capacity investigation must measure that amplification as well as reservation accounting; no browser long-form throughput claim is made.
 
 [Compact validation evidence](testing/writer-campaign-foundation-2026-10-24/REPORT.md) binds local checks and source-free capacity observations. It keeps local NOT RUN browser status distinct from subsequent exact-head CI results.
+
+## First CI failure and harness correction
+
+The first PR #44 run, [40121881904](https://github.com/PainAxis/LLM-Writer/actions/runs/40121881904), tested head `6e4d43b0109aa9e994f0d113ae916619d65eefad` through Actions checkout `aec4afbd1248f44a8e414d60ebf04aa9dc301d0a`; both resolve to tree `9a51afe784e9923c41b8722c1522796fde2489ab`. Eleven jobs passed; `ci-writer-agent` failed. Its existing 90-case Agent step passed, but Campaign passed 7/12 with C04/C08/C09/C10/C12 failing and five browser errors. No external or real-model requests occurred. The original source-free summary is preserved locally and identified in the compact evidence; it is not rewritten as success.
+
+The correction changes test setup, fault injection and diagnostics, not production code or timeouts. Reload waits are armed before the restore action and prove a new document; isolation compares all ordinary IndexedDB and localStorage data; both cross-tab actors settle before checking the durable winner. Observer tabs and route modules warm before fault gates, and unmount proves the intended same-document transition rather than a timeout substitute. The old probe explicitly aborted and then threw, causing the real CAS catch to abort a second time. The replacement injects a synchronous put failure while the transaction remains active, so production performs the single rollback. A strict native-state Node model reproduces the old double-abort path and checks the replacement, but is not browser evidence or attribution of all five initial errors.
+
+Report schema v2 retains the fixed 12-case and zero-browser-error gates. It publishes only fixed failure-stage IDs, per-case counts and at most 32 enum-category/SHA-256 error records plus overflow counts; no original message, stack or payload is copied. Captured case ownership and post-teardown checks prevent late errors from leaving a case marked passed. Unknown fields, invalid stage/category combinations and inconsistent attribution/overflow reject archive preparation. The corrected exact-head browser run remains required; local Node checks alone cannot close the original failures.

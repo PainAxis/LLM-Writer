@@ -38,13 +38,38 @@ try {
     value => { value.realModelRequests = 1 },
     value => { value.longformAcceptance = 'PASS' },
     value => { value.browserErrors = 'PRIVATE_FULL_SOURCE_CANARY' },
+    value => { value.cases[0].failureStage = 'PRIVATE_FULL_SOURCE_CANARY' },
+    value => { value.cases[0].failureStage = 'restore_confirm' },
+    value => { value.cases[1].failureStage = 'case_start' },
+    value => { value.pageErrorDiagnostics = [{ caseId: 'C01', category: 'type', sha256: 'a'.repeat(64), raw: 'PRIVATE_FULL_SOURCE_CANARY' }] },
+    value => { value.pageErrorOverflow = 1 },
+    value => { value.cases[0].browserErrors = 1 },
+    value => { value.schemaVersion = 1 },
   ]) {
     const bad = structuredClone(valid); mutate(bad)
     assert.throws(() => projectCampaignReport(bad), { message: 'Invalid closed Campaign evidence schema' }); checks++
   }
   const bytes = Buffer.from(JSON.stringify(valid)), derived = summarizeReport(bytes, CAMPAIGN_REPORT_PATH)
-  assert.equal(derived.transformation.closedSchema, 'campaign-browser-foundation-v1')
+  assert.equal(derived.transformation.closedSchema, 'campaign-browser-foundation-v2')
   assert.deepEqual(derived.report, valid); checks++
+  const errors = structuredClone(valid)
+  errors.browserErrors = 2; errors.cases[0].browserErrors = 1; errors.pageErrorOverflow = 0
+  errors.pageErrorDiagnostics = [{ caseId: 'C01', category: 'invalid_state', sha256: 'a'.repeat(64) }, { caseId: null, category: 'other', sha256: 'b'.repeat(64) }]
+  assert.deepEqual(projectCampaignReport(errors), errors); checks++
+  const overflow = structuredClone(valid)
+  overflow.browserErrors = 33; overflow.cases[0].browserErrors = 33; overflow.pageErrorOverflow = 1
+  overflow.pageErrorDiagnostics = Array.from({ length: 32 }, () => ({ caseId: 'C01', category: 'other', sha256: 'a'.repeat(64) }))
+  assert.deepEqual(projectCampaignReport(overflow), overflow); checks++
+  const earlyOverflow = structuredClone(valid)
+  earlyOverflow.browserErrors = 1; earlyOverflow.cases[0].browserErrors = 1; earlyOverflow.pageErrorOverflow = 1
+  assert.throws(() => projectCampaignReport(earlyOverflow)); checks++
+  for (const mutate of [
+    value => { value.pageErrorDiagnostics[0].category = 'PRIVATE_FULL_SOURCE_CANARY' },
+    value => { value.pageErrorDiagnostics[0].caseId = 'C02' },
+    value => { value.pageErrorDiagnostics[0].sha256 = ['a'.repeat(64)] },
+    value => { value.pageErrorDiagnostics.push(...Array.from({ length: 32 }, () => value.pageErrorDiagnostics[0])) },
+    value => { value.pageErrorDiagnostics[1].caseId = 'C01' },
+  ]) { const bad = structuredClone(errors); mutate(bad); assert.throws(() => projectCampaignReport(bad)); checks++ }
   root = await mkdtemp(path.join(tmpdir(), 'campaign-evidence-'))
   await mkdir(path.join(root, path.dirname(CAMPAIGN_REPORT_PATH)), { recursive: true })
   await writeFile(path.join(root, CAMPAIGN_REPORT_PATH), bytes)

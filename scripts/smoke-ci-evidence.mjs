@@ -182,7 +182,7 @@ try {
       assert.deepEqual(value.source, entry.source)
       assert.equal(value.transformation.policy.classification, 'derived-not-raw')
       if (entry.source.path === CAMPAIGN_REPORT_PATH) {
-        assert.equal(value.transformation.closedSchema, 'campaign-browser-foundation-v1')
+        assert.equal(value.transformation.closedSchema, 'campaign-browser-foundation-v2')
         assert.deepEqual(value.report, campaignEvidenceCase())
         continue
       }

@@ -5,32 +5,38 @@
   "localValidation": {
     "lint": "passed --max-warnings 0",
     "build": "passed vue-tsc and Vite",
-    "smokeSuites": 111,
+    "smokeSuites": 113,
     "strictNewTypeScriptScripts": "passed",
     "focusedEngineCases": 24,
-    "focusedIdentityArchiveChecks": 24,
-    "browser": "NOT_RUN locally; exact-head CI required",
+    "focusedIdentityArchiveChecks": 39,
+    "browser": "NOT_RUN locally; first head failed 7/12, corrected exact-head CI required",
     "liveModelCalls": 0,
-    "longformAcceptance": "NOT_RUN"
+    "longformAcceptance": "NOT_RUN",
+    "browserHelperSmoke": "reload identity, full ordinary storage, closed diagnostics passed",
+    "probeNativeStateModel": "historical double-abort reproduced; corrected single rollback passed; not browser evidence"
   },
   "sourceIntegrity": {
-    "nativePathCount": 436,
+    "nativePathCount": 440,
     "beforeAfterEqual": true,
-    "canonicalManifestSha256": "ef61d963ce44b4d4e59e39092476720dfb52509feb5b6872e7254007305471fa",
+    "canonicalManifestSha256": "0d326b15fbf1b0c2c702a8dc9ff0d0f5904be7d6e6c8bd4882cd0450f56f3f57",
     "changedSourceSha256": {
       ".github/workflows/ci.yml": "cebf1510bcee25e67c2b92e51b95179509fae7ede25f650b230b087c271976dd",
-      "package.json": "6f36eda0035c481d400bca71d85407f9023aa14253aac963e5a7b384a93c12fd",
-      "scripts/browser-writer-campaign.mjs": "69df74abf064f2ee3c1a4a7e787fe778af981e6f859041e9c9100ff333e7469b",
+      "package.json": "6e58a5cb66d4b8e66c906f75092b4d815455dc5b86320112b05d125514118334",
+      "scripts/browser-writer-campaign.mjs": "c845e6516bc5763060c6ad892179c3f43e4b8c2444a5a923c42cf2780e0b09dd",
       "scripts/campaign-build-identity.mjs": "f55415ddc492b8a912c9bee9d0b5629d1acc604a3f0384073e044ad83ab678e1",
-      "scripts/campaign-evidence.mjs": "f79e219b5fc47576176ddbc661b078c0d7851906e2762766e549223b41968aa4",
+      "scripts/campaign-evidence.mjs": "ede7cc3350ac6a29c068c77cd6cf5aec3de9cadd6554dd32dfec87e2fa0f52be",
       "scripts/ci-evidence-files.mjs": "f64e15524c6849e5b170d0409fbd8b240d81f6a7cb349f07b2b63d7d77aea799",
-      "scripts/fixtures/campaign-evidence-case.mjs": "5e2a23033166e4e676b477dbf82ae9ce1ef83ab7b7ffffd9618e07dc7ed9d7b6",
-      "scripts/fixtures/writer-campaign-browser-probe.mjs": "0b1b6f63d4ec41c0c5bde9a5a4a3a23e320d5e84fcb41a72a45581181b213a22",
-      "scripts/prepare-ci-evidence.mjs": "1f8da70069d1b6410fa156509db202d5dd2629666ab0eda08ee6fd30ac15568d",
+      "scripts/fixtures/campaign-evidence-case.mjs": "417920d63d94b0ed360b608e91843fdb3f0f2dac2701742e8987621fe615207e",
+      "scripts/fixtures/writer-campaign-browser-lifecycle.mjs": "74d72a74ff7a24def382bf87726bc35d82fbf4e7f9ada1ad30e8fbb6336b753d",
+      "scripts/fixtures/writer-campaign-browser-probe.mjs": "d0816b0fa71c36558698960fc19739828f1de95283b5c5be179d2267cd11f650",
+      "scripts/lib/writer-campaign-browser-diagnostics.mjs": "9777126e37c260e64d6dc02e05498f9298b68dcbe1b9cd3fb27c6f1c6b8fce43",
+      "scripts/prepare-ci-evidence.mjs": "00ba8040c28a09cea13a6461dd27a4decc282957b713e7049492c1bb5f7aa5d7",
       "scripts/profile-writer-campaign-capacity.ts": "5f31e77c2324c392fb6998b158094323a4cf7ccd201fe3bf233162395d2de419",
-      "scripts/smoke-ci-evidence.mjs": "f0f3dfc0180c2e18fc5b54eb7b12d6bd177b797bb1abe1e6ff928d435faefbd1",
+      "scripts/smoke-ci-evidence.mjs": "eeab5a7b21293f4123ff795e28345a019a27f4752dcbccb1044355d9a44d3901",
+      "scripts/smoke-writer-campaign-browser-lifecycle.mjs": "c56bb45404ba6d2608d419f99f6bd2d3cae427192e49550a66756fbc6b05829f",
+      "scripts/smoke-writer-campaign-browser-probe.mjs": "4d562366932348c87d7915eb89b3f28905d9d1d51d61c77524bbf9210e26a31c",
       "scripts/smoke-writer-campaign-engine.ts": "321deb91b44e9953b57fb2fbb21b3d67c6f818a6c8748febb657ff3376105276",
-      "scripts/smoke-writer-campaign-evidence.mjs": "2e8d4b413b369956f11ae783847a93dd9564d1ed5d0e55d726d954eac54aa135",
+      "scripts/smoke-writer-campaign-evidence.mjs": "a449891e96767dbebd6a4a00d52098fcad98c7bebd8093b5fc7487b2081de881",
       "scripts/smoke-writer-campaign-store.ts": "43ab6df0062be856d41ab3c409377b84933ba38bbc70805a7abffdb52adf23e7",
       "scripts/smoke-writer-campaign-ui.ts": "72ca7cf99b59c2c6de10e700729dc026ad6a44199c5d025311f164e8d0401e6c",
       "src/composables/useWriterCampaign.ts": "3d90ed97529bef7aed9057436f3284a1fe3949dccc478c03bbc408856a1508bd",
@@ -62,6 +68,21 @@
       "file": "capacity-profile.jsonl",
       "bytes": 2155,
       "sha256": "378189f3abe066df1159ff5b6c96b747cf2f09fc420ef31dfbc2babf30649d2a"
+    },
+    {
+      "file": "full-ci-fix.log",
+      "bytes": 173100,
+      "sha256": "a877654f53d86f2149f884747a7f2af5fd65b52cb95053b93b50e1e2d8c1540e"
+    },
+    {
+      "file": "ci-initial-summary.json",
+      "bytes": 3822,
+      "sha256": "77e1e505b52d16401cc2a28f4fc00ff39aa3a81dff80786aa60416d9fff4a129"
+    },
+    {
+      "file": "runtime-rejection-audit.json",
+      "bytes": 709,
+      "sha256": "7410ee14e3bd689772f5a12b99051358550bf9bf44c834e5bbb7d506d195ad7d"
     }
   ],
   "capacityObservations": [
@@ -157,5 +178,44 @@
     "Campaign backup/export and live-provider dispatch are not implemented.",
     "Core identity is not a compiler/dependency/browser runtime attestation.",
     "No generated full payload, export, backup, trace or complete request/response collection is published."
-  ]
+  ],
+  "historicalInitialCI": {
+    "runId": 40121881904,
+    "attempt": 1,
+    "pullRequestHead": "6e4d43b0109aa9e994f0d113ae916619d65eefad",
+    "actionsCheckout": "aec4afbd1248f44a8e414d60ebf04aa9dc301d0a",
+    "tree": "9a51afe784e9923c41b8722c1522796fde2489ab",
+    "successfulJobs": 11,
+    "failedJobs": [
+      "ci-writer-agent"
+    ],
+    "priorAgentBrowserCases": "90 passed",
+    "campaignPassed": 7,
+    "campaignFailed": 5,
+    "campaignNotRun": 0,
+    "failedCaseIds": [
+      "C04",
+      "C08",
+      "C09",
+      "C10",
+      "C12"
+    ],
+    "browserErrors": 5,
+    "realModelRequests": 0,
+    "blockedExternalRequests": 0,
+    "derivedArtifactId": 12571985287,
+    "derivedArtifactMembers": 2,
+    "allErrorsAttributed": false
+  },
+  "followupScope": {
+    "productionChanged": false,
+    "workflowChanged": false,
+    "campaignDenominator": 12,
+    "requiredJobs": 12,
+    "priorAgentCases": 90,
+    "zeroBrowserErrorGateRetained": true,
+    "timeoutsChanged": false,
+    "diagnostics": "v2 closed stage/category/hash-only; max32+overflow; raw text excluded",
+    "correctedHeadCI": "PENDING"
+  }
 }

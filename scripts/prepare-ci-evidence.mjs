@@ -125,7 +125,7 @@ export function summarizeReport(bytes, sourcePath) {
     return {
       schemaVersion: 1, evidenceKind: 'derived-not-raw',
       source: { path: sourcePath, bytes: bytes.length, sha256: sha256(bytes) },
-      transformation: { policy, closedSchema: 'campaign-browser-foundation-v1', requestProjections: [], textFields: [] },
+      transformation: { policy, closedSchema: 'campaign-browser-foundation-v2', requestProjections: [], textFields: [] },
       report: projectCampaignReport(report),
     }
   }

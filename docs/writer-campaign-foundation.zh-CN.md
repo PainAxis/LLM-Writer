@@ -71,7 +71,7 @@ Campaign artifact/checkpoint 仅在当前浏览器 profile 本地保存。**本�
 
 中英文百万目标存储几何 profile 报告实际停止位置，包括触限拒绝；重复几何文本不是小说或质量证据。真实浏览器为固定12例：C01–C03使用普通 production build，C04–C12使用独立标明的离线 host 观察／故障构建，仍走真实 engine、CAS、IndexedDB，transform 不替换状态、预算或持久化逻辑。未插桩场景的精确 adapter 进入次数记 null，不以 UI 指示器推算。工程工作区未运行本地浏览器。
 
-- `npm run smoke:writer-campaign-store`、`smoke:writer-campaign-engine`、`smoke:writer-campaign-ui`、`smoke:writer-campaign-evidence` 全部进入 `npm run smoke:all`。
+- `npm run smoke:writer-campaign-store`、`smoke:writer-campaign-engine`、`smoke:writer-campaign-ui`、`smoke:writer-campaign-evidence`、`smoke:writer-campaign-browser-lifecycle`、`smoke:writer-campaign-browser-probe` 全部进入 `npm run smoke:all`。
 - `npm run test:browser-writer-campaign` 是现有 `ci-writer-agent` job 的独立有时限步骤，不暗中加入旧 browser 总 runner。原十二项必要 CI 保持。
 - Campaign 上传只含闭合 schema 派生的 `report.summary.json` 与 manifest。未知字段使准备失败，不上传截图或 raw report 目录。
 
@@ -86,3 +86,11 @@ Campaign artifact/checkpoint 仅在当前浏览器 profile 本地保存。**本�
 上述 Node profile 全程累计读取中文570,635,858 bytes／10,577批，英文997,803,343 bytes／26,957批。单批有界不代表反复历史校验的总工作量为线性；后续容量调查也必须测量这种放大，而非只修预算数字。未宣称浏览器长篇吞吐已达标。
 
 [精简验证记录](testing/writer-campaign-foundation-2026-10-24/REPORT.md)绑定本地检查与不含正文的容量观察，严格区分本地浏览器 NOT RUN 和随后准确 head 的 CI 结果。
+
+## 首轮 CI 失败与测试修正
+
+PR #44 首轮 [40121881904](https://github.com/PainAxis/LLM-Writer/actions/runs/40121881904) 对应 head `6e4d43b0109aa9e994f0d113ae916619d65eefad`，Actions 实际 checkout 为 `aec4afbd1248f44a8e414d60ebf04aa9dc301d0a`，二者 tree 均为 `9a51afe784e9923c41b8722c1522796fde2489ab`。11 项 job 成功，`ci-writer-agent` 失败。其中既有 Agent 90 场景步骤通过；Campaign 为 7/12 通过，C04/C08/C09/C10/C12 失败，记录 5 个浏览器错误，外部请求及真实模型调用均为 0。原始不含正文的 summary 保留本地，精简证据记录其哈希，不改写为成功。
+
+修正只涉及测试准备、故障注入和诊断，不改生产代码或超时。恢复操作前先注册 reload 等待并证明新文档；隔离比较覆盖全部普通 IndexedDB 和 localStorage；跨标签等待两方结束后再验证持久赢家。观察标签和路由模块在故障门之前预热，卸载证明同文档路由变化，不能用超时替代。旧 probe 先主动 abort 再 throw，使真实 CAS catch 再次 abort。现在只在事务仍活跃时注入同步 put 失败，由生产代码唯一执行回滚。严格原生状态 Node 模型复现旧双重 abort，并检查新路径，但不是浏览器验收，也不能据此解释首轮全部 5 个错误。
+
+报告 schema v2 保留固定 12 场景和零浏览器错误门槛。仅发布固定失败阶段 ID、逐场景计数、最多 32 条枚举分类与 SHA-256 错误记录及溢出计数，不复制原始错误消息、堆栈或正文。捕获场景归属与关闭后的复核，防止迟到错误仍被记为通过。未知字段、非法阶段／分类以及归属／溢出计量不一致均拒绝归档。修正后的准确 head 仍须重新通过实际浏览器 CI，本地 Node 检查不能关闭首轮失败。

@@ -130,7 +130,10 @@ export function installCampaignProbe() {
         if (text.includes(':receipt:') && record?.kind) {
           info.operations.push(record.kind)
           const rule = take('write', record.kind)
-          if (rule?.abort) { state.aborted++; this.transaction.abort(); throw new DOMException('Controlled transaction abort', 'AbortError') }
+          // Synchronous put failure leaves the native transaction active. The production
+          // caller owns abort/rollback; aborting here too would create a second-abort
+          // InvalidStateError instead of testing the intended recoverable failure.
+          if (rule?.abort) { state.aborted++; throw new DOMException('Controlled synchronous put failure', 'AbortError') }
         }
       } else state.ordinaryWrites++
     }
