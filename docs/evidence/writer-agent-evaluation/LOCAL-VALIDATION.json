@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "kind": "writer-agent-evaluation-local-validation",
+  "measuredAt": "2026-10-24T17:10:00Z",
+  "baselineCommit": "266ca856396c46780512f1293725aeefef4a9bfe",
+  "fixtureSha256": "1ea222f85ab3fb4809ab3216d72754e24e1101bcbd80bd617d0f1b9c4aa1a222",
+  "sourceTreeSha256": "3a0299a1d72a0e153d5e6170bf94715779c73fecda73f9c33f0db5af01192cca",
+  "sourceTreeUnchanged": true,
+  "nativeManifest": {
+    "paths": 413,
+    "beforeEqualsAfter": true,
+    "canonicalSha256": "3e1c0642fdeb5010061a6da50cd3616210976796d7bc5d6bdf8f7e8ce83882c6"
+  },
+  "verification": {
+    "lintZeroWarnings": "passed",
+    "build": "passed",
+    "aggregateSmokeSuitesPassed": 107,
+    "focusedStrictTypecheck": "passed",
+    "evaluatorControlledGroups": 12,
+    "fixtureMutationRejections": 8,
+    "manualReviewControlledChecks": 33,
+    "actualHumanJudgments": 0,
+    "liveProviderRequests": 0,
+    "browserLocal": "not_run",
+    "exactHeadRequiredCiJobs": 12,
+    "exactHeadCi": "pending"
+  },
+  "offlineObservation": {
+    "mode": "mock",
+    "cases": 8,
+    "mockHttpRequests": 13,
+    "outcomes": {
+      "draft_ready": 5,
+      "needs_author_input": 1,
+      "retrieval_insufficient": 2
+    },
+    "quality": "not_reviewed",
+    "goldAssistedSelection": true,
+    "observedInputBoundaryViolations": 0,
+    "deliberateOutputNegativeControlFlags": 1,
+    "casesSummary": [
+      {
+        "caseId": "q01-single-promise",
+        "outcome": "draft_ready",
+        "httpRequests": 2,
+        "prewarmSyncs": 0,
+        "currentSyncs": 1,
+        "requiredPremiseCount": 1,
+        "retrievedRequiredPremiseCount": 1,
+        "selectedRequiredPremiseCount": 1,
+        "missingPremiseCount": 0
+      },
+      {
+        "caseId": "q02-separated-premises",
+        "outcome": "draft_ready",
+        "httpRequests": 2,
+        "prewarmSyncs": 0,
+        "currentSyncs": 1,
+        "requiredPremiseCount": 2,
+        "retrievedRequiredPremiseCount": 2,
+        "selectedRequiredPremiseCount": 2,
+        "missingPremiseCount": 0
+      },
+      {
+        "caseId": "q03-current-revision",
+        "outcome": "draft_ready",
+        "httpRequests": 2,
+        "prewarmSyncs": 1,
+        "currentSyncs": 1,
+        "requiredPremiseCount": 1,
+        "retrievedRequiredPremiseCount": 1,
+        "selectedRequiredPremiseCount": 1,
+        "missingPremiseCount": 0
+      },
+      {
+        "caseId": "q04-future-attribution",
+        "outcome": "draft_ready",
+        "httpRequests": 2,
+        "prewarmSyncs": 0,
+        "currentSyncs": 1,
+        "requiredPremiseCount": 1,
+        "retrievedRequiredPremiseCount": 1,
+        "selectedRequiredPremiseCount": 1,
+        "missingPremiseCount": 0
+      },
+      {
+        "caseId": "q05-source-injection",
+        "outcome": "draft_ready",
+        "httpRequests": 2,
+        "prewarmSyncs": 0,
+        "currentSyncs": 1,
+        "requiredPremiseCount": 2,
+        "retrievedRequiredPremiseCount": 2,
+        "selectedRequiredPremiseCount": 2,
+        "missingPremiseCount": 0
+      },
+      {
+        "caseId": "q06-needs-author-input",
+        "outcome": "needs_author_input",
+        "httpRequests": 1,
+        "prewarmSyncs": 0,
+        "currentSyncs": 0,
+        "requiredPremiseCount": 0,
+        "retrievedRequiredPremiseCount": null,
+        "selectedRequiredPremiseCount": null,
+        "missingPremiseCount": null
+      },
+      {
+        "caseId": "q07-lexical-distractor",
+        "outcome": "retrieval_insufficient",
+        "httpRequests": 1,
+        "prewarmSyncs": 0,
+        "currentSyncs": 1,
+        "requiredPremiseCount": 2,
+        "retrievedRequiredPremiseCount": 1,
+        "selectedRequiredPremiseCount": 0,
+        "missingPremiseCount": 1
+      },
+      {
+        "caseId": "q08-low-lexical",
+        "outcome": "retrieval_insufficient",
+        "httpRequests": 1,
+        "prewarmSyncs": 0,
+        "currentSyncs": 1,
+        "requiredPremiseCount": 2,
+        "retrievedRequiredPremiseCount": 0,
+        "selectedRequiredPremiseCount": 0,
+        "missingPremiseCount": 2
+      }
+    ]
+  },
+  "localLog": {
+    "fileName": "full-local.log",
+    "bytes": 172778,
+    "sha256": "1fc7ebb18b324a84bd5ea7fd1975859cdc16408e12b68a3382448f0397dfc148"
+  },
+  "localSourceFreeCliSummarySha256": "c6bd06742efb515932c02cea0f8034dc6b8bde76fd187df0ad3aad474d74ef5e",
+  "changedSourceSha256": {
+    "scripts/lib/writer-agent-eval-fixture.ts": "dae629963bd1933650494be3ce16f6a18183450311498e714555e7688f56c1af",
+    "scripts/lib/writer-agent-eval-network.ts": "087e26ea14ccb5d0957ee0022d1451444a294ba9f1b1d6be42147f74dd920fe1",
+    "scripts/lib/writer-agent-eval-review.ts": "15be6ca0f6599cda7f2483a22294b2867c27af16f6e7874e3c4e65a0cb4992a1",
+    "scripts/lib/writer-agent-evaluation.ts": "7bbd6c02da77576863ba47de527084826d63fcc385ca032d68e76938258cf6bb",
+    "scripts/eval-writer-agent.ts": "266186f74446292f81af90bdd73a422b43acddbe580d39c081cbfaeb14e202cb",
+    "scripts/review-writer-agent-evaluation.ts": "b7edc384d9c367dee2624426492cc504f24fe16928a9428a7b4be604f0280398",
+    "scripts/smoke-writer-agent-eval-fixture.ts": "feb0ced00a5a182d3059018af2aaddd8a43c1e5fb86467982b28b5e40530c00c",
+    "scripts/smoke-writer-agent-eval-review.ts": "c204c0b0fb99229852015a82dce8952540cf964a162e22c7134bf87fe7a454db",
+    "scripts/smoke-writer-agent-evaluation.ts": "d6c9e1b60e8a0a27c51e5bdeb213b047e283ce3247f9efbe9546cfb1f85fcea1",
+    "scripts/fixtures/writer-agent-quality-v1.json": "1ea222f85ab3fb4809ab3216d72754e24e1101bcbd80bd617d0f1b9c4aa1a222",
+    "scripts/fixtures/writer-agent-quality-v1.sha256": "d4c091d0f6bcf898db54a8e403a2d6642713290acec6606d2216e1dbf16280ea",
+    "package.json": "a64b16dfeb6198ca8de749777301ccc583a01f66c5c348d7da36ba4fb78bdd6c"
+  },
+  "retention": {
+    "fullLogsAndPrivatePackets": "local_only",
+    "publicEvidence": "counts_enums_and_hashes_only",
+    "newCiUploadOutlet": false
+  },
+  "longformFinalAcceptance": {
+    "languages": [
+      "zh",
+      "en"
+    ],
+    "bodyCharactersPerNovel": 1000000,
+    "status": "not_run",
+    "currentIncrementIsPrerequisiteOnly": true
+  }
+}

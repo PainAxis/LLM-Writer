@@ -2,7 +2,7 @@
 
 [English](writer-author-agent.md) | [简体中文](writer-author-agent.zh-CN.md)
 
-状态：实现与验收进行中。第三阶段四条有限工作线已在 `dfc316eb2fc8f376c5ac3c77892b251ba29e6902` 完成合并后 main 门槛，见[精简交接记录](testing/writer-agent-2026-10-23/stage-three-handoff.json)。本文是本项验收合同，不表示浏览器验收已完成或真实模型写作质量已验证。
+状态：首个有限闭环已在 [PR #42](https://github.com/PainAxis/LLM-Writer/pull/42) 验收并合并为 `266ca856396c46780512f1293725aeefef4a9bfe`，其 [main CI](https://github.com/PainAxis/LLM-Writer/actions/runs/39998090341) 首次 attempt 十二项全过，Agent 18/18 组、90/90 浏览器场景通过。第三阶段先前已收尾；第四阶段仍须完成[双语自主百万字符小说的最终验收](writer-agent-longform-acceptance.zh-CN.md)。[当前评估工具](writer-agent-evaluation.zh-CN.md)只是前置，真实模型写作质量尚未验证。下方历史运行记录保留当时状态，不代替本段最终身份。
 
 ## 一个有限结果，不是通用工具循环
 
@@ -100,6 +100,10 @@ generic header／全局重试不得暗中重试 Agent 恢复，由面板承担�
 ### 证据边界
 
 浏览器分别计量实际 HTTP 到达、Worker sync/search、元数据写尝试、真实提交和正文插入。第一次来源读取之前，浏览器无法独立观察私有 `prepareWriterMemoryContext` 入口，因此该计数为 `null`，以 Node 精确入口测试补足，不能伪填一次。同样，保存图标变化只是 UI 代理，不能当成 save 方法调用：`novelSaveAttempts` 为 `null`，`savingIndicatorTransitions` 单列，精确调用归属由 Node 集成测试补足；浏览器仍保留元数据尝试、提交门入口与真实提交的硬断言。被禁用／卸载的运行中配置控件及同页 raw-ref 竞态由真实 Vue 的 Node 集成测试补足；浏览器 DOM 攻击有明确标注，不称作普通作者点击。runtime R08 的空附件在生产序列化边界检验，不伪造依据能力。
+
+### 历史执行记录（保留当时状态）
+
+以下记录来自最终验收前的冻结修订，当前已完成状态与准确 main 身份见本文开头。
 
 90 场景及两种视口的 600 章长篇目前仍为**本地未运行**。原生测试通过或场景注册冻结不代表浏览器验收。首次完整原生回归在既有 graph-backup 恢复测试发现全局状态观察者异常被吞的回归；已恢复原传播语义，未削弱断言，修复后的来源快照已重新通过完整回归：lint 零警告、生产构建、全部 102 组 smoke。[精简原生证据](testing/writer-agent-2026-10-23/LOCAL-VALIDATION.json)将本次成功与保留的历史失败区分，后续 CI 发现章节 CRUD 自等待及两处脚本配置／观测错误；修复连同新归档规则及未减弱的安全断言，已重新通过 lint／build／**103 组 smoke**，403 条来源哈希前后不变。[CI 后续记录](testing/writer-agent-2026-10-23/CI-FOLLOWUP.json)保留历史部分失败及上传事实。仍须准确 head 的 CI 通过。
 
