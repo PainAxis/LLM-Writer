@@ -249,7 +249,7 @@ export interface CampaignRepository {
   createActionScope?(campaignId: string): CampaignActionScope
   disposeActionScope?(scope: CampaignActionScope): void
   getActionProofStats?(): CampaignActionProofStats
-  read(campaignId: string, scope?: CampaignActionScope): Promise<CampaignSnapshot | null>
+  read(campaignId: string, scope?: CampaignActionScope, check?: () => void): Promise<CampaignSnapshot | null>
   commit(expected: CampaignSnapshot, mutation: CampaignMutation, canCommit?: () => boolean, scope?: CampaignActionScope): Promise<CampaignCommitResult>
   getReceipt(campaignId: string, operationId: string): Promise<CampaignReceipt | null>
   getOperationArtifacts(campaignId: string, operationId: string): Promise<CampaignArtifact[] | null>

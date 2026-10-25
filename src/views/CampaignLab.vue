@@ -4,10 +4,13 @@
     <h1>Campaign Lab</h1>
     <p class="notice" data-testid="campaign-boundary"><strong>离线持久化验证，非自主小说</strong><br>
       只有固定的小型合成案例。Campaign 执行不读取 API 配置、不调用真实模型、不导入旧小说或追加 Writer 正文。创建、重开与恢复都不会自动执行任务。</p>
+    <p data-testid="campaign-planning-boundary">可选 Planning Contract v1 验证四阶段规划与精确修订上下文；规划意图不是已成立的正文事实。Offline fixture only · semantic consistency / autonomous generation / whole-work audit: NOT RUN.</p>
     <p data-testid="campaign-local-only">Campaign 数据仅在此浏览器本地，普通 Writer 备份与恢复不包含它。清除浏览器数据会丢失 Campaign；本页没有上传、同步或完整导出。</p>
     <div class="actions">
       <button data-testid="campaign-create-zh" :disabled="busy || loading" @click="create('zh')">创建中文小案例</button>
       <button data-testid="campaign-create-en" :disabled="busy || loading" @click="create('en')">创建英文小案例</button>
+      <button data-testid="campaign-create-planning-zh" :disabled="busy || loading || !planningAvailable" @click="createPlanning('zh')">创建中文规划案例（3 章）</button>
+      <button data-testid="campaign-create-planning-en" :disabled="busy || loading || !planningAvailable" @click="createPlanning('en')">Create English planning fixture (3 chapters)</button>
       <button data-testid="campaign-refresh" :disabled="busy || loading" @click="refresh">重新读取持久状态</button>
     </div>
     <p v-if="error" role="alert" data-testid="campaign-error">{{ error }}</p>
@@ -24,6 +27,7 @@
       <dl class="metadata">
         <dt>Campaign</dt><dd data-testid="campaign-id">{{ snapshot.manifest.campaignId }}</dd>
         <dt>语言 / 模式</dt><dd>{{ snapshot.manifest.language }} / offline_fixture</dd>
+        <dt>Fixture profile</dt><dd data-testid="campaign-profile">{{ snapshot.manifest.fixtureVersion }}</dd>
         <dt>执行状态</dt><dd data-testid="campaign-status" :data-status="status">{{ status === 'completed' ? 'fixture_complete' : status }}</dd>
         <dt>任务完成</dt><dd data-testid="campaign-task-progress">{{ completedTasks }} / {{ taskRows.length }}（不是长篇验收）</dd>
         <dt>正文目标进度</dt><dd data-testid="campaign-target-progress">{{ snapshot.checkpoint.bodyCharacters }} / {{ snapshot.manifest.bodyTarget.characters }} Unicode scalar characters</dd>
@@ -46,6 +50,39 @@
       </div>
       <p>一次只处理一个任务，没有后台循环。关闭页面只停止本实例，不等于已持久化全局取消。取消之前已持久化的 dispatch intent 仍可能调用；取消不承诺零请求或零费用。</p>
       <p v-if="unresolved || inactiveUnknownRequests" class="notice" data-testid="campaign-unknown">请求结果未知，禁止重放模型调用。未解决的存储义务与模型预算继续保留；替换候选、暂停或取消都不会释放它们。本页没有“重试模型”按钮。</p>
+      <section v-if="planningProfile" data-testid="campaign-planning-preview" aria-label="规划上下文只读预览" :aria-busy="previewLoading">
+        <h3>Planning Contract v1 · 规划上下文只读预览</h3>
+        <p>先接纳大纲、人设、细纲与全部章纲，才能预览。选择章节只在本地编译 planning_preview；不预留请求、不派发、不保存正文，也不授予后续执行权限。正文 fixture 仍由上方“一步”按钮按依赖顺序单独处理。</p>
+        <div class="actions" aria-label="选择预览章节">
+          <button v-for="chapter in chapterRows" :key="chapter.taskId" :data-testid="`campaign-preview-chapter-${chapter.ordinal}`"
+            :disabled="!canPreview" :aria-pressed="selectedChapter === chapter.ordinal" @click="previewChapter(chapter.ordinal)">
+            Chapter {{ chapter.ordinal }} · {{ chapter.status }}
+          </button>
+        </div>
+        <p v-if="previewLoading" role="status" data-testid="campaign-preview-loading">正在重新核验来源并编译本地预览…</p>
+        <p v-else-if="!planningPreview" data-testid="campaign-preview-empty">请选择章节重新读取；已有预览会在读取状态、执行、暂停、取消或切换 Campaign 时清除。</p>
+        <p v-else-if="planningPreview.status === 'refused'" role="status" data-testid="campaign-preview-refusal">预览拒绝 / refused: {{ planningPreview.refusalCode }}。没有新请求或正文保存；先检查任务状态与来源。</p>
+        <template v-else>
+          <p class="notice" data-testid="campaign-preview-scope">仅规划意图，不是正文事实库。完整全局规划＋所选章纲；未包含其他章纲文本。Planning intent is not established prose truth; declared-reference coverage is not semantic completeness.</p>
+          <dl class="metadata">
+            <dt>Selected chapter</dt><dd data-testid="campaign-preview-selected">{{ planningPreview.selectedChapter.ordinal }} · {{ planningPreview.selectedChapter.outlineTaskId }} / {{ planningPreview.selectedChapter.bodyTaskId }}</dd>
+            <dt>Next eligible body task</dt><dd data-testid="campaign-preview-next-body">{{ planningPreview.nextEligibleBodyTaskId ?? 'none' }}（不代表所选章可越序执行）</dd>
+            <dt>Purpose</dt><dd>planning_preview（不是 body_fixture_dispatch）</dd>
+            <dt>Canon-base root</dt><dd data-testid="campaign-preview-canon-root">{{ planningPreview.canonBaseRoot }}</dd>
+            <dt>Full-plan root</dt><dd data-testid="campaign-preview-plan-root">{{ planningPreview.fullPlanRoot }}</dd>
+            <dt>Input digest</dt><dd data-testid="campaign-preview-digest">{{ planningPreview.inputDigest }}</dd>
+            <dt>Exact input size</dt><dd data-testid="campaign-preview-size">{{ planningPreview.inputBytes }} UTF-8 bytes / {{ planningPreview.inputUtf16 }} UTF-16 units（不是 provider tokens）</dd>
+            <dt>Coverage / scope</dt><dd><pre data-testid="campaign-preview-scope-details">{{ planningPreview.scope }}</pre></dd>
+          </dl>
+          <h4>Exact source revisions</h4>
+          <ul data-testid="campaign-preview-sources"><li v-for="source in planningPreview.sourceRefs" :key="source.hash">{{ source.taskId }} · r{{ source.revision }} · <span class="hash">{{ source.hash }}</span></li></ul>
+          <details data-testid="campaign-preview-packet">
+            <summary>本地精确 packet（只读；不上传，不导出报告）</summary>
+            <pre>{{ planningPreview.input }}</pre>
+          </details>
+          <p>后续正文步骤将重新验证资格并编译不同的派发 packet；本预览不会复用为请求。远期规划与已隐藏材料的分区只验证声明，不保证模型不会泄露内容。</p>
+        </template>
+      </section>
       <h3>任务依赖与状态</h3>
       <ol data-testid="campaign-tasks"><li v-for="task in taskRows" :key="task.taskId">{{ task.kind }} · r{{ task.revision }} · {{ task.status }}</li></ol>
       <section data-testid="campaign-budgets" aria-label="累计预算与观测用量">
@@ -92,7 +129,8 @@ import { onMounted, onUnmounted } from 'vue'
 import { useWriterCampaign } from '@/composables/useWriterCampaign'
 const { ids, selectedId, snapshot, busy, loading, error, status, locallyStopped, persistentOutcome,
   canStep, canResume, canStop, canSaveOnly, unresolved, taskRows, artifactRows, completedTasks, unknownRequests, inactiveUnknownRequests, readOnly, storageSummary, legacyStorageSummary,
-  observedUsage, refresh, select, create, step, saveOnly, pause, resume, cancel, dispose } = useWriterCampaign()
+  planningAvailable, planningProfile, chapterRows, selectedChapter, planningPreview, previewLoading, canPreview, previewChapter,
+  observedUsage, refresh, select, create, createPlanning, step, saveOnly, pause, resume, cancel, dispose } = useWriterCampaign()
 onMounted(() => { void refresh() })
 onUnmounted(dispose)
 </script>

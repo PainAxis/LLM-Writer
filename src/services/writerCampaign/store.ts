@@ -14,6 +14,8 @@ import {
 
 import { applyCampaignStorage, assertCampaignStorage, campaignRequestStorageAllowance, campaignStorageSource, emptyCampaignStorage } from './storageAccounting'
 import { createLegacyCampaignInspector } from './legacyStore'
+import { PlanningValidationView } from './planningValidation'
+import { validatePlanningProfile } from './planningProfile'
 import { CampaignActionProofPool, CAMPAIGN_PROOF_BATCH_BYTES, type CampaignProofLease } from './actionProof'
 
 export const CAMPAIGN_KEY_PREFIX = 'writer-campaign:'
@@ -226,27 +228,27 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     return result
   }
 
-  async function coldRead(campaignIdValue: string, lease: CampaignProofLease | null = null): Promise<CampaignSnapshot | null> {
+  async function coldRead(campaignIdValue: string, lease: CampaignProofLease | null = null, check: () => void = () => {}): Promise<CampaignSnapshot | null> {
     const started = proofs.coldStart()
     proofs.capture(lease)
     try {
-      const result = await replayRead(campaignIdValue, lease)
+      const result = await replayRead(campaignIdValue, lease, check)
       proofs.coldCompleted()
       return result
     } finally { proofs.timed('cold', started) }
   }
 
-  async function read(campaignIdValue: string, scope?: CampaignActionScope): Promise<CampaignSnapshot | null> {
+  async function read(campaignIdValue: string, scope?: CampaignActionScope, check: () => void = () => {}): Promise<CampaignSnapshot | null> {
     const lease = proofs.begin(scope, campaignIdValue)
     // Only the initial full read can seed a scope. A caller asking for another
     // independent read does not silently rebase its already established proof.
     if (lease?.snapshot) proofs.discard(lease, 'conflict')
-    try { return await coldRead(campaignIdValue, lease) }
+    try { return await coldRead(campaignIdValue, lease, check) }
     catch (cause) { proofs.discard(lease, 'error'); throw cause }
     finally { proofs.end(lease) }
   }
 
-  async function replayRead(campaignIdValue: string, lease: CampaignProofLease | null): Promise<CampaignSnapshot | null> {
+  async function replayRead(campaignIdValue: string, lease: CampaignProofLease | null, check: () => void = () => {}): Promise<CampaignSnapshot | null> {
     const headKey = campaignKeys.head(campaignIdValue)
     const initial = await readRecord(headKey)
     if (initial !== null && (parseCampaignRecord(initial) as { schemaVersion?: unknown }).schemaVersion === 1) throw new CampaignProtocolError('legacy_read_only', 'Campaign v1 is available for read-only inspection')
@@ -279,6 +281,7 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
         proofs.observe(lease, receiptKey, values.get(receiptKey)!, utf8Bytes(values.get(receiptKey)!))
       }
       campaignAssert(manifest.campaignId === campaignIdValue && manifest.hash === head.manifestHash, 'Manifest key mismatch')
+      const planning = new PlanningValidationView(manifest, check)
       headMatches(head, checkpoint, receipt); assertIndex(manifest, checkpoint)
       campaignAssert(checkpoint.budget.operations === head.sequence + 1, 'Operation count differs from checkpoint sequence')
       // Only final-index records survive this read. Full history is still fetched
@@ -406,6 +409,7 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
               campaignAssert(!allocationIds.has(phaseRequest.id), 'Allocation identity reused in history')
               allocationIds.add(phaseRequest.id)
               campaignAssert(replayPrevious !== null, 'Genesis cannot reserve a request')
+              await planning.reserve(replayPrevious, phaseRequest)
               for (const key of CAMPAIGN_BUDGET_KEYS) if (!['artifacts', 'operations'].includes(key)) campaignAssert(item.budget[key] - replayPrevious.budget[key] >= phaseRequest.reservation[key], 'Historical request was not reserved')
             }
             allocationRequests.set(phaseRequest.id, phaseRequest)
@@ -428,6 +432,7 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
             eventArtifacts.push(artifact); artifactWires.push({ key, valueBytes })
           }
           campaignAssert(eventArtifacts.length === 0 || ['accept_artifact', 'replace_candidate'].includes(evidence.kind), 'Unauthorized artifact receipt')
+          await planning.advance(item, evidence.kind, eventArtifacts)
           if (evidence.kind === 'accept_artifact') {
             campaignAssert(phaseRequest, 'Settlement lacks request evidence')
             assertAcceptedArtifact(phaseRequest, eventArtifacts, item)
@@ -561,6 +566,7 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
   async function create(input: CampaignManifest, operationId: string): Promise<CampaignCommitResult> {
     const frozen = structuredClone(input); campaignId(operationId)
     const manifest = await validateCampaignManifest(frozen)
+    validatePlanningProfile(manifest)
     const digest = await hashCampaignValue('campaign-operation-v2', { kind: 'create', manifestHash: manifest.hash })
     const prior = await getReceipt(manifest.campaignId, operationId)
     if (prior) {
@@ -673,7 +679,8 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     }
     if (lease?.snapshot && lease.snapshot.rawHead !== expectedRawHead) proofs.discard(lease, 'conflict')
     const accelerated = proofs.collecting(lease) && lease.snapshot !== null
-    const current = accelerated ? await verifyProof(lease!, expectedRawHead) : await coldRead(id, lease)
+    const check = () => campaignAssert(canCommit(), 'Campaign action expired during planning validation', 'conflict')
+    const current = accelerated ? await verifyProof(lease!, expectedRawHead) : await coldRead(id, lease, check)
     campaignAssert(current && current.rawHead === expectedRawHead, 'Campaign head/epoch changed; mutation not committed', 'conflict')
     // A public snapshot supplies identity/fencing, never the previous business
     // state. Derive the delta from the freshly verified private/cold state.
@@ -681,6 +688,8 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     if (accelerated) campaignAssert(!lease!.entries.has(campaignKeys.receipt(id, mutation.operationId)), 'Operation identity already exists in the verified prefix', 'operation_conflict')
     const next = mutation.next
     const previous = current.checkpoint
+    const planning = new PlanningValidationView(current.manifest, check)
+    planning.seed(previous, current.artifacts)
     campaignAssert(same(next.storage, previous.storage), 'Caller cannot alter repository-owned storage accounting')
     assertStateTransition(previous, next, mutation.kind, requests.length)
     next.budget.operations = counterSum(previous.budget.operations, 1)
@@ -708,6 +717,7 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     }
     if (['reserve', 'dispatch_intent', 'retain_response', 'accept_artifact'].includes(mutation.kind)) campaignAssert(requests.length === 1, 'Execution operation needs exactly one request revision')
     if (mutation.kind === 'reserve') {
+      await planning.reserve(previous, requests[0]!)
       const reservation = requests[0]!.reservation
       campaignAssert(requests[0]!.storageAllocationBytes === campaignRequestStorageAllowance(requests[0]!.preparedInput, current.manifest.tasks.length, reservation.responseBytes), 'Request lacks immutable future-write envelope', 'budget')
       const originKey = campaignKeys.request(id, requests[0]!.id, 0)
@@ -725,6 +735,7 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     assertIndex(current.manifest, next)
     assertTaskTransition(current.manifest, previous, next, mutation.kind, artifacts, requests)
     const bodyCharacters = assertActiveRefs(current.manifest, next, allArtifacts, allRequests)
+    await planning.advance(next, mutation.kind, artifacts)
     if (next.status === 'completed') campaignAssert(next.tasks.every(task => task.status === 'committed'), 'Fixture completion requires every task artifact')
     const write = await buildWrite(current.manifest, next, current.head.sequence + 1, previous.hash, mutation.operationId, mutation.kind, digest, bodyCharacters, fixed, previous.storage, artifacts.map(item => item.hash), requests.map(item => item.hash), requests[0] ?? null)
     write.entries.find(entry => entry.key === campaignKeys.head(id))!.expectedValue = expectedRawHead

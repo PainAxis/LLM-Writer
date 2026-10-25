@@ -1,5 +1,8 @@
 import type { CampaignArtifact, CampaignManifest, CampaignRequest, CampaignResponse, CampaignTaskSpec } from '../../types/writerCampaign'
 import { CampaignRuntimeError, CAMPAIGN_MAX_INPUT_BYTES, CAMPAIGN_MAX_RESPONSE_BYTES } from './budget'
+import { isPlanningProfile } from './planningProfile'
+import { compilePlanningContext } from './planningContext'
+import { planningFixtureResponse } from './planningFixture'
 import { canonicalStringify, hashCampaignValue, hashText } from './protocol'
 
 declare const dispatchPermitBrand: unique symbol
@@ -11,6 +14,8 @@ export interface CampaignProviderContext {
   task: CampaignTaskSpec
   taskRevision: number
   dependencies: CampaignArtifact[]
+  /** Caller-owned cancellation/deadline check; grants no IO or dispatch authority. */
+  check?: () => void
 }
 /** Provider contract is independent of UI, API configuration and manual Writer Agent consent. */
 export interface CampaignProvider {
@@ -72,6 +77,11 @@ export function createOfflineFixtureHost(options: OfflineFixtureOptions = {}): C
     capabilities: Object.freeze({ network: false, retries: 0, maxResponseBytes: CAMPAIGN_MAX_RESPONSE_BYTES }),
     async prepareRequest(context) {
       if (context.manifest.mode !== 'offline_fixture' || context.manifest.adapterId !== provider.id) throw new CampaignRuntimeError('unsupported_adapter')
+      if (isPlanningProfile(context.manifest)) {
+        const prepared = await compilePlanningContext(context)
+        contexts.set(prepared.digest, context)
+        return prepared
+      }
       const text = JSON.stringify({ protocol: 'campaign-input-v2', manifestHash: context.manifest.hash, candidateId: context.candidateId,
         language: context.manifest.language, bodyTarget: context.manifest.bodyTarget, task: context.task, taskRevision: context.taskRevision,
         dependencies: context.dependencies.map(artifact => ({ taskId: artifact.taskId, revision: artifact.revision, hash: artifact.hash, text: artifact.text })) })
@@ -91,7 +101,7 @@ export function createOfflineFixtureHost(options: OfflineFixtureOptions = {}): C
       const context = contexts.get(request.inputDigest)
       // Restart can rebuild a bound context by prepareRequest, but cannot mint an intent or replay a dispatch.
       if (!context) throw new CampaignRuntimeError('missing_prepared_context')
-      const text = options.responseFor?.(context) ?? TEXT[context.manifest.language][context.task.kind]
+      const text = options.responseFor?.(context) ?? (isPlanningProfile(context.manifest) ? planningFixtureResponse(context) : TEXT[context.manifest.language][context.task.kind])
       if (new TextEncoder().encode(text).length > provider.capabilities.maxResponseBytes) throw new CampaignRuntimeError('response_too_large')
       const response: CampaignResponse = { requestId: request.id, inputDigest: request.inputDigest, text,
         usage: { provenance: 'fixture', inputTokens: null, outputTokens: null, reasoningTokens: null },

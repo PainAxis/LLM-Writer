@@ -1,5 +1,7 @@
 import { computed, ref, shallowRef } from 'vue'
 import { createOfflineCampaignEngine } from '@/services/writerCampaign/engine'
+import type { PlanningPreviewResult } from '@/services/writerCampaign/planningContext'
+import { isPlanningProfile } from '@/services/writerCampaign/planningProfile'
 import { decodeStorageBytes } from '@/services/writerCampaign/protocol'
 import type { CampaignInspection, CampaignSnapshot, LegacyCampaignSnapshot } from '@/types/writerCampaign'
 
@@ -8,6 +10,8 @@ export interface CampaignLabEngine {
   list(): Promise<string[]>
   inspect(id: string): Promise<CampaignInspection | null>
   prepare(input: { campaignId: string; language: 'zh' | 'en' }): Promise<unknown>
+  preparePlanning?(input: { campaignId: string; language: 'zh' | 'en' }): Promise<unknown>
+  previewPlanningContext?(id: string, chapterOrdinal: number): Promise<PlanningPreviewResult>
   step(id: string): Promise<unknown>
   pause(id: string): Promise<unknown>
   resume(id: string): Promise<unknown>
@@ -29,6 +33,10 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   const error = ref('')
   const locallyStopped = ref(false)
   const persistentOutcome = ref<PersistentOutcome>('none')
+  const selectedChapter = ref(1)
+  const planningPreview = shallowRef<PlanningPreviewResult | null>(null)
+  const previewLoading = ref(false)
+  let previewOwner = 0
   let desiredStop: 'paused' | 'cancelled' | null = null
   let owner = 0
   let readOwner = 0
@@ -37,6 +45,18 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   const valid = (token: number, id: string) => !disposed && token === owner && id === selectedId.value
   const status = computed(() => snapshot.value?.checkpoint.status ?? 'not_selected')
   const readOnly = computed(() => snapshot.value?.manifest.schemaVersion !== 2)
+  const planningProfile = computed(() => {
+    const value = snapshot.value
+    return value?.manifest.schemaVersion === 2 && isPlanningProfile(value.manifest.fixtureVersion)
+  })
+  const chapterRows = computed(() => planningProfile.value
+    ? snapshot.value!.manifest.tasks.filter(task => task.kind === 'chapter_outline').map(task => ({
+      ordinal: task.chapterOrdinal!, taskId: task.id,
+      status: snapshot.value!.checkpoint.tasks.find(state => state.taskId === task.id)?.status ?? 'pending',
+    })) : [])
+  const canPreview = computed(() => planningProfile.value && !busy.value && !loading.value
+    && Boolean(engine.previewPlanningContext))
+  const planningAvailable = Boolean(engine.preparePlanning && engine.previewPlanningContext)
   const currentStorage = computed(() => {
     const value = snapshot.value
     if (!value || value.manifest.schemaVersion !== 2) return null
@@ -99,6 +119,24 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
     return { input: inputs ? input : null, output: outputs ? output : null, unknown }
   })
 
+  function clearPreview() {
+    previewOwner++; previewLoading.value = false; planningPreview.value = null
+  }
+  async function previewChapter(ordinal: number) {
+    if (disposed || !canPreview.value || !chapterRows.value.some(row => row.ordinal === ordinal)) return false
+    const id = selectedId.value, token = owner, preview = ++previewOwner
+    selectedChapter.value = ordinal; planningPreview.value = null; previewLoading.value = true
+    const current = () => valid(token, id) && preview === previewOwner && selectedChapter.value === ordinal
+    try {
+      const result = await engine.previewPlanningContext!(id, ordinal)
+      if (!current()) return false
+      planningPreview.value = result
+      return result.status === 'ready'
+    } catch {
+      if (current()) planningPreview.value = { status: 'refused', refusalCode: 'preview_unavailable' }
+      return false
+    } finally { if (current()) previewLoading.value = false }
+  }
   const publish = (value: CampaignInspection | null) => {
     snapshot.value = value
     if (desiredStop) {
@@ -113,6 +151,7 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   }
   async function refresh() {
     if (disposed || busy.value) return false
+    clearPreview()
     const token = owner, id = selectedId.value, read = ++readOwner
     loading.value = true; error.value = ''
     try {
@@ -135,22 +174,23 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   async function select(id: string) {
     if (disposed || !ids.value.includes(id)) return false
     engine.stopLocal(selectedId.value || undefined)
-    owner++; readOwner++
+    owner++; readOwner++; clearPreview(); selectedChapter.value = 1
     busy.value = false; loading.value = false
     selectedId.value = id; snapshot.value = null; error.value = ''
     locallyStopped.value = false; desiredStop = null; persistentOutcome.value = 'none'
     return refresh()
   }
-  async function create(language: 'zh' | 'en') {
-    if (disposed || busy.value || loading.value) return false
+  async function createProfile(language: 'zh' | 'en', planning: boolean) {
+    if (disposed || busy.value || loading.value || (planning && !planningAvailable)) return false
     engine.stopLocal(selectedId.value || undefined)
-    owner++; readOwner++
+    owner++; readOwner++; clearPreview(); selectedChapter.value = 1
     const token = owner
     const id = options.newId?.() ?? `campaign-${crypto.randomUUID()}`
     selectedId.value = id; snapshot.value = null; busy.value = true; error.value = ''
     locallyStopped.value = false; desiredStop = null; persistentOutcome.value = 'none'
     try {
-      await engine.prepare({ campaignId: id, language })
+      if (planning) await engine.preparePlanning!({ campaignId: id, language })
+      else await engine.prepare({ campaignId: id, language })
       if (!valid(token, id)) return false
       if (!await readSelected(token, id)) return false
       const found = await engine.list()
@@ -165,7 +205,7 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   async function execute(action: 'step' | 'resume' | 'recoverSaveOnly') {
     if (disposed || (action === 'step' ? !canStep.value : action === 'resume' ? !canResume.value : !canSaveOnly.value)) return false
     const token = ++owner, id = selectedId.value
-    readOwner++; loading.value = false; busy.value = true; error.value = ''
+    readOwner++; clearPreview(); loading.value = false; busy.value = true; error.value = ''
     try {
       await engine[action](id)
       if (!valid(token, id)) return false
@@ -186,7 +226,7 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   async function stop(action: 'pause' | 'cancel') {
     if (disposed || !canStop.value) return false
     const token = ++owner, id = selectedId.value
-    readOwner++
+    readOwner++; clearPreview()
     // Synchronous revocation precedes the first await, including resolve→cancel races.
     engine.stopLocal(id)
     locallyStopped.value = true; desiredStop = action === 'cancel' ? 'cancelled' : 'paused'
@@ -206,12 +246,15 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   }
   function dispose() {
     if (disposed) return
-    disposed = true; owner++; readOwner++
+    disposed = true; owner++; readOwner++; clearPreview()
     engine.stopLocal()
   }
 
   return { ids, selectedId, snapshot, busy, loading, error, status, locallyStopped, persistentOutcome,
     canStep, canResume, canStop, canSaveOnly, unresolved, taskRows, artifactRows, completedTasks, requests,
-    unknownRequests, inactiveUnknownRequests, readOnly, storageSummary, legacyStorageSummary, observedUsage, refresh, select, create,
+    unknownRequests, inactiveUnknownRequests, readOnly, storageSummary, legacyStorageSummary, observedUsage, refresh, select,
+    planningAvailable, planningProfile, chapterRows, selectedChapter, planningPreview, previewLoading, canPreview, previewChapter,
+    create: (language: 'zh' | 'en') => createProfile(language, false),
+    createPlanning: (language: 'zh' | 'en') => createProfile(language, true),
     step: () => execute('step'), saveOnly: () => execute('recoverSaveOnly'), resume: () => execute('resume'), pause: () => stop('pause'), cancel: () => stop('cancel'), dispose }
 }
