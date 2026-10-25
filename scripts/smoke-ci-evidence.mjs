@@ -8,8 +8,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CI_EVIDENCE_GROUPS, REQUEST_PROJECTIONS } from './ci-evidence-files.mjs'
 import { destinationFor, prepareEvidence, TEXT_LIMIT } from './prepare-ci-evidence.mjs'
-import { CAMPAIGN_REPORT_PATH } from './campaign-evidence.mjs'
+import { CAMPAIGN_REPORT_PATH, CAMPAIGN_STORAGE_REPORT_PATH, CAMPAIGN_CAPACITY_NODE_REPORT_PATH } from './campaign-evidence.mjs'
 import { campaignEvidenceCase } from './fixtures/campaign-evidence-case.mjs'
+import { campaignStorageEvidenceCase } from './fixtures/campaign-storage-evidence-case.mjs'
 
 const root = await mkdtemp(path.join(os.tmpdir(), 'llm-ci-evidence-smoke-'))
 const script = fileURLToPath(new URL('./prepare-ci-evidence.mjs', import.meta.url))
@@ -43,18 +44,18 @@ const expectedGroups = {
   'memory-capacity': 5, 'memory-cold-index': 10, 'memory-full-scan': 7, 'memory-support': 5,
   'memory-novel-scan': 4, 'memory-stress': 6, 'memory-browser-stress': 5, 'graph-backup-mobile': 21,
   'writer-memory-browser': 23, 'writer-memory-stress': 3, 'fact-graph-review': 6, browser: 59, 'writer-agent': 4,
-  'writer-campaign': 1,
+  'writer-campaign': 1, 'writer-campaign-storage': 2,
 }
 // Deliberately couple to this workflow's simple, fixed step layout. A formatting
 // change must update this guard instead of silently broadening the upload scope.
-function verifyWorkflow(workflow, { groups = Object.keys(CI_EVIDENCE_GROUPS), metadataPaths = [], ciJobs = 12 } = {}) {
+function verifyWorkflow(workflow, { groups = Object.keys(CI_EVIDENCE_GROUPS), metadataPaths = [], ciJobs = 13 } = {}) {
   const steps = workflow.split(/(?=^      - )/m).filter(step => step.startsWith('      - '))
   const uploads = steps.map((step, index) => ({ step, index })).filter(({ step }) => /uses: actions\/upload-artifact@/.test(step))
   const expectedUploads = groups.length + metadataPaths.length
   assert.equal(uploads.length, expectedUploads, 'Every artifact upload must be explicitly audited')
   assert.equal((workflow.match(/actions\/upload-artifact/g) || []).length, expectedUploads, 'No extra upload may bypass the guarded layout')
   assert.equal((workflow.match(/run: node scripts\/prepare-ci-evidence\.mjs /g) || []).length, groups.length)
-  if (ciJobs !== null) assert.equal((workflow.match(/^  [a-z0-9-]+:\n    name: ci-/gm) || []).length, ciJobs, 'The twelve CI jobs remain intact')
+  if (ciJobs !== null) assert.equal((workflow.match(/^  [a-z0-9-]+:\n    name: ci-/gm) || []).length, ciJobs, 'The twelve existing CI jobs plus the separate capacity job remain intact')
   const seen = [], seenMetadata = []
   for (const { step, index } of uploads) {
     const paths = [...step.matchAll(/^          path: (.+)$/gm)]
@@ -122,6 +123,9 @@ try {
   const workflow = workflows.get('ci.yml')
   for (const unsafe of [
     workflow.replace('path: artifacts/ci-evidence/memory-capacity', 'path: artifacts/memory-capacity'),
+    workflow.replace('path: artifacts/ci-evidence/writer-campaign-storage', 'path: artifacts/browser-writer-campaign-storage'),
+    workflow.replace(" && steps.archive_writer_campaign_storage.outcome == 'success'", ''),
+    workflow.replace('--group=writer-campaign-storage', '--group=writer-campaign'),
     workflow.replace('--group=memory-capacity', '--group=browser'),
     workflow.replace(" && steps.archive_memory_capacity.outcome == 'success'", ''),
     workflow.replace("!cancelled() && steps.archive_memory_capacity", "true && steps.archive_memory_capacity"),
@@ -135,7 +139,7 @@ try {
     tunnel.replace('path: ${{ runner.temp }}/preview-url.json', 'path: artifacts/browser/report.json'),
   ]) assert.throws(() => verifyAllWorkflows(new Map(workflows).set('writer-browser-tunnel.yml', unsafe)))
   assert.throws(() => verifyAllWorkflows(new Map(workflows).set('future-unreviewed.yml', tunnel)), 'New workflows must not introduce unaudited uploads')
-  console.log('✓ Every workflow is checked: 14 CI archives and the tunnel browser archive require successful preparation; only exact preview URL metadata is exempt')
+  console.log('✓ Every workflow is checked: 15 CI archives and the tunnel browser archive require successful preparation; only exact preview URL metadata is exempt')
   assert.deepEqual(Object.fromEntries(Object.entries(CI_EVIDENCE_GROUPS).map(([key, values]) => [key, values.length])), expectedGroups)
   for (const allowed of Object.values(CI_EVIDENCE_GROUPS)) {
     assert.equal(new Set(allowed).size, allowed.length)
@@ -145,7 +149,10 @@ try {
       if (sources.has(source)) continue
       let bytes = png
       if (source.endsWith('.json')) {
-        const report = source === CAMPAIGN_REPORT_PATH ? campaignEvidenceCase() : structuredClone(baseReport)
+        const report = source === CAMPAIGN_REPORT_PATH ? campaignEvidenceCase()
+          : source === CAMPAIGN_STORAGE_REPORT_PATH ? campaignStorageEvidenceCase('browser-native-idb')
+          : source === CAMPAIGN_CAPACITY_NODE_REPORT_PATH ? campaignStorageEvidenceCase('node-injected-atomic-io-not-browser-idb')
+          : structuredClone(baseReport)
         for (const [collection, mode] of Object.entries(REQUEST_PROJECTIONS[source] || {})) {
           report[collection] = mode === 'body' ? [body, body] : [request, request]
         }
@@ -184,6 +191,12 @@ try {
       if (entry.source.path === CAMPAIGN_REPORT_PATH) {
         assert.equal(value.transformation.closedSchema, 'campaign-browser-foundation-v2')
         assert.deepEqual(value.report, campaignEvidenceCase())
+        continue
+      }
+      if ([CAMPAIGN_STORAGE_REPORT_PATH, CAMPAIGN_CAPACITY_NODE_REPORT_PATH].includes(entry.source.path)) {
+        assert.equal(value.transformation.closedSchema, 'campaign-storage-v2')
+        const environment = entry.source.path === CAMPAIGN_STORAGE_REPORT_PATH ? 'browser-native-idb' : 'node-injected-atomic-io-not-browser-idb'
+        assert.deepEqual(value.report, campaignStorageEvidenceCase(environment))
         continue
       }
       assert.deepEqual(value.report.totals, baseReport.totals)
@@ -233,7 +246,7 @@ try {
       }
     }
   }
-  console.log('✓ All 14 groups stage exactly 159 audited entries; backups, traces, unknown files and exported images stay local')
+  console.log('✓ All 15 groups stage exactly 161 audited entries; backups, traces, unknown files and exported images stay local')
   console.log('✓ All five request schemas retain scalar counters and body hashes without raw bodies/responses; diagnostics withhold even tiny complete backups')
 
   const group = 'memory-novel-scan'

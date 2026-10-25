@@ -1,12 +1,15 @@
 /** Production protocol/repository with a deterministic atomic IO seam. Browser IDB is tested separately. */
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { campaignFinalCancelBytes, campaignRequestStorageAllowance } from '../src/services/writerCampaign/storageAccounting'
 import type { CampaignArtifact, CampaignBudget, CampaignManifest, CampaignMutation, CampaignRepositoryIO, CampaignRequest, CampaignSnapshot, CampaignState } from '../src/types/writerCampaign'
 import { CAMPAIGN_CATALOG_KEY, campaignKeys, createCampaignRepository } from '../src/services/writerCampaign/store'
-import { canonicalCampaignText, canonicalStringify, emptyCampaignBudget, hashText, measureCampaignText, sealCampaignArtifact, sealCampaignManifest, sealCampaignRequest, utf8Bytes, validateCampaignArtifact, validateCampaignManifest, validateCampaignRequest } from '../src/services/writerCampaign/protocol'
+import { canonicalCampaignText, canonicalStringify, decodeStorageBytes, encodeStorageBytes, emptyCampaignBudget, hashCampaignValue, hashText, measureCampaignText, sealCampaignArtifact, sealCampaignManifest, sealCampaignRequest, utf8Bytes, validateCampaignArtifact, validateCampaignManifest, validateCampaignRequest } from '../src/services/writerCampaign/protocol'
 
 class AtomicIO implements CampaignRepositoryIO {
   disk = new Map<string, string>()
   writes = 0
+  writtenBytes = 0
   fail = false
   ackLoss = false
   maxReadKeys = 0
@@ -21,6 +24,12 @@ class AtomicIO implements CampaignRepositoryIO {
     assert.equal(new Set(entries.map(entry => entry.key)).size, entries.length)
     if (entries.some(entry => (this.disk.get(entry.key) ?? null) !== entry.expectedValue) || !canCommit()) return false
     if (this.fail) { this.fail = false; throw new Error('injected atomic abort') }
+    const receipt = entries.find(entry => entry.key.includes(':receipt:'))
+    const charge = entries.reduce((sum, entry) => sum + Buffer.byteLength(entry.key, 'utf8') + Buffer.byteLength(entry.value, 'utf8'), 0)
+    if (receipt) assert.equal(decodeStorageBytes(JSON.parse(receipt.value).serializedBytes), charge, 'independent actual-write oracle')
+    this.writtenBytes += charge
+    const checkpoint = entries.find(entry => entry.key.includes(':checkpoint:'))
+    if (checkpoint) assert.equal(decodeStorageBytes(JSON.parse(checkpoint.value).storage.writtenBytes), this.writtenBytes)
     for (const entry of entries) this.disk.set(entry.key, entry.value)
     this.writes++
     if (this.ackLoss) { this.ackLoss = false; throw new Error('injected acknowledgment loss after commit') }
@@ -29,15 +38,15 @@ class AtomicIO implements CampaignRepositoryIO {
 }
 const now = 1_800_000_000_000
 async function manifest(id: string): Promise<CampaignManifest> {
-  return sealCampaignManifest({ schemaVersion: 1, protocolVersion: 'campaign-v1', campaignId: id, candidateId: 'candidate-0', language: 'zh',
+  return sealCampaignManifest({ schemaVersion: 2, protocolVersion: 'campaign-v2', campaignId: id, candidateId: 'candidate-0', language: 'zh',
     bodyTarget: { unit: 'unicode_scalar', characters: 1_000_000 }, mode: 'offline_fixture', adapterId: 'offline-fixture-v1', fixtureVersion: 'store-smoke-v1', countingVersion: 'crlf-lf-nfc-scalar-v1', runtimeIdentity: 'node-smoke',
     source: { commit: '1'.repeat(40), tree: '2'.repeat(40) }, createdAt: now, expiresAt: now + 86_400_000, maxRepairRounds: 0, maxProviderRetries: 0,
     tasks: [{ id: 'o', kind: 'outline', chapterOrdinal: null, dependsOn: [] }, { id: 'c', kind: 'character_bible', chapterOrdinal: null, dependsOn: ['o'] }, { id: 'd', kind: 'detailed_outline', chapterOrdinal: null, dependsOn: ['o', 'c'] }, { id: 'co', kind: 'chapter_outline', chapterOrdinal: 1, dependsOn: ['d', 'c'] }, { id: 'cb', kind: 'chapter_body', chapterOrdinal: 1, dependsOn: ['co'] }],
-    budget: { attempts: 128, inputBytes: 8_388_608, inputUtf16: 8_388_608, outputTokens: 8_388_608, reasoningTokens: 0, responseBytes: 8_388_608, activeMs: 1_600_000, serializedBytes: 67_108_864, storageReservedBytes: 67_108_864, artifacts: 256, operations: 2048 }, recoveryReserveBytes: 524_288 })
+    budget: { attempts: 128, inputBytes: 8_388_608, inputUtf16: 8_388_608, outputTokens: 8_388_608, reasoningTokens: 0, responseBytes: 8_388_608, activeMs: 1_600_000, artifacts: 256, operations: 2048 }, storage: { limitBytes: encodeStorageBytes(67_108_864), recoveryReserveBytes: encodeStorageBytes(524_288) } })
 }
 function state(snapshot: CampaignSnapshot): CampaignState {
   const c = snapshot.checkpoint
-  return { status: c.status, reason: c.reason, executionEpoch: c.executionEpoch, candidateId: c.candidateId, tasks: structuredClone(c.tasks), budget: { ...c.budget }, lastWallTime: c.lastWallTime }
+  return { status: c.status, reason: c.reason, executionEpoch: c.executionEpoch, candidateId: c.candidateId, tasks: structuredClone(c.tasks), budget: { ...c.budget }, storage: structuredClone(c.storage), lastWallTime: c.lastWallTime }
 }
 function plus(budget: CampaignBudget, delta: CampaignBudget) { return Object.fromEntries(Object.entries(budget).map(([key, value]) => [key, value + delta[key as keyof CampaignBudget]])) as unknown as CampaignBudget }
 function patchRequest(snapshot: CampaignSnapshot, request: CampaignRequest): CampaignState {
@@ -64,7 +73,7 @@ assert.equal(await hashText(canonicalCampaignText('é')), await hashText(canonic
 
 completedCases++; activeCase = 'create_and_schema'
 const io = new AtomicIO(), repo = createCampaignRepository(io), m = await manifest('store-smoke')
-for (const bad of [{ ...m, schemaVersion: 2 }, { ...m, extra: 1 }, { ...m, language: 'xx' }, { ...m, hash: '' }, { ...m, budget: { ...m.budget, attempts: Number.MAX_SAFE_INTEGER + 1 } }, { ...m, tasks: m.tasks.map((task, index) => index === 2 ? { ...task, dependsOn: [] } : task) }]) await assert.rejects(validateCampaignManifest(bad))
+for (const bad of [{ ...m, schemaVersion: 3 }, { ...m, extra: 1 }, { ...m, language: 'xx' }, { ...m, hash: '' }, { ...m, budget: { ...m.budget, attempts: Number.MAX_SAFE_INTEGER + 1 } }, { ...m, tasks: m.tasks.map((task, index) => index === 2 ? { ...task, dependsOn: [] } : task) }]) await assert.rejects(validateCampaignManifest(bad))
 let snapshot = (await repo.create(m, 'create')).snapshot
 const createdBytes = new Map(io.disk)
 assert.deepEqual(await repo.list(), ['store-smoke'])
@@ -76,7 +85,7 @@ const changedManifest = await sealCampaignManifest({ ...m, language: 'en', hash:
 assert.equal(changedManifest, null, 'builders reject hidden extra fields, including hash')
 
 completedCases++; activeCase = 'head_cas_and_replay'
-const start = state(snapshot); start.status = 'running'; start.executionEpoch++; start.budget.storageReservedBytes += 65_536
+const start = state(snapshot); start.status = 'running'; start.executionEpoch++
 const startMutation: CampaignMutation = { operationId: 'start', kind: 'start', next: start }
 const beforeStart = snapshot
 await assert.rejects(repo.commit(snapshot, { ...startMutation, operationId: 'guard-refuses' }, () => false), /CAS failed/)
@@ -95,10 +104,23 @@ let firstArtifact: CampaignArtifact | null = null
 for (const spec of m.tasks) {
   const input = canonicalStringify({ taskId: spec.id, dependencyHashes: spec.dependsOn.map(id => snapshot.checkpoint.tasks.find(task => task.taskId === id)!.artifact!.hash) })
   const reservation = emptyCampaignBudget()
-  Object.assign(reservation, { attempts: 1, inputBytes: utf8Bytes(input), inputUtf16: input.length, outputTokens: 65_536, responseBytes: 65_536, activeMs: 10000, storageReservedBytes: 4_194_304 })
-  let request = await sealCampaignRequest({ schemaVersion: 1, campaignId: m.campaignId, id: `r-${spec.id}`, revision: 0, parentHash: null, taskId: spec.id, taskRevision: 0, candidateId: m.candidateId, adapterId: 'offline-fixture-v1', inputDigest: await hashText(input), preparedInput: input, commandId: `step-${spec.id}`, inputBytes: utf8Bytes(input), inputUtf16: input.length, status: 'reserved', reservation, response: null, failureReason: null })
+  Object.assign(reservation, { attempts: 1, inputBytes: utf8Bytes(input), inputUtf16: input.length, outputTokens: 65_536, responseBytes: 65_536, activeMs: 10000 })
+  let request = await sealCampaignRequest({ schemaVersion: 2, campaignId: m.campaignId, id: `r-${spec.id}`, revision: 0, parentHash: null, taskId: spec.id, taskRevision: 0, candidateId: m.candidateId, adapterId: 'offline-fixture-v1', inputDigest: await hashText(input), preparedInput: input, commandId: `step-${spec.id}`, inputBytes: utf8Bytes(input), inputUtf16: input.length, status: 'reserved', reservation, storageAllocationBytes: campaignRequestStorageAllowance(input, m.tasks.length, reservation.responseBytes), response: null, failureReason: null })
   await assert.rejects(validateCampaignRequest({ ...request, inputDigest: '0'.repeat(64) }), /input identity/)
   const reserved = patchRequest(snapshot, request); reserved.budget = plus(reserved.budget, reservation)
+  if (spec.id === 'o') {
+    const response = { requestId: request.id, inputDigest: request.inputDigest, text: 'early', usage: { provenance: 'fixture' as const, inputTokens: null, outputTokens: null, reasoningTokens: null }, evidenceId: 'premature' }
+    const { hash: _requestHash, ...payload } = request
+    await assert.rejects(sealCampaignRequest({ ...payload, response }), /Response presence/)
+    await assert.rejects(repo.commit(snapshot, { operationId: 'batch-reserve', kind: 'reserve', next: reserved, requests: [request, request] }), /index bound/)
+    const overlongCommand = await sealCampaignRequest({ ...payload, commandId: 'x'.repeat(120) })
+    const overlongNext = patchRequest(snapshot, overlongCommand); overlongNext.budget = plus(overlongNext.budget, reservation)
+    await assert.rejects(repo.commit(snapshot, { operationId: 'overlong-command-reserve', kind: 'reserve', next: overlongNext, requests: [overlongCommand] }), /identifier/)
+    const altered = await sealCampaignRequest({ ...payload, storageAllocationBytes: encodeStorageBytes(decodeStorageBytes(request.storageAllocationBytes) + 1) })
+    const badNext = patchRequest(snapshot, altered); badNext.budget = plus(badNext.budget, reservation)
+    await assert.rejects(repo.commit(snapshot, { operationId: 'altered-allowance', kind: 'reserve', next: badNext, requests: [altered] }), /envelope/)
+  }
+
   snapshot = (await repo.commit(snapshot, { operationId: `${spec.id}-reserve`, kind: 'reserve', next: reserved, requests: [request] })).snapshot
   request = await revision(request, { status: 'dispatch_intent' })
   if (spec.id === 'o') {
@@ -110,13 +132,30 @@ for (const spec of m.tasks) {
   const text = spec.kind === 'chapter_body' ? capacityBody : `固定规划 ${spec.id}\r\ne\u0301`
   request = await revision(request, { status: 'response_retained', response: { requestId: request.id, inputDigest: request.inputDigest, text, usage: { provenance: 'fixture', inputTokens: null, outputTokens: null, reasoningTokens: null }, evidenceId: `completion-${spec.id}` } })
   snapshot = (await repo.commit(snapshot, { operationId: `${spec.id}-retain`, kind: 'retain_response', next: patchRequest(snapshot, request), requests: [request] })).snapshot
-  const artifact = await sealCampaignArtifact({ schemaVersion: 1, campaignId: m.campaignId, candidateId: m.candidateId, taskId: spec.id, taskRevision: 0, revision: 0, kind: spec.kind, dependencies: spec.dependsOn.map(id => snapshot.checkpoint.tasks.find(task => task.taskId === id)!.artifact!), parentHash: null, text, semanticStatus: 'not_reviewed' })
+  const artifact = await sealCampaignArtifact({ schemaVersion: 2, campaignId: m.campaignId, candidateId: m.candidateId, taskId: spec.id, taskRevision: 0, revision: 0, kind: spec.kind, dependencies: spec.dependsOn.map(id => snapshot.checkpoint.tasks.find(task => task.taskId === id)!.artifact!), parentHash: null, text, semanticStatus: 'not_reviewed' })
   if (!firstArtifact) firstArtifact = artifact
   request = await revision(request, { status: 'committed' })
   const accepted = patchRequest(snapshot, request), task = accepted.tasks.find(item => item.taskId === spec.id)!
   task.artifact = { taskId: spec.id, revision: 0, hash: artifact.hash }
   if (spec.kind === 'chapter_body') accepted.status = 'completed'
-  const mutation: CampaignMutation = { operationId: `${spec.id}-accept`, kind: 'accept_artifact', next: accepted, artifacts: [artifact], requests: [request] }
+  const mutation: CampaignMutation = { operationId: `${request.commandId}:artifact`, kind: 'accept_artifact', next: accepted, artifacts: [artifact], requests: [request] }
+  if (spec.id === 'c') {
+    const fork = () => { const copy = new AtomicIO(); copy.disk = new Map(io.disk); copy.writtenBytes = io.writtenBytes; return copy }
+    const beforeIO = fork(), beforeRepo = createCampaignRepository(beforeIO), cancellation = state(snapshot)
+    cancellation.status = 'cancelled'; cancellation.reason = 'user_cancelled'; cancellation.executionEpoch++
+    const cancelMutation: CampaignMutation = { operationId: 'cancel-before-accept', kind: 'cancel', next: cancellation }
+    const canceled = (await beforeRepo.commit(snapshot, cancelMutation)).snapshot
+    const released = canceled.checkpoint.storage.releasedBytes, open = canceled.checkpoint.storage.outstandingBytes
+    await assert.rejects(beforeRepo.commit(snapshot, mutation), /head\/epoch changed/)
+    assert.equal((await beforeRepo.read(m.campaignId))!.checkpoint.storage.releasedBytes, released)
+    assert.equal((await beforeRepo.read(m.campaignId))!.checkpoint.storage.outstandingBytes, open)
+    const raceIO = fork(), raceRepo = createCampaignRepository(raceIO)
+    const raced = await Promise.allSettled([raceRepo.commit(snapshot, mutation), raceRepo.commit(snapshot, cancelMutation)])
+    assert.equal(raced.filter(result => result.status === 'fulfilled').length, 1)
+    assert.equal(raceIO.writes, 1)
+    await raceRepo.read(m.campaignId)
+  }
+
   if (spec.id === 'o') {
     const before = new Map(io.disk)
     io.fail = true
@@ -134,6 +173,20 @@ for (const spec of m.tasks) {
     const replay = await repo.commit(snapshot, mutation)
     assert.equal(replay.replayed, true); assert.equal(io.writes, writes)
     snapshot = replay.snapshot
+  } else if (spec.id === 'c') {
+    const writes: number = io.writes, before = snapshot, oldReleased = decodeStorageBytes(snapshot.checkpoint.storage.releasedBytes)
+    const results = await Promise.all([repo.commit(before, mutation), repo.commit(before, mutation)])
+    assert.equal(io.writes, writes + 1, 'simultaneous settlement writes exactly once')
+    assert.equal(results.filter(result => result.replayed).length, 1)
+    snapshot = results[0]!.snapshot
+    assert.ok(decodeStorageBytes(snapshot.checkpoint.storage.releasedBytes) > oldReleased)
+    assert.equal(snapshot.checkpoint.storage.openAllocations.length, 0)
+    const cancelIO = new AtomicIO(); cancelIO.disk = new Map(io.disk); cancelIO.writtenBytes = io.writtenBytes
+    const cancelRepo = createCampaignRepository(cancelIO), next = state(snapshot); next.status = 'cancelled'; next.reason = 'user_cancelled'; next.executionEpoch++
+    const cancelled = (await cancelRepo.commit(snapshot, { operationId: 'cancel-after-accept', kind: 'cancel', next })).snapshot
+    assert.equal(cancelled.checkpoint.storage.releasedBytes, snapshot.checkpoint.storage.releasedBytes)
+    const count = cancelIO.writes
+    assert.equal((await cancelRepo.commit(before, mutation)).replayed, true); assert.equal(cancelIO.writes, count)
   } else snapshot = (await repo.commit(snapshot, mutation)).snapshot
   assert.equal(snapshot.checkpoint.bodyCharacters, spec.kind === 'chapter_body' ? bodyCanonicalCharacters : 0, 'planning text never contributes to body count')
 }
@@ -141,7 +194,7 @@ assert.equal((await repo.create(m, 'create')).receipt.hash, beforeStart.receipt.
 const restored = await repo.read(m.campaignId)
 assert.equal(restored?.head.status, 'completed')
 assert.equal(restored?.checkpoint.bodyCharacters, bodyCanonicalCharacters)
-assert.deepEqual((await repo.getOperationArtifacts(m.campaignId, 'o-accept'))?.map(artifact => artifact.text), [firstArtifact!.text])
+assert.deepEqual((await repo.getOperationArtifacts(m.campaignId, 'step-o:artifact'))?.map(artifact => artifact.text), [firstArtifact!.text])
 assert.ok(io.maxReadKeys <= 33, `reader batch size ${io.maxReadKeys}`)
 
 completedCases++; activeCase = 'terminal_cancellation'
@@ -160,13 +213,42 @@ for (const [key, corruption] of [
   [campaignKeys.head(m.campaignId), beforeStart.rawHead],
   [campaignKeys.artifact(m.campaignId, 'o', 0), JSON.stringify({ ...firstArtifact!, text: 'changed exact text' })],
   [campaignKeys.checkpoint(m.campaignId, 0), '{broken'],
-  [campaignKeys.receipt(m.campaignId, 'create'), JSON.stringify({ ...beforeStart.receipt, schemaVersion: 2 })],
+  [campaignKeys.receipt(m.campaignId, 'create'), JSON.stringify({ ...beforeStart.receipt, schemaVersion: 3 })],
 ] as const) {
   io.disk = new Map(original); io.disk.set(key, corruption)
   const bytes = new Map(io.disk)
   await assert.rejects(repo.read(m.campaignId))
   assert.deepEqual(io.disk, bytes, 'validation preserves corrupt/future bytes')
 }
+// Reseal structurally valid, constant-width forgeries: replay must reconstruct
+// conservation rather than merely verifying record hashes and the current index.
+const acceptedReceiptKey = campaignKeys.receipt(m.campaignId, 'step-o:artifact')
+io.disk = new Map(original)
+const forgedReceipt = JSON.parse(io.disk.get(acceptedReceiptKey)!)
+forgedReceipt.storageEffect.releasedBytes = encodeStorageBytes(decodeStorageBytes(forgedReceipt.storageEffect.releasedBytes) + 1)
+const { hash: _oldReceiptHash, ...forgedReceiptPayload } = forgedReceipt
+forgedReceipt.hash = await hashCampaignValue('campaign-receipt-v2', forgedReceiptPayload)
+io.disk.set(acceptedReceiptKey, canonicalStringify(forgedReceipt))
+const forgedReceiptBytes = new Map(io.disk)
+await assert.rejects(repo.read(m.campaignId), /allocation ledger/)
+assert.deepEqual(io.disk, forgedReceiptBytes)
+io.disk = new Map(original)
+const checkpointKey = campaignKeys.checkpoint(m.campaignId, snapshot.head.sequence)
+const forgedCheckpoint = JSON.parse(io.disk.get(checkpointKey)!)
+forgedCheckpoint.storage.allocatedBytes = encodeStorageBytes(decodeStorageBytes(forgedCheckpoint.storage.allocatedBytes) + 1)
+forgedCheckpoint.storage.releasedBytes = encodeStorageBytes(decodeStorageBytes(forgedCheckpoint.storage.releasedBytes) + 1)
+const { hash: _oldCheckpointHash, ...forgedCheckpointPayload } = forgedCheckpoint
+forgedCheckpoint.hash = await hashCampaignValue('campaign-checkpoint-v2', forgedCheckpointPayload)
+const terminalReceiptKey = campaignKeys.receipt(m.campaignId, snapshot.receipt.operationId)
+const terminalReceipt = JSON.parse(io.disk.get(terminalReceiptKey)!); terminalReceipt.checkpointHash = forgedCheckpoint.hash
+const { hash: _oldTerminalReceiptHash, ...terminalReceiptPayload } = terminalReceipt
+terminalReceipt.hash = await hashCampaignValue('campaign-receipt-v2', terminalReceiptPayload)
+io.disk.set(checkpointKey, canonicalStringify(forgedCheckpoint)); io.disk.set(terminalReceiptKey, canonicalStringify(terminalReceipt))
+io.disk.set(campaignKeys.head(m.campaignId), canonicalStringify({ ...snapshot.head, checkpointHash: forgedCheckpoint.hash }))
+const forgedLedgerBytes = new Map(io.disk)
+await assert.rejects(repo.read(m.campaignId), /allocation ledger/)
+assert.deepEqual(io.disk, forgedLedgerBytes)
+
 io.disk = new Map(original); io.disk.delete(campaignKeys.request(m.campaignId, 'r-o', 0))
 await assert.rejects(repo.read(m.campaignId), /Missing/)
 io.disk = new Map(original)
@@ -179,16 +261,15 @@ await assert.rejects(createCampaignRepository(catalogIO).create(await manifest('
 assert.equal(catalogIO.disk.size, 1)
 const tinyIO = new AtomicIO(), tinyRepo = createCampaignRepository(tinyIO), tiny = await manifest('budget-small')
 const { hash: _tinyHash, ...tinyPayload } = tiny
-tinyPayload.budget = { ...tiny.budget, serializedBytes: 98_304, storageReservedBytes: 98_304 }
-tinyPayload.recoveryReserveBytes = 32_768
+tinyPayload.storage = { limitBytes: encodeStorageBytes(131_072), recoveryReserveBytes: encodeStorageBytes(98_304) }
 const tinySnapshot = (await tinyRepo.create(await sealCampaignManifest(tinyPayload), 'create')).snapshot
-const tooBig = state(tinySnapshot); tooBig.status = 'running'; tooBig.executionEpoch++; tooBig.budget.storageReservedBytes = 98_305
+const tooBig = state(tinySnapshot); tooBig.status = 'running'; tooBig.executionEpoch++; tooBig.storage.writtenBytes = encodeStorageBytes(131_073)
 const tinyBytes = new Map(tinyIO.disk)
-await assert.rejects(tinyRepo.commit(tinySnapshot, { operationId: 'overflow', kind: 'start', next: tooBig }), /budget/)
+await assert.rejects(tinyRepo.commit(tinySnapshot, { operationId: 'overflow', kind: 'start', next: tooBig }), /repository-owned/)
 assert.deepEqual(tinyIO.disk, tinyBytes)
 const fenceIO = new AtomicIO(), fenceRepo = createCampaignRepository(fenceIO), fence = (await fenceRepo.create(await manifest('fence'), 'create')).snapshot
 const pause = state(fence); pause.status = 'paused'; pause.executionEpoch++
-const cancel = state(fence); cancel.status = 'cancelled'; cancel.executionEpoch++
+const cancel = state(fence); cancel.status = 'cancelled'; cancel.executionEpoch++; cancel.reason = 'user_cancelled'
 const race = await Promise.allSettled([fenceRepo.commit(fence, { operationId: 'pause', kind: 'pause', next: pause }), fenceRepo.commit(fence, { operationId: 'cancel', kind: 'cancel', next: cancel })])
 assert.equal(race.filter(result => result.status === 'fulfilled').length, 1)
 assert.equal((await fenceRepo.read('fence'))!.head.sequence, 1)
@@ -208,21 +289,54 @@ for (let chapter = 1; chapter <= 62; chapter++) {
 const wideManifest = await sealCampaignManifest(widePayload)
 await assert.rejects(validateCampaignManifest({ ...wideManifest, source: { commit: null, tree: '1'.repeat(40) } }), /both/)
 let wide = (await wideRepo.create(wideManifest, 'create')).snapshot
-for (let index = 0; index < 40; index++) {
+let recoveryRefused = false
+for (let index = 0; index < 64; index++) {
   const next = state(wide), kind = index === 0 ? 'start' : index % 2 ? 'pause' : 'resume'
   next.executionEpoch++; next.status = kind === 'pause' ? 'paused' : 'running'
-  if (kind !== 'pause') next.budget.storageReservedBytes += 32768 + next.tasks.length * 1024
-  wide = (await wideRepo.commit(wide, { operationId: `capacity-${index}`, kind, next })).snapshot
+  const bytesBefore = new Map(wideIO.disk)
+  try { wide = (await wideRepo.commit(wide, { operationId: `capacity-${index}`, kind, next })).snapshot } catch (error) {
+    assert.match(String(error), /Final cancel storage/)
+    assert.deepEqual(wideIO.disk, bytesBefore, 'Recovery exhaustion is refused without consuming protected cancel bytes')
+    recoveryRefused = true; break
+  }
 }
 const resumeStarted = performance.now()
 const wideRestored = await wideRepo.read(wideManifest.campaignId)
 const resumeMs = Math.round((performance.now() - resumeStarted) * 100) / 100
 assert.equal(wideRestored!.checkpoint.tasks.length, 127)
-assert.equal(wideRestored!.head.sequence, 40)
-assert.equal(wideIO.maxReadKeys, 33)
+assert.equal(recoveryRefused, true)
+assert.equal(wideRestored!.head.sequence, wide.head.sequence)
+assert.ok(wideIO.maxReadKeys <= 33)
+assert.ok(decodeStorageBytes(wide.checkpoint.storage.recoveryRemainingBytes) >= campaignFinalCancelBytes(127))
+const finalWideCancel = state(wide); finalWideCancel.status = 'cancelled'; finalWideCancel.reason = 'user_cancelled'; finalWideCancel.executionEpoch++
+const finalWide = (await wideRepo.commit(wide, { operationId: 'protected-final-cancel', kind: 'cancel', next: finalWideCancel })).snapshot
+assert.equal(finalWide.head.status, 'cancelled')
+assert.equal(decodeStorageBytes(finalWide.checkpoint.storage.recoveryRemainingBytes), decodeStorageBytes(wide.checkpoint.storage.recoveryRemainingBytes) - decodeStorageBytes(finalWide.receipt.serializedBytes))
 assert.ok(wideIO.maxReadBytes < 1_048_576, 'Measured metadata read batch stays below 1 MiB for the bounded fixture')
 
-console.log(JSON.stringify({ result: 'PASS', scope: 'production Campaign protocol/repository; deterministic IO seam, not real IndexedDB', assertions: 'schemas, exact/canonical scalar vectors, create-only, immutable revision chains, receipt replay/conflict, failed atomic write, ACK loss, CAS epoch race, body-only counts, missing/corrupt bytes, budget overflow', maxReadKeys: io.maxReadKeys, maxReadBytes: io.maxReadBytes, committedOperations: snapshot.checkpoint.budget.operations, maxArtifactTextBytes: utf8Bytes(capacityBody), capacityObservation: { tasks: 127, checkpoints: 41, maxReadKeys: wideIO.maxReadKeys, maxReadBytes: wideIO.maxReadBytes, resumeMs, serializedPayloadBytes: wide.checkpoint.budget.serializedBytes }, serializedPayloadBytes: snapshot.checkpoint.budget.serializedBytes, longformAcceptance: 'NOT_RUN' }))
+completedCases++; activeCase = 'append_only_catalog_genesis'
+const sharedIO = new AtomicIO(), sharedRepo = createCampaignRepository(sharedIO)
+await sharedRepo.create(await manifest('catalog-first'), 'create')
+sharedIO.writtenBytes = 0
+await sharedRepo.create(await manifest('catalog-second'), 'create')
+await sharedRepo.read('catalog-first'); await sharedRepo.read('catalog-second')
+const sharedBytes = new Map(sharedIO.disk)
+sharedIO.disk.set(CAMPAIGN_CATALOG_KEY, canonicalStringify({ schemaVersion: 1, ids: ['catalog-second', 'catalog-first'] }))
+await assert.rejects(sharedRepo.read('catalog-second'), /write bytes/)
+sharedIO.disk = sharedBytes
+
+completedCases++; activeCase = 'legacy_read_only'
+const legacyFixture = JSON.parse(readFileSync(new URL('./fixtures/campaign-v1-genesis.json', import.meta.url), 'utf8'))
+const legacyIO = new AtomicIO(); legacyIO.disk = new Map(legacyFixture.entries)
+const legacyRepo = createCampaignRepository(legacyIO), legacyBefore = new Map(legacyIO.disk)
+const legacy = await legacyRepo.inspect(legacyFixture.campaignId)
+assert.equal(legacy?.head.schemaVersion, 1)
+await assert.rejects(legacyRepo.read(legacyFixture.campaignId), /read-only/)
+await assert.rejects(legacyRepo.create(legacy!.manifest as unknown as CampaignManifest, 'legacy-create'), /schema/)
+await assert.rejects(legacyRepo.commit(legacy as unknown as CampaignSnapshot, startMutation), /read-only/)
+assert.deepEqual(legacyIO.disk, legacyBefore); assert.equal(legacyIO.writes, 0)
+
+console.log(JSON.stringify({ result: 'PASS' , scope: 'production Campaign protocol/repository; deterministic IO seam, not real IndexedDB', assertions: 'schemas, exact/canonical scalar vectors, create-only, immutable revision chains, receipt replay/conflict, failed atomic write, ACK loss, CAS epoch race, body-only counts, missing/corrupt bytes, budget overflow, v2 allocation settlement conservation, independent actual-write oracle, simultaneous settlement and cancellation, append-only catalog genesis recount, v1 read-only preservation', maxReadKeys: io.maxReadKeys, maxReadBytes: io.maxReadBytes, committedOperations: snapshot.checkpoint.budget.operations, maxArtifactTextBytes: utf8Bytes(capacityBody), capacityObservation: { tasks: 127, checkpoints: wide.checkpoint.budget.operations, maxReadKeys: wideIO.maxReadKeys, maxReadBytes: wideIO.maxReadBytes, resumeMs, serializedPayloadBytes: decodeStorageBytes(wide.checkpoint.storage.writtenBytes) }, serializedPayloadBytes: decodeStorageBytes(snapshot.checkpoint.storage.writtenBytes), longformAcceptance: 'NOT_RUN' }))
 
 }
 void main().catch(() => {

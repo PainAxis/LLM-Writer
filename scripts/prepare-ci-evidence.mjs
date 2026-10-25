@@ -5,7 +5,10 @@ import { lstat, mkdir, mkdtemp, open, realpath, rename, rm, writeFile } from 'no
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CI_EVIDENCE_GROUPS, REQUEST_PROJECTIONS } from './ci-evidence-files.mjs'
-import { CAMPAIGN_REPORT_PATH, projectCampaignReport } from './campaign-evidence.mjs'
+import {
+  CAMPAIGN_REPORT_PATH, projectCampaignReport,
+  CAMPAIGN_STORAGE_REPORT_PATH, CAMPAIGN_CAPACITY_NODE_REPORT_PATH, projectCampaignStorageReport,
+} from './campaign-evidence.mjs'
 
 export const TEXT_LIMIT = 6000
 const MAX_SOURCE_BYTES = 128 * 1024 * 1024
@@ -127,6 +130,17 @@ export function summarizeReport(bytes, sourcePath) {
       source: { path: sourcePath, bytes: bytes.length, sha256: sha256(bytes) },
       transformation: { policy, closedSchema: 'campaign-browser-foundation-v2', requestProjections: [], textFields: [] },
       report: projectCampaignReport(report),
+    }
+  }
+  if ([CAMPAIGN_STORAGE_REPORT_PATH, CAMPAIGN_CAPACITY_NODE_REPORT_PATH].includes(sourcePath)) {
+    const projected = projectCampaignStorageReport(report)
+    const expectedEnvironment = sourcePath === CAMPAIGN_STORAGE_REPORT_PATH ? 'browser-native-idb' : 'node-injected-atomic-io-not-browser-idb'
+    if (projected.environment !== expectedEnvironment) throw new Error('Campaign storage report environment does not match its allowlisted path')
+    return {
+      schemaVersion: 1, evidenceKind: 'derived-not-raw',
+      source: { path: sourcePath, bytes: bytes.length, sha256: sha256(bytes) },
+      transformation: { policy, closedSchema: 'campaign-storage-v2', requestProjections: [], textFields: [] },
+      report: projected,
     }
   }
   const projections = REQUEST_PROJECTIONS[sourcePath] || {}

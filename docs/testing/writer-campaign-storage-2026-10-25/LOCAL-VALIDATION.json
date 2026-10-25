@@ -1,0 +1,314 @@
+{
+  "schemaVersion": 1,
+  "baselineCommit": "84e704afff08921763d4b83136d881a39946900a",
+  "scope": "Campaign v2 storage allocation and bounded complete-history verification; structural repetitions, not novels",
+  "localValidation": {
+    "lint": "passed --max-warnings 0",
+    "strictTypeScript": "passed selected Campaign scripts and fixtures",
+    "build": "passed vue-tsc and Vite",
+    "smokeSuites": 120,
+    "independentFocusedSuites": 7,
+    "engineCases": 44,
+    "readGuardCases": 21,
+    "comparisonOracleChecks": 1185,
+    "malformedComparisonRefusals": 27,
+    "openLimitTransactions": 263,
+    "maximumOpenAllocations": 128,
+    "nativeMeterModelChecks": 11,
+    "closedStorageEvidenceChecks": 57,
+    "browser": "NOT_RUN locally; final-head native-IDB CI required",
+    "liveModelRequests": 0,
+    "longformAcceptance": "NOT_RUN"
+  },
+  "sourceIntegrity": {
+    "nativePathCount": 461,
+    "beforeAfterEqual": true,
+    "canonicalManifestSha256": "73cf1d81177e336ed944c46af1f2c6bacef3291185316173592d41244a65b010",
+    "changedSourceSha256": {
+      ".github/workflows/ci.yml": "3c71120f3a1da3dcb93d78cbbd36c0045edf654f5685d441d8863e32b5eba1a3",
+      "package.json": "4525f2b63e228a60c5f053eb4a8d25d737c6363f95b7d98ac819fca0054886ac",
+      "scripts/browser-writer-campaign-storage.mjs": "bffe671af3b61a5ede1bfa7b7d1d83275f56cc1dfddc16d4ed57f1524e10986f",
+      "scripts/browser-writer-campaign.mjs": "255f71773e8a8efab2c8ede716b354f1d5d293077a3c12c9b6f5cb7b25020d60",
+      "scripts/campaign-build-identity.mjs": "c14c0ca81026ff0a9faf261fe024d76df9020b9f608be57b227a4b08d010a728",
+      "scripts/campaign-evidence.mjs": "4c5db181ea5d460904d0cde8c140d306af34db11cc759042d07e8c504c19e493",
+      "scripts/ci-evidence-files.mjs": "baccf739c963bbcde625e701f5029b5348f681c079e7e18a440376351bf4c8b2",
+      "scripts/fixtures/campaign-storage-evidence-case.mjs": "70c9e10fcfc6d433017fa5d4b46316f06062192b9da2764b477a81d19115b342",
+      "scripts/fixtures/campaign-v1-genesis.json": "9b72fbc0b18413d919aaf48b88bcf01404fb272b888c1852564f1f48984c3cfd",
+      "scripts/fixtures/writer-campaign-capacity-profile.ts": "33871db51b18f406b93154dd90e88e22e6df8732ddcc04e506b11363b59c2690",
+      "scripts/fixtures/writer-campaign-storage-browser.ts": "fc3256b347a1e05d165a097c1a85fe2161f70346f7ef0a7efb9bb93056a555bf",
+      "scripts/fixtures/writer-campaign-storage-identity.mjs": "456129e118cb2012f3c794ebeb8c3a8157d0f85863127b9a1849f71153919385",
+      "scripts/fixtures/writer-campaign-storage-meter.mjs": "230af522227c6ffa0beab52d3a67dd2181ebbdfedd900631417f502e62a2301f",
+      "scripts/lib/writer-campaign-storage-reporting.mjs": "a9f9e7837b7922663abc44ff1148a40ae0a0ae324345c27241a1e9d724294b9b",
+      "scripts/prepare-ci-evidence.mjs": "f2536a3734456a0c2fcd5b66108ac159133f1a555c987e66047307822c352bef",
+      "scripts/profile-writer-campaign-capacity.ts": "74276f98301c843cf165f14cff122f91461f27d23a862f046f80e87c5100692a",
+      "scripts/smoke-ci-evidence.mjs": "f50cbb929357f1ebfc5a6ad2126cab092375b98bd52bd17a144bd673548b418d",
+      "scripts/smoke-writer-campaign-accounting.ts": "0a989adc38fa5dca59774cedd31300a72c4cf87b0919eb8fa55216d22b12c9c4",
+      "scripts/smoke-writer-campaign-comparisons.ts": "55e24d2fd8c7a6d01e0cdfb3de26afcf3cabed4f6fd3ebad3fc62f96e4a6a410",
+      "scripts/smoke-writer-campaign-engine.ts": "281f55ea9bc4ee017a78a6674eafff46ba09864de264338fcb57eb78c271bf12",
+      "scripts/smoke-writer-campaign-open-limit.ts": "e44291c7098bac7509ea862b17928469bcb41d4c66eb8aa4c6c0d888888ef9a6",
+      "scripts/smoke-writer-campaign-read-batches.ts": "5b574b105dc2f9db30f4b16e72134b032e882a9c121f7cd05106cb061be9e5a9",
+      "scripts/smoke-writer-campaign-storage-evidence.mjs": "912a54b7f4694cc2e60367ce7ddbcd2d01d8eda9c1c165336635f94f90c6b4fc",
+      "scripts/smoke-writer-campaign-storage-meter.mjs": "73c9b304acecc6dfdfbb04272e673c5c0f25e0a8bfb2e52ffe42e95e07446bb1",
+      "scripts/smoke-writer-campaign-store.ts": "9bf974b650ebb61edccbbf6a53ca24b7e739cf5146569d2e42ec289972d13367",
+      "scripts/smoke-writer-campaign-ui.ts": "faf0272cff9f96783d53a961d3aacdf8c59838472930c203fb019122e9b79964",
+      "src/composables/useWriterCampaign.ts": "355abd39a4651bc3d535c09c57ccad19af24d0778acf6f0cf79286a426c2c698",
+      "src/services/writerCampaign/budget.ts": "17d836ba771c887555293760e93f1dc3afa75ba7d6cab5605599ca8989debd05",
+      "src/services/writerCampaign/engine.ts": "47e5bf3b569d1fdc7c91dc6bb14fd35f0ddfb3c88710053646b33ac24152c36f",
+      "src/services/writerCampaign/fixtureAdapter.ts": "bc6021b86d8366cedf946b7641947264e33e4088c2ad544b6b415d890566e910",
+      "src/services/writerCampaign/legacyProtocol.ts": "ea8b4081f9279b31bda67b29b2d8315a4ad680c24875dbf189567b2d1e7bdaf2",
+      "src/services/writerCampaign/legacyStore.ts": "60fd563f9a14c01c95e78d28e343b1012d48e710afdb32658800767b53ad4b66",
+      "src/services/writerCampaign/legacyTypes.ts": "52e6b3918e12c7f7486a90ec3aabc4ca0644ed9d8832569ac754561d472cb04f",
+      "src/services/writerCampaign/protocol.ts": "cd9690113090f283f4ba807278f2c661860aee0c7c67b9cf7c9f116911b20c89",
+      "src/services/writerCampaign/storageAccounting.ts": "e7fe5f6f7913fb81827c76896f0df22b4177edba1f832e2fe57dc89145d87996",
+      "src/services/writerCampaign/store.ts": "19cd9f7a67239ac606583027b99396519c98e61450114b6cd39ce5f884a8eb4c",
+      "src/types/writerCampaign.ts": "90183f2ef506dc9ccead22f0a3b69c6b6dae66292650ed02ce22dbb5c100bc64",
+      "src/views/CampaignLab.vue": "b070d910fa6e4d01fc04fc537724cca162443549872599825c2b7b0f0be851c8"
+    }
+  },
+  "measuredNodeSnapshot": {
+    "nativePathCount": 461,
+    "beforeAfterEqual": true,
+    "canonicalManifestSha256": "f54a7e542a607a45df319f483772ee7531429034b6892c3068bc6ef32ffa9a55",
+    "sourceTreeSha256": "e956d58eb59f1127f45fc3513793e1225c646608df796fd85614961a4fddec2a",
+    "harnessSha256": "4e40ec16cbc7a8834c514bd2c2ff4e82d027ffb62bcb9b026d4c72f631e96dc6",
+    "checkoutCommitMeaning": "base checkout, not uncommitted edited source identity",
+    "laterChanges": "Five browser-only proof/observer files, new-job orchestration limits and three erased-type-only script corrections; production and executed Node runtime remain unchanged. Final-head CI reruns both environments."
+  },
+  "retainedLocalEvidence": [
+    {
+      "file": "typing-fix-erasure-proof.json",
+      "bytes": 1256,
+      "sha256": "2a5094738ff7a70ce2bce959ee133093fd4582ed49192ea8b0e2a157b676c5ec"
+    },
+    {
+      "file": "full-final.log",
+      "bytes": 174195,
+      "sha256": "8738342ca00aec31be045526663b0d78531e3da3af501a4fdec3783954ba7cc0"
+    },
+    {
+      "file": "full-first-types-failure.log",
+      "bytes": 2441,
+      "sha256": "9bc71bc2f51fad062034b78faee10bb4c11fc071192274f0aecc8fb697aad732"
+    },
+    {
+      "file": "profile-final-report.json",
+      "bytes": 4423,
+      "sha256": "6f47d028ae9fa04d1348e48fc4743669e9c1ffdbc4a4f82996cdacd53a220db9"
+    },
+    {
+      "file": "profile-final.log",
+      "bytes": 2160,
+      "sha256": "ca1d5369a4a6c5655789d94fde05767403e2100582c18779e080c017ac35d485"
+    },
+    {
+      "file": "profile-final-prefixes.jsonl",
+      "bytes": 3828,
+      "sha256": "8ef5c77ea2448ebc701078cb021e4bf6ca050173657e7df1caaee4fed7fa15ad"
+    },
+    {
+      "file": "profile-batched-report.json",
+      "bytes": 4465,
+      "sha256": "c6fe5b968db6a00c9635628837b35b88fdf482b306d34532d0881cb18a1a6620"
+    },
+    {
+      "file": "profile-batched.log",
+      "bytes": 2202,
+      "sha256": "c97b31b063d11c0b9fb6ebc3cd8e07178a38e631eafab143bb70465950da88d5"
+    },
+    {
+      "file": "profile-batched-prefixes.jsonl",
+      "bytes": 3829,
+      "sha256": "05e4b6416c31d4deaa23e0eda9f0c4a9c9b1692e5594d58bd701b52a885cc784"
+    },
+    {
+      "file": "profile-preopt-exploratory.json",
+      "bytes": 4399,
+      "sha256": "2ba4534e749581137217a6790ae42e4e56fa60eefe52753d68a42df275bf218d"
+    },
+    {
+      "file": "profile-first.log",
+      "bytes": 2152,
+      "sha256": "705b8cf1513cb90d57dd97b69da78cb1b134b33c7dc567af3cdc4b7dff0d604e"
+    }
+  ],
+  "nodeCapacityObservations": [
+    {
+      "accountingMismatches": 0,
+      "actualFixtureInvocations": 123,
+      "allocationConsumedBytes": 36975807,
+      "blockerCode": null,
+      "coldProcessReadBytes": 0,
+      "coldProcessReadCalls": 0,
+      "coldProcessReadMs": 0,
+      "coldProcessRestart": "not_applicable",
+      "coldRepositoryReadBytes": 36924625,
+      "coldRepositoryReadCalls": 67,
+      "coldRepositoryReadMs": 1836,
+      "committedBodyScalars": 1000000,
+      "committedOperations": 494,
+      "committedTasks": 123,
+      "committedTransactions": 494,
+      "cumulativeActiveReservationMs": 1250000,
+      "cumulativeAllocatedBytes": 207040098,
+      "cumulativeWrittenBytes": 37019124,
+      "execution": "completed",
+      "executionMs": 519718,
+      "language": "zh",
+      "liveRecordCount": 1606,
+      "liveSerializedMapBytes": 36856619,
+      "maxReadBatchBytes": 1381528,
+      "maxReadBatchKeys": 33,
+      "maxStepMs": 9177,
+      "openAllocations": 0,
+      "outstandingBytes": 0,
+      "peakOutstandingBytes": 2200847,
+      "recoveryRemainingBytes": 524288,
+      "releasedBytes": 170064291,
+      "reservedAttempts": 123,
+      "status": "pass",
+      "totalReadBytes": 10316863418,
+      "totalReadCalls": 23500,
+      "liveBytesByRecordKind": {
+        "artifact": 3104753,
+        "catalog": 64,
+        "checkpoint": 14606292,
+        "head": 334,
+        "manifest": 13117,
+        "receipt": 449136,
+        "request": 18682923
+      }
+    },
+    {
+      "accountingMismatches": 0,
+      "actualFixtureInvocations": 123,
+      "allocationConsumedBytes": 23107975,
+      "blockerCode": null,
+      "coldProcessReadBytes": 0,
+      "coldProcessReadCalls": 0,
+      "coldProcessReadMs": 0,
+      "coldProcessRestart": "not_applicable",
+      "coldRepositoryReadBytes": 23056793,
+      "coldRepositoryReadCalls": 67,
+      "coldRepositoryReadMs": 1424,
+      "committedBodyScalars": 1000000,
+      "committedOperations": 494,
+      "committedTasks": 123,
+      "committedTransactions": 494,
+      "cumulativeActiveReservationMs": 1250000,
+      "cumulativeAllocatedBytes": 161206568,
+      "cumulativeWrittenBytes": 23151292,
+      "execution": "completed",
+      "executionMs": 411663,
+      "language": "en",
+      "liveRecordCount": 1606,
+      "liveSerializedMapBytes": 22988787,
+      "maxReadBatchBytes": 1381446,
+      "maxReadBatchKeys": 33,
+      "maxStepMs": 7227,
+      "openAllocations": 0,
+      "outstandingBytes": 0,
+      "peakOutstandingBytes": 1467501,
+      "recoveryRemainingBytes": 524288,
+      "releasedBytes": 138098593,
+      "reservedAttempts": 123,
+      "status": "pass",
+      "totalReadBytes": 6237533858,
+      "totalReadCalls": 23500,
+      "liveBytesByRecordKind": {
+        "artifact": 1104753,
+        "catalog": 64,
+        "checkpoint": 14605284,
+        "head": 334,
+        "manifest": 13117,
+        "receipt": 449136,
+        "request": 6816099
+      }
+    }
+  ],
+  "sameWorkCpuObservations": {
+    "statisticalClaim": false,
+    "note": "Single matched prefixes; identical read/write/work counters, no cross-read cache. Do not compare complete versus truncated workloads as speedups.",
+    "prefixes": [
+      {
+        "language": "zh",
+        "committedTasks": 28,
+        "bodyScalars": 200004,
+        "allMeasuredWorkCountersEqual": true,
+        "readCalls": 2022,
+        "beforeMs": 31423,
+        "afterMs": 23259
+      },
+      {
+        "language": "zh",
+        "committedTasks": 46,
+        "bodyScalars": 350007,
+        "allMeasuredWorkCountersEqual": true,
+        "readCalls": 4338,
+        "beforeMs": 88282,
+        "afterMs": 64355
+      },
+      {
+        "language": "zh",
+        "committedTasks": 58,
+        "bodyScalars": 450009,
+        "allMeasuredWorkCountersEqual": true,
+        "readCalls": 6344,
+        "beforeMs": 142363,
+        "afterMs": 104533
+      },
+      {
+        "language": "zh",
+        "committedTasks": 69,
+        "bodyScalars": 550011,
+        "allMeasuredWorkCountersEqual": true,
+        "readCalls": 8492,
+        "beforeMs": 204132,
+        "afterMs": 150242
+      },
+      {
+        "language": "en",
+        "committedTasks": 28,
+        "bodyScalars": 200004,
+        "allMeasuredWorkCountersEqual": true,
+        "readCalls": 2022,
+        "beforeMs": 24736,
+        "afterMs": 17810
+      },
+      {
+        "language": "en",
+        "committedTasks": 46,
+        "bodyScalars": 350007,
+        "allMeasuredWorkCountersEqual": true,
+        "readCalls": 4338,
+        "beforeMs": 70758,
+        "afterMs": 49829
+      },
+      {
+        "language": "en",
+        "committedTasks": 58,
+        "bodyScalars": 450009,
+        "allMeasuredWorkCountersEqual": true,
+        "readCalls": 6344,
+        "beforeMs": 114981,
+        "afterMs": 82086
+      },
+      {
+        "language": "en",
+        "committedTasks": 69,
+        "bodyScalars": 550011,
+        "allMeasuredWorkCountersEqual": true,
+        "readCalls": 8492,
+        "beforeMs": 166632,
+        "afterMs": 119563
+      }
+    ]
+  },
+  "remainingGates": {
+    "requiredCiJobs": 13,
+    "nativeIdbCases": 8,
+    "nativeBilingualMillionProfiles": 2,
+    "actualBrowserProcessRestart": "required, not established by Node",
+    "exactHeadIndependentReview": "required",
+    "stageFourAutonomousNovels": "NOT_RUN"
+  }
+}

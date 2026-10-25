@@ -1,16 +1,19 @@
 import { idbCompareAndSwapMany, idbGetMany } from '../blobStore'
 import type {
-  CampaignArtifact, CampaignCheckpoint, CampaignCommitResult, CampaignHead,
+  CampaignArtifact, CampaignArtifactRef, CampaignCheckpoint, CampaignCommitResult, CampaignHead,
   CampaignManifest, CampaignMutation, CampaignReceipt, CampaignRepository, CampaignRepositoryIO,
-  CampaignRequest, CampaignSnapshot, CampaignState,
+  CampaignRequest, CampaignRequestRef, CampaignSnapshot, CampaignState, CampaignTaskState,
 } from '../../types/writerCampaign'
 import {
-  CAMPAIGN_BOOTSTRAP_RESERVE_BYTES, CAMPAIGN_BUDGET_KEYS, CAMPAIGN_LIMITS, CampaignProtocolError,
+  CAMPAIGN_BUDGET_KEYS, CAMPAIGN_LIMITS, CampaignProtocolError,
   campaignAssert, campaignId, campaignInteger, campaignRecord, canonicalStringify,
   emptyCampaignBudget, hashCampaignValue, parseCampaignRecord, utf8Bytes,
   validateCampaignArtifact, validateCampaignCheckpoint, validateCampaignHead, validateCampaignManifest,
-  validateCampaignReceipt, validateCampaignRequest, validateCampaignState,
+  validateCampaignReceipt, validateCampaignRequest, validateCampaignState, decodeStorageBytes, encodeStorageBytes,
 } from './protocol'
+
+import { applyCampaignStorage, assertCampaignStorage, campaignRequestStorageAllowance, campaignStorageSource, emptyCampaignStorage } from './storageAccounting'
+import { createLegacyCampaignInspector } from './legacyStore'
 
 export const CAMPAIGN_KEY_PREFIX = 'writer-campaign:'
 export const CAMPAIGN_CATALOG_KEY = `${CAMPAIGN_KEY_PREFIX}catalog`
@@ -27,6 +30,30 @@ export const campaignKeys = {
 }
 function root(id: string): string { campaignId(id); return `${CAMPAIGN_KEY_PREFIX}${encodeURIComponent(id)}:` }
 function same(a: unknown, b: unknown): boolean { return canonicalStringify(a) === canonicalStringify(b) }
+
+/** Equality only for closed-schema values after their full protocol validators.
+ * Keep these explicit field inventories locked to the validators. The cheap
+ * shape guards also prevent an added/unknown field from being silently ignored.
+ */
+export function campaignArtifactRefEqual(a: CampaignArtifactRef | null, b: CampaignArtifactRef | null): boolean {
+  if (a === null || b === null) return a === b
+  campaignRecord(a, ['taskId', 'revision', 'hash'], 'artifact reference comparison')
+  campaignRecord(b, ['taskId', 'revision', 'hash'], 'artifact reference comparison')
+  return a.taskId === b.taskId && a.revision === b.revision && a.hash === b.hash
+}
+export function campaignRequestRefEqual(a: CampaignRequestRef | null, b: CampaignRequestRef | null): boolean {
+  if (a === null || b === null) return a === b
+  campaignRecord(a, ['id', 'revision', 'hash'], 'request reference comparison')
+  campaignRecord(b, ['id', 'revision', 'hash'], 'request reference comparison')
+  return a.id === b.id && a.revision === b.revision && a.hash === b.hash
+}
+export function campaignTaskEqual(a: CampaignTaskState, b: CampaignTaskState): boolean {
+  campaignRecord(a, ['taskId', 'revision', 'status', 'artifact', 'priorArtifact', 'request'], 'task comparison')
+  campaignRecord(b, ['taskId', 'revision', 'status', 'artifact', 'priorArtifact', 'request'], 'task comparison')
+  return a.taskId === b.taskId && a.revision === b.revision && a.status === b.status
+    && campaignArtifactRefEqual(a.artifact, b.artifact) && campaignArtifactRefEqual(a.priorArtifact, b.priorArtifact)
+    && campaignRequestRefEqual(a.request, b.request)
+}
 function catalog(raw: string | null): string[] {
   if (raw === null) return []
   const value = parseCampaignRecord(raw)
@@ -39,8 +66,9 @@ function catalog(raw: string | null): string[] {
   return record.ids as string[]
 }
 function businessState(state: CampaignState, previous: CampaignState): unknown {
-  const { executionEpoch: _epoch, lastWallTime: _clock, budget, ...rest } = state
-  const reserved = Object.fromEntries(CAMPAIGN_BUDGET_KEYS.filter(key => !['serializedBytes', 'artifacts', 'operations'].includes(key)).map(key => [key, budget[key] - previous.budget[key]]))
+  const { budget, status, reason, candidateId, tasks } = state
+  const rest = { status, reason, candidateId, tasks }
+  const reserved = Object.fromEntries(CAMPAIGN_BUDGET_KEYS.filter(key => !['artifacts', 'operations'].includes(key)).map(key => [key, budget[key] - previous.budget[key]]))
   return { ...rest, budgetDelta: reserved }
 }
 function counterSum(a: number, b: number): number { const result = a + b; campaignInteger(result); return result }
@@ -50,7 +78,7 @@ function headMatches(head: CampaignHead, checkpoint: CampaignCheckpoint, receipt
 function assertIndex(manifest: CampaignManifest, checkpoint: CampaignState): void {
   campaignAssert(checkpoint.tasks.length === manifest.tasks.length && checkpoint.tasks.every((task, index) => task.taskId === manifest.tasks[index]!.id), 'Task index differs from immutable manifest')
   for (const key of CAMPAIGN_BUDGET_KEYS) campaignAssert(checkpoint.budget[key] <= manifest.budget[key], `Campaign ${key} budget exceeded`, 'budget')
-  campaignAssert(checkpoint.budget.serializedBytes <= checkpoint.budget.storageReservedBytes, 'Serialized payload exceeds its persisted reservation', 'budget')
+  assertCampaignStorage(manifest, checkpoint.storage)
 }
 function assertActiveRefs(manifest: CampaignManifest, checkpoint: CampaignCheckpoint | CampaignState, artifacts: Map<string, CampaignArtifact>, requests: Map<string, CampaignRequest>): number {
   let body = 0
@@ -78,6 +106,86 @@ function assertActiveRefs(manifest: CampaignManifest, checkpoint: CampaignCheckp
     }
   }
   return body
+}
+
+function assertStateTransition(previous: CampaignState, next: CampaignState, kind: CampaignMutation['kind'], requestCount: number): void {
+    campaignAssert(next.lastWallTime >= previous.lastWallTime, 'Wall clock regressed')
+    campaignAssert(next.executionEpoch === previous.executionEpoch + (EPOCH_KINDS.has(kind) ? 1 : 0), 'Invalid execution fence transition')
+    campaignAssert(next.candidateId === previous.candidateId || kind === 'replace_candidate', 'Candidate changed outside replacement')
+    campaignAssert(previous.status !== 'cancelled' || (kind === 'reconcile' && next.status === 'cancelled'), 'Cancellation is terminal')
+    campaignAssert(previous.status !== 'completed' || ['replace_candidate', 'cancel'].includes(kind), 'Completed fixture cannot resume execution')
+    if (kind === 'start') campaignAssert(previous.status === 'prepared' && next.status === 'running', 'Start requires prepared to running')
+    if (kind === 'resume') campaignAssert(next.status === 'running', 'Resume must persist running status')
+    if (kind === 'pause') campaignAssert(previous.status !== 'paused', 'Already paused; no new terminal envelope may be consumed')
+    if (kind === 'block') campaignAssert(previous.status !== 'blocked' || requestCount > 0, 'Already blocked; no new terminal envelope may be consumed')
+    if (kind === 'cancel') campaignAssert(next.status === 'cancelled', 'Cancel must persist terminal status')
+    if (kind === 'pause') campaignAssert(next.status === 'paused', 'Pause must persist paused status')
+    if (kind === 'block') campaignAssert(next.status === 'blocked', 'Block must persist blocked status')
+    if (kind === 'reserve' || kind === 'dispatch_intent' || kind === 'accept_artifact') campaignAssert(previous.status === 'running' && (next.status === 'running' || next.status === 'completed'), 'Execution requires a running campaign')
+    for (const key of CAMPAIGN_BUDGET_KEYS) if (!['artifacts', 'operations'].includes(key)) campaignAssert(next.budget[key] >= previous.budget[key], 'Campaign budget cannot be refunded')
+}
+function assertTaskTransition(manifest: CampaignManifest, previous: CampaignState, next: CampaignState, kind: CampaignMutation['kind'], artifacts: CampaignArtifact[], requests: CampaignRequest[]): void {
+    for (const request of requests) {
+      const old = previous.tasks.find(task => task.taskId === request.taskId)
+      campaignAssert(old && old.revision === request.taskRevision && previous.candidateId === request.candidateId, 'Request is not bound to current task/candidate')
+      if (kind === 'reserve') campaignAssert(old.request === null && old.artifact === null && ['pending', 'invalidated'].includes(old.status), 'New request requires pending unoccupied task')
+      else campaignAssert(old.request?.hash === request.parentHash, 'Request predecessor is no longer active')
+    }
+    // Both indices have already passed assertIndex against the immutable manifest.
+    const changed = next.tasks.map((task, index) => !campaignTaskEqual(task, previous.tasks[index]!))
+    const changedCount = changed.filter(Boolean).length
+    for (const [index, task] of next.tasks.entries()) {
+      const old = previous.tasks[index]!
+      const expectedPrior = kind === 'replace_candidate' && task.revision === old.revision + 1 ? (old.artifact ?? old.priorArtifact) : old.priorArtifact
+      campaignAssert(campaignArtifactRefEqual(task.priorArtifact, expectedPrior), 'Historical artifact lineage was discarded or replaced')
+      campaignAssert(task.revision === old.revision || (kind === 'replace_candidate' && task.revision === old.revision + 1), 'Task revision changed outside replacement')
+      if (task.artifact && !campaignArtifactRefEqual(task.artifact, old.artifact)) campaignAssert(artifacts.some(item => item.hash === task.artifact!.hash), 'Task points to unsubmitted artifact')
+      if (task.request && !campaignRequestRefEqual(task.request, old.request)) campaignAssert(requests.some(item => item.hash === task.request!.hash), 'Task points to unsubmitted request')
+      if (changed[index] && kind !== 'replace_candidate') campaignAssert(requests.some(item => item.taskId === task.taskId), 'Task changed without its request revision')
+    }
+    for (const artifact of artifacts) campaignAssert(next.tasks.some(task => task.artifact?.hash === artifact.hash), 'Orphan artifact write')
+    for (const request of requests) campaignAssert(next.tasks.some(task => task.request?.hash === request.hash), 'Orphan request write')
+    if (kind === 'replace_candidate') {
+      campaignAssert(next.candidateId !== previous.candidateId && artifacts.length === 1, 'Replacement needs one new candidate artifact')
+      const root = artifacts[0]!.taskId
+      const affected = new Set([root])
+      for (const spec of manifest.tasks) if (spec.dependsOn.some(dep => affected.has(dep))) affected.add(spec.id)
+      for (const [index, task] of next.tasks.entries()) {
+        const old = previous.tasks[index]!
+        if (affected.has(task.taskId)) campaignAssert(task.revision === old.revision + 1 && task.request === null && (task.taskId === root ? task.status === 'committed' : task.status === 'invalidated' && task.artifact === null), 'Replacement must invalidate transitive dependencies and in-flight requests')
+        else campaignAssert(!changed[index], 'Replacement changed an unrelated task')
+      }
+    } else campaignAssert(changedCount <= 1, 'One logical request/task transition per commit')
+}
+function assertRequestPhase(manifest: CampaignManifest, kind: CampaignReceipt['kind'], operationId: string, request: CampaignRequest, old: CampaignRequest | null): void {
+  // Every admitted origin must be able to name its mandatory final acceptance.
+  campaignId(`${request.commandId}:artifact`)
+  campaignAssert(request.storageAllocationBytes === campaignRequestStorageAllowance(request.preparedInput, manifest.tasks.length, request.reservation.responseBytes), 'Request allocation differs from its envelope')
+  campaignAssert(request.reservation.attempts === 1 && request.reservation.inputBytes === request.inputBytes && request.reservation.inputUtf16 === request.inputUtf16 && request.reservation.activeMs > 0, 'Request reservation identity mismatch')
+  if (request.response) campaignAssert(utf8Bytes(request.response.text) <= request.reservation.responseBytes, 'Response exceeds immutable reservation')
+  const allowed: Partial<Record<CampaignReceipt['kind'], string[]>> = {
+    reserve: ['reserved'], dispatch_intent: ['dispatch_intent'], retain_response: ['response_retained'], accept_artifact: ['committed'],
+    reconcile: ['response_retained', 'known_failed', 'outcome_unknown'], block: ['outcome_unknown', 'known_failed'],
+  }
+  campaignAssert(allowed[kind]?.includes(request.status), 'Request transition is not authorized by operation kind')
+  if (!old) campaignAssert(kind === 'reserve' && request.revision === 0 && request.parentHash === null, 'Request allocation needs one reserve origin')
+  else {
+    campaignAssert(kind !== 'reserve' && request.revision === old.revision + 1 && request.parentHash === old.hash, 'Request revision/parent mismatch')
+    const identity = (item: CampaignRequest) => {
+      const { hash: _hash, revision: _revision, parentHash: _parent, status: _status, response: _response, failureReason: _reason, ...immutable } = item
+      return immutable
+    }
+    campaignAssert(same(identity(request), identity(old)), 'Immutable request identity/reservation changed')
+    if (old.response) campaignAssert(same(old.response, request.response), 'Retained exact response cannot change')
+    const transitions: Record<string, string[]> = { reserved: ['dispatch_intent', 'known_failed'], dispatch_intent: ['response_retained', 'outcome_unknown', 'known_failed'], outcome_unknown: ['response_retained', 'known_failed'], response_retained: ['committed'], committed: [], known_failed: [] }
+    campaignAssert(transitions[old.status]?.includes(request.status), 'Invalid request state transition')
+  }
+  if (kind === 'accept_artifact') campaignAssert(operationId === `${request.commandId}:artifact`, 'Acceptance must retain its original operation identity')
+}
+function assertAcceptedArtifact(request: CampaignRequest, artifacts: CampaignArtifact[], state: CampaignState): void {
+  campaignAssert(artifacts.length === 1 && request.status === 'committed' && request.response !== null, 'Acceptance needs exact retained response and one artifact')
+  const artifact = artifacts[0]!, task = state.tasks.find(task => task.taskId === request.taskId)
+  campaignAssert(artifact.campaignId === request.campaignId && artifact.candidateId === request.candidateId && artifact.taskId === request.taskId && artifact.taskRevision === request.taskRevision && artifact.text === request.response.text && task?.artifact?.hash === artifact.hash && task.request?.hash === request.hash && task.status === 'committed', 'Acceptance artifact/request identity mismatch')
 }
 
 /** Reads and commits use only the dedicated Campaign namespace. No fallback storage. */
@@ -118,6 +226,8 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
 
   async function read(campaignIdValue: string): Promise<CampaignSnapshot | null> {
     const headKey = campaignKeys.head(campaignIdValue)
+    const initial = await readRecord(headKey)
+    if (initial !== null && (parseCampaignRecord(initial) as { schemaVersion?: unknown }).schemaVersion === 1) throw new CampaignProtocolError('legacy_read_only', 'Campaign v1 is available for read-only inspection')
     // Retry only a concurrently advanced head, never corrupt records. Immutable
     // records are checked again with the head in one final committed snapshot.
     for (let retry = 0; retry < 4; retry++) {
@@ -144,6 +254,34 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
       campaignAssert(manifest.campaignId === campaignIdValue && manifest.hash === head.manifestHash, 'Manifest key mismatch')
       headMatches(head, checkpoint, receipt); assertIndex(manifest, checkpoint)
       campaignAssert(checkpoint.budget.operations === head.sequence + 1, 'Operation count differs from checkpoint sequence')
+      // Only final-index records survive this read. Full history is still fetched
+      // and verified below; this is not a cache across reads or head versions.
+      const wantedArtifacts = new Map<string, CampaignArtifactRef>(), wantedRequests = new Map<string, CampaignRequestRef>()
+      for (const ref of checkpoint.tasks.flatMap(task => [task.artifact, task.priorArtifact].filter((ref): ref is CampaignArtifactRef => ref !== null))) {
+        const key = campaignKeys.artifact(campaignIdValue, ref.taskId, ref.revision), prior = wantedArtifacts.get(key)
+        campaignAssert(!prior || same(prior, ref), 'Conflicting final artifact references')
+        wantedArtifacts.set(key, ref)
+      }
+      for (const ref of [...checkpoint.tasks.flatMap(task => task.request ? [task.request] : []), ...checkpoint.storage.openAllocations.map(row => row.request)]) {
+        const key = campaignKeys.request(campaignIdValue, ref.id, ref.revision), prior = wantedRequests.get(key)
+        campaignAssert(!prior || same(prior, ref), 'Conflicting final request references')
+        wantedRequests.set(key, ref)
+      }
+      campaignAssert(wantedArtifacts.size + wantedRequests.size <= 4 * CAMPAIGN_LIMITS.tasks, 'Final record retention count exceeded')
+      const artifacts = new Map<string, CampaignArtifact>(), requests = new Map<string, CampaignRequest>()
+      const captured = new Map<string, string>()
+      let retainedSerializedBytes = 0
+      function retain(key: string, raw: string, hash: string): void {
+        const prior = captured.get(key)
+        campaignAssert(prior === undefined || prior === hash, 'Conflicting verified final record')
+        if (prior !== undefined) return
+        retainedSerializedBytes = counterSum(retainedSerializedBytes, utf8Bytes(key) + utf8Bytes(raw))
+        // This counts serialized payload, not JS heap. Each unique retained
+        // immutable record was charged in W; no raw duplicate is retained here.
+        campaignAssert(retainedSerializedBytes <= decodeStorageBytes(checkpoint.storage.writtenBytes) && retainedSerializedBytes <= CAMPAIGN_LIMITS.serializedBytes, 'Final record retention bytes exceeded')
+        captured.set(key, hash)
+      }
+
       // Immutable records are create-only. Every bounded read includes the actual
       // head; if it moves, restart rather than joining revisions from two commits.
       // Do not retain a second full raw copy of history or narrative content.
@@ -156,15 +294,21 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
       }
       let previous: CampaignCheckpoint | null = null
       let accumulatedBytes = 0
+      let replayStorage = emptyCampaignStorage(manifest.storage.recoveryReserveBytes)
+      let replayPrevious: CampaignCheckpoint | null = null
+      const allocationIds = new Set<string>()
+      const allocationRequests = new Map<string, CampaignRequest>()
       const operationIds = new Set<string>()
       for (let from = 0; from <= head.sequence && !moved; from += 32) {
         const sequences = Array.from({ length: Math.min(32, head.sequence - from + 1) }, (_, index) => from + index)
         const keys = sequences.map(sequence => campaignKeys.checkpoint(campaignIdValue, sequence))
         const history = await guarded(keys)
         if (moved) break
-        const batch: CampaignCheckpoint[] = []
+        const batch: CampaignCheckpoint[] = [], checkpointBytes: number[] = []
         for (const [index, sequence] of sequences.entries()) {
-          const item = await validateCampaignCheckpoint(parseCampaignRecord(history.get(keys[index]!) ?? null))
+          const raw = history.get(keys[index]!) ?? null
+          const item = await validateCampaignCheckpoint(parseCampaignRecord(raw))
+          checkpointBytes.push(utf8Bytes(raw!))
           history.delete(keys[index]!)
           campaignAssert(item.sequence === sequence && item.campaignId === campaignIdValue && item.manifestHash === manifest.hash && item.previousHash === (previous?.hash ?? null), 'Broken immutable checkpoint chain')
           campaignAssert(item.executionEpoch >= (previous?.executionEpoch ?? 0) && item.budget.operations === sequence + 1, 'Checkpoint epoch/count regression')
@@ -176,65 +320,158 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
         const receiptKeys = batch.map(item => campaignKeys.receipt(campaignIdValue, item.operationId))
         const evidenceBatch = await guarded(receiptKeys)
         if (moved) break
+        const evidenceItems: CampaignReceipt[] = [], receiptBytes: number[] = [], eventKeys = new Set<string>()
         for (const [index, item] of batch.entries()) {
-          const evidence = await validateCampaignReceipt(parseCampaignRecord(evidenceBatch.get(receiptKeys[index]!) ?? null))
+          const raw = evidenceBatch.get(receiptKeys[index]!) ?? null
+          const evidence = await validateCampaignReceipt(parseCampaignRecord(raw))
+          receiptBytes.push(utf8Bytes(raw!))
           campaignAssert(evidence.campaignId === campaignIdValue && evidence.operationId === item.operationId && evidence.sequence === item.sequence && evidence.checkpointHash === item.hash && evidence.manifestHash === manifest.hash && evidence.executionEpoch === item.executionEpoch, 'Broken receipt chain')
-          accumulatedBytes = counterSum(accumulatedBytes, evidence.serializedBytes)
-          campaignAssert(accumulatedBytes === item.budget.serializedBytes, 'Receipt/checkpoint accounting mismatch')
+          campaignAssert(evidence.requestHashes.length <= 1 && evidence.artifactHashes.length <= 1, 'Receipt exceeds one-request/one-artifact envelope')
+          if (item.sequence === head.sequence) campaignAssert(item.hash === checkpoint.hash && evidence.hash === receipt.hash, 'Final immutable records changed behind the verified head')
+          evidenceItems.push(evidence)
+          for (const hash of evidence.requestHashes) {
+            const ref = [...item.tasks.flatMap(task => task.request ? [task.request] : []), ...item.storage.openAllocations.map(row => row.request)].find(ref => ref.hash === hash)
+            campaignAssert(ref, 'Receipt request is absent from checkpoint')
+            eventKeys.add(campaignKeys.request(campaignIdValue, ref.id, ref.revision))
+          }
+          for (const hash of evidence.artifactHashes) {
+            const ref = item.tasks.flatMap(task => task.artifact ? [task.artifact] : []).find(ref => ref.hash === hash)
+            campaignAssert(ref, 'Receipt artifact is absent from checkpoint')
+            eventKeys.add(campaignKeys.artifact(campaignIdValue, ref.taskId, ref.revision))
+          }
+        }
+        campaignAssert(eventKeys.size <= 64, 'History event frontier exceeded its bound')
+        const eventRaw = new Map<string, string | null>(), eventKeyList = [...eventKeys]
+        for (let start = 0; start < eventKeyList.length && !moved; start += 32) {
+          const keys = eventKeyList.slice(start, start + 32), records = await guarded(keys)
+          if (moved) break
+          for (const key of keys) {
+            const raw = records.get(key) ?? null
+            campaignAssert(raw === null || utf8Bytes(raw) <= CAMPAIGN_LIMITS.recordBytes, 'Oversized history event record')
+            eventRaw.set(key, raw)
+          }
+        }
+        if (moved) break
+        for (const [index, item] of batch.entries()) {
+          const evidence = evidenceItems[index]!
+          const requestRefs = [...item.tasks.flatMap(task => task.request ? [task.request] : []), ...item.storage.openAllocations.map(row => row.request)]
+          let phaseRequest: CampaignRequest | null = null
+          let phaseRequestWire: { key: string; value: string } | null = null
+          if (evidence.requestHashes.length) {
+            const ref = requestRefs.find(ref => ref.hash === evidence.requestHashes[0])
+            campaignAssert(ref, 'Receipt request is absent from checkpoint')
+            const key = campaignKeys.request(campaignIdValue, ref.id, ref.revision), raw = eventRaw.get(key) ?? null
+            eventRaw.delete(key)
+            phaseRequest = await validateCampaignRequest(parseCampaignRecord(raw)); phaseRequestWire = { key, value: raw! }
+            campaignAssert(phaseRequest.hash === ref.hash && phaseRequest.campaignId === campaignIdValue && phaseRequest.id === ref.id && phaseRequest.revision === ref.revision, 'Receipt request identity mismatch')
+            const task = item.tasks.find(task => task.taskId === phaseRequest!.taskId)
+            campaignAssert(task?.request?.hash === phaseRequest.hash && task.revision === phaseRequest.taskRevision && task.status === phaseRequest.status && phaseRequest.candidateId === item.candidateId, 'Historical request is detached from its committing task')
+            const old = allocationRequests.get(phaseRequest.id) ?? null
+            assertRequestPhase(manifest, evidence.kind, evidence.operationId, phaseRequest, old)
+            if (evidence.kind === 'reserve') {
+              campaignAssert(!allocationIds.has(phaseRequest.id), 'Allocation identity reused in history')
+              allocationIds.add(phaseRequest.id)
+              campaignAssert(replayPrevious !== null, 'Genesis cannot reserve a request')
+              for (const key of CAMPAIGN_BUDGET_KEYS) if (!['artifacts', 'operations'].includes(key)) campaignAssert(item.budget[key] - replayPrevious.budget[key] >= phaseRequest.reservation[key], 'Historical request was not reserved')
+            }
+            allocationRequests.set(phaseRequest.id, phaseRequest)
+            campaignAssert(allocationRequests.size <= 128, 'Replay open-request retention exceeded its bound')
+          }
+          if (['reserve', 'dispatch_intent', 'retain_response', 'accept_artifact'].includes(evidence.kind)) campaignAssert(phaseRequest, 'Request operation lacks request evidence')
+          const eventArtifacts: CampaignArtifact[] = [], artifactWires: Array<{ key: string; value: string }> = []
+          for (const artifactHash of evidence.artifactHashes) {
+            const ref = item.tasks.flatMap(task => task.artifact ? [task.artifact] : []).find(ref => ref.hash === artifactHash)
+            campaignAssert(ref, 'Receipt artifact is absent from checkpoint')
+            const key = campaignKeys.artifact(campaignIdValue, ref.taskId, ref.revision), raw = eventRaw.get(key) ?? null
+            eventRaw.delete(key)
+            const artifact = await validateCampaignArtifact(parseCampaignRecord(raw))
+            campaignAssert(artifact.hash === artifactHash && artifact.campaignId === campaignIdValue && artifact.taskId === ref.taskId && artifact.revision === ref.revision, 'Receipt artifact identity mismatch')
+            const spec = manifest.tasks.find(task => task.id === artifact.taskId), active = item.tasks.find(task => task.taskId === artifact.taskId)
+            campaignAssert(spec && active && active.revision === artifact.taskRevision && artifact.candidateId === item.candidateId && artifact.kind === spec.kind && same(artifact.dependencies, spec.dependsOn.map(id => item.tasks.find(task => task.taskId === id)!.artifact)), 'Historical artifact dependency identity mismatch')
+            const oldTask = replayPrevious?.tasks.find(task => task.taskId === artifact.taskId), parent = oldTask?.artifact ?? oldTask?.priorArtifact
+            campaignAssert(artifact.revision === (parent ? parent.revision + 1 : 0) && artifact.parentHash === (parent?.hash ?? null), 'Historical artifact parent mismatch')
+            eventArtifacts.push(artifact); artifactWires.push({ key, value: raw! })
+          }
+          campaignAssert(eventArtifacts.length === 0 || ['accept_artifact', 'replace_candidate'].includes(evidence.kind), 'Unauthorized artifact receipt')
+          if (evidence.kind === 'accept_artifact') {
+            campaignAssert(phaseRequest, 'Settlement lacks request evidence')
+            assertAcceptedArtifact(phaseRequest, eventArtifacts, item)
+          }
+          if (evidence.kind === 'cancel') campaignAssert(phaseRequest === null && eventArtifacts.length === 0 && item.reason === 'user_cancelled' && replayPrevious !== null && same(item.tasks, replayPrevious.tasks), 'Invalid final cancellation shape')
+          if (replayPrevious) {
+            campaignAssert(evidence.kind !== 'create', 'Create cannot recur in history')
+            assertStateTransition(replayPrevious, item, evidence.kind, phaseRequest ? 1 : 0)
+            campaignAssert(item.budget.artifacts === counterSum(replayPrevious.budget.artifacts, eventArtifacts.length), 'Historical artifact count differs from actual writes')
+            assertTaskTransition(manifest, replayPrevious, item, evidence.kind, eventArtifacts, phaseRequest ? [phaseRequest] : [])
+            if (phaseRequest) {
+              const spec = manifest.tasks.find(task => task.id === phaseRequest!.taskId)!
+              if (['reserved', 'dispatch_intent', 'response_retained', 'committed'].includes(phaseRequest.status)) campaignAssert(spec.dependsOn.every(id => item.tasks.find(task => task.taskId === id)!.status === 'committed'), 'Historical request has unmet dependencies')
+              if (evidence.kind === 'accept_artifact') {
+                const oldTask = replayPrevious.tasks.find(task => task.taskId === phaseRequest!.taskId)
+                campaignAssert(oldTask?.status === 'response_retained' && oldTask.request?.hash === phaseRequest.parentHash && oldTask.revision === phaseRequest.taskRevision && replayPrevious.candidateId === phaseRequest.candidateId, 'Settlement lacks still-active retained response')
+              }
+            }
+            const expectedDigest = await hashCampaignValue('campaign-operation-v2', { kind: evidence.kind, next: businessState(item, replayPrevious), storageRule: { source: campaignStorageSource(evidence.kind, phaseRequest), requestId: phaseRequest?.id ?? null, settle: evidence.kind === 'accept_artifact' }, artifacts: evidence.artifactHashes, requests: evidence.requestHashes })
+            campaignAssert(evidence.businessDigest === expectedDigest, 'Historical operation business identity mismatch')
+          }
+          const D = decodeStorageBytes(evidence.serializedBytes)
+          const rebuilt = applyCampaignStorage(manifest, replayStorage, evidence.kind, phaseRequest, D)
+          campaignAssert(same(rebuilt.storage, item.storage) && same(rebuilt.effect, evidence.storageEffect), 'Receipt allocation ledger mismatch')
+          accumulatedBytes = counterSum(accumulatedBytes, D)
+          campaignAssert(accumulatedBytes === decodeStorageBytes(item.storage.writtenBytes), 'Receipt/checkpoint accounting mismatch')
+          const historicalHead: CampaignHead = { schemaVersion: 2, campaignId: campaignIdValue, sequence: item.sequence, manifestHash: manifest.hash, checkpointHash: item.hash, executionEpoch: item.executionEpoch, status: item.status, receiptId: item.operationId }
+          // The already validated canonical raw values were actually read above.
+          // Retain only their byte counts for this batch, not another raw copy.
+          const baseWireBytes = counterSum(utf8Bytes(campaignKeys.checkpoint(campaignIdValue, item.sequence)) + checkpointBytes[index]!, utf8Bytes(receiptKeys[index]!) + receiptBytes[index]!)
+          const wire = [...artifactWires, ...(phaseRequestWire ? [phaseRequestWire] : []), { key: headKey, value: canonicalStringify(historicalHead) }]
+          if (item.sequence === 0) {
+            campaignAssert(evidence.kind === 'create' && phaseRequest === null && eventArtifacts.length === 0, 'Invalid genesis receipt')
+            const initialBudget = emptyCampaignBudget(); initialBudget.activeMs = 10_000; initialBudget.operations = 1
+            campaignAssert(item.status === 'prepared' && item.reason === null && item.executionEpoch === 0 && item.candidateId === manifest.candidateId && item.lastWallTime === manifest.createdAt && item.bodyCharacters === 0 && same(item.budget, initialBudget) && item.tasks.every(task => task.revision === 0 && task.status === 'pending' && task.request === null && task.artifact === null && task.priorArtifact === null), 'Invalid genesis state')
+            campaignAssert(evidence.businessDigest === await hashCampaignValue('campaign-operation-v2', { kind: 'create', manifestHash: manifest.hash }), 'Genesis business identity mismatch')
+            // The only catalog writer appends one ID. Its creation-time value is
+            // therefore this immutable ordering's prefix, not the current catalog.
+            wire.push({ key: CAMPAIGN_CATALOG_KEY, value: canonicalStringify({ schemaVersion: 1, ids: ids.slice(0, ids.indexOf(campaignIdValue) + 1) }) }, { key: manifestKey, value: canonicalStringify(manifest) })
+          }
+          campaignAssert(wire.reduce((total, entry) => counterSum(total, utf8Bytes(entry.key) + utf8Bytes(entry.value)), baseWireBytes) === D, 'Receipt differs from actual immutable write bytes')
+          if (phaseRequest && phaseRequestWire) {
+            const wanted = wantedRequests.get(phaseRequestWire.key)
+            if (wanted) {
+              campaignAssert(phaseRequest.id === wanted.id && phaseRequest.revision === wanted.revision && phaseRequest.hash === wanted.hash, 'Final request reference differs from verified history')
+              retain(phaseRequestWire.key, phaseRequestWire.value, phaseRequest.hash); requests.set(phaseRequest.hash, phaseRequest)
+            }
+          }
+          for (const [index, artifact] of eventArtifacts.entries()) {
+            const wire = artifactWires[index]!, wanted = wantedArtifacts.get(wire.key)
+            if (wanted) {
+              campaignAssert(artifact.taskId === wanted.taskId && artifact.revision === wanted.revision && artifact.hash === wanted.hash, 'Final artifact reference differs from verified history')
+              retain(wire.key, wire.value, artifact.hash); artifacts.set(artifact.hash, artifact)
+            }
+          }
+
+          if (phaseRequest && evidence.kind === 'accept_artifact') allocationRequests.delete(phaseRequest.id)
+          replayStorage = rebuilt.storage; replayPrevious = item
           evidenceBatch.delete(receiptKeys[index]!)
         }
       }
       if (moved) continue
-      const artifactRefs = checkpoint.tasks.flatMap(task => [task.artifact, task.priorArtifact].filter((ref): ref is NonNullable<typeof ref> => ref !== null))
-      const requestRefs = checkpoint.tasks.flatMap(task => task.request ? [task.request] : [])
-      const artifacts = new Map<string, CampaignArtifact>()
-      const requests = new Map<string, CampaignRequest>()
-      for (let from = 0; from < artifactRefs.length && !moved; from += 32) {
-        const refs = artifactRefs.slice(from, from + 32)
-        const keys = refs.map(ref => campaignKeys.artifact(campaignIdValue, ref.taskId, ref.revision))
-        const related = await guarded(keys)
-        if (moved) break
-        for (const [index, ref] of refs.entries()) {
-          const artifact = await validateCampaignArtifact(parseCampaignRecord(related.get(keys[index]!) ?? null))
-          campaignAssert(artifact.hash === ref.hash, 'Artifact reference hash mismatch')
-          artifacts.set(artifact.hash, artifact); related.delete(keys[index]!)
-        }
+      // Every parent revision was already checked in chronological receipt
+      // replay. Require exact final key/id/revision/hash coverage before using
+      // these objects, rather than walking and hashing the same history twice.
+      for (const [key, ref] of wantedRequests) {
+        const request = requests.get(ref.hash)
+        campaignAssert(captured.get(key) === ref.hash && request?.id === ref.id && request.revision === ref.revision, 'Final request lacks verified immutable history coverage')
       }
-      for (let from = 0; from < requestRefs.length && !moved; from += 32) {
-        const refs = requestRefs.slice(from, from + 32)
-        const keys = refs.map(ref => campaignKeys.request(campaignIdValue, ref.id, ref.revision))
-        const related = await guarded(keys)
-        if (moved) break
-        for (const [index, ref] of refs.entries()) {
-          const request = await validateCampaignRequest(parseCampaignRecord(related.get(keys[index]!) ?? null))
-          campaignAssert(request.hash === ref.hash, 'Request reference hash mismatch')
-          requests.set(request.hash, request); related.delete(keys[index]!)
-        }
+      for (const [key, ref] of wantedArtifacts) {
+        const artifact = artifacts.get(ref.hash)
+        campaignAssert(captured.get(key) === ref.hash && artifact?.taskId === ref.taskId && artifact.revision === ref.revision, 'Final artifact lacks verified immutable history coverage')
       }
-      if (moved) continue
-      // Verify immutable revision parents even when prior text is no longer active.
-      // Old text is discarded after verification instead of accumulating in Snapshot.
-      for (const item of artifacts.values()) {
-        let child = item
-        for (let revision = child.revision - 1; revision >= 0 && !moved; revision--) {
-          const key = campaignKeys.artifact(campaignIdValue, child.taskId, revision)
-          const prior = await validateCampaignArtifact(parseCampaignRecord((await guarded([key])).get(key) ?? null))
-          campaignAssert(prior.hash === child.parentHash && prior.taskId === child.taskId && prior.campaignId === campaignIdValue && prior.revision === revision, 'Broken artifact revision chain')
-          child = prior
-        }
-      }
-      for (const item of requests.values()) {
-        let child = item
-        for (let revision = child.revision - 1; revision >= 0 && !moved; revision--) {
-          const key = campaignKeys.request(campaignIdValue, child.id, revision)
-          const prior = await validateCampaignRequest(parseCampaignRecord((await guarded([key])).get(key) ?? null))
-          campaignAssert(prior.hash === child.parentHash && prior.id === child.id && prior.campaignId === campaignIdValue && prior.revision === revision, 'Broken request revision chain')
-          child = prior
-        }
-      }
-      if (moved) continue
       campaignAssert(assertActiveRefs(manifest, checkpoint, artifacts, requests) === checkpoint.bodyCharacters, 'Canonical body count/index mismatch')
-      if (await readRecord(headKey) !== rawHead) continue
+      const finalFence = await io.getMany([headKey, CAMPAIGN_CATALOG_KEY, successorKey])
+      if (finalFence.get(headKey) !== rawHead) continue
+      campaignAssert(finalFence.get(successorKey) == null, 'Campaign successor appeared behind an unchanged head; stored bytes preserved')
+      const finalIds = catalog(finalFence.get(CAMPAIGN_CATALOG_KEY) ?? null), prefixLength = ids.indexOf(campaignIdValue) + 1
+      campaignAssert(same(finalIds.slice(0, prefixLength), ids.slice(0, prefixLength)), 'Append-only catalog prefix changed during verification')
       return { manifest, head, checkpoint, receipt, artifacts, requests, rawHead }
     }
     throw new CampaignProtocolError('conflict', 'Campaign changed repeatedly while reading; refresh before acting')
@@ -243,44 +480,48 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
   async function buildWrite(
     manifest: CampaignManifest, state: CampaignState, sequence: number, previousHash: string | null,
     operationId: string, kind: CampaignReceipt['kind'], businessDigest: string, bodyCharacters: number,
-    fixed: Array<{ key: string; expectedValue: string | null; value: string }>, oldSerializedBytes: number,
-    artifactHashes: string[], requestHashes: string[], recovery: boolean,
+    fixed: Array<{ key: string; expectedValue: string | null; value: string }>, previousStorage: CampaignState['storage'],
+    artifactHashes: string[], requestHashes: string[], request: CampaignRequest | null,
   ): Promise<{ entries: Array<{ key: string; expectedValue: string | null; value: string }>; checkpoint: CampaignCheckpoint; receipt: CampaignReceipt; head: CampaignHead }> {
-    const headKey = campaignKeys.head(manifest.campaignId)
-    let incrementalBytes = 0
-    for (let attempt = 0; attempt < 16; attempt++) {
-      state.budget.serializedBytes = counterSum(oldSerializedBytes, incrementalBytes)
-      if (recovery) state.budget.storageReservedBytes = Math.max(state.budget.storageReservedBytes, state.budget.serializedBytes)
-      const checkpointPayload = { ...structuredClone(state), schemaVersion: 1 as const, campaignId: manifest.campaignId, sequence, manifestHash: manifest.hash, previousHash, operationId, bodyCharacters }
-      const checkpoint: CampaignCheckpoint = { ...checkpointPayload, hash: await hashCampaignValue('campaign-checkpoint-v1', checkpointPayload) }
-      const receiptPayload = { schemaVersion: 1 as const, campaignId: manifest.campaignId, operationId, kind, businessDigest, expectedSequence: sequence === 0 ? null : sequence - 1, sequence, executionEpoch: state.executionEpoch, manifestHash: manifest.hash, checkpointHash: checkpoint.hash, artifactHashes, requestHashes, serializedBytes: incrementalBytes }
-      const receipt: CampaignReceipt = { ...receiptPayload, hash: await hashCampaignValue('campaign-receipt-v1', receiptPayload) }
-      const head: CampaignHead = { schemaVersion: 1, campaignId: manifest.campaignId, sequence, manifestHash: manifest.hash, checkpointHash: checkpoint.hash, executionEpoch: state.executionEpoch, status: state.status, receiptId: operationId }
-      const entries = [...fixed, { key: campaignKeys.checkpoint(manifest.campaignId, sequence), expectedValue: null, value: canonicalStringify(checkpoint) }, { key: campaignKeys.receipt(manifest.campaignId, operationId), expectedValue: null, value: canonicalStringify(receipt) }, { key: headKey, expectedValue: null as string | null, value: canonicalStringify(head) }]
-      const measured = entries.reduce((total, entry) => counterSum(total, counterSum(utf8Bytes(entry.key), utf8Bytes(entry.value))), 0)
-      if (measured === incrementalBytes) {
-        assertIndex(manifest, state)
-        if (kind !== 'cancel') {
-          // A recovery that runs out of capacity must not spend the final cancel
-          // envelope. This is serialized accounting only; IDB can still abort.
-          campaignAssert(state.budget.operations < manifest.budget.operations, 'Final operation slot is reserved for cancellation', 'budget')
-          campaignAssert(state.budget.serializedBytes <= manifest.budget.serializedBytes - (16_384 + manifest.tasks.length * 2048), 'Final serialized envelope is reserved for cancellation', 'budget')
-          campaignAssert(state.budget.activeMs <= manifest.budget.activeMs - 10_000, 'Final active-time envelope is reserved for cancellation', 'budget')
-        }
-        campaignAssert(state.budget.operations <= manifest.budget.operations - (recovery ? 0 : CAMPAIGN_RECOVERY_OPERATION_RESERVE), 'Normal operation capacity reserved for recovery', 'budget')
-        if (!recovery) campaignAssert(state.budget.storageReservedBytes <= manifest.budget.serializedBytes - manifest.recoveryReserveBytes, 'Normal operation cannot consume terminal storage reserve', 'budget')
-        for (const entry of entries) campaignAssert(utf8Bytes(entry.value) <= CAMPAIGN_LIMITS.recordBytes, 'Campaign record exceeds serialization bound', 'budget')
-        return { entries, checkpoint, receipt, head }
-      }
-      incrementalBytes = measured
+    const zeroHash = '0'.repeat(64)
+    // Freeze the operation-derived open-index shape, never a guessed residual.
+    const skeleton = applyCampaignStorage(manifest, previousStorage, kind, request, 0)
+    const checkpointPayload = { ...structuredClone(state), storage: skeleton.storage, schemaVersion: 2 as const, campaignId: manifest.campaignId, sequence, manifestHash: manifest.hash, previousHash, operationId, bodyCharacters }
+    const checkpoint: CampaignCheckpoint = { ...checkpointPayload, hash: zeroHash }
+    const receiptPayload = { schemaVersion: 2 as const, campaignId: manifest.campaignId, operationId, kind, businessDigest, expectedSequence: sequence === 0 ? null : sequence - 1, sequence, executionEpoch: state.executionEpoch, manifestHash: manifest.hash, checkpointHash: zeroHash, artifactHashes, requestHashes, serializedBytes: encodeStorageBytes(0), storageEffect: skeleton.effect }
+    const receipt: CampaignReceipt = { ...receiptPayload, hash: zeroHash }
+    const head: CampaignHead = { schemaVersion: 2, campaignId: manifest.campaignId, sequence, manifestHash: manifest.hash, checkpointHash: zeroHash, executionEpoch: state.executionEpoch, status: state.status, receiptId: operationId }
+    const entriesFor = () => [...fixed, { key: campaignKeys.checkpoint(manifest.campaignId, sequence), expectedValue: null, value: canonicalStringify(checkpoint) }, { key: campaignKeys.receipt(manifest.campaignId, operationId), expectedValue: null, value: canonicalStringify(receipt) }, { key: campaignKeys.head(manifest.campaignId), expectedValue: null as string | null, value: canonicalStringify(head) }]
+    const measured = entriesFor().reduce((sum, entry) => counterSum(sum, counterSum(utf8Bytes(entry.key), utf8Bytes(entry.value))), 0)
+    const accounting = applyCampaignStorage(manifest, previousStorage, kind, request, measured)
+    checkpoint.storage = accounting.storage
+    const { hash: _checkpointHash, ...finalCheckpointPayload } = checkpoint
+    checkpoint.hash = await hashCampaignValue('campaign-checkpoint-v2', finalCheckpointPayload)
+    receipt.serializedBytes = encodeStorageBytes(measured); receipt.storageEffect = accounting.effect; receipt.checkpointHash = checkpoint.hash
+    const { hash: _receiptHash, ...finalReceiptPayload } = receipt
+    receipt.hash = await hashCampaignValue('campaign-receipt-v2', finalReceiptPayload)
+    head.checkpointHash = checkpoint.hash
+    const entries = entriesFor()
+    let verifiedBytes = 0
+    for (const entry of entries) {
+      verifiedBytes = counterSum(verifiedBytes, utf8Bytes(entry.key)); verifiedBytes = counterSum(verifiedBytes, utf8Bytes(entry.value))
+      campaignAssert(utf8Bytes(entry.value) <= CAMPAIGN_LIMITS.recordBytes, 'Campaign record exceeds serialization bound', 'budget')
     }
-    throw new CampaignProtocolError('integrity', 'Serialized accounting did not converge')
+    campaignAssert(verifiedBytes === measured, 'Frozen storage serialization length changed')
+    assertIndex(manifest, checkpoint)
+    if (kind !== 'cancel') {
+      campaignAssert(state.budget.operations < manifest.budget.operations, 'Final operation slot is reserved for cancellation', 'budget')
+      campaignAssert(state.budget.activeMs <= manifest.budget.activeMs - 10_000, 'Final active-time envelope is reserved for cancellation', 'budget')
+    }
+    campaignAssert(state.budget.operations <= manifest.budget.operations - (RECOVERY_KINDS.has(kind) ? 0 : CAMPAIGN_RECOVERY_OPERATION_RESERVE), 'Normal operation capacity reserved for recovery', 'budget')
+    await validateCampaignCheckpoint(checkpoint); await validateCampaignReceipt(receipt); validateCampaignHead(head)
+    return { entries, checkpoint, receipt, head }
   }
 
   async function create(input: CampaignManifest, operationId: string): Promise<CampaignCommitResult> {
     const frozen = structuredClone(input); campaignId(operationId)
     const manifest = await validateCampaignManifest(frozen)
-    const digest = await hashCampaignValue('campaign-operation-v1', { kind: 'create', manifestHash: manifest.hash })
+    const digest = await hashCampaignValue('campaign-operation-v2', { kind: 'create', manifestHash: manifest.hash })
     const prior = await getReceipt(manifest.campaignId, operationId)
     if (prior) {
       campaignAssert(prior.businessDigest === digest && prior.kind === 'create', 'Operation ID has another payload', 'operation_conflict')
@@ -293,11 +534,10 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     const ids = catalog(rawCatalog)
     campaignAssert(values.get(headKey) == null && !ids.includes(manifest.campaignId), 'Campaign already exists', 'conflict')
     campaignAssert(ids.length < CAMPAIGN_LIMITS.campaigns, 'Campaign catalog is full', 'budget')
-    const budget = emptyCampaignBudget(); budget.storageReservedBytes = CAMPAIGN_BOOTSTRAP_RESERVE_BYTES; budget.activeMs = 10_000; budget.operations = 1
-    const state: CampaignState = { status: 'prepared', reason: null, executionEpoch: 0, candidateId: manifest.candidateId, tasks: manifest.tasks.map(task => ({ taskId: task.id, revision: 0, status: 'pending', artifact: null, priorArtifact: null, request: null })), budget, lastWallTime: manifest.createdAt }
-    budget.storageReservedBytes = counterSum(CAMPAIGN_BOOTSTRAP_RESERVE_BYTES, counterSum(utf8Bytes(canonicalStringify(manifest)), utf8Bytes(canonicalStringify(state.tasks))))
+    const budget = emptyCampaignBudget(); budget.activeMs = 10_000; budget.operations = 1
+    const state: CampaignState = { status: 'prepared', reason: null, executionEpoch: 0, candidateId: manifest.candidateId, tasks: manifest.tasks.map(task => ({ taskId: task.id, revision: 0, status: 'pending', artifact: null, priorArtifact: null, request: null })), budget, storage: emptyCampaignStorage(manifest.storage.recoveryReserveBytes), lastWallTime: manifest.createdAt }
     const fixed = [{ key: CAMPAIGN_CATALOG_KEY, expectedValue: rawCatalog, value: canonicalStringify({ schemaVersion: 1, ids: [...ids, manifest.campaignId] }) }, { key: campaignKeys.manifest(manifest.campaignId, manifest.hash), expectedValue: null, value: canonicalStringify(manifest) }]
-    const write = await buildWrite(manifest, state, 0, null, operationId, 'create', digest, 0, fixed, 0, [], [], false)
+    const write = await buildWrite(manifest, state, 0, null, operationId, 'create', digest, 0, fixed, state.storage, [], [], null)
     try {
       if (!await io.compareAndSwapMany(write.entries)) {
         const winner = await getReceipt(manifest.campaignId, operationId)
@@ -316,6 +556,7 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
   }
 
   async function commit(expected: CampaignSnapshot, input: CampaignMutation, canCommit: () => boolean = () => true): Promise<CampaignCommitResult> {
+    campaignAssert(expected.manifest.schemaVersion === 2 && expected.head.schemaVersion === 2, 'Legacy Campaign is read-only', 'legacy_read_only')
     const mutation = structuredClone(input)
     const expectedRawHead = expected.rawHead
     const id = expected.manifest.campaignId
@@ -323,10 +564,10 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     campaignRecord(mutation, Object.hasOwn(mutation, 'artifacts') ? (Object.hasOwn(mutation, 'requests') ? ['operationId', 'kind', 'next', 'artifacts', 'requests'] : ['operationId', 'kind', 'next', 'artifacts']) : (Object.hasOwn(mutation, 'requests') ? ['operationId', 'kind', 'next', 'requests'] : ['operationId', 'kind', 'next']), 'mutation')
     validateCampaignState(mutation.next)
     campaignAssert(['start', 'reserve', 'dispatch_intent', 'retain_response', 'accept_artifact', 'pause', 'resume', 'cancel', 'reconcile', 'replace_candidate', 'block'].includes(mutation.kind), 'Invalid mutation kind')
-    campaignAssert((mutation.artifacts?.length ?? 0) <= CAMPAIGN_LIMITS.tasks && (mutation.requests?.length ?? 0) <= CAMPAIGN_LIMITS.tasks, 'Mutation exceeds index bound')
+    campaignAssert((mutation.artifacts?.length ?? 0) <= 1 && (mutation.requests?.length ?? 0) <= 1, 'Mutation exceeds index bound')
     const artifacts = await Promise.all((mutation.artifacts ?? []).map(validateCampaignArtifact))
     const requests = await Promise.all((mutation.requests ?? []).map(validateCampaignRequest))
-    const digest = await hashCampaignValue('campaign-operation-v1', { kind: mutation.kind, next: businessState(mutation.next, expected.checkpoint), artifacts: artifacts.map(item => item.hash), requests: requests.map(item => item.hash) })
+    const digest = await hashCampaignValue('campaign-operation-v2', { kind: mutation.kind, next: businessState(mutation.next, expected.checkpoint), storageRule: { source: campaignStorageSource(mutation.kind, requests[0] ?? null), requestId: requests[0]?.id ?? null, settle: mutation.kind === 'accept_artifact' }, artifacts: artifacts.map(item => item.hash), requests: requests.map(item => item.hash) })
     const prior = await getReceipt(id, mutation.operationId)
     if (prior) {
       campaignAssert(prior.businessDigest === digest && prior.kind === mutation.kind, 'Operation ID has another payload', 'operation_conflict')
@@ -337,20 +578,8 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     campaignAssert(current && current.rawHead === expectedRawHead, 'Campaign head/epoch changed; mutation not committed', 'conflict')
     const next = mutation.next
     const previous = current.checkpoint
-    campaignAssert(next.lastWallTime >= previous.lastWallTime, 'Wall clock regressed')
-    campaignAssert(next.executionEpoch === previous.executionEpoch + (EPOCH_KINDS.has(mutation.kind) ? 1 : 0), 'Invalid execution fence transition')
-    campaignAssert(next.candidateId === previous.candidateId || mutation.kind === 'replace_candidate', 'Candidate changed outside replacement')
-    campaignAssert(previous.status !== 'cancelled' || (mutation.kind === 'reconcile' && next.status === 'cancelled'), 'Cancellation is terminal')
-    campaignAssert(previous.status !== 'completed' || ['replace_candidate', 'cancel'].includes(mutation.kind), 'Completed fixture cannot resume execution')
-    if (mutation.kind === 'start') campaignAssert(previous.status === 'prepared' && next.status === 'running', 'Start requires prepared to running')
-    if (mutation.kind === 'resume') campaignAssert(next.status === 'running', 'Resume must persist running status')
-    if (mutation.kind === 'pause') campaignAssert(previous.status !== 'paused', 'Already paused; no new terminal envelope may be consumed')
-    if (mutation.kind === 'block') campaignAssert(previous.status !== 'blocked' || requests.length > 0, 'Already blocked; no new terminal envelope may be consumed')
-    if (mutation.kind === 'cancel') campaignAssert(next.status === 'cancelled', 'Cancel must persist terminal status')
-    if (mutation.kind === 'pause') campaignAssert(next.status === 'paused', 'Pause must persist paused status')
-    if (mutation.kind === 'block') campaignAssert(next.status === 'blocked', 'Block must persist blocked status')
-    if (mutation.kind === 'reserve' || mutation.kind === 'dispatch_intent' || mutation.kind === 'accept_artifact') campaignAssert(previous.status === 'running' && (next.status === 'running' || next.status === 'completed'), 'Execution requires a running campaign')
-    for (const key of CAMPAIGN_BUDGET_KEYS) if (!['serializedBytes', 'artifacts', 'operations'].includes(key)) campaignAssert(next.budget[key] >= previous.budget[key], 'Campaign budget cannot be refunded')
+    campaignAssert(same(next.storage, previous.storage), 'Caller cannot alter repository-owned storage accounting')
+    assertStateTransition(previous, next, mutation.kind, requests.length)
     next.budget.operations = counterSum(previous.budget.operations, 1)
     next.budget.artifacts = counterSum(previous.budget.artifacts, artifacts.length)
     const allArtifacts = new Map(current.artifacts)
@@ -367,62 +596,32 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     }
     for (const request of requests) {
       campaignAssert(request.campaignId === id && request.candidateId === next.candidateId, 'Request belongs to another campaign/candidate')
-      const oldRef = previous.tasks.find(task => task.taskId === request.taskId)?.request
+      const oldRef = previous.storage.openAllocations.find(row => row.request.id === request.id)?.request ?? previous.tasks.find(task => task.taskId === request.taskId)?.request
       const old = oldRef ? current.requests.get(oldRef.hash) : null
-      if (old && old.id === request.id) {
-        campaignAssert(request.revision === old.revision + 1 && request.parentHash === old.hash, 'Request revision/parent mismatch')
-        const identity = (item: CampaignRequest) => ({ id: item.id, taskId: item.taskId, taskRevision: item.taskRevision, candidateId: item.candidateId, adapterId: item.adapterId, inputDigest: item.inputDigest, preparedInput: item.preparedInput, commandId: item.commandId, inputBytes: item.inputBytes, inputUtf16: item.inputUtf16, reservation: item.reservation })
-        campaignAssert(same(identity(request), identity(old)), 'Immutable request identity/reservation changed')
-        if (old.response) campaignAssert(same(old.response, request.response), 'Retained exact response cannot change')
-        const transitions: Record<string, string[]> = { reserved: ['dispatch_intent', 'known_failed'], dispatch_intent: ['response_retained', 'outcome_unknown', 'known_failed'], outcome_unknown: ['response_retained', 'known_failed'], response_retained: ['committed'], committed: [], known_failed: [] }
-        campaignAssert(transitions[old.status]?.includes(request.status), 'Invalid request state transition')
-      } else campaignAssert(mutation.kind === 'reserve' && request.revision === 0 && request.parentHash === null && request.status === 'reserved' && oldRef === null, 'New request requires unoccupied reservation')
+      if (!old || old.id !== request.id) campaignAssert(mutation.kind === 'reserve' && oldRef === null, 'New request requires unoccupied reservation')
+      assertRequestPhase(current.manifest, mutation.kind, mutation.operationId, request, old && old.id === request.id ? old : null)
       allRequests.set(request.hash, request)
       fixed.push({ key: campaignKeys.request(id, request.id, request.revision), expectedValue: null, value: canonicalStringify(request) })
     }
-    const statusByKind: Partial<Record<CampaignMutation['kind'], string[]>> = {
-      reserve: ['reserved'], dispatch_intent: ['dispatch_intent'], retain_response: ['response_retained'],
-      accept_artifact: ['committed'], reconcile: ['response_retained', 'known_failed', 'outcome_unknown'], block: ['outcome_unknown', 'known_failed'],
-    }
-    for (const request of requests) campaignAssert(statusByKind[mutation.kind]?.includes(request.status), 'Request transition is not authorized by operation kind')
     if (['reserve', 'dispatch_intent', 'retain_response', 'accept_artifact'].includes(mutation.kind)) campaignAssert(requests.length === 1, 'Execution operation needs exactly one request revision')
     if (mutation.kind === 'reserve') {
       const reservation = requests[0]!.reservation
-      const storageEnvelope = 6 * (16_384 + current.manifest.tasks.length * 1024 + requests[0]!.inputBytes * 6 + reservation.responseBytes * 6)
-      campaignAssert(Number.isSafeInteger(storageEnvelope) && reservation.storageReservedBytes >= storageEnvelope && reservation.responseBytes <= CAMPAIGN_LIMITS.textBytes, 'Request lacks the conservative future-write envelope', 'budget')
+      campaignAssert(requests[0]!.storageAllocationBytes === campaignRequestStorageAllowance(requests[0]!.preparedInput, current.manifest.tasks.length, reservation.responseBytes), 'Request lacks immutable future-write envelope', 'budget')
+      campaignAssert(await readRecord(campaignKeys.request(id, requests[0]!.id, 0)) === null, 'Request allocation identity already used')
       campaignAssert(reservation.attempts === 1 && reservation.inputBytes === requests[0]!.inputBytes && reservation.inputUtf16 === requests[0]!.inputUtf16 && reservation.responseBytes > 0 && reservation.activeMs > 0, 'Request reservation does not cover its input/output/time')
-      for (const key of CAMPAIGN_BUDGET_KEYS) if (!['serializedBytes', 'artifacts', 'operations'].includes(key)) campaignAssert(next.budget[key] - previous.budget[key] >= reservation[key], 'Request was not reserved before dispatch')
+      for (const key of CAMPAIGN_BUDGET_KEYS) if (!['artifacts', 'operations'].includes(key)) campaignAssert(next.budget[key] - previous.budget[key] >= reservation[key], 'Request was not reserved before dispatch')
       campaignAssert(previous.budget.artifacts < current.manifest.budget.artifacts, 'No reserved artifact capacity remains', 'budget')
     }
     for (const request of requests) if (request.response) campaignAssert(utf8Bytes(request.response.text) <= request.reservation.responseBytes, 'Response exceeds its immutable reservation')
+    if (mutation.kind === 'accept_artifact') assertAcceptedArtifact(requests[0]!, artifacts, next)
+    if (mutation.kind === 'cancel') campaignAssert(requests.length === 0 && artifacts.length === 0 && next.reason === 'user_cancelled' && same(next.tasks, previous.tasks), 'Invalid final cancellation shape')
+
     campaignAssert(new Set(fixed.map(entry => entry.key)).size === fixed.length, 'Duplicate immutable target')
-    assertIndex(current.manifest, { ...next, budget: { ...next.budget, serializedBytes: previous.budget.serializedBytes } })
-    const changed = next.tasks.filter((task, index) => !same(task, previous.tasks[index]))
-    for (const task of next.tasks) {
-      const old = previous.tasks.find(item => item.taskId === task.taskId)!
-      const expectedPrior = mutation.kind === 'replace_candidate' && task.revision === old.revision + 1 ? (old.artifact ?? old.priorArtifact) : old.priorArtifact
-      campaignAssert(same(task.priorArtifact, expectedPrior), 'Historical artifact lineage was discarded or replaced')
-      campaignAssert(task.revision === old.revision || (mutation.kind === 'replace_candidate' && task.revision === old.revision + 1), 'Task revision changed outside replacement')
-      if (task.artifact && !same(task.artifact, old.artifact)) campaignAssert(artifacts.some(item => item.hash === task.artifact!.hash), 'Task points to unsubmitted artifact')
-      if (task.request && !same(task.request, old.request)) campaignAssert(requests.some(item => item.hash === task.request!.hash), 'Task points to unsubmitted request')
-      if (!same(task, old) && mutation.kind !== 'replace_candidate') campaignAssert(requests.some(item => item.taskId === task.taskId), 'Task changed without its request revision')
-    }
-    for (const artifact of artifacts) campaignAssert(next.tasks.some(task => task.artifact?.hash === artifact.hash), 'Orphan artifact write')
-    for (const request of requests) campaignAssert(next.tasks.some(task => task.request?.hash === request.hash), 'Orphan request write')
-    if (mutation.kind === 'replace_candidate') {
-      campaignAssert(next.candidateId !== previous.candidateId && artifacts.length === 1, 'Replacement needs one new candidate artifact')
-      const root = artifacts[0]!.taskId
-      const affected = new Set([root])
-      for (const spec of current.manifest.tasks) if (spec.dependsOn.some(dep => affected.has(dep))) affected.add(spec.id)
-      for (const task of next.tasks) {
-        const old = previous.tasks.find(item => item.taskId === task.taskId)!
-        if (affected.has(task.taskId)) campaignAssert(task.revision === old.revision + 1 && task.request === null && (task.taskId === root ? task.status === 'committed' : task.status === 'invalidated' && task.artifact === null), 'Replacement must invalidate transitive dependencies and in-flight requests')
-        else campaignAssert(same(task, old), 'Replacement changed an unrelated task')
-      }
-    } else campaignAssert(changed.length <= 1, 'One logical request/task transition per commit')
+    assertIndex(current.manifest, next)
+    assertTaskTransition(current.manifest, previous, next, mutation.kind, artifacts, requests)
     const bodyCharacters = assertActiveRefs(current.manifest, next, allArtifacts, allRequests)
     if (next.status === 'completed') campaignAssert(next.tasks.every(task => task.status === 'committed'), 'Fixture completion requires every task artifact')
-    const write = await buildWrite(current.manifest, next, current.head.sequence + 1, previous.hash, mutation.operationId, mutation.kind, digest, bodyCharacters, fixed, previous.budget.serializedBytes, artifacts.map(item => item.hash), requests.map(item => item.hash), RECOVERY_KINDS.has(mutation.kind))
+    const write = await buildWrite(current.manifest, next, current.head.sequence + 1, previous.hash, mutation.operationId, mutation.kind, digest, bodyCharacters, fixed, previous.storage, artifacts.map(item => item.hash), requests.map(item => item.hash), requests[0] ?? null)
     write.entries.find(entry => entry.key === campaignKeys.head(id))!.expectedValue = expectedRawHead
     try {
       const committed = await io.compareAndSwapMany(write.entries, canCommit)
@@ -442,8 +641,13 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
       throw new CampaignProtocolError('storage_unknown', 'Commit acknowledgment is unconfirmed; persisted receipt is the only commit evidence')
     }
     const activeArtifacts = new Map(next.tasks.flatMap(task => [task.artifact, task.priorArtifact].flatMap(ref => ref ? [[ref.hash, allArtifacts.get(ref.hash)!] as const] : [])))
-    const activeRequests = new Map(next.tasks.flatMap(task => task.request ? [[task.request.hash, allRequests.get(task.request.hash)!] as const] : []))
+    const activeRequests = new Map([...next.tasks.flatMap(task => task.request ? [task.request] : []), ...write.checkpoint.storage.openAllocations.map(row => row.request)].map(ref => [ref.hash, allRequests.get(ref.hash)!] as const))
     return { snapshot: { manifest: current.manifest, head: write.head, checkpoint: write.checkpoint, receipt: write.receipt, artifacts: activeArtifacts, requests: activeRequests, rawHead: canonicalStringify(write.head) }, receipt: write.receipt, replayed: false }
   }
-  return { list, create, read, commit, getReceipt, getOperationArtifacts }
+  async function inspect(campaignIdValue: string) {
+    const raw = await readRecord(campaignKeys.head(campaignIdValue))
+    if (raw !== null && (parseCampaignRecord(raw) as { schemaVersion?: unknown }).schemaVersion === 1) return createLegacyCampaignInspector(io).read(campaignIdValue)
+    return read(campaignIdValue)
+  }
+  return { list, create, read, inspect, commit, getReceipt, getOperationArtifacts }
 }

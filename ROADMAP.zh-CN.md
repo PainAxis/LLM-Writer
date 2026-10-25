@@ -78,7 +78,7 @@
 
 [PR #43](https://github.com/PainAxis/LLM-Writer/pull/43) 已验收[评估就绪](docs/writer-agent-evaluation.zh-CN.md)：八个冻结合成故事任务贯穿实际控制器、检索引擎和 SDK，将 gold 辅助固定选据与人工质量判断明确区分。默认零外部调用，保留漏召回、拒答、故意负例与未运行条目。详细评阅包留本地，可分享摘要不含正文。零真实调用可以完成工具就绪，不能证明真实写作质量。独立审阅、107 组原生 smoke 和准确 head 的十二项 CI 已通过；合并后的 [main run 40117724563](https://github.com/PainAxis/LLM-Writer/actions/runs/40117724563) 在 `70b453c6ae4c5b3d19b6fb9637f592510bbd043f` 首次 attempt 全绿。PR CI 曾在断言完成后的清理阶段超时，同 head 单次重跑通过，首轮 job 不算成功。未得到真实模型质量结果或人工评分。
 
-下一项聚焦实现是独立的 [Campaign 持久基础](docs/writer-campaign-foundation.zh-CN.md)：可复用的任务／依赖引擎、不可变本地产物、累计预算预留与可恢复检查点，配合仅离线的 QA 页面。持久 dispatch intent 是授权边界；不重放未知请求，取消也不能撤回此前已授权的在途调用。该基础须通过真实 IndexedDB 重启、跨标签和故障 CI 才能验收。配置百万字符目标不代表已测容量或小说完成。事实／上下文构造、真实供应商校准、自主编排、全书审计与有界修复仍是未完成层。
+独立 [Campaign 持久基础](docs/writer-campaign-foundation.zh-CN.md)已在 [PR #44](https://github.com/PainAxis/LLM-Writer/pull/44) 验收，合并 `84e704afff08921763d4b83136d881a39946900a`，tree `cc53d33565ff574fd6bbce2f76bdcca9aecda406`。[main run 40154748857](https://github.com/PainAxis/LLM-Writer/actions/runs/40154748857) 十二项全过，含真实 IndexedDB Campaign 12/12 和既有 Agent 90/90。它提供任务／依赖、不可变本地产物、有限预算与可恢复检查点，仅注册离线 QA adapter；未知 intent 不重放，取消不能撤回此前已授权在途调用。原基础几何在中文 200,004／英文 350,007 scalar 停止。下一项聚焦 [v2 存储 allocation／settlement](docs/writer-campaign-storage.zh-CN.md)，只对已接受 artifact 原子释放未用存储 allowance，保留未知义务与 64 MiB 上限，并测读取成本。固定 Node 测试中，中英文现各完成 1,000,000 正文 scalar／123 任务；本地 lint／构建／严格类型／120 组 smoke 已过；真实 IDB profile、最终审阅绑定及十三项必要 CI 仍待验收，这是结构容量而非小说。事实／上下文构造、真实供应商校准、自主编排、全书审计与有界修复仍未完成。
 
 ### 第四阶段最终验收：两部自主百万字符小说
 

@@ -1,8 +1,8 @@
 import type { CampaignArtifact, CampaignBudget, CampaignManifest, CampaignMutation, CampaignRepository, CampaignRequest, CampaignResponse, CampaignSnapshot, CampaignState, CampaignTaskSpec, CampaignTaskState } from '../../types/writerCampaign'
 import { createCampaignRepository } from './store'
 import { getCampaignBuildIdentity } from './buildIdentity'
-import { CampaignProtocolError, campaignId, hashCampaignValue, sealCampaignArtifact, sealCampaignManifest, sealCampaignRequest, utf8Bytes } from './protocol'
-import { CampaignRuntimeError, CAMPAIGN_DISPATCH_TIMEOUT_MS, CAMPAIGN_IO_TIMEOUT_MS, campaignMetadataReservation, campaignRequestReservation, checkCampaignClock, emptyCampaignBudget, reserveCampaignBudget } from './budget'
+import { CampaignProtocolError, campaignId, encodeStorageBytes, hashCampaignValue, sealCampaignArtifact, sealCampaignManifest, sealCampaignRequest, utf8Bytes } from './protocol'
+import { CampaignRuntimeError, CAMPAIGN_DISPATCH_TIMEOUT_MS, CAMPAIGN_IO_TIMEOUT_MS, campaignMetadataReservation, campaignRequestReservation, campaignRequestStorageAllowance, checkCampaignClock, emptyCampaignBudget, reserveCampaignBudget } from './budget'
 import { createOfflineFixtureHost, isOfflineCampaignHost, type CampaignAuthorizationHost, type CampaignProviderContext, type OfflineFixtureOptions } from './fixtureAdapter'
 
 export type CampaignRuntimeIdentity = Pick<CampaignManifest, 'runtimeIdentity' | 'source'>
@@ -36,17 +36,17 @@ export async function createOfflineCampaignManifest(options: OfflineManifestOpti
   const now = options.now ?? Date.now()
   const identity = options.identity ?? getCampaignBuildIdentity()
   const budget: CampaignBudget = options.budget ?? { attempts: 128, inputBytes: 8_388_608, inputUtf16: 8_388_608, outputTokens: 8_388_608,
-    reasoningTokens: 0, responseBytes: 8_388_608, activeMs: 1_600_000, serializedBytes: 67_108_864, storageReservedBytes: 67_108_864, artifacts: 256, operations: 2048 }
-  return sealCampaignManifest({ schemaVersion: 1, protocolVersion: 'campaign-v1', campaignId: options.campaignId, candidateId: 'candidate-0',
+    reasoningTokens: 0, responseBytes: 8_388_608, activeMs: 1_600_000, artifacts: 256, operations: 2048 }
+  return sealCampaignManifest({ schemaVersion: 2, protocolVersion: 'campaign-v2', campaignId: options.campaignId, candidateId: 'candidate-0',
     language: options.language, bodyTarget: { unit: 'unicode_scalar', characters: options.bodyTarget ?? 1_000_000 }, mode: 'offline_fixture', adapterId: 'offline-fixture-v1',
     fixtureVersion: options.fixtureVersion ?? 'tiny-bilingual-v1', countingVersion: 'crlf-lf-nfc-scalar-v1', runtimeIdentity: identity.runtimeIdentity, source: { ...identity.source },
     createdAt: now, expiresAt: options.expiresAt ?? now + 7 * 86_400_000, maxRepairRounds: 0, maxProviderRetries: 0,
-    tasks: options.tasks ?? defaultTasks(), budget, recoveryReserveBytes: 524_288 })
+    tasks: options.tasks ?? defaultTasks(), budget, storage: { limitBytes: encodeStorageBytes(67_108_864), recoveryReserveBytes: encodeStorageBytes(524_288) } })
 }
 const stateOf = (snapshot: CampaignSnapshot): CampaignState => {
   const c = snapshot.checkpoint
   return { status: c.status, reason: c.reason, executionEpoch: c.executionEpoch, candidateId: c.candidateId,
-    tasks: structuredClone(c.tasks), budget: { ...c.budget }, lastWallTime: c.lastWallTime }
+    tasks: structuredClone(c.tasks), budget: { ...c.budget }, storage: structuredClone(c.storage), lastWallTime: c.lastWallTime }
 }
 const requestRef = (request: CampaignRequest) => ({ id: request.id, revision: request.revision, hash: request.hash })
 const artifactRef = (artifact: CampaignArtifact) => ({ taskId: artifact.taskId, revision: artifact.revision, hash: artifact.hash })
@@ -149,7 +149,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     const task = snapshot.checkpoint.tasks.find(t => t.taskId === request.taskId)!
     if (task.request?.hash !== request.hash || task.revision !== request.taskRevision) throw new CampaignRuntimeError('stale_request')
     const refs = dependencies(snapshot, request.taskId).map(artifactRef)
-    const artifact = await bounded(sealCampaignArtifact({ schemaVersion: 1, campaignId: snapshot.manifest.campaignId, candidateId: request.candidateId,
+    const artifact = await bounded(sealCampaignArtifact({ schemaVersion: 2, campaignId: snapshot.manifest.campaignId, candidateId: request.candidateId,
       taskId: request.taskId, taskRevision: request.taskRevision, revision: task.priorArtifact ? task.priorArtifact.revision + 1 : 0, kind: snapshot.manifest.tasks.find(t => t.id === task.taskId)!.kind,
       dependencies: refs, parentHash: task.priorArtifact?.hash ?? null, text: request.response.text, semanticStatus: 'not_reviewed' }), ioTimeout, run)
     const committed = await updateRequest(request, { status: 'committed' })
@@ -235,17 +235,19 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
         const next = stateOf(snapshot)
         next.budget = reserveCampaignBudget(snapshot.manifest, next.budget, reservation)
         const requestId = `req-${(await hashCampaignValue('request-identity', { campaignId: id, candidateId: next.candidateId, taskId: task.taskId, revision: task.revision, commandId })).slice(0, 48)}`
-        request = await sealCampaignRequest({ schemaVersion: 1, campaignId: id, id: requestId, revision: 0, parentHash: null, taskId: task.taskId,
+        request = await sealCampaignRequest({ schemaVersion: 2, campaignId: id, id: requestId, revision: 0, parentHash: null, taskId: task.taskId,
           taskRevision: task.revision, candidateId: next.candidateId, adapterId: provider.id, inputDigest: prepared.digest, preparedInput: prepared.text,
-          commandId, inputBytes: prepared.bytes, inputUtf16: prepared.utf16, status: 'reserved', reservation, response: null, failureReason: null })
+          commandId, inputBytes: prepared.bytes, inputUtf16: prepared.utf16, storageAllocationBytes: campaignRequestStorageAllowance(prepared.text, next.tasks.length, prepared.responseBytes), status: 'reserved', reservation, response: null, failureReason: null })
         const reservedTask = next.tasks.find(t => t.taskId === task!.taskId)!
         reservedTask.status = 'reserved'; reservedTask.request = requestRef(request); next.lastWallTime = clock()
         const result = await commit(snapshot, { operationId: `${commandId}:reserve`, kind: 'reserve', next, requests: [request] }, run)
         snapshot = result.snapshot
         if (result.replayed) return snapshot
       }
-      // Refresh the actual durable head immediately before the authorization CAS.
-      snapshot = await read(id, run); checkClock(snapshot)
+      // The repository re-verifies the full durable state and compares this exact
+      // raw head/epoch before its authorization CAS. A second engine read would
+      // repeat that verification, not strengthen the fence.
+      assertRun(run); checkClock(snapshot)
       task = snapshot.checkpoint.tasks.find(t => t.taskId === request!.taskId)!
       if (snapshot.head.status !== 'running' || task.request?.hash !== request.hash || task.status !== 'reserved') throw new CampaignRuntimeError('stale_request')
       const intent = await updateRequest(request, { status: 'dispatch_intent' })
@@ -257,7 +259,10 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
       // A subsequent cross-tab cancel cannot retract it or promise zero calls/cost.
       const permit = host.issuePermit(intent)
       const response = await bounded(provider.dispatch(intent, permit, run.controller.signal), dispatchTimeout, run)
-      snapshot = await read(id, run)
+      // Retention commits against the exact intent snapshot. A cross-owner change
+      // or same-head corruption is rejected by its fresh repository verification;
+      // do not refresh/rebase the old result onto a newer owner or candidate.
+      assertRun(run)
       const currentTask = snapshot.checkpoint.tasks.find(t => t.taskId === intent.taskId)
       if (snapshot.head.status !== 'running' || currentTask?.request?.hash !== intent.hash) throw new CampaignRuntimeError('stale_request')
       snapshot = await retainResponse(snapshot, intent, response, run)
@@ -363,12 +368,12 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     const affected = new Set([taskId])
     for (const spec of snapshot.manifest.tasks) if (spec.dependsOn.some(id => affected.has(id))) affected.add(spec.id)
     for (const task of next.tasks) if (affected.has(task.taskId)) { task.revision++; task.status = 'invalidated'; task.priorArtifact = task.artifact ?? task.priorArtifact; task.artifact = null; task.request = null }
-    const artifact = await sealCampaignArtifact({ schemaVersion: 1, campaignId: id, candidateId, taskId, taskRevision: oldTask.revision + 1,
+    const artifact = await sealCampaignArtifact({ schemaVersion: 2, campaignId: id, candidateId, taskId, taskRevision: oldTask.revision + 1,
       revision: oldArtifact.revision + 1, parentHash: oldArtifact.hash, kind: oldArtifact.kind, dependencies: dependencies(snapshot, taskId).map(artifactRef), text, semanticStatus: 'not_reviewed' })
     const target = next.tasks.find(t => t.taskId === taskId)!
     target.status = 'committed'; target.artifact = artifactRef(artifact)
     next.candidateId = candidateId; next.executionEpoch++; next.status = 'paused'; next.reason = 'candidate_replaced'; next.lastWallTime = clock()
-    const reservation = campaignMetadataReservation(next.tasks.length); reservation.storageReservedBytes += utf8Bytes(text) * 6 + 16_384
+    const reservation = campaignMetadataReservation(next.tasks.length)
     next.budget = reserveCampaignBudget(snapshot.manifest, next.budget, reservation)
     snapshot = (await commit(snapshot, { operationId: commandId, kind: 'replace_candidate', next, artifacts: [artifact] }, run)).snapshot
     return snapshot
@@ -395,7 +400,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     cancel(id: string, commandId = newCommand()) { stopLocal(id); return control(id, 'cancel', commandId) },
     replaceCandidate,
     recoverSaveOnly,
-    inspect(id: string) { return bounded(repository.read(id)) },
+    inspect(id: string) { return bounded(repository.inspect(id)) },
     list() { return bounded(repository.list()) },
     stopLocal,
     dispose() { stopLocal(); disposed = true },

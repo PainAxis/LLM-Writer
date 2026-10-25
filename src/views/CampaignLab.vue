@@ -20,6 +20,7 @@
     </section>
     <section v-if="snapshot" aria-label="持久化检查" data-testid="campaign-inspection">
       <h2>持久化检查</h2>
+      <p v-if="readOnly" class="notice" data-testid="campaign-read-only">旧版 Campaign v1 仅可检查，不能执行、恢复、取消或迁移。原始数据保持不变；旧预留不解释为可回收空间。</p>
       <dl class="metadata">
         <dt>Campaign</dt><dd data-testid="campaign-id">{{ snapshot.manifest.campaignId }}</dd>
         <dt>语言 / 模式</dt><dd>{{ snapshot.manifest.language }} / offline_fixture</dd>
@@ -44,7 +45,7 @@
         <button data-testid="campaign-cancel" :disabled="!canStop" @click="cancel">取消</button>
       </div>
       <p>一次只处理一个任务，没有后台循环。关闭页面只停止本实例，不等于已持久化全局取消。取消之前已持久化的 dispatch intent 仍可能调用；取消不承诺零请求或零费用。</p>
-      <p v-if="unresolved" class="notice" data-testid="campaign-unknown">请求结果未知，禁止重放模型调用。预留不会退回；只能依据可信完成证据恢复，本页没有“重试模型”按钮。</p>
+      <p v-if="unresolved || inactiveUnknownRequests" class="notice" data-testid="campaign-unknown">请求结果未知，禁止重放模型调用。未解决的存储义务与模型预算继续保留；替换候选、暂停或取消都不会释放它们。本页没有“重试模型”按钮。</p>
       <h3>任务依赖与状态</h3>
       <ol data-testid="campaign-tasks"><li v-for="task in taskRows" :key="task.taskId">{{ task.kind }} · r{{ task.revision }} · {{ task.status }}</li></ol>
       <section data-testid="campaign-budgets" aria-label="累计预算与观测用量">
@@ -54,7 +55,17 @@
           <dt>请求预留</dt><dd>{{ snapshot.checkpoint.budget.attempts }} / {{ snapshot.manifest.budget.attempts }}</dd>
           <dt>输出 token 预留</dt><dd>{{ snapshot.checkpoint.budget.outputTokens }} / {{ snapshot.manifest.budget.outputTokens }}</dd>
           <dt>输入 UTF-8 bytes 预留</dt><dd>{{ snapshot.checkpoint.budget.inputBytes }} / {{ snapshot.manifest.budget.inputBytes }}</dd>
-          <dt>序列化 bytes 累计</dt><dd>{{ snapshot.checkpoint.budget.serializedBytes }} / {{ snapshot.manifest.budget.serializedBytes }}（非浏览器物理空间保证）</dd>
+          <template v-if="storageSummary">
+            <dt>累计实际序列化写入 W</dt><dd data-testid="campaign-storage-written">{{ storageSummary.written }} / {{ storageSummary.limit }} bytes（非实时占用或浏览器物理空间保证）</dd>
+            <dt>未解决存储义务 U</dt><dd data-testid="campaign-storage-outstanding">{{ storageSummary.outstanding }} bytes · {{ storageSummary.openAllocations }} 个未结清分配</dd>
+            <dt>剩余恢复保护池 P</dt><dd data-testid="campaign-storage-recovery">{{ storageSummary.recoveryRemaining }} bytes（包含最终取消保护）</dd>
+            <dt>已接纳结果释放的未用额度</dt><dd data-testid="campaign-storage-released">{{ storageSummary.released }} bytes（不删除历史写入，不退模型预算或费用）</dd>
+            <dt>非活动未知请求</dt><dd data-testid="campaign-inactive-unknown">{{ inactiveUnknownRequests }}（旧候选失效仍保留义务，不可附加到新候选）</dd>
+          </template>
+          <template v-else-if="legacyStorageSummary">
+            <dt>v1 累计序列化写入</dt><dd data-testid="campaign-legacy-written">{{ legacyStorageSummary.written }} / {{ legacyStorageSummary.limit }} bytes</dd>
+            <dt>v1 永久存储预留</dt><dd data-testid="campaign-legacy-reserved">{{ legacyStorageSummary.reserved }} bytes（不是 v2 未解决义务，不可释放）</dd>
+          </template>
           <dt>观测 usage（fixture）</dt><dd>{{ observedUsage.input ?? '未知' }} input / {{ observedUsage.output ?? '未知' }} output（已知部分）；{{ observedUsage.unknown }} 个请求缺少完整观测</dd>
           <dt>未知请求 / 成本</dt><dd>{{ unknownRequests }} / 未估价；不是已观测真实模型费用</dd>
         </dl>
@@ -80,7 +91,7 @@
 import { onMounted, onUnmounted } from 'vue'
 import { useWriterCampaign } from '@/composables/useWriterCampaign'
 const { ids, selectedId, snapshot, busy, loading, error, status, locallyStopped, persistentOutcome,
-  canStep, canResume, canStop, canSaveOnly, unresolved, taskRows, artifactRows, completedTasks, unknownRequests,
+  canStep, canResume, canStop, canSaveOnly, unresolved, taskRows, artifactRows, completedTasks, unknownRequests, inactiveUnknownRequests, readOnly, storageSummary, legacyStorageSummary,
   observedUsage, refresh, select, create, step, saveOnly, pause, resume, cancel, dispose } = useWriterCampaign()
 onMounted(() => { void refresh() })
 onUnmounted(dispose)

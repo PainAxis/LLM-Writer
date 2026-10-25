@@ -2,7 +2,7 @@
 
 [English](writer-campaign-foundation.md) | [简体中文](writer-campaign-foundation.zh-CN.md)
 
-实现状态：**本地 lint、构建、111组 smoke 与严格脚本类型检查已通过；准确 head CI（含真实 IndexedDB 浏览器检查）待验收**。本项是可复用的 production 状态、存储、预算基础及离线 QA 界面，不是自主小说生成。[第四阶段最终合同](writer-agent-longform-acceptance.zh-CN.md) 仍要求中文、英文各一部，各 1,000,000 正文字符，从大纲、人设、细纲、章纲到正文，并完成独立全作一致性审查。脚本任务队列或大容量存储 fixture 都不满足该最终标准。
+基础验收状态：**PR #44 已合并，准确 head 及 main 十二项 CI 全过，Campaign 12/12、Agent 90/90；原百万字符容量门槛仍未通过**。本项是可复用的 production 状态、存储、预算基础及离线 QA 界面，不是自主小说生成。[第四阶段最终合同](writer-agent-longform-acceptance.zh-CN.md) 仍要求中文、英文各一部，各 1,000,000 正文字符，从大纲、人设、细纲、章纲到正文，并完成独立全作一致性审查。脚本任务队列或大容量存储 fixture 都不满足该最终标准。
 
 ## 范围与入口
 
@@ -102,3 +102,7 @@ PR #44 首轮 [40121881904](https://github.com/PainAxis/LLM-Writer/actions/runs/
 三个错误哈希均精确匹配测试初始化在新建标签的 opaque about:blank 文档访问 localStorage 时抛出的 SecurityError，Node VM 复现哈希完全一致。现在公告设置与隐私读取观察仅在准确预期的 HTTP(S) 应用 origin 上安装，空白或其他来源不访问存储。6 项反例保留真实应用来源的读取观察，且不吞真实应用来源存储错误。这是测试初始化修正，不改生产错误策略。
 
 C12 根因仍未确定。旧阶段同时涵盖完成提示、点击确认、真实重载、返回和选择；新固定阶段分别标记，并在重载前验证普通小说空集合已提交、Campaign bytes 未变，在真实新文档重载后且返回／选择前再次验证。该窄窗口内若出现原生提示，只 dismiss 并以固定阶段失败，不自动接受，也不强制 reload。仍须下一准确 head 的浏览器结果，12 场景、既有超时和零错误门槛均保留。
+
+## 已验收基线与后续记账
+
+2026-10-25，[main run 40154748857](https://github.com/PainAxis/LLM-Writer/actions/runs/40154748857) 在合并提交 `84e704afff08921763d4b83136d881a39946900a` 首次 attempt 十二项全过。真实 Campaign 12 场景均通过，浏览器错误及外部／真实模型调用为 0；14 份精简附件白名单、manifest 和 ZIP 哈希复核通过。此前两次失败保留为历史；C12 当前加强的提交、真实重载、文档身份和字节保留检查通过，不倒推原粗粒度失败的根因。上述永久预留容量观察仍为 v1 历史事实；新的 [v2 分配／结算](writer-campaign-storage.zh-CN.md) 使用独立修订、测试和验收，不把基础全绿等同新实现或长篇完成。

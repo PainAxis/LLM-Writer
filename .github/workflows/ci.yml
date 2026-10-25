@@ -18,6 +18,46 @@ concurrency:
 # Raw reports, backups, traces and full export payloads remain runner-local (ephemeral).
 # A failed test still fails its job; derived evidence never substitutes for test success.
 jobs:
+  writer-campaign-storage:
+    name: ci-writer-campaign-storage
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      # Separate from the unchanged twelve jobs. Structural repetitions are not
+      # novels; real action/IO deadlines remain in force. No credentials/provider.
+      # Local frozen Node profiles measured 519.7s + 411.7s (15.5m).
+      # Browser gets an initial, unmeasured ~2x Node allowance, not a throughput claim.
+      # The total also reserves install/build/archive time; old twelve jobs are unchanged.
+      - name: Measure unchanged bilingual geometry with production engine and Node atomic IO
+        run: npm run profile:writer-campaign-capacity
+        timeout-minutes: 20
+      - name: Verify native-IDB allocation settlement and bilingual capacity
+        if: ${{ !cancelled() }}
+        run: npm run test:browser-writer-campaign-storage
+        timeout-minutes: 30
+      - name: Prepare closed storage-accounting summaries
+        id: archive_writer_campaign_storage
+        if: ${{ !cancelled() }}
+        run: node scripts/prepare-ci-evidence.mjs --group=writer-campaign-storage
+      - name: Upload only the two derived summaries and their manifest
+        if: ${{ !cancelled() && steps.archive_writer_campaign_storage.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: writer-campaign-storage-evidence-${{ github.run_attempt }}
+          path: artifacts/ci-evidence/writer-campaign-storage
+          if-no-files-found: error
+          retention-days: 7
+
   memory-capacity:
     name: ci-memory-capacity
     runs-on: ubuntu-latest
