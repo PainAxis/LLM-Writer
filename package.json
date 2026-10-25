@@ -15,6 +15,7 @@
     "smoke:all": "node scripts/run-smoke.mjs",
     "test:browser": "node scripts/run-browser.mjs",
     "smoke:ci-evidence": "node scripts/smoke-ci-evidence.mjs",
+    "smoke:browser-scenario-lifecycle": "node scripts/smoke-browser-scenario-lifecycle.mjs",
     "smoke:release": "node scripts/smoke-release.mjs",
     "smoke:short-story-selection": "node --import tsx scripts/smoke-short-story-selection.ts",
     "smoke:book-analysis-library": "node --import tsx scripts/smoke-book-analysis-library.ts",
