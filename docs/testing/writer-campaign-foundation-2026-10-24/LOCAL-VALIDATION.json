@@ -1,0 +1,270 @@
+{
+  "schemaVersion": 1,
+  "baselineCommit": "70b453c6ae4c5b3d19b6fb9637f592510bbd043f",
+  "scope": "Campaign durability foundation; no live provider or autonomous novel acceptance",
+  "localValidation": {
+    "lint": "passed --max-warnings 0",
+    "build": "passed vue-tsc and Vite",
+    "smokeSuites": 114,
+    "strictNewTypeScriptScripts": "passed",
+    "focusedEngineCases": 24,
+    "focusedIdentityArchiveChecks": 39,
+    "browser": "NOT_RUN locally; first CI7/12, second CI8/12, next exact-head CI required",
+    "liveModelCalls": 0,
+    "longformAcceptance": "NOT_RUN",
+    "browserHelperSmoke": "reload identity, full ordinary storage, closed diagnostics passed",
+    "probeNativeStateModel": "historical double-abort reproduced; corrected single rollback passed; not browser evidence",
+    "bootstrapChecks": 6,
+    "restoreBoundary": "C12 unresolved; finer fixed diagnostics, unchanged real reload and storage checks"
+  },
+  "sourceIntegrity": {
+    "nativePathCount": 442,
+    "beforeAfterEqual": true,
+    "canonicalManifestSha256": "af85754e1d6d17e5aac7b658258aea7cb263bf18276837b84654853655c2b944",
+    "changedSourceSha256": {
+      ".github/workflows/ci.yml": "cebf1510bcee25e67c2b92e51b95179509fae7ede25f650b230b087c271976dd",
+      "package.json": "c63c553d7b081b96d11c116f9d763baa48f068ffd56654e939534469e350354e",
+      "scripts/browser-writer-campaign.mjs": "0b2c58dc7671794cf4e4b7485bde8f0adc2aed3627929d3cefc60eefaa95820c",
+      "scripts/campaign-build-identity.mjs": "f55415ddc492b8a912c9bee9d0b5629d1acc604a3f0384073e044ad83ab678e1",
+      "scripts/campaign-evidence.mjs": "ede7cc3350ac6a29c068c77cd6cf5aec3de9cadd6554dd32dfec87e2fa0f52be",
+      "scripts/ci-evidence-files.mjs": "f64e15524c6849e5b170d0409fbd8b240d81f6a7cb349f07b2b63d7d77aea799",
+      "scripts/fixtures/campaign-evidence-case.mjs": "417920d63d94b0ed360b608e91843fdb3f0f2dac2701742e8987621fe615207e",
+      "scripts/fixtures/writer-campaign-browser-bootstrap.mjs": "d95b19ba7b8a512a5943522fe42ccb724af1ddb46891138ae166ac6893f07c09",
+      "scripts/fixtures/writer-campaign-browser-lifecycle.mjs": "7c4362e252b626e9400e54ee7d31188686e910a6eb7ba506704b90107b9776c5",
+      "scripts/fixtures/writer-campaign-browser-probe.mjs": "d0816b0fa71c36558698960fc19739828f1de95283b5c5be179d2267cd11f650",
+      "scripts/lib/writer-campaign-browser-diagnostics.mjs": "63454c6dc013b1f14068c4fd55fafe2676df80bc2cd9d2b0c1ff3016081f6f57",
+      "scripts/prepare-ci-evidence.mjs": "00ba8040c28a09cea13a6461dd27a4decc282957b713e7049492c1bb5f7aa5d7",
+      "scripts/profile-writer-campaign-capacity.ts": "5f31e77c2324c392fb6998b158094323a4cf7ccd201fe3bf233162395d2de419",
+      "scripts/smoke-ci-evidence.mjs": "eeab5a7b21293f4123ff795e28345a019a27f4752dcbccb1044355d9a44d3901",
+      "scripts/smoke-writer-campaign-browser-bootstrap.mjs": "c5d1728524f36384acd88a778059d4b854b735c6d536d1be1dd4a7a787aac771",
+      "scripts/smoke-writer-campaign-browser-lifecycle.mjs": "75ba1befa3d77ffaec789ca50ac727922f4364c31005b809195c866c1e44982d",
+      "scripts/smoke-writer-campaign-browser-probe.mjs": "4d562366932348c87d7915eb89b3f28905d9d1d51d61c77524bbf9210e26a31c",
+      "scripts/smoke-writer-campaign-engine.ts": "321deb91b44e9953b57fb2fbb21b3d67c6f818a6c8748febb657ff3376105276",
+      "scripts/smoke-writer-campaign-evidence.mjs": "a449891e96767dbebd6a4a00d52098fcad98c7bebd8093b5fc7487b2081de881",
+      "scripts/smoke-writer-campaign-store.ts": "43ab6df0062be856d41ab3c409377b84933ba38bbc70805a7abffdb52adf23e7",
+      "scripts/smoke-writer-campaign-ui.ts": "72ca7cf99b59c2c6de10e700729dc026ad6a44199c5d025311f164e8d0401e6c",
+      "src/composables/useWriterCampaign.ts": "3d90ed97529bef7aed9057436f3284a1fe3949dccc478c03bbc408856a1508bd",
+      "src/router/index.ts": "67e8a4d6200c1335bc3012163936a8c256f82a1ce6eed3324ec0c4d82cd9db21",
+      "src/services/writerCampaign/budget.ts": "d7ff4ac107211d9ce98e9efaa1b62c32751392178329f3342ac83ad6e0ad46e8",
+      "src/services/writerCampaign/buildIdentity.ts": "c5987fe9ecf3d07fac2b7a669fbd4f8d94ec01d7ef11f1cdb52828bb8b765270",
+      "src/services/writerCampaign/engine.ts": "3e6154774f6e36a531cd511e7080483fc2dd89263398fde886fe6bb4e9b3f92f",
+      "src/services/writerCampaign/fixtureAdapter.ts": "e8eb2c97b9d2fc19e95988ea3c8693d6eb3d0845ac8991571dd04d283e8b8440",
+      "src/services/writerCampaign/protocol.ts": "51e85f1a1292599a5b3abecd7143309e44dc710e134ec65780fa75088c8ef528",
+      "src/services/writerCampaign/store.ts": "078ee91d1180dea6220b28dfa691d1e9d9fc252004d0806e15cb4eb3668e55dd",
+      "src/types/writerCampaign.ts": "f5b12d7301cfee6917cb927247cba4e1d1037902cd003a460d3771f1e291a437",
+      "src/views/CampaignLab.vue": "bd48a25c3ec5472dbb35623bf0335d51961327715839bc4cd27d89d2f8debf02",
+      "src/views/Dashboard.vue": "bf2c18349d392de21370d1880c726d79dedffb1e09b272400473429102c3189f",
+      "vite.config.ts": "8a5fbc245c9cec38d510c58e7ab383261c2634fcaa2d8c44a9ca0837a8e733cd"
+    }
+  },
+  "retainedLocalEvidence": [
+    {
+      "file": "full-local.log",
+      "bytes": 172935,
+      "sha256": "f15db1ea1908fa486bbd116fe4c8494f706d5f5c329d7da938cc8d65a52c0cf2"
+    },
+    {
+      "file": "strict-types-final.log",
+      "bytes": 99,
+      "sha256": "7125f194612fcff2f454c05d848e7cb71facc1967b4d5017e25b34fdee3ba74f"
+    },
+    {
+      "file": "capacity-profile.jsonl",
+      "bytes": 2155,
+      "sha256": "378189f3abe066df1159ff5b6c96b747cf2f09fc420ef31dfbc2babf30649d2a"
+    },
+    {
+      "file": "full-ci-fix.log",
+      "bytes": 173100,
+      "sha256": "a877654f53d86f2149f884747a7f2af5fd65b52cb95053b93b50e1e2d8c1540e"
+    },
+    {
+      "file": "ci-initial-summary.json",
+      "bytes": 3822,
+      "sha256": "77e1e505b52d16401cc2a28f4fc00ff39aa3a81dff80786aa60416d9fff4a129"
+    },
+    {
+      "file": "runtime-rejection-audit.json",
+      "bytes": 709,
+      "sha256": "7410ee14e3bd689772f5a12b99051358550bf9bf44c834e5bbb7d506d195ad7d"
+    },
+    {
+      "file": "full-ci-bootstrap.log",
+      "bytes": 174105,
+      "sha256": "9bd98da8b15eefd07acc8f464950d44352e9e0e439396f007e0a2fb1fb8ea94e"
+    },
+    {
+      "file": "ci-second-summary.json",
+      "bytes": 5089,
+      "sha256": "6eb277acac2dbce3eaf3d1dc006efec0c123e6d777eda88f463b4f635957d5ec"
+    },
+    {
+      "file": "ci-second-agent-job.log",
+      "bytes": 70206,
+      "sha256": "2f8dfb02835aaeed7f0d77b98c9d66aaa9719f3ea4d5b88734296917ac69961a"
+    }
+  ],
+  "capacityObservations": [
+    {
+      "suite": "writer-campaign-capacity",
+      "language": "zh",
+      "environment": "node-injected-atomic-io-not-browser-idb",
+      "data": "runtime-generated-synthetic-repetitions",
+      "longformAcceptance": "NOT_RUN",
+      "targetBodyScalars": 1000000,
+      "plannedTasks": 123,
+      "plannedBodyTasks": 60,
+      "execution": "blocked",
+      "blockerCode": "budget_exhausted",
+      "committedBodyScalars": 200004,
+      "committedTasks": 28,
+      "actualFixtureInvocations": 28,
+      "reservedAttempts": 28,
+      "liveRecordCount": 373,
+      "liveSerializedMapBytes": 6309217,
+      "liveBytesByRecordKind": {
+        "catalog": 64,
+        "manifest": 13147,
+        "head": 338,
+        "checkpoint": 1994388,
+        "receipt": 78351,
+        "request": 3599418,
+        "artifact": 623511
+      },
+      "cumulativeSerializedBytes": 6346657,
+      "permanentStorageReservationBytes": 66456411,
+      "reservationHeadroomBytes": 60109754,
+      "serializedCeilingBytes": 67108864,
+      "cumulativeActiveReservationMs": 310000,
+      "maxReadBatchKeys": 33,
+      "maxReadBatchBytes": 1205520,
+      "totalReadBytes": 570635858,
+      "totalReadCalls": 10577,
+      "coldRepositoryReadMs": 173.89,
+      "coldRepositoryReadBytes": 6363172,
+      "coldRepositoryReadCalls": 97,
+      "executionMs": 17082.56,
+      "actualBilling": "unavailable-not-reported",
+      "liveModelCalls": 0
+    },
+    {
+      "suite": "writer-campaign-capacity",
+      "language": "en",
+      "environment": "node-injected-atomic-io-not-browser-idb",
+      "data": "runtime-generated-synthetic-repetitions",
+      "longformAcceptance": "NOT_RUN",
+      "targetBodyScalars": 1000000,
+      "plannedTasks": 123,
+      "plannedBodyTasks": 60,
+      "execution": "blocked",
+      "blockerCode": "budget_exhausted",
+      "committedBodyScalars": 350007,
+      "committedTasks": 46,
+      "actualFixtureInvocations": 46,
+      "reservedAttempts": 46,
+      "liveRecordCount": 607,
+      "liveSerializedMapBytes": 6557604,
+      "liveBytesByRecordKind": {
+        "catalog": 64,
+        "manifest": 13147,
+        "head": 338,
+        "checkpoint": 3664620,
+        "receipt": 127720,
+        "request": 2362810,
+        "artifact": 388905
+      },
+      "cumulativeSerializedBytes": 6618786,
+      "permanentStorageReservationBytes": 65625495,
+      "reservationHeadroomBytes": 59006709,
+      "serializedCeilingBytes": 67108864,
+      "cumulativeActiveReservationMs": 490000,
+      "maxReadBatchKeys": 33,
+      "maxReadBatchBytes": 728686,
+      "totalReadBytes": 997803343,
+      "totalReadCalls": 26957,
+      "coldRepositoryReadMs": 236.81,
+      "coldRepositoryReadBytes": 6636348,
+      "coldRepositoryReadCalls": 157,
+      "executionMs": 38953.94,
+      "actualBilling": "unavailable-not-reported",
+      "liveModelCalls": 0
+    }
+  ],
+  "limitations": [
+    "Million-character storage capacity is not passed: permanent conservative reservations stop the frozen profiles.",
+    "Repeated full-history verification amplifies aggregate reads despite bounded batches.",
+    "Node injected atomic IO is not real browser IndexedDB evidence.",
+    "Campaign backup/export and live-provider dispatch are not implemented.",
+    "Core identity is not a compiler/dependency/browser runtime attestation.",
+    "No generated full payload, export, backup, trace or complete request/response collection is published."
+  ],
+  "historicalInitialCI": {
+    "runId": 40121881904,
+    "attempt": 1,
+    "pullRequestHead": "6e4d43b0109aa9e994f0d113ae916619d65eefad",
+    "actionsCheckout": "aec4afbd1248f44a8e414d60ebf04aa9dc301d0a",
+    "tree": "9a51afe784e9923c41b8722c1522796fde2489ab",
+    "successfulJobs": 11,
+    "failedJobs": [
+      "ci-writer-agent"
+    ],
+    "priorAgentBrowserCases": "90 passed",
+    "campaignPassed": 7,
+    "campaignFailed": 5,
+    "campaignNotRun": 0,
+    "failedCaseIds": [
+      "C04",
+      "C08",
+      "C09",
+      "C10",
+      "C12"
+    ],
+    "browserErrors": 5,
+    "realModelRequests": 0,
+    "blockedExternalRequests": 0,
+    "derivedArtifactId": 12571985287,
+    "derivedArtifactMembers": 2,
+    "allErrorsAttributed": false
+  },
+  "followupScope": {
+    "productionChanged": false,
+    "workflowChanged": false,
+    "campaignDenominator": 12,
+    "requiredJobs": 12,
+    "priorAgentCases": 90,
+    "zeroBrowserErrorGateRetained": true,
+    "timeoutsChanged": false,
+    "diagnostics": "v2 closed stage/category/hash-only; max32+overflow; raw text excluded",
+    "correctedHeadCI": "PENDING",
+    "bootstrap": "expected app origin only, app-origin failures not suppressed",
+    "restore": "no forced reload or native dialog acceptance; verify commit and Campaign bytes before and after new document"
+  },
+  "historicalSecondCI": {
+    "runId": 40123957777,
+    "attempt": 1,
+    "pullRequestHead": "14daf1b00770cf507d7613bcd1f9877f371dcc41",
+    "actionsCheckout": "cb39bd5a34753a05a7c81cb8eb7cb0667b0791a6",
+    "tree": "f54b97fe55c8e69a382b26813cb3a13257cd94f6",
+    "successfulJobs": 11,
+    "failedJobs": [
+      "ci-writer-agent"
+    ],
+    "priorAgentBrowserCases": "90 passed",
+    "campaignPassed": 8,
+    "campaignFailed": 4,
+    "campaignNotRun": 0,
+    "failedCaseIds": [
+      "C04",
+      "C09",
+      "C10",
+      "C12"
+    ],
+    "browserErrors": 3,
+    "pageErrorSha256": "6129dc9a9e20cf2b93c30ff5b701163504d2c1a36cab2093cc2701acbac68b94",
+    "pageErrorDiagnosis": "Exact matched SecurityError from harness opaque-document localStorage access, reproduced in Node VM",
+    "C12": "reload_barrier unresolved; diagnostic-only refinement",
+    "realModelRequests": 0,
+    "blockedExternalRequests": 0,
+    "derivedArtifactId": 12572318564
+  }
+}

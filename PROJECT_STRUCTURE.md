@@ -129,3 +129,5 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 - `services/billing.ts` labels reported/estimated/unavailable usage, normalizes request types and computes exact filters and local-calendar trends; `TokenBilling.vue` renders recorded trend/distribution data and refreshes when usage changes.
 - Batch outline controllers retain invalid raw responses and enforce requested chapter counts before persistence; their source checks ignore incidental autosave metadata while still rejecting meaningful source changes.
 - API connection tests and model synchronization use cancellable form snapshots. Model caches are scoped to the provider endpoint and proxy, and only explicit configuration saves change active settings.
+
+- `services/writerCampaign/`, `useWriterCampaign` and the isolated `CampaignLab.vue` provide offline-only durable task/checkpoint foundations. `smoke:writer-campaign-{store,engine,ui,evidence}` joins `smoke:all`; `test:browser-writer-campaign` runs separately in the existing Agent CI job. Campaign data is not included in ordinary Writer backup/restore; [contract](docs/writer-campaign-foundation.md).

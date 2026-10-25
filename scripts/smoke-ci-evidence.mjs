@@ -8,6 +8,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CI_EVIDENCE_GROUPS, REQUEST_PROJECTIONS } from './ci-evidence-files.mjs'
 import { destinationFor, prepareEvidence, TEXT_LIMIT } from './prepare-ci-evidence.mjs'
+import { CAMPAIGN_REPORT_PATH } from './campaign-evidence.mjs'
+import { campaignEvidenceCase } from './fixtures/campaign-evidence-case.mjs'
 
 const root = await mkdtemp(path.join(os.tmpdir(), 'llm-ci-evidence-smoke-'))
 const script = fileURLToPath(new URL('./prepare-ci-evidence.mjs', import.meta.url))
@@ -41,6 +43,7 @@ const expectedGroups = {
   'memory-capacity': 5, 'memory-cold-index': 10, 'memory-full-scan': 7, 'memory-support': 5,
   'memory-novel-scan': 4, 'memory-stress': 6, 'memory-browser-stress': 5, 'graph-backup-mobile': 21,
   'writer-memory-browser': 23, 'writer-memory-stress': 3, 'fact-graph-review': 6, browser: 59, 'writer-agent': 4,
+  'writer-campaign': 1,
 }
 // Deliberately couple to this workflow's simple, fixed step layout. A formatting
 // change must update this guard instead of silently broadening the upload scope.
@@ -132,7 +135,7 @@ try {
     tunnel.replace('path: ${{ runner.temp }}/preview-url.json', 'path: artifacts/browser/report.json'),
   ]) assert.throws(() => verifyAllWorkflows(new Map(workflows).set('writer-browser-tunnel.yml', unsafe)))
   assert.throws(() => verifyAllWorkflows(new Map(workflows).set('future-unreviewed.yml', tunnel)), 'New workflows must not introduce unaudited uploads')
-  console.log('✓ Every workflow is checked: 13 CI archives and the tunnel browser archive require successful preparation; only exact preview URL metadata is exempt')
+  console.log('✓ Every workflow is checked: 14 CI archives and the tunnel browser archive require successful preparation; only exact preview URL metadata is exempt')
   assert.deepEqual(Object.fromEntries(Object.entries(CI_EVIDENCE_GROUPS).map(([key, values]) => [key, values.length])), expectedGroups)
   for (const allowed of Object.values(CI_EVIDENCE_GROUPS)) {
     assert.equal(new Set(allowed).size, allowed.length)
@@ -142,7 +145,7 @@ try {
       if (sources.has(source)) continue
       let bytes = png
       if (source.endsWith('.json')) {
-        const report = structuredClone(baseReport)
+        const report = source === CAMPAIGN_REPORT_PATH ? campaignEvidenceCase() : structuredClone(baseReport)
         for (const [collection, mode] of Object.entries(REQUEST_PROJECTIONS[source] || {})) {
           report[collection] = mode === 'body' ? [body, body] : [request, request]
         }
@@ -178,6 +181,11 @@ try {
       assert.equal(value.evidenceKind, 'derived-not-raw')
       assert.deepEqual(value.source, entry.source)
       assert.equal(value.transformation.policy.classification, 'derived-not-raw')
+      if (entry.source.path === CAMPAIGN_REPORT_PATH) {
+        assert.equal(value.transformation.closedSchema, 'campaign-browser-foundation-v2')
+        assert.deepEqual(value.report, campaignEvidenceCase())
+        continue
+      }
       assert.deepEqual(value.report.totals, baseReport.totals)
       assert.deepEqual(value.report.expected, baseReport.expected)
       assert.equal(value.report.tests.length, 1)
@@ -225,7 +233,7 @@ try {
       }
     }
   }
-  console.log('✓ All 13 groups stage exactly 158 audited entries; backups, traces, unknown files and exported images stay local')
+  console.log('✓ All 14 groups stage exactly 159 audited entries; backups, traces, unknown files and exported images stay local')
   console.log('✓ All five request schemas retain scalar counters and body hashes without raw bodies/responses; diagnostics withhold even tiny complete backups')
 
   const group = 'memory-novel-scan'

@@ -5,6 +5,7 @@ import { lstat, mkdir, mkdtemp, open, realpath, rename, rm, writeFile } from 'no
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CI_EVIDENCE_GROUPS, REQUEST_PROJECTIONS } from './ci-evidence-files.mjs'
+import { CAMPAIGN_REPORT_PATH, projectCampaignReport } from './campaign-evidence.mjs'
 
 export const TEXT_LIMIT = 6000
 const MAX_SOURCE_BYTES = 128 * 1024 * 1024
@@ -120,6 +121,14 @@ export function summarizeReport(bytes, sourcePath) {
   let report
   try { report = JSON.parse(bytes.toString('utf8')) } catch { throw new Error(`Invalid JSON report: ${sourcePath}`) }
   if (!object(report)) throw new Error(`Invalid report root: ${sourcePath}`)
+  if (sourcePath === CAMPAIGN_REPORT_PATH) {
+    return {
+      schemaVersion: 1, evidenceKind: 'derived-not-raw',
+      source: { path: sourcePath, bytes: bytes.length, sha256: sha256(bytes) },
+      transformation: { policy, closedSchema: 'campaign-browser-foundation-v2', requestProjections: [], textFields: [] },
+      report: projectCampaignReport(report),
+    }
+  }
   const projections = REQUEST_PROJECTIONS[sourcePath] || {}
   const transformed = []
   const requestProjections = []

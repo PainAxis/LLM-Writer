@@ -5,9 +5,13 @@ import vue from '@vitejs/plugin-vue'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import { campaignBuildIdentity } from './scripts/campaign-build-identity.mjs'
 
 export default defineConfig({
   base: './',
+  define: {
+    __WRITER_CAMPAIGN_BUILD_IDENTITY__: JSON.stringify(campaignBuildIdentity(fileURLToPath(new URL('.', import.meta.url)))),
+  },
   plugins: [
     vue(),
     AutoImport({

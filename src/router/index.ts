@@ -1,10 +1,10 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import Dashboard from '@/views/Dashboard.vue'
 
 const routes = [
+  { path: '/campaigns', name: 'CampaignLab', component: () => import('@/views/CampaignLab.vue') },
   {
     path: '/',
-    component: Dashboard,
+    component: () => import('@/views/Dashboard.vue'),
     children: [
       { path: '', name: 'HomePage', component: () => import('@/views/HomePage.vue') },
       { path: 'prompts', name: 'PromptsLibrary', component: () => import('@/views/PromptsLibrary.vue') },
