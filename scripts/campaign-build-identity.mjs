@@ -10,7 +10,11 @@ export const CAMPAIGN_CORE_PATHS = Object.freeze([
   'src/services/writerCampaign/budget.ts',
   'src/services/writerCampaign/engine.ts',
   'src/services/writerCampaign/fixtureAdapter.ts',
+  'src/services/writerCampaign/legacyProtocol.ts',
+  'src/services/writerCampaign/legacyStore.ts',
+  'src/services/writerCampaign/legacyTypes.ts',
   'src/services/writerCampaign/protocol.ts',
+  'src/services/writerCampaign/storageAccounting.ts',
   'src/services/writerCampaign/store.ts',
 ].sort())
 

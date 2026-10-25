@@ -17,6 +17,7 @@ import { build } from 'vite'
 import { campaignFixtureProbePlugin, installCampaignProbe } from './fixtures/writer-campaign-browser-probe.mjs'
 import { installCampaignPageBootstrap } from './fixtures/writer-campaign-browser-bootstrap.mjs'
 import { ordinaryStorageProjection, campaignDocumentIdentity, waitForFreshCampaignReload } from './fixtures/writer-campaign-browser-lifecycle.mjs'
+import { CAMPAIGN_CORE_PATHS } from './campaign-build-identity.mjs'
 import { isCampaignBrowserFailureStage, recordCampaignPageError } from './lib/writer-campaign-browser-diagnostics.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
@@ -31,7 +32,7 @@ const files = ['src/types/writerCampaign.ts', 'src/services/writerCampaign/proto
   'src/router/index.ts', 'src/main.ts', 'src/App.vue', 'src/views/Settings.vue', 'src/services/backup.ts',
   'src/services/novelPersistence.ts', 'src/services/storageCoordination.ts', 'src/utils/storage.ts', 'scripts/browser-writer-campaign.mjs',
   'scripts/fixtures/writer-campaign-browser-probe.mjs', 'scripts/fixtures/writer-campaign-browser-bootstrap.mjs', 'scripts/fixtures/writer-campaign-browser-lifecycle.mjs', 'scripts/lib/writer-campaign-browser-diagnostics.mjs']
-const sourceHashes = await Promise.all(files.sort().map(async file => [file, hash(await readFile(path.join(root, file)))]))
+const sourceHashes = await Promise.all([...new Set([...files, ...CAMPAIGN_CORE_PATHS])].sort().map(async file => [file, hash(await readFile(path.join(root, file)))]))
 const commit = process.env.GITHUB_SHA ?? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
 assert.match(commit, /^[a-f0-9]{40}$/)
 const fixtureDefinition = { version: 'campaign-browser-v1', languages: ['zh', 'en'], stages: 5, targetCharacters: 1_000_000,
@@ -155,6 +156,7 @@ async function disk(page) {
 }
 const campaignBytes = value => Object.fromEntries(Object.entries(value.idb).filter(([key]) => key.startsWith('writer-campaign:')).sort(([a], [b]) => a.localeCompare(b)))
 const ordinaryBytes = ordinaryStorageProjection
+const storageBytes = value => { assert.match(value, /^[0-9]{16}$/); const number = Number(value); assert.ok(Number.isSafeInteger(number)); return number }
 const rawHead = (value, id) => JSON.parse(value.idb[`writer-campaign:${encodeURIComponent(id)}:head`])
 const rawCheckpoint = (value, id) => JSON.parse(value.idb[`writer-campaign:${encodeURIComponent(id)}:checkpoint:${rawHead(value, id).sequence}`])
 const records = (value, id, kind) => Object.entries(value.idb).filter(([key]) => key.startsWith(`writer-campaign:${encodeURIComponent(id)}:${kind}:`)).map(([, value]) => JSON.parse(value))
@@ -207,6 +209,8 @@ test('C02', async () => {
     const value = await disk(f.page), checkpoint = rawCheckpoint(value, id), artifacts = records(value, id, 'artifact')
     assert.equal(artifacts.length, 5); assert.ok(checkpoint.bodyCharacters > 0 && checkpoint.bodyCharacters < 1000)
     assert.equal(checkpoint.bodyCharacters, artifacts.find(a => a.kind === 'chapter_body').canonical.scalars)
+    assert.equal(checkpoint.schemaVersion, 2); assert.equal(storageBytes(checkpoint.storage.outstandingBytes), 0)
+    assert.equal(checkpoint.storage.openAllocations.length, 0); assert.ok(storageBytes(checkpoint.storage.releasedBytes) > 0)
     stage('artifact_receipts')
     for (const artifact of artifacts) {
       assert.equal(artifact.semanticStatus, 'not_reviewed')
@@ -307,11 +311,20 @@ test('C07', async () => {
   await node(f.page, 'step').click(); await held(f.page, 'retained-ack')
   const before = await disk(f.page); assert.equal(rawCheckpoint(before, id).tasks[0].status, 'response_retained')
   assert.equal(records(before, id, 'artifact').length, 0); assert.equal(entries(id).length, 1)
+  const retainedStorage = rawCheckpoint(before, id).storage
+  assert.ok(storageBytes(retainedStorage.outstandingBytes) > 0); assert.equal(storageBytes(retainedStorage.releasedBytes), 0)
+  assert.equal(retainedStorage.openAllocations.length, 1)
   stage('reopen_save_only')
   f = await reopen(f); await choose(f.page, id)
   await node(f.page, 'save-only').click(); await expect(node(f.page, 'task-progress')).toHaveText('1 / 5（不是长篇验收）')
   stage('atomic_saved')
   assert.equal(entries(id).length, 1); assert.equal(records(await disk(f.page), id, 'artifact').length, 1)
+  const saved = await disk(f.page), settledStorage = rawCheckpoint(saved, id).storage
+  assert.equal(storageBytes(settledStorage.outstandingBytes), 0); assert.equal(settledStorage.openAllocations.length, 0)
+  const accepted = records(saved, id, 'receipt').find(receipt => receipt.kind === 'accept_artifact')
+  assert.equal(accepted.storageEffect.requestId, retainedStorage.openAllocations[0].request.id)
+  assert.equal(storageBytes(accepted.storageEffect.releasedBytes), storageBytes(settledStorage.releasedBytes))
+  assert.ok(storageBytes(settledStorage.releasedBytes) > 0)
 })
 // Synchronous native-put failure: production catch performs the atomic rollback.
 test('C08', async () => {
@@ -352,6 +365,8 @@ test('C09', async () => {
   await release(f.page, 'stale-response'); await expect(node(f.page, 'refresh')).toBeEnabled(); await refresh(f.page)
   assert.deepEqual(campaignBytes(await disk(f.page)), campaignBytes(replaced), 'Old response cannot overwrite the new candidate/dependency root')
   assert.equal(checkpoint.budget.attempts, rawCheckpoint(beforeReplacement, id).budget.attempts, 'Replacement never refunds stale in-flight reservations')
+  assert.deepEqual(checkpoint.storage.openAllocations, rawCheckpoint(beforeReplacement, id).storage.openAllocations, 'Detached allocation survives candidate replacement')
+  assert.equal(checkpoint.storage.outstandingBytes, rawCheckpoint(beforeReplacement, id).storage.outstandingBytes)
   stage('regenerate')
   await node(f.page, 'resume').click(); await expect(node(f.page, 'step')).toBeEnabled(); await step(f.page, 2)
   stage('assert_lineage')

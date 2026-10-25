@@ -1,4 +1,28 @@
-/** Version one is an offline durability protocol, not a long-form quality verdict. */
+/** Version two separates cumulative writes from unresolved storage obligations. */
+import type { CampaignSnapshot as LegacyCampaignSnapshot } from '../services/writerCampaign/legacyTypes'
+export type { LegacyCampaignSnapshot }
+export type CampaignInspection = CampaignSnapshot | LegacyCampaignSnapshot
+
+/** Canonical wire representation; use protocol helpers for all arithmetic. */
+export type StorageBytes16 = string & { readonly __storageBytes16: unique symbol }
+export interface CampaignStoragePolicy { limitBytes: StorageBytes16; recoveryReserveBytes: StorageBytes16 }
+export interface CampaignOpenAllocation { request: CampaignRequestRef; remainingBytes: StorageBytes16 }
+export interface CampaignStorageState {
+  writtenBytes: StorageBytes16
+  allocatedBytes: StorageBytes16
+  allocationConsumedBytes: StorageBytes16
+  releasedBytes: StorageBytes16
+  outstandingBytes: StorageBytes16
+  recoveryRemainingBytes: StorageBytes16
+  openAllocations: CampaignOpenAllocation[]
+}
+export interface CampaignStorageEffect {
+  source: 'request' | 'recovery' | 'direct'
+  requestId: string | null
+  allocatedBytes: StorageBytes16
+  releasedBytes: StorageBytes16
+  remainingBytes: StorageBytes16
+}
 export type CampaignTaskKind = 'outline' | 'character_bible' | 'detailed_outline' | 'chapter_outline' | 'chapter_body'
 export type CampaignStatus = 'prepared' | 'running' | 'paused' | 'blocked' | 'cancelled' | 'completed'
 export type CampaignTaskStatus = 'pending' | 'reserved' | 'dispatch_intent' | 'response_retained' | 'committed' | 'known_failed' | 'outcome_unknown' | 'invalidated'
@@ -21,15 +45,13 @@ export interface CampaignBudget {
   reasoningTokens: number
   responseBytes: number
   activeMs: number
-  serializedBytes: number
-  storageReservedBytes: number
   artifacts: number
   operations: number
 }
 
 export interface CampaignManifest {
-  schemaVersion: 1
-  protocolVersion: 'campaign-v1'
+  schemaVersion: 2
+  protocolVersion: 'campaign-v2'
   campaignId: string
   candidateId: string
   language: 'zh' | 'en'
@@ -46,8 +68,7 @@ export interface CampaignManifest {
   maxProviderRetries: 0
   tasks: CampaignTaskSpec[]
   budget: CampaignBudget
-  /** Reserved subset of serializedBytes available only to bounded recovery/terminal commits. */
-  recoveryReserveBytes: number
+  storage: CampaignStoragePolicy
   hash: CampaignHash
 }
 
@@ -60,7 +81,7 @@ export interface CampaignTextMetrics {
 export interface CampaignArtifactRef { taskId: string; revision: number; hash: CampaignHash }
 export interface CampaignRequestRef { id: string; revision: number; hash: CampaignHash }
 export interface CampaignArtifact {
-  schemaVersion: 1
+  schemaVersion: 2
   campaignId: string
   candidateId: string
   taskId: string
@@ -91,7 +112,7 @@ export interface CampaignResponse {
   evidenceId: string
 }
 export interface CampaignRequest {
-  schemaVersion: 1
+  schemaVersion: 2
   campaignId: string
   id: string
   revision: number
@@ -107,6 +128,7 @@ export interface CampaignRequest {
   inputUtf16: number
   status: Exclude<CampaignTaskStatus, 'pending' | 'invalidated'>
   reservation: CampaignBudget
+  storageAllocationBytes: StorageBytes16
   response: CampaignResponse | null
   failureReason: string | null
   hash: CampaignHash
@@ -126,10 +148,11 @@ export interface CampaignState {
   candidateId: string
   tasks: CampaignTaskState[]
   budget: CampaignBudget
+  storage: CampaignStorageState
   lastWallTime: number
 }
 export interface CampaignCheckpoint extends CampaignState {
-  schemaVersion: 1
+  schemaVersion: 2
   campaignId: string
   sequence: number
   manifestHash: CampaignHash
@@ -139,7 +162,7 @@ export interface CampaignCheckpoint extends CampaignState {
   hash: CampaignHash
 }
 export interface CampaignHead {
-  schemaVersion: 1
+  schemaVersion: 2
   campaignId: string
   sequence: number
   manifestHash: CampaignHash
@@ -149,7 +172,7 @@ export interface CampaignHead {
   receiptId: string
 }
 export interface CampaignReceipt {
-  schemaVersion: 1
+  schemaVersion: 2
   campaignId: string
   operationId: string
   kind: CampaignOperationKind
@@ -161,7 +184,8 @@ export interface CampaignReceipt {
   checkpointHash: CampaignHash
   artifactHashes: CampaignHash[]
   requestHashes: CampaignHash[]
-  serializedBytes: number
+  serializedBytes: StorageBytes16
+  storageEffect: CampaignStorageEffect
   hash: CampaignHash
 }
 export interface CampaignSnapshot {
@@ -193,6 +217,7 @@ export interface CampaignRepositoryIO {
 export interface CampaignRepository {
   list(): Promise<string[]>
   create(manifest: CampaignManifest, operationId: string): Promise<CampaignCommitResult>
+  inspect(campaignId: string): Promise<CampaignInspection | null>
   read(campaignId: string): Promise<CampaignSnapshot | null>
   commit(expected: CampaignSnapshot, mutation: CampaignMutation, canCommit?: () => boolean): Promise<CampaignCommitResult>
   getReceipt(campaignId: string, operationId: string): Promise<CampaignReceipt | null>

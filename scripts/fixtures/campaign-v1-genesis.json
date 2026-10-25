@@ -1,0 +1,33 @@
+{
+  "sourceCommit": "84e704afff08921763d4b83136d881a39946900a",
+  "campaignId": "legacy-frozen",
+  "identity": {
+    "runtimeIdentity": "controlled-engine-smoke-v1",
+    "source": {
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "tree": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "entries": [
+    [
+      "writer-campaign:catalog",
+      "{\"ids\":[\"legacy-frozen\"],\"schemaVersion\":1}"
+    ],
+    [
+      "writer-campaign:legacy-frozen:manifest:3966780c97976eaf8563c7287f5228601a642252199ee53a54fe4df1fe1a42cb",
+      "{\"adapterId\":\"offline-fixture-v1\",\"bodyTarget\":{\"characters\":1000000,\"unit\":\"unicode_scalar\"},\"budget\":{\"activeMs\":1600000,\"artifacts\":256,\"attempts\":128,\"inputBytes\":8388608,\"inputUtf16\":8388608,\"operations\":2048,\"outputTokens\":8388608,\"reasoningTokens\":0,\"responseBytes\":8388608,\"serializedBytes\":67108864,\"storageReservedBytes\":67108864},\"campaignId\":\"legacy-frozen\",\"candidateId\":\"candidate-0\",\"countingVersion\":\"crlf-lf-nfc-scalar-v1\",\"createdAt\":1800000000000,\"expiresAt\":1800604800000,\"fixtureVersion\":\"tiny-bilingual-v1\",\"hash\":\"3966780c97976eaf8563c7287f5228601a642252199ee53a54fe4df1fe1a42cb\",\"language\":\"en\",\"maxProviderRetries\":0,\"maxRepairRounds\":0,\"mode\":\"offline_fixture\",\"protocolVersion\":\"campaign-v1\",\"recoveryReserveBytes\":524288,\"runtimeIdentity\":\"controlled-engine-smoke-v1\",\"schemaVersion\":1,\"source\":{\"commit\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"tree\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"tasks\":[{\"chapterOrdinal\":null,\"dependsOn\":[],\"id\":\"outline\",\"kind\":\"outline\"},{\"chapterOrdinal\":null,\"dependsOn\":[\"outline\"],\"id\":\"characters\",\"kind\":\"character_bible\"},{\"chapterOrdinal\":null,\"dependsOn\":[\"outline\",\"characters\"],\"id\":\"details\",\"kind\":\"detailed_outline\"},{\"chapterOrdinal\":1,\"dependsOn\":[\"details\",\"characters\"],\"id\":\"chapter-1-outline\",\"kind\":\"chapter_outline\"},{\"chapterOrdinal\":1,\"dependsOn\":[\"chapter-1-outline\"],\"id\":\"chapter-1-body\",\"kind\":\"chapter_body\"}]}"
+    ],
+    [
+      "writer-campaign:legacy-frozen:checkpoint:0",
+      "{\"bodyCharacters\":0,\"budget\":{\"activeMs\":10000,\"artifacts\":0,\"attempts\":0,\"inputBytes\":0,\"inputUtf16\":0,\"operations\":1,\"outputTokens\":0,\"reasoningTokens\":0,\"responseBytes\":0,\"serializedBytes\":3720,\"storageReservedBytes\":34722},\"campaignId\":\"legacy-frozen\",\"candidateId\":\"candidate-0\",\"executionEpoch\":0,\"hash\":\"33a391b6b9c8d9bbd97dfcae5e8b69719f84037a8b030189e8edd3777d4ddf9d\",\"lastWallTime\":1800000000000,\"manifestHash\":\"3966780c97976eaf8563c7287f5228601a642252199ee53a54fe4df1fe1a42cb\",\"operationId\":\"create-legacy-frozen\",\"previousHash\":null,\"reason\":null,\"schemaVersion\":1,\"sequence\":0,\"status\":\"prepared\",\"tasks\":[{\"artifact\":null,\"priorArtifact\":null,\"request\":null,\"revision\":0,\"status\":\"pending\",\"taskId\":\"outline\"},{\"artifact\":null,\"priorArtifact\":null,\"request\":null,\"revision\":0,\"status\":\"pending\",\"taskId\":\"characters\"},{\"artifact\":null,\"priorArtifact\":null,\"request\":null,\"revision\":0,\"status\":\"pending\",\"taskId\":\"details\"},{\"artifact\":null,\"priorArtifact\":null,\"request\":null,\"revision\":0,\"status\":\"pending\",\"taskId\":\"chapter-1-outline\"},{\"artifact\":null,\"priorArtifact\":null,\"request\":null,\"revision\":0,\"status\":\"pending\",\"taskId\":\"chapter-1-body\"}]}"
+    ],
+    [
+      "writer-campaign:legacy-frozen:receipt:create-legacy-frozen",
+      "{\"artifactHashes\":[],\"businessDigest\":\"488372f47eabdfa3247461a2e1d6bc99c57edc18ae36cea27681395207e47254\",\"campaignId\":\"legacy-frozen\",\"checkpointHash\":\"33a391b6b9c8d9bbd97dfcae5e8b69719f84037a8b030189e8edd3777d4ddf9d\",\"executionEpoch\":0,\"expectedSequence\":null,\"hash\":\"e0d50d093780210dda9d40634d4ce0e0ad7a2e50181dffc0fd634478cbbc5566\",\"kind\":\"create\",\"manifestHash\":\"3966780c97976eaf8563c7287f5228601a642252199ee53a54fe4df1fe1a42cb\",\"operationId\":\"create-legacy-frozen\",\"requestHashes\":[],\"schemaVersion\":1,\"sequence\":0,\"serializedBytes\":3720}"
+    ],
+    [
+      "writer-campaign:legacy-frozen:head",
+      "{\"campaignId\":\"legacy-frozen\",\"checkpointHash\":\"33a391b6b9c8d9bbd97dfcae5e8b69719f84037a8b030189e8edd3777d4ddf9d\",\"executionEpoch\":0,\"manifestHash\":\"3966780c97976eaf8563c7287f5228601a642252199ee53a54fe4df1fe1a42cb\",\"receiptId\":\"create-legacy-frozen\",\"schemaVersion\":1,\"sequence\":0,\"status\":\"prepared\"}"
+    ]
+  ]
+}

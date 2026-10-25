@@ -130,3 +130,5 @@
 - API 连接测试和模型同步使用可取消的表单快照；模型缓存按服务商端点和代理隔离，仅显式保存配置才修改当前生效设置。
 
 - `services/writerCampaign/`、`useWriterCampaign` 与独立 `CampaignLab.vue` 提供仅离线的持久任务／检查点基础。`smoke:writer-campaign-{store,engine,ui,evidence}` 加入 `smoke:all`；`test:browser-writer-campaign` 在现有 Agent CI job 单独运行。Campaign 数据不纳入普通 Writer 备份／恢复；见[合同](docs/writer-campaign-foundation.zh-CN.md)。
+
+- Campaign v2 存储使用定宽字节字段、请求归属 allocation 和接受 artifact 时的原子结算；旧版本读取器仅查看并保留 v1 原字节。[存储合同](docs/writer-campaign-storage.zh-CN.md)区分累计写入、未结义务、恢复保护、物理配额及供应商用量。

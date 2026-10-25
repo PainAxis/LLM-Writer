@@ -131,3 +131,5 @@ All paths in this table are relative to `src/`; `use*.ts` controllers are under 
 - API connection tests and model synchronization use cancellable form snapshots. Model caches are scoped to the provider endpoint and proxy, and only explicit configuration saves change active settings.
 
 - `services/writerCampaign/`, `useWriterCampaign` and the isolated `CampaignLab.vue` provide offline-only durable task/checkpoint foundations. `smoke:writer-campaign-{store,engine,ui,evidence}` joins `smoke:all`; `test:browser-writer-campaign` runs separately in the existing Agent CI job. Campaign data is not included in ordinary Writer backup/restore; [contract](docs/writer-campaign-foundation.md).
+
+- Campaign v2 storage accounting uses fixed-width byte fields, request-owned allocations and atomic acceptance settlement; its legacy reader preserves v1 bytes read-only. The [storage contract](docs/writer-campaign-storage.md) separates cumulative writes, outstanding obligations and recovery reserve from physical quota and provider usage.

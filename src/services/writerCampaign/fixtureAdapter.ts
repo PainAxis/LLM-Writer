@@ -37,7 +37,7 @@ export interface OfflineFixtureOptions {
 }
 const hosts = new WeakSet<object>()
 const permits = new WeakMap<object, string>()
-const binding = (request: CampaignRequest) => canonicalStringify([request.campaignId, request.candidateId, request.taskId, request.taskRevision, request.id, request.inputDigest, request.reservation])
+const binding = (request: CampaignRequest) => canonicalStringify([request.campaignId, request.candidateId, request.taskId, request.taskRevision, request.id, request.inputDigest, request.reservation, request.schemaVersion, request.storageAllocationBytes])
 const copyResponse = (response: CampaignResponse): CampaignResponse => ({ ...response, usage: { ...response.usage } })
 export function isOfflineCampaignHost(host: CampaignAuthorizationHost): boolean { return hosts.has(host) }
 
@@ -72,7 +72,7 @@ export function createOfflineFixtureHost(options: OfflineFixtureOptions = {}): C
     capabilities: Object.freeze({ network: false, retries: 0, maxResponseBytes: CAMPAIGN_MAX_RESPONSE_BYTES }),
     async prepareRequest(context) {
       if (context.manifest.mode !== 'offline_fixture' || context.manifest.adapterId !== provider.id) throw new CampaignRuntimeError('unsupported_adapter')
-      const text = JSON.stringify({ protocol: 'campaign-input-v1', manifestHash: context.manifest.hash, candidateId: context.candidateId,
+      const text = JSON.stringify({ protocol: 'campaign-input-v2', manifestHash: context.manifest.hash, candidateId: context.candidateId,
         language: context.manifest.language, bodyTarget: context.manifest.bodyTarget, task: context.task, taskRevision: context.taskRevision,
         dependencies: context.dependencies.map(artifact => ({ taskId: artifact.taskId, revision: artifact.revision, hash: artifact.hash, text: artifact.text })) })
       const bytes = new TextEncoder().encode(text).length

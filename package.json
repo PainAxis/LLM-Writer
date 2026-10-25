@@ -153,7 +153,14 @@
     "profile:writer-campaign-capacity": "node --import tsx scripts/profile-writer-campaign-capacity.ts",
     "smoke:writer-campaign-browser-lifecycle": "node scripts/smoke-writer-campaign-browser-lifecycle.mjs",
     "smoke:writer-campaign-browser-probe": "node scripts/smoke-writer-campaign-browser-probe.mjs",
-    "smoke:writer-campaign-browser-bootstrap": "node scripts/smoke-writer-campaign-browser-bootstrap.mjs"
+    "smoke:writer-campaign-browser-bootstrap": "node scripts/smoke-writer-campaign-browser-bootstrap.mjs",
+    "smoke:writer-campaign-accounting": "node --import tsx scripts/smoke-writer-campaign-accounting.ts",
+    "smoke:writer-campaign-storage-evidence": "node --import tsx scripts/smoke-writer-campaign-storage-evidence.mjs",
+    "smoke:writer-campaign-storage-meter": "node scripts/smoke-writer-campaign-storage-meter.mjs",
+    "test:browser-writer-campaign-storage": "node scripts/browser-writer-campaign-storage.mjs",
+    "smoke:writer-campaign-open-limit": "node --import tsx scripts/smoke-writer-campaign-open-limit.ts",
+    "smoke:writer-campaign-read-batches": "node --import tsx scripts/smoke-writer-campaign-read-batches.ts",
+    "smoke:writer-campaign-comparisons": "node --import tsx scripts/smoke-writer-campaign-comparisons.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

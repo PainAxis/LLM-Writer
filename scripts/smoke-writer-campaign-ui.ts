@@ -11,34 +11,37 @@ import ts from 'typescript'
 import { createOfflineCampaignEngine } from '../src/services/writerCampaign/engine'
 import { createCampaignRepository } from '../src/services/writerCampaign/store'
 import { useWriterCampaign, type CampaignLabEngine } from '../src/composables/useWriterCampaign'
-import type { CampaignSnapshot } from '../src/types/writerCampaign'
+import { encodeStorageBytes } from '../src/services/writerCampaign/protocol'
+import type { CampaignInspection, CampaignSnapshot } from '../src/types/writerCampaign'
 
 async function runCampaignUiSmoke() {
 const hash = 'a'.repeat(64)
 const zero = { attempts: 0, inputBytes: 0, inputUtf16: 0, outputTokens: 0, reasoningTokens: 0,
-  responseBytes: 0, activeMs: 0, serializedBytes: 0, storageReservedBytes: 0, artifacts: 0, operations: 0 }
+  responseBytes: 0, activeMs: 0, artifacts: 0, operations: 0 }
 const makeSnapshot = (id: string, status: CampaignSnapshot['checkpoint']['status'] = 'prepared'): CampaignSnapshot => ({
-  manifest: { schemaVersion: 1, protocolVersion: 'campaign-v1', campaignId: id, candidateId: 'candidate-1', language: 'zh',
+  manifest: { schemaVersion: 2, protocolVersion: 'campaign-v2', campaignId: id, candidateId: 'candidate-1', language: 'zh',
     bodyTarget: { unit: 'unicode_scalar', characters: 1_000_000 }, mode: 'offline_fixture', adapterId: 'offline-fixture-v1',
     fixtureVersion: 'ui-presentation-only', countingVersion: 'crlf-lf-nfc-scalar-v1', runtimeIdentity: 'ui-test',
     source: { commit: '0'.repeat(40), tree: '0'.repeat(40) }, createdAt: 1, expiresAt: 1_000_000,
     maxRepairRounds: 0, maxProviderRetries: 0, tasks: [{ id: 'outline', kind: 'outline', chapterOrdinal: null, dependsOn: [] }],
-    budget: { ...zero, attempts: 5, serializedBytes: 1_000_000 }, recoveryReserveBytes: 1000, hash },
-  head: { schemaVersion: 1, campaignId: id, sequence: 1, manifestHash: hash, checkpointHash: hash, executionEpoch: 1, status, receiptId: 'create' },
-  checkpoint: { schemaVersion: 1, campaignId: id, sequence: 1, manifestHash: hash, previousHash: null, operationId: 'create', bodyCharacters: 0,
+    budget: { ...zero, attempts: 5 }, storage: { limitBytes: encodeStorageBytes(67_108_864), recoveryReserveBytes: encodeStorageBytes(524_288) }, hash },
+  head: { schemaVersion: 2, campaignId: id, sequence: 1, manifestHash: hash, checkpointHash: hash, executionEpoch: 1, status, receiptId: 'create' },
+  checkpoint: { schemaVersion: 2, campaignId: id, sequence: 1, manifestHash: hash, previousHash: null, operationId: 'create', bodyCharacters: 0,
     hash, status, reason: null, executionEpoch: 1, candidateId: 'candidate-1', tasks: [{ taskId: 'outline', revision: 1, status: 'pending', artifact: null, priorArtifact: null, request: null }],
-    budget: { ...zero }, lastWallTime: 1 },
-  receipt: { schemaVersion: 1, campaignId: id, operationId: 'create', kind: 'create', businessDigest: hash, expectedSequence: null,
-    sequence: 1, executionEpoch: 1, manifestHash: hash, checkpointHash: hash, artifactHashes: [], requestHashes: [], serializedBytes: 1, hash },
+    budget: { ...zero }, storage: { writtenBytes: encodeStorageBytes(1000), allocatedBytes: encodeStorageBytes(0),
+      allocationConsumedBytes: encodeStorageBytes(0), releasedBytes: encodeStorageBytes(0), outstandingBytes: encodeStorageBytes(0),
+      recoveryRemainingBytes: encodeStorageBytes(524_288), openAllocations: [] }, lastWallTime: 1 },
+  receipt: { schemaVersion: 2, campaignId: id, operationId: 'create', kind: 'create', businessDigest: hash, expectedSequence: null,
+    sequence: 1, executionEpoch: 1, manifestHash: hash, checkpointHash: hash, artifactHashes: [], requestHashes: [], serializedBytes: encodeStorageBytes(1000), storageEffect: { source: 'direct', requestId: null, allocatedBytes: encodeStorageBytes(0), releasedBytes: encodeStorageBytes(0), remainingBytes: encodeStorageBytes(0) }, hash },
   artifacts: new Map(), requests: new Map(), rawHead: 'presentation-only',
 })
 function deferred<T>() { let resolve!: (value: T) => void, reject!: (error: Error) => void
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 async function flush() { for (let i = 0; i < 20; i++) await Promise.resolve(); await Vue.nextTick() }
 function fixture() {
-  const records = new Map<string, CampaignSnapshot>()
+  const records = new Map<string, CampaignInspection>()
   const calls = { list: 0, inspect: 0, prepare: 0, step: 0, pause: 0, resume: 0, cancel: 0, recover: 0, stop: 0 }
-  let readGate: ReturnType<typeof deferred<CampaignSnapshot | null>> | null = null
+  let readGate: ReturnType<typeof deferred<CampaignInspection | null>> | null = null
   let stepGate: ReturnType<typeof deferred<void>> | null = null
   let prepareGate: ReturnType<typeof deferred<void>> | null = null
   let failCancel = false
@@ -161,12 +164,12 @@ function component(ui: ReturnType<typeof useWriterCampaign>) {
 }
 {
   const f = fixture(); await f.ready()
-  const artifact = { schemaVersion: 1 as const, campaignId: 'ui-created', candidateId: 'candidate-1', taskId: 'outline', taskRevision: 1,
+  const artifact = { schemaVersion: 2 as const, campaignId: 'ui-created', candidateId: 'candidate-1', taskId: 'outline', taskRevision: 1,
     revision: 1, kind: 'outline' as const, dependencies: [], parentHash: null, text: '<script>not executable</script>&<b>plain text</b>',
     raw: { hash, utf8Bytes: 20, utf16Units: 20, scalars: 20 }, canonical: { hash, utf8Bytes: 20, utf16Units: 20, scalars: 20 }, semanticStatus: 'not_reviewed' as const, hash }
-  f.ui.snapshot.value!.artifacts.set(hash, artifact)
+  ;(f.ui.snapshot.value! as CampaignSnapshot).artifacts.set(hash, artifact)
   const html = await renderToString(Vue.createSSRApp(component(f.ui)))
-  for (const id of ['lab', 'create-zh', 'create-en', 'refresh', 'status', 'task-progress', 'target-progress', 'acceptance', 'head', 'budgets', 'artifacts', 'receipts', 'step', 'pause', 'resume', 'cancel']) assert.ok(html.includes(`data-testid="campaign-${id}"`))
+  for (const id of ['lab', 'create-zh', 'create-en', 'refresh', 'status', 'task-progress', 'target-progress', 'acceptance', 'head', 'budgets', 'storage-written', 'storage-outstanding', 'storage-recovery', 'storage-released', 'inactive-unknown', 'artifacts', 'receipts', 'step', 'pause', 'resume', 'cancel']) assert.ok(html.includes(`data-testid="campaign-${id}"`))
   assert.match(html, /离线持久化验证，非自主小说/); assert.match(html, /longformAcceptance: NOT_RUN/)
   assert.match(html, /普通 Writer 备份与恢复不包含/); assert.match(html, /&lt;script&gt;not executable/)
   assert.doesNotMatch(html, /<script>not executable/); assert.doesNotMatch(source, /v-html|localStorage|indexedDB|apiConfig|fetch\(/)
@@ -183,6 +186,49 @@ function component(ui: ReturnType<typeof useWriterCampaign>) {
   app.mount({}); await flush(); assert.equal(f.calls.list, 1); assert.equal(f.calls.step, 0); assert.equal(f.calls.prepare, 0)
   app.unmount(); assert.equal(f.calls.stop, 1)
   assert.equal(await f.ui.create('zh'), false)
+}
+
+// Validated legacy inspection disables every mutation even when its identity matches the runtime.
+{
+  const frozen = JSON.parse(fs.readFileSync(new URL('./fixtures/campaign-v1-genesis.json', import.meta.url), 'utf8'))
+  const disk = new Map<string, string>(frozen.entries), before = [...disk.entries()]
+  let writes = 0
+  const repository = createCampaignRepository({
+    async getMany(keys) { return new Map(keys.map(key => [key, disk.get(key) ?? null])) },
+    async compareAndSwapMany() { writes++; throw new Error('Legacy inspection must never reach CAS') },
+  })
+  const engine = createOfflineCampaignEngine({ identity: frozen.identity, repository })
+  const ui = useWriterCampaign({ engine })
+  await ui.refresh(); assert.equal(await ui.select(frozen.campaignId), true)
+  assert.equal(ui.readOnly.value, true); assert.equal(ui.storageSummary.value, null)
+  assert.ok(ui.legacyStorageSummary.value!.written > 0); assert.ok(ui.legacyStorageSummary.value!.reserved > 0)
+  for (const enabled of [ui.canStep, ui.canStop, ui.canResume, ui.canSaveOnly]) assert.equal(enabled.value, false)
+  for (const action of [ui.step, ui.pause, ui.resume, ui.cancel, ui.saveOnly]) assert.equal(await action(), false)
+  const html = await renderToString(Vue.createSSRApp(component(ui)))
+  assert.match(html, /data-testid="campaign-read-only"/); assert.match(html, /旧预留不解释为可回收空间/)
+  assert.doesNotMatch(html, /data-testid="campaign-storage-outstanding"/)
+  assert.match(html, /data-testid="campaign-legacy-written"/); assert.match(html, /data-testid="campaign-legacy-reserved"/)
+  assert.equal(writes, 0); assert.deepEqual([...disk.entries()], before); ui.dispose()
+}
+// The independent ledger, not only active tasks, keeps invalidated unknown obligations visible.
+{
+  const f = fixture(); await f.ready()
+  const state = makeSnapshot('ui-created', 'running')
+  const ref = { id: 'old-request', revision: 2, hash }
+  state.checkpoint.storage.openAllocations = [{ request: ref, remainingBytes: encodeStorageBytes(12345) }]
+  state.checkpoint.storage.outstandingBytes = encodeStorageBytes(12345)
+  state.requests.set(hash, { schemaVersion: 2, campaignId: 'ui-created', id: ref.id, revision: 2, parentHash: hash,
+    taskId: 'outline', taskRevision: 0, candidateId: 'old-candidate', adapterId: 'offline-fixture-v1', inputDigest: hash,
+    preparedInput: '{}', commandId: 'old-command', inputBytes: 2, inputUtf16: 2, status: 'outcome_unknown',
+    reservation: { ...zero, attempts: 1 }, storageAllocationBytes: encodeStorageBytes(20000), response: null, failureReason: 'unknown', hash })
+  f.records.set('ui-created', state); await f.ui.refresh()
+  assert.equal(f.ui.unresolved.value, false); assert.equal(f.ui.unknownRequests.value, 1)
+  assert.equal(f.ui.inactiveUnknownRequests.value, 1); assert.equal(f.ui.storageSummary.value!.outstanding, 12345)
+  assert.equal(f.ui.canStep.value, true, 'An inactive obligation is not permission to replay it or a global candidate block')
+  const html = await renderToString(Vue.createSSRApp(component(f.ui)))
+  assert.match(html, /data-testid="campaign-unknown"/); assert.match(html, /非活动未知请求/)
+  assert.match(html, /不退模型预算或费用/); assert.match(html, /包含最终取消保护/)
+  f.ui.dispose()
 }
 
 const routerSource = fs.readFileSync(fileURLToPath(new URL('../src/router/index.ts', import.meta.url)), 'utf8')

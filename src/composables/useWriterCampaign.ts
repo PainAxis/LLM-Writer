@@ -1,11 +1,12 @@
 import { computed, ref, shallowRef } from 'vue'
 import { createOfflineCampaignEngine } from '@/services/writerCampaign/engine'
-import type { CampaignSnapshot } from '@/types/writerCampaign'
+import { decodeStorageBytes } from '@/services/writerCampaign/protocol'
+import type { CampaignInspection, CampaignSnapshot, LegacyCampaignSnapshot } from '@/types/writerCampaign'
 
 /** Presentation only. Neither these refs nor a saved manifest authorize execution. */
 export interface CampaignLabEngine {
   list(): Promise<string[]>
-  inspect(id: string): Promise<CampaignSnapshot | null>
+  inspect(id: string): Promise<CampaignInspection | null>
   prepare(input: { campaignId: string; language: 'zh' | 'en' }): Promise<unknown>
   step(id: string): Promise<unknown>
   pause(id: string): Promise<unknown>
@@ -22,7 +23,7 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   const engine: CampaignLabEngine = options.engine ?? createOfflineCampaignEngine()
   const ids = ref<string[]>([])
   const selectedId = ref('')
-  const snapshot = shallowRef<CampaignSnapshot | null>(null)
+  const snapshot = shallowRef<CampaignInspection | null>(null)
   const busy = ref(false)
   const loading = ref(false)
   const error = ref('')
@@ -35,16 +36,42 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
 
   const valid = (token: number, id: string) => !disposed && token === owner && id === selectedId.value
   const status = computed(() => snapshot.value?.checkpoint.status ?? 'not_selected')
+  const readOnly = computed(() => snapshot.value?.manifest.schemaVersion !== 2)
+  const currentStorage = computed(() => {
+    const value = snapshot.value
+    if (!value || value.manifest.schemaVersion !== 2) return null
+    // The verified inspection union has matching manifest/checkpoint versions.
+    return (value as CampaignSnapshot).checkpoint.storage
+  })
+  const storageSummary = computed(() => {
+    const value = snapshot.value
+    if (!value) return null
+    if (value.manifest.schemaVersion !== 2) return null
+    const current = value as CampaignSnapshot
+    return { written: decodeStorageBytes(current.checkpoint.storage.writtenBytes),
+      limit: decodeStorageBytes(current.manifest.storage.limitBytes),
+      outstanding: decodeStorageBytes(current.checkpoint.storage.outstandingBytes),
+      recoveryRemaining: decodeStorageBytes(current.checkpoint.storage.recoveryRemainingBytes),
+      released: decodeStorageBytes(current.checkpoint.storage.releasedBytes),
+      openAllocations: current.checkpoint.storage.openAllocations.length }
+  })
+  const legacyStorageSummary = computed(() => {
+    const value = snapshot.value
+    if (!value || value.manifest.schemaVersion !== 1) return null
+    const legacy = value as LegacyCampaignSnapshot
+    return { written: legacy.checkpoint.budget.serializedBytes, reserved: legacy.checkpoint.budget.storageReservedBytes,
+      limit: legacy.manifest.budget.serializedBytes }
+  })
   const unresolved = computed(() => snapshot.value?.checkpoint.tasks.some(task =>
     ['dispatch_intent', 'outcome_unknown'].includes(task.status)) ?? false)
   const retained = computed(() => snapshot.value?.checkpoint.tasks.some(task => task.status === 'response_retained') ?? false)
-  const canSaveOnly = computed(() => !busy.value && !loading.value && retained.value && desiredStop !== 'cancelled'
+  const canSaveOnly = computed(() => !readOnly.value && !busy.value && !loading.value && retained.value && desiredStop !== 'cancelled'
     && !['cancelled', 'completed'].includes(status.value))
-  const canStep = computed(() => !busy.value && !loading.value && !locallyStopped.value && !unresolved.value && !retained.value
+  const canStep = computed(() => !readOnly.value && !busy.value && !loading.value && !locallyStopped.value && !unresolved.value && !retained.value
     && ['prepared', 'running'].includes(status.value))
-  const canResume = computed(() => !busy.value && !loading.value && status.value === 'paused'
+  const canResume = computed(() => !readOnly.value && !busy.value && !loading.value && status.value === 'paused'
     && !unresolved.value && desiredStop !== 'cancelled')
-  const canStop = computed(() => Boolean(selectedId.value) && !['cancelled', 'completed'].includes(status.value)
+  const canStop = computed(() => !readOnly.value && Boolean(selectedId.value) && !['cancelled', 'completed'].includes(status.value)
     && persistentOutcome.value !== 'pending')
   const taskRows = computed(() => snapshot.value?.checkpoint.tasks.map(task => ({ ...task,
     kind: snapshot.value!.manifest.tasks.find(spec => spec.id === task.taskId)?.kind ?? task.taskId,
@@ -54,6 +81,13 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   const requests = computed(() => [...(snapshot.value?.requests.values() ?? [])])
   const unknownRequests = computed(() => requests.value.filter(request =>
     ['dispatch_intent', 'outcome_unknown'].includes(request.status)).length)
+  const inactiveUnknownRequests = computed(() => {
+    const value = snapshot.value, storage = currentStorage.value
+    if (!value || !storage) return 0
+    const active = new Set(value.checkpoint.tasks.flatMap(task => task.request ? [task.request.hash] : []))
+    return storage.openAllocations.filter(row => !active.has(row.request.hash)
+      && ['dispatch_intent', 'outcome_unknown'].includes(value.requests.get(row.request.hash)?.status ?? '')).length
+  })
   const observedUsage = computed(() => {
     let input = 0, output = 0, inputs = 0, outputs = 0, unknown = 0
     for (const request of requests.value) {
@@ -65,7 +99,7 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
     return { input: inputs ? input : null, output: outputs ? output : null, unknown }
   })
 
-  const publish = (value: CampaignSnapshot | null) => {
+  const publish = (value: CampaignInspection | null) => {
     snapshot.value = value
     if (desiredStop) {
       persistentOutcome.value = value?.checkpoint.status === desiredStop ? 'confirmed' : 'unconfirmed'
@@ -178,6 +212,6 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
 
   return { ids, selectedId, snapshot, busy, loading, error, status, locallyStopped, persistentOutcome,
     canStep, canResume, canStop, canSaveOnly, unresolved, taskRows, artifactRows, completedTasks, requests,
-    unknownRequests, observedUsage, refresh, select, create,
+    unknownRequests, inactiveUnknownRequests, readOnly, storageSummary, legacyStorageSummary, observedUsage, refresh, select, create,
     step: () => execute('step'), saveOnly: () => execute('recoverSaveOnly'), resume: () => execute('resume'), pause: () => stop('pause'), cancel: () => stop('cancel'), dispose }
 }
