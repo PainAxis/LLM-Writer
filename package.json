@@ -152,7 +152,8 @@
     "test:browser-writer-campaign": "node scripts/browser-writer-campaign.mjs",
     "profile:writer-campaign-capacity": "node --import tsx scripts/profile-writer-campaign-capacity.ts",
     "smoke:writer-campaign-browser-lifecycle": "node scripts/smoke-writer-campaign-browser-lifecycle.mjs",
-    "smoke:writer-campaign-browser-probe": "node scripts/smoke-writer-campaign-browser-probe.mjs"
+    "smoke:writer-campaign-browser-probe": "node scripts/smoke-writer-campaign-browser-probe.mjs",
+    "smoke:writer-campaign-browser-bootstrap": "node scripts/smoke-writer-campaign-browser-bootstrap.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

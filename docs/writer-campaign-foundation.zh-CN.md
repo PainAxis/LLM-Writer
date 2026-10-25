@@ -71,7 +71,7 @@ Campaign artifact/checkpoint 仅在当前浏览器 profile 本地保存。**本�
 
 中英文百万目标存储几何 profile 报告实际停止位置，包括触限拒绝；重复几何文本不是小说或质量证据。真实浏览器为固定12例：C01–C03使用普通 production build，C04–C12使用独立标明的离线 host 观察／故障构建，仍走真实 engine、CAS、IndexedDB，transform 不替换状态、预算或持久化逻辑。未插桩场景的精确 adapter 进入次数记 null，不以 UI 指示器推算。工程工作区未运行本地浏览器。
 
-- `npm run smoke:writer-campaign-store`、`smoke:writer-campaign-engine`、`smoke:writer-campaign-ui`、`smoke:writer-campaign-evidence`、`smoke:writer-campaign-browser-lifecycle`、`smoke:writer-campaign-browser-probe` 全部进入 `npm run smoke:all`。
+- `npm run smoke:writer-campaign-store`、`smoke:writer-campaign-engine`、`smoke:writer-campaign-ui`、`smoke:writer-campaign-evidence`、`smoke:writer-campaign-browser-lifecycle`、`smoke:writer-campaign-browser-probe`、`smoke:writer-campaign-browser-bootstrap` 全部进入 `npm run smoke:all`。
 - `npm run test:browser-writer-campaign` 是现有 `ci-writer-agent` job 的独立有时限步骤，不暗中加入旧 browser 总 runner。原十二项必要 CI 保持。
 - Campaign 上传只含闭合 schema 派生的 `report.summary.json` 与 manifest。未知字段使准备失败，不上传截图或 raw report 目录。
 
@@ -94,3 +94,11 @@ PR #44 首轮 [40121881904](https://github.com/PainAxis/LLM-Writer/actions/runs/
 修正只涉及测试准备、故障注入和诊断，不改生产代码或超时。恢复操作前先注册 reload 等待并证明新文档；隔离比较覆盖全部普通 IndexedDB 和 localStorage；跨标签等待两方结束后再验证持久赢家。观察标签和路由模块在故障门之前预热，卸载证明同文档路由变化，不能用超时替代。旧 probe 先主动 abort 再 throw，使真实 CAS catch 再次 abort。现在只在事务仍活跃时注入同步 put 失败，由生产代码唯一执行回滚。严格原生状态 Node 模型复现旧双重 abort，并检查新路径，但不是浏览器验收，也不能据此解释首轮全部 5 个错误。
 
 报告 schema v2 保留固定 12 场景和零浏览器错误门槛。仅发布固定失败阶段 ID、逐场景计数、最多 32 条枚举分类与 SHA-256 错误记录及溢出计数，不复制原始错误消息、堆栈或正文。捕获场景归属与关闭后的复核，防止迟到错误仍被记为通过。未知字段、非法阶段／分类以及归属／溢出计量不一致均拒绝归档。修正后的准确 head 仍须重新通过实际浏览器 CI，本地 Node 检查不能关闭首轮失败。
+
+## 第二轮 CI：初始化错误已定位，恢复仍未归因
+
+修正后 [40123957777](https://github.com/PainAxis/LLM-Writer/actions/runs/40123957777) 对应 head `14daf1b00770cf507d7613bcd1f9877f371dcc41`、合成 checkout `cb39bd5a34753a05a7c81cb8eb7cb0667b0791a6`、tree `f54b97fe55c8e69a382b26813cb3a13257cd94f6`。仍为 11 项 job 成功，旧 Agent 90 场景通过；Campaign 为 8 通过／4 失败／0 未运行。C08 已通过；C04/C09/C10 各一个相同哈希的 other 错误，C12 无浏览器错误但卡在过粗的 reload 阶段。外部／真实模型请求仍为 0。
+
+三个错误哈希均精确匹配测试初始化在新建标签的 opaque about:blank 文档访问 localStorage 时抛出的 SecurityError，Node VM 复现哈希完全一致。现在公告设置与隐私读取观察仅在准确预期的 HTTP(S) 应用 origin 上安装，空白或其他来源不访问存储。6 项反例保留真实应用来源的读取观察，且不吞真实应用来源存储错误。这是测试初始化修正，不改生产错误策略。
+
+C12 根因仍未确定。旧阶段同时涵盖完成提示、点击确认、真实重载、返回和选择；新固定阶段分别标记，并在重载前验证普通小说空集合已提交、Campaign bytes 未变，在真实新文档重载后且返回／选择前再次验证。该窄窗口内若出现原生提示，只 dismiss 并以固定阶段失败，不自动接受，也不强制 reload。仍须下一准确 head 的浏览器结果，12 场景、既有超时和零错误门槛均保留。

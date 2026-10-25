@@ -5,35 +5,39 @@
   "localValidation": {
     "lint": "passed --max-warnings 0",
     "build": "passed vue-tsc and Vite",
-    "smokeSuites": 113,
+    "smokeSuites": 114,
     "strictNewTypeScriptScripts": "passed",
     "focusedEngineCases": 24,
     "focusedIdentityArchiveChecks": 39,
-    "browser": "NOT_RUN locally; first head failed 7/12, corrected exact-head CI required",
+    "browser": "NOT_RUN locally; first CI7/12, second CI8/12, next exact-head CI required",
     "liveModelCalls": 0,
     "longformAcceptance": "NOT_RUN",
     "browserHelperSmoke": "reload identity, full ordinary storage, closed diagnostics passed",
-    "probeNativeStateModel": "historical double-abort reproduced; corrected single rollback passed; not browser evidence"
+    "probeNativeStateModel": "historical double-abort reproduced; corrected single rollback passed; not browser evidence",
+    "bootstrapChecks": 6,
+    "restoreBoundary": "C12 unresolved; finer fixed diagnostics, unchanged real reload and storage checks"
   },
   "sourceIntegrity": {
-    "nativePathCount": 440,
+    "nativePathCount": 442,
     "beforeAfterEqual": true,
-    "canonicalManifestSha256": "0d326b15fbf1b0c2c702a8dc9ff0d0f5904be7d6e6c8bd4882cd0450f56f3f57",
+    "canonicalManifestSha256": "af85754e1d6d17e5aac7b658258aea7cb263bf18276837b84654853655c2b944",
     "changedSourceSha256": {
       ".github/workflows/ci.yml": "cebf1510bcee25e67c2b92e51b95179509fae7ede25f650b230b087c271976dd",
-      "package.json": "6e58a5cb66d4b8e66c906f75092b4d815455dc5b86320112b05d125514118334",
-      "scripts/browser-writer-campaign.mjs": "c845e6516bc5763060c6ad892179c3f43e4b8c2444a5a923c42cf2780e0b09dd",
+      "package.json": "c63c553d7b081b96d11c116f9d763baa48f068ffd56654e939534469e350354e",
+      "scripts/browser-writer-campaign.mjs": "0b2c58dc7671794cf4e4b7485bde8f0adc2aed3627929d3cefc60eefaa95820c",
       "scripts/campaign-build-identity.mjs": "f55415ddc492b8a912c9bee9d0b5629d1acc604a3f0384073e044ad83ab678e1",
       "scripts/campaign-evidence.mjs": "ede7cc3350ac6a29c068c77cd6cf5aec3de9cadd6554dd32dfec87e2fa0f52be",
       "scripts/ci-evidence-files.mjs": "f64e15524c6849e5b170d0409fbd8b240d81f6a7cb349f07b2b63d7d77aea799",
       "scripts/fixtures/campaign-evidence-case.mjs": "417920d63d94b0ed360b608e91843fdb3f0f2dac2701742e8987621fe615207e",
-      "scripts/fixtures/writer-campaign-browser-lifecycle.mjs": "74d72a74ff7a24def382bf87726bc35d82fbf4e7f9ada1ad30e8fbb6336b753d",
+      "scripts/fixtures/writer-campaign-browser-bootstrap.mjs": "d95b19ba7b8a512a5943522fe42ccb724af1ddb46891138ae166ac6893f07c09",
+      "scripts/fixtures/writer-campaign-browser-lifecycle.mjs": "7c4362e252b626e9400e54ee7d31188686e910a6eb7ba506704b90107b9776c5",
       "scripts/fixtures/writer-campaign-browser-probe.mjs": "d0816b0fa71c36558698960fc19739828f1de95283b5c5be179d2267cd11f650",
-      "scripts/lib/writer-campaign-browser-diagnostics.mjs": "9777126e37c260e64d6dc02e05498f9298b68dcbe1b9cd3fb27c6f1c6b8fce43",
+      "scripts/lib/writer-campaign-browser-diagnostics.mjs": "63454c6dc013b1f14068c4fd55fafe2676df80bc2cd9d2b0c1ff3016081f6f57",
       "scripts/prepare-ci-evidence.mjs": "00ba8040c28a09cea13a6461dd27a4decc282957b713e7049492c1bb5f7aa5d7",
       "scripts/profile-writer-campaign-capacity.ts": "5f31e77c2324c392fb6998b158094323a4cf7ccd201fe3bf233162395d2de419",
       "scripts/smoke-ci-evidence.mjs": "eeab5a7b21293f4123ff795e28345a019a27f4752dcbccb1044355d9a44d3901",
-      "scripts/smoke-writer-campaign-browser-lifecycle.mjs": "c56bb45404ba6d2608d419f99f6bd2d3cae427192e49550a66756fbc6b05829f",
+      "scripts/smoke-writer-campaign-browser-bootstrap.mjs": "c5d1728524f36384acd88a778059d4b854b735c6d536d1be1dd4a7a787aac771",
+      "scripts/smoke-writer-campaign-browser-lifecycle.mjs": "75ba1befa3d77ffaec789ca50ac727922f4364c31005b809195c866c1e44982d",
       "scripts/smoke-writer-campaign-browser-probe.mjs": "4d562366932348c87d7915eb89b3f28905d9d1d51d61c77524bbf9210e26a31c",
       "scripts/smoke-writer-campaign-engine.ts": "321deb91b44e9953b57fb2fbb21b3d67c6f818a6c8748febb657ff3376105276",
       "scripts/smoke-writer-campaign-evidence.mjs": "a449891e96767dbebd6a4a00d52098fcad98c7bebd8093b5fc7487b2081de881",
@@ -83,6 +87,21 @@
       "file": "runtime-rejection-audit.json",
       "bytes": 709,
       "sha256": "7410ee14e3bd689772f5a12b99051358550bf9bf44c834e5bbb7d506d195ad7d"
+    },
+    {
+      "file": "full-ci-bootstrap.log",
+      "bytes": 174105,
+      "sha256": "9bd98da8b15eefd07acc8f464950d44352e9e0e439396f007e0a2fb1fb8ea94e"
+    },
+    {
+      "file": "ci-second-summary.json",
+      "bytes": 5089,
+      "sha256": "6eb277acac2dbce3eaf3d1dc006efec0c123e6d777eda88f463b4f635957d5ec"
+    },
+    {
+      "file": "ci-second-agent-job.log",
+      "bytes": 70206,
+      "sha256": "2f8dfb02835aaeed7f0d77b98c9d66aaa9719f3ea4d5b88734296917ac69961a"
     }
   ],
   "capacityObservations": [
@@ -216,6 +235,36 @@
     "zeroBrowserErrorGateRetained": true,
     "timeoutsChanged": false,
     "diagnostics": "v2 closed stage/category/hash-only; max32+overflow; raw text excluded",
-    "correctedHeadCI": "PENDING"
+    "correctedHeadCI": "PENDING",
+    "bootstrap": "expected app origin only, app-origin failures not suppressed",
+    "restore": "no forced reload or native dialog acceptance; verify commit and Campaign bytes before and after new document"
+  },
+  "historicalSecondCI": {
+    "runId": 40123957777,
+    "attempt": 1,
+    "pullRequestHead": "14daf1b00770cf507d7613bcd1f9877f371dcc41",
+    "actionsCheckout": "cb39bd5a34753a05a7c81cb8eb7cb0667b0791a6",
+    "tree": "f54b97fe55c8e69a382b26813cb3a13257cd94f6",
+    "successfulJobs": 11,
+    "failedJobs": [
+      "ci-writer-agent"
+    ],
+    "priorAgentBrowserCases": "90 passed",
+    "campaignPassed": 8,
+    "campaignFailed": 4,
+    "campaignNotRun": 0,
+    "failedCaseIds": [
+      "C04",
+      "C09",
+      "C10",
+      "C12"
+    ],
+    "browserErrors": 3,
+    "pageErrorSha256": "6129dc9a9e20cf2b93c30ff5b701163504d2c1a36cab2093cc2701acbac68b94",
+    "pageErrorDiagnosis": "Exact matched SecurityError from harness opaque-document localStorage access, reproduced in Node VM",
+    "C12": "reload_barrier unresolved; diagnostic-only refinement",
+    "realModelRequests": 0,
+    "blockedExternalRequests": 0,
+    "derivedArtifactId": 12572318564
   }
 }

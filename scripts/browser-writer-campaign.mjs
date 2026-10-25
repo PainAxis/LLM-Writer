@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium, expect as playwrightExpect } from '@playwright/test'
 import { build } from 'vite'
 import { campaignFixtureProbePlugin, installCampaignProbe } from './fixtures/writer-campaign-browser-probe.mjs'
+import { installCampaignPageBootstrap } from './fixtures/writer-campaign-browser-bootstrap.mjs'
 import { ordinaryStorageProjection, campaignDocumentIdentity, waitForFreshCampaignReload } from './fixtures/writer-campaign-browser-lifecycle.mjs'
 import { isCampaignBrowserFailureStage, recordCampaignPageError } from './lib/writer-campaign-browser-diagnostics.mjs'
 
@@ -27,8 +28,9 @@ const files = ['src/types/writerCampaign.ts', 'src/services/writerCampaign/proto
   'src/services/writerCampaign/buildIdentity.ts', 'scripts/campaign-build-identity.mjs',
   'src/services/writerCampaign/budget.ts', 'src/services/writerCampaign/fixtureAdapter.ts', 'src/services/writerCampaign/engine.ts',
   'src/services/blobStore.ts', 'src/composables/useWriterCampaign.ts', 'src/views/CampaignLab.vue', 'src/views/Dashboard.vue',
-  'src/router/index.ts', 'src/main.ts', 'src/App.vue', 'src/services/backup.ts', 'scripts/browser-writer-campaign.mjs',
-  'scripts/fixtures/writer-campaign-browser-probe.mjs', 'scripts/fixtures/writer-campaign-browser-lifecycle.mjs', 'scripts/lib/writer-campaign-browser-diagnostics.mjs']
+  'src/router/index.ts', 'src/main.ts', 'src/App.vue', 'src/views/Settings.vue', 'src/services/backup.ts',
+  'src/services/novelPersistence.ts', 'src/services/storageCoordination.ts', 'src/utils/storage.ts', 'scripts/browser-writer-campaign.mjs',
+  'scripts/fixtures/writer-campaign-browser-probe.mjs', 'scripts/fixtures/writer-campaign-browser-bootstrap.mjs', 'scripts/fixtures/writer-campaign-browser-lifecycle.mjs', 'scripts/lib/writer-campaign-browser-diagnostics.mjs']
 const sourceHashes = await Promise.all(files.sort().map(async file => [file, hash(await readFile(path.join(root, file)))]))
 const commit = process.env.GITHUB_SHA ?? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
 assert.match(commit, /^[a-f0-9]{40}$/)
@@ -99,18 +101,7 @@ async function launch(profile, mode) {
     assert.match(identity.inputDigest, /^[a-f0-9]{64}$/)
     observed.push({ caseId: caseOwner.id, ...identity })
   })
-  await context.addInitScript(() => {
-    // Native read-only observer for the direct-route privacy regression. No values retained.
-    const getItem = Storage.prototype.getItem
-    globalThis.__campaignConfigReadCount = 0
-    Storage.prototype.getItem = function (key) {
-      if (!globalThis.__campaignOracleRead && this === localStorage && ['apiConfig', 'customApiConfig', 'officialApiConfig'].includes(key)) globalThis.__campaignConfigReadCount++
-      return getItem.call(this, key)
-    }
-    // Suppress only the incidental release announcement, not Campaign behavior.
-    localStorage.setItem('lastReadAnnouncementVersion', '1.0.0')
-    localStorage.setItem('lastReadAnnouncementDate', String(Date.now()))
-  })
+  await context.addInitScript(installCampaignPageBootstrap, { expectedOrigin: origin })
   if (mode !== 'production') await context.addInitScript(installCampaignProbe)
   const page = context.pages()[0] ?? await context.newPage()
   await page.goto(`${origin}/#/campaigns`)
@@ -440,11 +431,24 @@ test('C12', async () => {
     buffer: Buffer.from(JSON.stringify({ format: 'llm-writer-backup', version: 2, exportTime: '2026-01-01T00:00:00.000Z', data: { novels: [] } })) })
   stage('restore_confirm')
   await f.page.getByRole('dialog', { name: '确认导入' }).getByRole('button', { name: '确定', exact: true }).click()
-  stage('reload_barrier')
+  stage('restore_completed_dialog')
   const completed = f.page.getByRole('dialog', { name: '导入完成', exact: true })
   await expect(completed).toContainText('成功导入')
-  await waitForFreshCampaignReload(f.page, () => completed.getByRole('button', { name: '确定', exact: true }).click())
-  await f.page.goto(`${f.origin}/#/campaigns`); await choose(f.page, id)
+  stage('restore_committed')
+  const restored = await disk(f.page)
+  assert.equal(restored.local.novels, '[]', 'Success dialog follows the actual ordinary backup commit')
+  assert.deepEqual(campaignBytes(restored), before, 'Ordinary restore preserves every Campaign byte before reload')
+  await waitForFreshCampaignReload(f.page, () => completed.getByRole('button', { name: '确定', exact: true }).click(), stage)
+  stage('reload_storage')
+  const reloaded = await disk(f.page)
+  assert.equal(reloaded.local.novels, '[]')
+  assert.deepEqual(campaignBytes(reloaded), before, 'Reload preserves every Campaign byte before return or selection')
+  stage('return_to_campaign')
+  await f.page.goto(`${f.origin}/#/campaigns`)
+  stage('campaign_list_ready')
+  await expect(node(f.page, 'lab')).toBeVisible(); await expect(node(f.page, 'refresh')).toBeEnabled()
+  stage('campaign_select')
+  await choose(f.page, id)
   stage('assert_isolation')
   assert.deepEqual(campaignBytes(await disk(f.page)), before)
   await expect(node(f.page, 'task-progress')).toHaveText('1 / 5（不是长篇验收）')

@@ -17,7 +17,9 @@ const specific = {
   C09: ['prewarm', 'stale_response_gate', 'replace_outline', 'release_stale', 'regenerate', 'assert_lineage'],
   C10: ['cancel_before_intent', 'cancel_after_intent', 'cancel_failure'],
   C11: ['prewarm', 'resolve_cancel', 'unmount_gate', 'route_unmount', 'assert_unmount'],
-  C12: ['settings', 'restore_confirm', 'reload_barrier', 'assert_isolation'],
+  C12: ['settings', 'restore_confirm', 'restore_completed_dialog', 'restore_committed',
+    'reload_barrier', 'reload_before_identity', 'restore_complete_confirm', 'reload_wait', 'reload_identity',
+    'reload_native_beforeunload', 'reload_native_dialog', 'reload_storage', 'return_to_campaign', 'campaign_list_ready', 'campaign_select', 'assert_isolation'],
 }
 export const CAMPAIGN_BROWSER_FAILURE_STAGES = Object.freeze(Object.fromEntries(CAMPAIGN_BROWSER_CASE_IDS.map(id => [id, Object.freeze([...common, ...specific[id]])])))
 export function isCampaignBrowserFailureStage(caseId, value) {
