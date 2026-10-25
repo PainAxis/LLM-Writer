@@ -271,11 +271,11 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
       const artifacts = new Map<string, CampaignArtifact>(), requests = new Map<string, CampaignRequest>()
       const captured = new Map<string, string>()
       let retainedSerializedBytes = 0
-      function retain(key: string, raw: string, hash: string): void {
+      function retain(key: string, valueBytes: number, hash: string): void {
         const prior = captured.get(key)
         campaignAssert(prior === undefined || prior === hash, 'Conflicting verified final record')
         if (prior !== undefined) return
-        retainedSerializedBytes = counterSum(retainedSerializedBytes, utf8Bytes(key) + utf8Bytes(raw))
+        retainedSerializedBytes = counterSum(retainedSerializedBytes, utf8Bytes(key) + valueBytes)
         // This counts serialized payload, not JS heap. Each unique retained
         // immutable record was charged in W; no raw duplicate is retained here.
         campaignAssert(retainedSerializedBytes <= decodeStorageBytes(checkpoint.storage.writtenBytes) && retainedSerializedBytes <= CAMPAIGN_LIMITS.serializedBytes, 'Final record retention bytes exceeded')
@@ -341,14 +341,17 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
           }
         }
         campaignAssert(eventKeys.size <= 64, 'History event frontier exceeded its bound')
-        const eventRaw = new Map<string, string | null>(), eventKeyList = [...eventKeys]
+        // Raw bytes and their measured length share this guarded batch's lifetime.
+        // The public parser still independently checks bounds and canonical bytes.
+        const eventRaw = new Map<string, { raw: string | null; valueBytes: number }>(), eventKeyList = [...eventKeys]
         for (let start = 0; start < eventKeyList.length && !moved; start += 32) {
           const keys = eventKeyList.slice(start, start + 32), records = await guarded(keys)
           if (moved) break
           for (const key of keys) {
             const raw = records.get(key) ?? null
-            campaignAssert(raw === null || utf8Bytes(raw) <= CAMPAIGN_LIMITS.recordBytes, 'Oversized history event record')
-            eventRaw.set(key, raw)
+            const valueBytes = raw === null ? 0 : utf8Bytes(raw)
+            campaignAssert(raw === null || valueBytes <= CAMPAIGN_LIMITS.recordBytes, 'Oversized history event record')
+            eventRaw.set(key, { raw, valueBytes })
           }
         }
         if (moved) break
@@ -356,13 +359,13 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
           const evidence = evidenceItems[index]!
           const requestRefs = [...item.tasks.flatMap(task => task.request ? [task.request] : []), ...item.storage.openAllocations.map(row => row.request)]
           let phaseRequest: CampaignRequest | null = null
-          let phaseRequestWire: { key: string; value: string } | null = null
+          let phaseRequestWire: { key: string; valueBytes: number } | null = null
           if (evidence.requestHashes.length) {
             const ref = requestRefs.find(ref => ref.hash === evidence.requestHashes[0])
             campaignAssert(ref, 'Receipt request is absent from checkpoint')
-            const key = campaignKeys.request(campaignIdValue, ref.id, ref.revision), raw = eventRaw.get(key) ?? null
+            const key = campaignKeys.request(campaignIdValue, ref.id, ref.revision), { raw, valueBytes } = eventRaw.get(key) ?? { raw: null, valueBytes: 0 }
             eventRaw.delete(key)
-            phaseRequest = await validateCampaignRequest(parseCampaignRecord(raw)); phaseRequestWire = { key, value: raw! }
+            phaseRequest = await validateCampaignRequest(parseCampaignRecord(raw)); phaseRequestWire = { key, valueBytes }
             campaignAssert(phaseRequest.hash === ref.hash && phaseRequest.campaignId === campaignIdValue && phaseRequest.id === ref.id && phaseRequest.revision === ref.revision, 'Receipt request identity mismatch')
             const task = item.tasks.find(task => task.taskId === phaseRequest!.taskId)
             campaignAssert(task?.request?.hash === phaseRequest.hash && task.revision === phaseRequest.taskRevision && task.status === phaseRequest.status && phaseRequest.candidateId === item.candidateId, 'Historical request is detached from its committing task')
@@ -378,11 +381,11 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
             campaignAssert(allocationRequests.size <= 128, 'Replay open-request retention exceeded its bound')
           }
           if (['reserve', 'dispatch_intent', 'retain_response', 'accept_artifact'].includes(evidence.kind)) campaignAssert(phaseRequest, 'Request operation lacks request evidence')
-          const eventArtifacts: CampaignArtifact[] = [], artifactWires: Array<{ key: string; value: string }> = []
+          const eventArtifacts: CampaignArtifact[] = [], artifactWires: Array<{ key: string; valueBytes: number }> = []
           for (const artifactHash of evidence.artifactHashes) {
             const ref = item.tasks.flatMap(task => task.artifact ? [task.artifact] : []).find(ref => ref.hash === artifactHash)
             campaignAssert(ref, 'Receipt artifact is absent from checkpoint')
-            const key = campaignKeys.artifact(campaignIdValue, ref.taskId, ref.revision), raw = eventRaw.get(key) ?? null
+            const key = campaignKeys.artifact(campaignIdValue, ref.taskId, ref.revision), { raw, valueBytes } = eventRaw.get(key) ?? { raw: null, valueBytes: 0 }
             eventRaw.delete(key)
             const artifact = await validateCampaignArtifact(parseCampaignRecord(raw))
             campaignAssert(artifact.hash === artifactHash && artifact.campaignId === campaignIdValue && artifact.taskId === ref.taskId && artifact.revision === ref.revision, 'Receipt artifact identity mismatch')
@@ -390,7 +393,7 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
             campaignAssert(spec && active && active.revision === artifact.taskRevision && artifact.candidateId === item.candidateId && artifact.kind === spec.kind && same(artifact.dependencies, spec.dependsOn.map(id => item.tasks.find(task => task.taskId === id)!.artifact)), 'Historical artifact dependency identity mismatch')
             const oldTask = replayPrevious?.tasks.find(task => task.taskId === artifact.taskId), parent = oldTask?.artifact ?? oldTask?.priorArtifact
             campaignAssert(artifact.revision === (parent ? parent.revision + 1 : 0) && artifact.parentHash === (parent?.hash ?? null), 'Historical artifact parent mismatch')
-            eventArtifacts.push(artifact); artifactWires.push({ key, value: raw! })
+            eventArtifacts.push(artifact); artifactWires.push({ key, valueBytes })
           }
           campaignAssert(eventArtifacts.length === 0 || ['accept_artifact', 'replace_candidate'].includes(evidence.kind), 'Unauthorized artifact receipt')
           if (evidence.kind === 'accept_artifact') {
@@ -423,7 +426,7 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
           // The already validated canonical raw values were actually read above.
           // Retain only their byte counts for this batch, not another raw copy.
           const baseWireBytes = counterSum(utf8Bytes(campaignKeys.checkpoint(campaignIdValue, item.sequence)) + checkpointBytes[index]!, utf8Bytes(receiptKeys[index]!) + receiptBytes[index]!)
-          const wire = [...artifactWires, ...(phaseRequestWire ? [phaseRequestWire] : []), { key: headKey, value: canonicalStringify(historicalHead) }]
+          const wire = [...artifactWires, ...(phaseRequestWire ? [phaseRequestWire] : []), { key: headKey, valueBytes: utf8Bytes(canonicalStringify(historicalHead)) }]
           if (item.sequence === 0) {
             campaignAssert(evidence.kind === 'create' && phaseRequest === null && eventArtifacts.length === 0, 'Invalid genesis receipt')
             const initialBudget = emptyCampaignBudget(); initialBudget.activeMs = 10_000; initialBudget.operations = 1
@@ -431,21 +434,21 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
             campaignAssert(evidence.businessDigest === await hashCampaignValue('campaign-operation-v2', { kind: 'create', manifestHash: manifest.hash }), 'Genesis business identity mismatch')
             // The only catalog writer appends one ID. Its creation-time value is
             // therefore this immutable ordering's prefix, not the current catalog.
-            wire.push({ key: CAMPAIGN_CATALOG_KEY, value: canonicalStringify({ schemaVersion: 1, ids: ids.slice(0, ids.indexOf(campaignIdValue) + 1) }) }, { key: manifestKey, value: canonicalStringify(manifest) })
+            wire.push({ key: CAMPAIGN_CATALOG_KEY, valueBytes: utf8Bytes(canonicalStringify({ schemaVersion: 1, ids: ids.slice(0, ids.indexOf(campaignIdValue) + 1) })) }, { key: manifestKey, valueBytes: utf8Bytes(canonicalStringify(manifest)) })
           }
-          campaignAssert(wire.reduce((total, entry) => counterSum(total, utf8Bytes(entry.key) + utf8Bytes(entry.value)), baseWireBytes) === D, 'Receipt differs from actual immutable write bytes')
+          campaignAssert(wire.reduce((total, entry) => counterSum(total, utf8Bytes(entry.key) + entry.valueBytes), baseWireBytes) === D, 'Receipt differs from actual immutable write bytes')
           if (phaseRequest && phaseRequestWire) {
             const wanted = wantedRequests.get(phaseRequestWire.key)
             if (wanted) {
               campaignAssert(phaseRequest.id === wanted.id && phaseRequest.revision === wanted.revision && phaseRequest.hash === wanted.hash, 'Final request reference differs from verified history')
-              retain(phaseRequestWire.key, phaseRequestWire.value, phaseRequest.hash); requests.set(phaseRequest.hash, phaseRequest)
+              retain(phaseRequestWire.key, phaseRequestWire.valueBytes, phaseRequest.hash); requests.set(phaseRequest.hash, phaseRequest)
             }
           }
           for (const [index, artifact] of eventArtifacts.entries()) {
             const wire = artifactWires[index]!, wanted = wantedArtifacts.get(wire.key)
             if (wanted) {
               campaignAssert(artifact.taskId === wanted.taskId && artifact.revision === wanted.revision && artifact.hash === wanted.hash, 'Final artifact reference differs from verified history')
-              retain(wire.key, wire.value, artifact.hash); artifacts.set(artifact.hash, artifact)
+              retain(wire.key, wire.valueBytes, artifact.hash); artifacts.set(artifact.hash, artifact)
             }
           }
 
@@ -504,8 +507,9 @@ export function createCampaignRepository(io: CampaignRepositoryIO = { getMany: i
     const entries = entriesFor()
     let verifiedBytes = 0
     for (const entry of entries) {
-      verifiedBytes = counterSum(verifiedBytes, utf8Bytes(entry.key)); verifiedBytes = counterSum(verifiedBytes, utf8Bytes(entry.value))
-      campaignAssert(utf8Bytes(entry.value) <= CAMPAIGN_LIMITS.recordBytes, 'Campaign record exceeds serialization bound', 'budget')
+      const valueBytes = utf8Bytes(entry.value)
+      verifiedBytes = counterSum(verifiedBytes, utf8Bytes(entry.key)); verifiedBytes = counterSum(verifiedBytes, valueBytes)
+      campaignAssert(valueBytes <= CAMPAIGN_LIMITS.recordBytes, 'Campaign record exceeds serialization bound', 'budget')
     }
     campaignAssert(verifiedBytes === measured, 'Frozen storage serialization length changed')
     assertIndex(manifest, checkpoint)

@@ -2,7 +2,7 @@
 
 [English](writer-campaign-storage.md) | [简体中文](writer-campaign-storage.zh-CN.md)
 
-状态：固定 Node 结构测试中，中英文各 1,000,000 正文 Unicode 字符已在原有容量与时限内通过。本地 lint、严格 TypeScript、构建及全部 120 组 smoke 已通过；真实 IndexedDB 容量、最终精确修订审阅绑定及全部十三项 CI 仍待验收。这不是小说写作质量或自主长篇验收，详见[测量报告](testing/writer-campaign-storage-2026-10-25/REPORT.md)。
+状态：PR #45 合并前通过全部 13 项任务及中英文原生 IDB 百万字符测试；但同树主分支后续运行中，Node 中文在 966,686 字符处超时，原生测试再次通过。[聚焦 CPU 修正及保留失败](testing/writer-campaign-cpu-2026-10-25/REPORT.zh-CN.md)记录这项尚未关闭的时延门槛，不提高限制。下方历史本地测量保持原样；这不是自主小说或文学验收。
 
 前一项[持久化基础](writer-campaign-foundation.zh-CN.md)已由 PR #44 验收，合并提交 `84e704afff08921763d4b83136d881a39946900a`，tree `cc53d33565ff574fd6bbce2f76bdcca9aecda406`。[main run 40154748857](https://github.com/PainAxis/LLM-Writer/actions/runs/40154748857) 十二项全部通过，含作者 Agent 90 场景及 Campaign 12 场景；这些结果不替代新记账实现的验证。
 

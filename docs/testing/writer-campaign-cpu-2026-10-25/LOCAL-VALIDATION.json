@@ -1,0 +1,94 @@
+{
+  "evidenceKind": "derived-not-raw",
+  "baseline": "a0edc99f1b7e649d27ae5cb70050d42e9c123b08",
+  "measuredCodeCommit": "34593bfd40b565675c617d76aa7f8e5efc307b0e",
+  "measuredCodeTree": "b0f252e802dfcf150117c458b10f35359dab5c9b",
+  "nativePathCount": 464,
+  "nativeManifestCanonicalSha256": "b3019642250e53b801690f3b86b2f27c3de91d652d8698d852fcb6f91e0939e8",
+  "nativeDrift": false,
+  "lint": "passed; max-warnings0",
+  "strictTypes": "passed",
+  "build": "passed",
+  "smokeSuitesPassed": 122,
+  "localBrowser": "NOT_RUN",
+  "exactHeadCI": "pending",
+  "longformAcceptance": "NOT_RUN",
+  "changedSourceSha256": {
+    "package.json": "cfbd8f5fb5301d04f166eeb1607bd201b1a1ef9170acfce8c5c0771e532dae3e",
+    "scripts/browser-writer-campaign-storage.mjs": "6146d1fe792338c7a47b630b0549376c4b98316b5334c495fed7dfd4f64ee46b",
+    "scripts/campaign-evidence.mjs": "85d449d8f015d6b88fc76af2574c8d2017b41a0ac7a139fb3ea0a460b514adaa",
+    "scripts/fixtures/campaign-storage-evidence-case.mjs": "bcacad2df01da9df9cfe698beb3dbf7e0a1bba4be0defee3bb9729b5a72cf18a",
+    "scripts/fixtures/writer-campaign-capacity-profile.ts": "c00f382654743640b33df65550e3a0382ebe1b609525ee180ebb30973555530d",
+    "scripts/fixtures/writer-campaign-storage-cpu-oracle.ts": "fde2a6547e02f3ae82844c0f3faff2c139fd1a82859023b746af64b2f4bc4dee",
+    "scripts/profile-writer-campaign-capacity.ts": "c1ef6b9809508d217698349b4044591c0bc5a0aec757a6e71e3c235fdf53b58b",
+    "scripts/smoke-writer-campaign-cpu-equivalence.ts": "aee33730a84bb3aa8a87630cf43b4fb25bf178e81af9b5858c2cbffcc888c1bc",
+    "scripts/smoke-writer-campaign-storage-evidence.mjs": "2aaa1f8f81dc95a5ad8ee57d84c9c22edad96972e590208182ddae2bfe3e3d42",
+    "scripts/smoke-writer-campaign-timeouts.ts": "a0c5e40b494149b73842f648f5791d50fe9f72ecf0c9d65532ce3d21e9350bf2",
+    "src/services/writerCampaign/engine.ts": "4b18108c7e5650221e2bd540fbc2d7c7ba5a02c1d879f99b59fc7f7b6de6c977",
+    "src/services/writerCampaign/storageAccounting.ts": "aae1314d922635ddc36387656c3e1c32996ece2dce265f062893f90855d7ba5d",
+    "src/services/writerCampaign/store.ts": "32ee98263fbeaab839b0567f8887bb6519efada9168fdb14110caefb67d7e136"
+  },
+  "retainedLocalEvidence": [
+    {
+      "name": "full-first-types-failure.log",
+      "bytes": 647,
+      "sha256": "2cd304379b38f94f1fa295cfe333621644b991be20f210024d13afdd8f21af60"
+    },
+    {
+      "name": "full-first-types-failure-before.json",
+      "bytes": 50859,
+      "sha256": "8f21589b5aba7026361337dfb3eca4d0bcf89635aca3de7fe5fc4f75e750a5c9"
+    },
+    {
+      "name": "full-first-types-failure-after.json",
+      "bytes": 50859,
+      "sha256": "8f21589b5aba7026361337dfb3eca4d0bcf89635aca3de7fe5fc4f75e750a5c9"
+    },
+    {
+      "name": "full-final.log",
+      "bytes": 174225,
+      "sha256": "06e5be6d03ef7375391ea46f819d1cb5fe3564483dfdd1542655a67d034e53d7"
+    },
+    {
+      "name": "full-final-before.json",
+      "bytes": 50859,
+      "sha256": "d85a2f2d2053e63fb593c047d9382035b8e05023e10efc9a2fea230eb9059c6a"
+    },
+    {
+      "name": "full-final-after.json",
+      "bytes": 50859,
+      "sha256": "d85a2f2d2053e63fb593c047d9382035b8e05023e10efc9a2fea230eb9059c6a"
+    },
+    {
+      "name": "profile-final.log",
+      "bytes": 2521,
+      "sha256": "dbcd08d11762461f52f2e1acb56c502ee24095b5103a16b8f50926825b41bd6c"
+    },
+    {
+      "name": "profile-final-report.json",
+      "bytes": 4657,
+      "sha256": "6cf13c1853d87eb222d2cb3999136b62b4803ca72f332cf1fbd5c4550c98a411"
+    },
+    {
+      "name": "profile-final-before.json",
+      "bytes": 50859,
+      "sha256": "d85a2f2d2053e63fb593c047d9382035b8e05023e10efc9a2fea230eb9059c6a"
+    },
+    {
+      "name": "profile-final-after.json",
+      "bytes": 50859,
+      "sha256": "d85a2f2d2053e63fb593c047d9382035b8e05023e10efc9a2fea230eb9059c6a"
+    },
+    {
+      "name": "profile-final-git-identity.txt",
+      "bytes": 82,
+      "sha256": "fbfa36f5171927d82c0b863ecce4d2ec18b87c78867b6f44dbc7bf103d1785ca"
+    }
+  ],
+  "typeOnlyFix": {
+    "file": "scripts/smoke-writer-campaign-cpu-equivalence.ts",
+    "change": "Exclude create from helper return annotation",
+    "emittedJavaScriptByteIdentical": true,
+    "emittedJavaScriptSha256": "ae2f989062908832f233cd54cef295bffe51bcd308e33bcdadaefc78043224f1"
+  }
+}

@@ -4,7 +4,7 @@ import type { CampaignRepositoryIO, CampaignTaskSpec, CampaignSnapshot } from '.
 import { CampaignProtocolError, decodeStorageBytes } from '../../src/services/writerCampaign/protocol'
 import { CampaignRuntimeError } from '../../src/services/writerCampaign/budget'
 import { createCampaignRepository } from '../../src/services/writerCampaign/store'
-import { createOfflineCampaignEngine, createOfflineCampaignManifest, type CampaignRuntimeIdentity } from '../../src/services/writerCampaign/engine'
+import { createOfflineCampaignEngine, createOfflineCampaignManifest, type CampaignRuntimeIdentity, type CampaignTimeoutDiagnostics } from '../../src/services/writerCampaign/engine'
 
 export const CAPACITY_GEOMETRY = Object.freeze({ version: 'synthetic-storage-geometry-60x16667-v1', plannedTasks: 123, plannedBodyTasks: 60, targetBodyScalars: 1_000_000, storageCeilingBytes: 67_108_864, recoveryReserveBytes: 524_288 })
 export const CAPACITY_V1_BASELINE = Object.freeze({
@@ -56,7 +56,7 @@ export async function runCampaignCapacityProfile(language: 'zh' | 'en', identity
     try { return await engine.step(manifest.campaignId, commandId) }
     finally { maxStepMs = Math.max(maxStepMs, Math.round(performance.now() - stepStarted)) }
   }
-  const progress = async () => { if (onProgress) await onProgress(capacityRow(language, snapshot, observe(), calls, io === undefined, 'running', null, Math.round(performance.now() - started), maxStepMs)) }
+  const progress = async () => { if (onProgress) await onProgress(capacityRow(language, snapshot, observe(), calls, io === undefined, engine.readTimeoutDiagnostics(), 'running', null, Math.round(performance.now() - started), maxStepMs)) }
   await progress()
   try {
     for (let attempt = 0; attempt < manifest.tasks.length && !['blocked', 'paused', 'cancelled', 'completed'].includes(snapshot.head.status); attempt++) {
@@ -82,15 +82,15 @@ export async function runCampaignCapacityProfile(language: 'zh' | 'en', identity
   verify(decodeStorageBytes(manifest.storage.limitBytes) === CAPACITY_GEOMETRY.storageCeilingBytes)
   const complete = snapshot.head.status === 'completed'
   if (complete) verify(snapshot.checkpoint.bodyCharacters === 1_000_000 && committedTasks === 123 && calls === 123 && snapshot.checkpoint.budget.operations === 494 && outstandingBytes === 0 && storage.openAllocations.length === 0)
-  return capacityRow(language, snapshot, metrics, calls, io === undefined, complete ? 'pass' : blockerCode === 'operation_timeout' || blockerCode === 'local_stopped' ? 'timeout' : 'refused', blockerCode, executionMs, maxStepMs, coldRepositoryReadMs, metrics.totalReadBytes - before.totalReadBytes, metrics.totalReadCalls - before.totalReadCalls)
+  return capacityRow(language, snapshot, metrics, calls, io === undefined, engine.readTimeoutDiagnostics(), complete ? 'pass' : blockerCode === 'operation_timeout' || blockerCode === 'local_stopped' ? 'timeout' : 'refused', blockerCode, executionMs, maxStepMs, coldRepositoryReadMs, metrics.totalReadBytes - before.totalReadBytes, metrics.totalReadCalls - before.totalReadCalls)
 }
 
-function capacityRow(language: 'zh' | 'en', snapshot: CampaignSnapshot, metrics: StorageObservation, calls: number, nativeIDB: boolean, status: string, blockerCode: string | null, executionMs: number, maxStepMs: number, coldRepositoryReadMs = 0, coldRepositoryReadBytes = 0, coldRepositoryReadCalls = 0) {
+function capacityRow(language: 'zh' | 'en', snapshot: CampaignSnapshot, metrics: StorageObservation, calls: number, nativeIDB: boolean, timeoutDiagnostics: CampaignTimeoutDiagnostics, status: string, blockerCode: string | null, executionMs: number, maxStepMs: number, coldRepositoryReadMs = 0, coldRepositoryReadBytes = 0, coldRepositoryReadCalls = 0) {
   const storage = snapshot.checkpoint.storage
   const writtenBytes = decodeStorageBytes(storage.writtenBytes), outstandingBytes = decodeStorageBytes(storage.outstandingBytes)
   const allocatedBytes = decodeStorageBytes(storage.allocatedBytes), consumedBytes = decodeStorageBytes(storage.allocationConsumedBytes), releasedBytes = decodeStorageBytes(storage.releasedBytes)
   const recoveryRemainingBytes = decodeStorageBytes(storage.recoveryRemainingBytes), committedTasks = snapshot.checkpoint.tasks.filter(task => task.status === 'committed').length
-  return { language, status, blockerCode, coldProcessRestart: nativeIDB ? 'not_run' : 'not_applicable', coldProcessReadMs: 0, coldProcessReadBytes: 0, coldProcessReadCalls: 0,
+  return { language, status, blockerCode, timeoutDiagnostics, coldProcessRestart: nativeIDB ? 'not_run' : 'not_applicable', coldProcessReadMs: 0, coldProcessReadBytes: 0, coldProcessReadCalls: 0,
     execution: snapshot.head.status, committedBodyScalars: snapshot.checkpoint.bodyCharacters, committedTasks, actualFixtureInvocations: calls,
     reservedAttempts: snapshot.checkpoint.budget.attempts, committedOperations: snapshot.checkpoint.budget.operations,
     cumulativeWrittenBytes: writtenBytes, cumulativeAllocatedBytes: allocatedBytes, allocationConsumedBytes: consumedBytes,

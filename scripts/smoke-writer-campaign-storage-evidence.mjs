@@ -67,6 +67,99 @@ try {
     assert.throws(() => summarizeReport(bytes, target === CAMPAIGN_STORAGE_REPORT_PATH ? CAMPAIGN_CAPACITY_NODE_REPORT_PATH : CAMPAIGN_STORAGE_REPORT_PATH))
     checks++
   }
+  // Schema 1 remains strictly closed before a derived schema-2 projection.
+  // Missing historic diagnostics must never become a newly measured zero.
+  {
+    const legacy = fixture(); legacy.schemaVersion = 1
+    for (const row of legacy.profiles) delete row.timeoutDiagnostics
+    const before = structuredClone(legacy), projected = projectCampaignStorageReport(legacy)
+    assert.deepEqual(legacy, before); assert.equal(projected.schemaVersion, 2)
+    assert.ok(projected.profiles.every(row => row.timeoutDiagnostics.status === 'not_collected'))
+    assert.deepEqual(projectCampaignStorageReport(projected), projected)
+    legacy.profiles[0].timeoutDiagnostics = { status: 'not_observed', events: [], overflow: 0 }
+    assert.throws(() => projectCampaignStorageReport(legacy)); checks++
+  }
+  const diagnosticReport = () => {
+    const input = fixture(), row = input.profiles[0]
+    row.status = 'timeout'; row.execution = 'blocked'; row.blockerCode = 'operation_timeout'
+    row.timeoutDiagnostics = { status: 'observed', overflow: 0, events: [{
+      phase: 'commit', trigger: 'timer', selectedBudget: 'action', operationTimeoutMs: 3000,
+      actionTimeoutMs: 10000, actionRemainingMs: 2345.25, scheduledTimeoutMs: 2345.25,
+      operationElapsedMs: 2345.375, actionElapsedMs: 10000.125,
+    }] }
+    return input
+  }
+  {
+    const input = diagnosticReport(), projected = projectCampaignStorageReport(input)
+    assert.deepEqual(projected, input)
+    projected.profiles[0].timeoutDiagnostics.events[0].phase = 'save'
+    assert.equal(input.profiles[0].timeoutDiagnostics.events[0].phase, 'commit')
+    const row = input.profiles[0]
+    row.timeoutDiagnostics = { status: 'not_observed', events: [], overflow: 0 }
+    assert.deepEqual(projectCampaignStorageReport(input), input, 'No recorded event is not proof that a timeout never occurred')
+    row.timeoutDiagnostics = { status: 'not_collected', events: [], overflow: 0 }
+    assert.deepEqual(projectCampaignStorageReport(input), input); checks++
+  }
+  for (const mutate of [
+    event => { event.selectedBudget = 'operation' },
+    event => { event.selectedBudget = 'tie' },
+    event => { event.scheduledTimeoutMs++ },
+    event => { event.operationTimeoutMs = 3001 },
+    event => { event.actionTimeoutMs = 10001 },
+    event => { event.operationElapsedMs = Infinity },
+    event => { event.operationElapsedMs = -1 },
+    event => { event.operationElapsedMs = NaN },
+    event => { event.operationElapsedMs = Number.MAX_SAFE_INTEGER + 1 },
+    event => { event.operationElapsedMs = event.actionElapsedMs + 1 },
+    event => { event.actionElapsedMs = 0 },
+    event => { event.actionRemainingMs = 10001 },
+    event => { event.actionRemainingMs = -1 },
+    event => { event.phase = 'PRIVATE_SOURCE_CANARY' },
+    event => { event.trigger = 'PRIVATE_SOURCE_CANARY' },
+    event => { event.payload = 'PRIVATE_SOURCE_CANARY' },
+    event => { event.operationElapsedMs = 'PRIVATE_SOURCE_CANARY' },
+    event => { event.campaignId = 'PRIVATE_SOURCE_CANARY' },
+    event => { event.error = 'PRIVATE_SOURCE_CANARY' },
+    event => { event.stack = 'PRIVATE_SOURCE_CANARY' },
+    event => { event.actionTimeoutMs = null },
+  ]) {
+    const bad = diagnosticReport(); mutate(bad.profiles[0].timeoutDiagnostics.events[0])
+    assert.throws(() => projectCampaignStorageReport(bad), { message: 'Invalid closed Campaign evidence schema' }); checks++
+  }
+  for (const mutate of [
+    diagnostic => { diagnostic.raw = 'PRIVATE_SOURCE_CANARY' },
+    diagnostic => { diagnostic.status = 'not_collected' },
+    diagnostic => { diagnostic.status = 'not_observed' },
+    diagnostic => { diagnostic.events = [] },
+    diagnostic => { diagnostic.overflow = -1 },
+    diagnostic => { diagnostic.overflow = Number.MAX_SAFE_INTEGER + 1 },
+    diagnostic => { diagnostic.overflow = 1 },
+    diagnostic => { diagnostic.events = Array(9).fill(diagnostic.events[0]) },
+  ]) {
+    const bad = diagnosticReport(); mutate(bad.profiles[0].timeoutDiagnostics)
+    assert.throws(() => projectCampaignStorageReport(bad), { message: 'Invalid closed Campaign evidence schema' }); checks++
+  }
+  {
+    const input = diagnosticReport(), event = input.profiles[0].timeoutDiagnostics.events[0]
+    for (const phase of ['read', 'receipt', 'commit', 'prepare', 'dispatch', 'reconcile', 'save', 'recovery_read', 'recovery_receipt', 'recovery_commit']) {
+      Object.assign(event, { phase, operationTimeoutMs: phase === 'dispatch' ? 5000 : 3000 })
+      assert.deepEqual(projectCampaignStorageReport(input), input)
+    }
+    Object.assign(event, { phase: 'dispatch', operationTimeoutMs: 5000, actionRemainingMs: 5000, scheduledTimeoutMs: 5000, selectedBudget: 'tie', operationElapsedMs: 5000.25, actionElapsedMs: 10000.25 })
+    assert.deepEqual(projectCampaignStorageReport(input), input)
+    Object.assign(event, { phase: 'read', operationTimeoutMs: 3000, actionRemainingMs: 9000, scheduledTimeoutMs: 3000, selectedBudget: 'operation', operationElapsedMs: 3000.25, actionElapsedMs: 4000.25 })
+    assert.deepEqual(projectCampaignStorageReport(input), input)
+    Object.assign(event, { phase: 'recovery_read', actionTimeoutMs: null, actionRemainingMs: null, actionElapsedMs: null })
+    assert.deepEqual(projectCampaignStorageReport(input), input)
+    Object.assign(event, { phase: 'commit', trigger: 'action_deadline_check', selectedBudget: 'action', operationTimeoutMs: null, actionTimeoutMs: 10000, scheduledTimeoutMs: null, operationElapsedMs: null, actionElapsedMs: 10000.5 })
+    assert.deepEqual(projectCampaignStorageReport(input), input)
+    event.actionElapsedMs = 9999.9; assert.throws(() => projectCampaignStorageReport(input)); event.actionElapsedMs = 10000
+    event.operationElapsedMs = 0; assert.throws(() => projectCampaignStorageReport(input)); event.operationElapsedMs = null
+    input.profiles[0].timeoutDiagnostics.events = Array.from({ length: 8 }, () => ({ ...event }))
+    input.profiles[0].timeoutDiagnostics.overflow = Number.MAX_SAFE_INTEGER
+    assert.deepEqual(projectCampaignStorageReport(input), input)
+    checks++
+  }
   const temporary = await mkdtemp(path.join(tmpdir(), 'campaign-storage-evidence-test-'))
   for (const [environment, target] of [['browser-native-idb', CAMPAIGN_STORAGE_REPORT_PATH], ['node-injected-atomic-io-not-browser-idb', CAMPAIGN_CAPACITY_NODE_REPORT_PATH]]) {
     await mkdir(path.dirname(path.join(temporary, target)), { recursive: true })

@@ -160,7 +160,9 @@
     "test:browser-writer-campaign-storage": "node scripts/browser-writer-campaign-storage.mjs",
     "smoke:writer-campaign-open-limit": "node --import tsx scripts/smoke-writer-campaign-open-limit.ts",
     "smoke:writer-campaign-read-batches": "node --import tsx scripts/smoke-writer-campaign-read-batches.ts",
-    "smoke:writer-campaign-comparisons": "node --import tsx scripts/smoke-writer-campaign-comparisons.ts"
+    "smoke:writer-campaign-comparisons": "node --import tsx scripts/smoke-writer-campaign-comparisons.ts",
+    "smoke:writer-campaign-cpu-equivalence": "node --import tsx scripts/smoke-writer-campaign-cpu-equivalence.ts",
+    "smoke:writer-campaign-timeouts": "node --import tsx scripts/smoke-writer-campaign-timeouts.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
