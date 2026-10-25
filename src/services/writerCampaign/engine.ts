@@ -5,6 +5,11 @@ import { CampaignProtocolError, campaignId, encodeStorageBytes, hashCampaignValu
 import { CampaignRuntimeError, CAMPAIGN_DISPATCH_TIMEOUT_MS, CAMPAIGN_IO_TIMEOUT_MS, campaignMetadataReservation, campaignRequestReservation, campaignRequestStorageAllowance, checkCampaignClock, emptyCampaignBudget, reserveCampaignBudget } from './budget'
 import { createOfflineFixtureHost, isOfflineCampaignHost, type CampaignAuthorizationHost, type CampaignProviderContext, type OfflineFixtureOptions } from './fixtureAdapter'
 
+import { isPlanningProfile, planningManifestOptions, PLANNING_THREE_CHAPTER_PROFILE } from './planningProfile'
+import { compilePlanningContext, type PlanningPreviewResult } from './planningContext'
+import { PlanningRefusalError } from './planningProtocol'
+import { PlanningValidationView } from './planningValidation'
+
 export type CampaignRuntimeIdentity = Pick<CampaignManifest, 'runtimeIdentity' | 'source'>
 export interface CampaignEngineOptions {
   identity?: CampaignRuntimeIdentity
@@ -102,6 +107,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
   const ioTimeout = options.ioTimeoutMs ?? CAMPAIGN_IO_TIMEOUT_MS, dispatchTimeout = options.dispatchTimeoutMs ?? CAMPAIGN_DISPATCH_TIMEOUT_MS
   if (![ioTimeout, dispatchTimeout].every(n => Number.isSafeInteger(n) && n > 0 && n <= 10_000)) throw new CampaignRuntimeError('timeout_invalid')
   const runs = new Map<string, Run>(), commands = new Map<string, Promise<CampaignSnapshot>>()
+  const previews = new Map<string, AbortController>()
   let disposed = false
   function disposeScope(run?: Run) {
     const scope = run?.scope
@@ -124,6 +130,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     return run
   }
   function stopLocal(id?: string) {
+    for (const [key, preview] of previews) if (id === undefined || key === id) { preview.abort(); previews.delete(key) }
     for (const [key, run] of runs) if (id === undefined || key === id) { run.controller.abort(); runs.delete(key) }
   }
   // Engine-local, bounded and source-free. Observation has no callbacks, durable
@@ -239,7 +246,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
   }
   async function read(id: string, run?: Run): Promise<CampaignSnapshot> {
     assertRun(run, 'read')
-    const snapshot = await bounded(() => repository.read(id, run?.scope), 'read', ioTimeout, run)
+    const snapshot = await bounded(() => repository.read(id, run?.scope, () => assertRun(run, 'read')), 'read', ioTimeout, run)
     assertRun(run)
     if (!snapshot) throw new CampaignRuntimeError('campaign_missing')
     if (snapshot.manifest.runtimeIdentity !== identity.runtimeIdentity || snapshot.manifest.source.commit !== identity.source.commit || snapshot.manifest.source.tree !== identity.source.tree) throw new CampaignRuntimeError('runtime_identity_changed')
@@ -264,8 +271,8 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
       return artifact
     })
   }
-  function context(snapshot: CampaignSnapshot, task: CampaignTaskState): CampaignProviderContext {
-    return { manifest: snapshot.manifest, candidateId: snapshot.checkpoint.candidateId, task: snapshot.manifest.tasks.find(item => item.id === task.taskId)!, taskRevision: task.revision, dependencies: dependencies(snapshot, task.taskId) }
+  function context(snapshot: CampaignSnapshot, task: CampaignTaskState, run?: Run): CampaignProviderContext {
+    return { manifest: snapshot.manifest, candidateId: snapshot.checkpoint.candidateId, task: snapshot.manifest.tasks.find(item => item.id === task.taskId)!, taskRevision: task.revision, dependencies: dependencies(snapshot, task.taskId), check: () => assertRun(run, 'prepare') }
   }
   async function updateRequest(request: CampaignRequest, patch: Partial<Pick<CampaignRequest, 'status' | 'response' | 'failureReason'>>): Promise<CampaignRequest> {
     const { hash: _hash, ...value } = request
@@ -296,15 +303,27 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     run.epoch = result.snapshot.head.executionEpoch
     return result.snapshot
   }
-  async function saveResponse(snapshot: CampaignSnapshot, request: CampaignRequest, run: Run): Promise<CampaignSnapshot> {
-    checkClock(snapshot); assertRun(run, 'save')
-    if (snapshot.head.status !== 'running' || request.status !== 'response_retained' || !request.response) throw new CampaignRuntimeError('save_not_eligible')
+  async function prepareAcceptedArtifact(snapshot: CampaignSnapshot, request: CampaignRequest, run: Run): Promise<CampaignArtifact> {
     const task = snapshot.checkpoint.tasks.find(t => t.taskId === request.taskId)!
-    if (task.request?.hash !== request.hash || task.revision !== request.taskRevision) throw new CampaignRuntimeError('stale_request')
     const refs = dependencies(snapshot, request.taskId).map(artifactRef)
     const artifact = await bounded(() => sealCampaignArtifact({ schemaVersion: 2, campaignId: snapshot.manifest.campaignId, candidateId: request.candidateId,
       taskId: request.taskId, taskRevision: request.taskRevision, revision: task.priorArtifact ? task.priorArtifact.revision + 1 : 0, kind: snapshot.manifest.tasks.find(t => t.id === task.taskId)!.kind,
       dependencies: refs, parentHash: task.priorArtifact?.hash ?? null, text: request.response!.text, semanticStatus: 'not_reviewed' }), 'save', ioTimeout, run)
+    if (isPlanningProfile(snapshot.manifest)) {
+      const validation = new PlanningValidationView(snapshot.manifest, () => assertRun(run, 'save'))
+      validation.seed(snapshot.checkpoint, snapshot.artifacts)
+      const proposed = stateOf(snapshot), state = proposed.tasks.find(task => task.taskId === request.taskId)!
+      state.status = 'committed'; state.artifact = artifactRef(artifact)
+      await bounded(() => validation.advance(proposed, 'accept_artifact', [artifact]), 'save', ioTimeout, run)
+    }
+    return artifact
+  }
+  async function saveResponse(snapshot: CampaignSnapshot, request: CampaignRequest, run: Run, preparedArtifact?: CampaignArtifact): Promise<CampaignSnapshot> {
+    checkClock(snapshot); assertRun(run, 'save')
+    if (snapshot.head.status !== 'running' || request.status !== 'response_retained' || !request.response) throw new CampaignRuntimeError('save_not_eligible')
+    const task = snapshot.checkpoint.tasks.find(t => t.taskId === request.taskId)!
+    if (task.request?.hash !== request.hash || task.revision !== request.taskRevision) throw new CampaignRuntimeError('stale_request')
+    const artifact = preparedArtifact ?? await prepareAcceptedArtifact(snapshot, request, run)
     const committed = await updateRequest(request, { status: 'committed' })
     assertRun(run)
     const next = withRequest(snapshot, committed)
@@ -379,7 +398,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
         return await saveResponse(snapshot, request, run)
       }
       if (request?.status === 'known_failed') return await failClosed(id, run, 'provider_failed')
-      const prepared = await bounded(() => provider.prepareRequest(context(snapshot, task!)), 'prepare', ioTimeout, run)
+      const prepared = await bounded(() => provider.prepareRequest(context(snapshot, task!, run)), 'prepare', ioTimeout, run)
       assertRun(run); checkClock(snapshot)
       if (request) {
         if (request.status !== 'reserved' || request.inputDigest !== prepared.digest || request.preparedInput !== prepared.text) throw new CampaignRuntimeError('prepared_identity_changed')
@@ -423,7 +442,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
       return await saveResponse(snapshot, retained, run)
     } catch (error) {
       disposeScope(run)
-      const code = error instanceof CampaignRuntimeError || error instanceof CampaignProtocolError ? error.code : 'persistence_or_integrity'
+      const code = error instanceof CampaignRuntimeError || error instanceof CampaignProtocolError || error instanceof PlanningRefusalError ? error.code : 'persistence_or_integrity'
       if (code === 'operation_conflict') throw error
       if (code === 'conflict') { const current = await bounded(() => repository.read(id), 'recovery_read'); if (current) return current }
       if (code === 'local_stopped' || code === 'stale_owner' || code === 'stale_request') {
@@ -494,12 +513,20 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
       const request = task?.request && snapshot.requests.get(task.request.hash)
       if (!request || request.status !== 'response_retained') throw new CampaignRuntimeError('no_retained_response')
       checkClock(snapshot)
+      // Validate before restoring running state; malformed retained evidence is
+      // inspectable but cannot gain save authority through recovery.
+      const artifact = await prepareAcceptedArtifact(snapshot, request, run)
       const next = stateOf(snapshot); next.executionEpoch++; next.status = 'running'; next.reason = null; next.lastWallTime = clock()
       const delta = emptyCampaignBudget(); delta.activeMs = 10_000
       next.budget = reserveCampaignBudget(snapshot.manifest, next.budget, delta, true)
       snapshot = (await commit(snapshot, { operationId: commandId, kind: 'reconcile', next }, run)).snapshot
       run.epoch = snapshot.head.executionEpoch
-      return await saveResponse(snapshot, request, run)
+      return await saveResponse(snapshot, request, run, artifact)
+    } catch (error) {
+      if (error instanceof PlanningRefusalError && !run.controller.signal.aborted && runs.get(id) === run) {
+        try { await failClosed(id, run, error.code) } catch { /* The original typed refusal remains authoritative. */ }
+      }
+      throw error
     } finally { run.controller.abort(); if (runs.get(id) === run) runs.delete(id) }
   }
   async function replaceCandidate(id: string, taskId: string, text: string, commandId = newCommand()): Promise<CampaignSnapshot> {
@@ -518,6 +545,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     const oldTask = snapshot.checkpoint.tasks.find(t => t.taskId === taskId)
     const oldArtifact = oldTask?.artifact && snapshot.artifacts.get(oldTask.artifact.hash)
     if (!oldTask || !oldArtifact) throw new CampaignRuntimeError('replacement_requires_artifact')
+    if (isPlanningProfile(snapshot.manifest) && oldArtifact.kind === 'chapter_body') throw new PlanningRefusalError('invalid_planning_payload')
     const next = stateOf(snapshot), candidateId = `candidate-${(await hashCampaignValue('candidate', { id, commandId })).slice(0, 32)}`
     const affected = new Set([taskId])
     for (const spec of snapshot.manifest.tasks) if (spec.dependsOn.some(id => affected.has(id))) affected.add(spec.id)
@@ -533,7 +561,67 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     return snapshot
     } finally { run.controller.abort(); if (runs.get(id) === run) runs.delete(id) }
   }
+  /** Read-only, independently fenced preview. Never owns/replaces an executing Run. */
+  async function previewPlanningContext(id: string, chapterOrdinal: number): Promise<PlanningPreviewResult> {
+    previews.get(id)?.abort()
+    const controller = new AbortController(), started = performance.now()
+    previews.set(id, controller)
+    const check = () => {
+      if (disposed || controller.signal.aborted || previews.get(id) !== controller) throw new PlanningRefusalError('planning_cancelled')
+      if (performance.now() - started >= 10_000) throw new PlanningRefusalError('preview_unavailable')
+    }
+    const validate = (snapshot: CampaignSnapshot | null): CampaignSnapshot => {
+      check()
+      if (!snapshot) throw new PlanningRefusalError('missing_planning_source')
+      if (!isPlanningProfile(snapshot.manifest)) throw new PlanningRefusalError('unsupported_profile')
+      if (snapshot.manifest.runtimeIdentity !== identity.runtimeIdentity || snapshot.manifest.source.commit !== identity.source.commit || snapshot.manifest.source.tree !== identity.source.tree) throw new PlanningRefusalError('runtime_identity_changed')
+      if (snapshot.head.status === 'cancelled') throw new PlanningRefusalError('planning_cancelled')
+      try { checkClock(snapshot) } catch { throw new PlanningRefusalError('expired') }
+      return snapshot
+    }
+    try {
+      check(); campaignId(id)
+      const snapshot = validate(await bounded(() => repository.read(id, undefined, check), 'read'))
+      const task = snapshot.manifest.tasks.find(task => task.kind === 'chapter_body' && task.chapterOrdinal === chapterOrdinal)
+      const outline = snapshot.manifest.tasks.find(task => task.kind === 'chapter_outline' && task.chapterOrdinal === chapterOrdinal)
+      const state = task && snapshot.checkpoint.tasks.find(state => state.taskId === task.id)
+      if (!task || !outline || !state) throw new PlanningRefusalError('invalid_planning_graph')
+      const sources = task.dependsOn.filter(id => snapshot.manifest.tasks.find(task => task.id === id)!.kind !== 'chapter_body').map(id => {
+        const state = snapshot.checkpoint.tasks.find(task => task.taskId === id)
+        const artifact = state?.artifact && snapshot.artifacts.get(state.artifact.hash)
+        if (state?.status !== 'committed' || !artifact) throw new PlanningRefusalError('incomplete_plan')
+        return artifact
+      })
+      const compiled = await bounded(() => compilePlanningContext({ manifest: snapshot.manifest, candidateId: snapshot.checkpoint.candidateId, task, taskRevision: state.revision, dependencies: sources }, 'planning_preview', check), 'prepare')
+      check()
+      const fresh = validate(await bounded(() => repository.read(id, undefined, check), 'read'))
+      if (fresh.rawHead !== snapshot.rawHead) throw new PlanningRefusalError('source_changed')
+      const next = snapshot.checkpoint.tasks.find(task => task.status !== 'committed')
+      const nextSpec = next && snapshot.manifest.tasks.find(task => task.id === next.taskId)
+      const eligible = ['prepared', 'running'].includes(snapshot.head.status) && nextSpec?.kind === 'chapter_body' && ['pending', 'invalidated'].includes(next!.status)
+        && nextSpec.dependsOn.every(id => snapshot.checkpoint.tasks.find(task => task.taskId === id)!.status === 'committed')
+      if (!compiled.canonBaseRoot || !compiled.fullPlanRoot) throw new PlanningRefusalError('incomplete_plan')
+      check()
+      return { status: 'ready', selectedChapter: { ordinal: chapterOrdinal, outlineTaskId: outline.id, bodyTaskId: task.id }, nextEligibleBodyTaskId: eligible ? next!.taskId : null,
+        canonBaseRoot: compiled.canonBaseRoot, fullPlanRoot: compiled.fullPlanRoot, sourceRefs: compiled.sourceRefs, scope: compiled.scope,
+        input: compiled.text, inputDigest: compiled.digest, inputBytes: compiled.bytes, inputUtf16: compiled.utf16 }
+    } catch (error) {
+      return { status: 'refused', refusalCode: error instanceof PlanningRefusalError ? error.code : 'preview_unavailable' }
+    } finally { controller.abort(); if (previews.get(id) === controller) previews.delete(id) }
+  }
   return {
+    previewPlanningContext,
+    async preparePlanning(input: PrepareOfflineCampaign, commandId?: string) {
+      assertRun()
+      const existing = await bounded(() => repository.read(input.campaignId), 'read')
+      if (existing) {
+        const prior = await bounded(() => repository.getReceipt(input.campaignId, commandId ?? `create-${input.campaignId}`), 'receipt')
+        if (prior?.kind !== 'create' || existing.manifest.fixtureVersion !== PLANNING_THREE_CHAPTER_PROFILE || existing.manifest.language !== input.language || existing.manifest.runtimeIdentity !== identity.runtimeIdentity || existing.manifest.source.commit !== identity.source.commit || existing.manifest.source.tree !== identity.source.tree) throw new CampaignRuntimeError('operation_conflict')
+        return existing
+      }
+      const manifest = await createOfflineCampaignManifest(planningManifestOptions({ ...input, identity, now: clock() }))
+      return (await bounded(() => repository.create(manifest, commandId ?? `create-${manifest.campaignId}`), 'prepare')).snapshot
+    },
     async prepare(input: PrepareOfflineCampaign | CampaignManifest, commandId?: string) {
       assertRun()
       if (!('schemaVersion' in input)) {

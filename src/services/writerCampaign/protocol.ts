@@ -49,6 +49,10 @@ function version(value: unknown): void {
 }
 export function assertScalarText(text: string): void {
   campaignAssert(typeof text === 'string', 'Expected text')
+  // Stateless native scan: in the absence of any surrogate code unit, every
+  // UTF-16 unit is already a Unicode scalar. Keep the original pairing/error
+  // loop unchanged for all strings containing surrogates (valid or malformed).
+  if (!/[\uD800-\uDFFF]/.test(text)) return
   for (let i = 0; i < text.length; i++) {
     const code = text.charCodeAt(i)
     if (code >= 0xd800 && code <= 0xdbff) {

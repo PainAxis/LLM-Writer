@@ -169,7 +169,19 @@
     "smoke:writer-campaign-heap-observation": "node --import tsx scripts/smoke-writer-campaign-heap-observation.ts",
     "smoke:writer-campaign-action-timing": "node --import tsx scripts/smoke-writer-campaign-action-timing.ts",
     "smoke:writer-campaign-action-proof-browser": "node --import tsx scripts/smoke-writer-campaign-action-proof-browser.ts",
-    "smoke:writer-campaign-operation-timing": "node --import tsx scripts/smoke-writer-campaign-operation-timing.ts"
+    "smoke:writer-campaign-operation-timing": "node --import tsx scripts/smoke-writer-campaign-operation-timing.ts",
+    "smoke:writer-campaign-planning-ui": "node --import tsx scripts/smoke-writer-campaign-planning-ui.ts",
+    "smoke:writer-campaign-planning-repository": "node --import tsx scripts/smoke-writer-campaign-planning-repository.ts",
+    "smoke:writer-campaign-planning-archive": "node --import tsx scripts/smoke-writer-campaign-planning-archive.ts",
+    "profile:writer-campaign-planning": "node --import tsx scripts/profile-writer-campaign-planning.ts",
+    "test:browser-writer-campaign-planning": "node --import tsx scripts/browser-writer-campaign-planning.mjs",
+    "smoke:writer-campaign-planning-canon": "node --import tsx scripts/smoke-writer-campaign-planning-canon.ts",
+    "smoke:writer-campaign-planning-context": "node --import tsx scripts/smoke-writer-campaign-planning-context.ts",
+    "smoke:writer-campaign-planning-engine": "node --import tsx scripts/smoke-writer-campaign-planning-engine.ts",
+    "smoke:writer-campaign-planning-evidence": "node --import tsx scripts/smoke-writer-campaign-planning-evidence.ts",
+    "test:browser-writer-campaign-planning-ui": "node scripts/browser-writer-campaign-planning-ui.mjs",
+    "smoke:writer-campaign-planning-ui-evidence": "node scripts/smoke-writer-campaign-planning-ui-evidence.mjs",
+    "smoke:writer-campaign-scalar-equivalence": "node --import tsx scripts/smoke-writer-campaign-scalar-equivalence.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

@@ -15,6 +15,13 @@ export const CAMPAIGN_CORE_PATHS = Object.freeze([
   'src/services/writerCampaign/legacyStore.ts',
   'src/services/writerCampaign/legacyTypes.ts',
   'src/services/writerCampaign/protocol.ts',
+  'src/services/writerCampaign/planningProtocol.ts',
+  'src/services/writerCampaign/planningCanon.ts',
+  'src/services/writerCampaign/planningContext.ts',
+  'src/services/writerCampaign/planningProfile.ts',
+  'src/services/writerCampaign/planningFixture.ts',
+  'src/services/writerCampaign/planningValidation.ts',
+
   'src/services/writerCampaign/storageAccounting.ts',
   'src/services/writerCampaign/store.ts',
 ].sort())

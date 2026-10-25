@@ -18,6 +18,46 @@ concurrency:
 # Raw reports, backups, traces and full export payloads remain runner-local (ephemeral).
 # A failed test still fails its job; derived evidence never substitutes for test success.
 jobs:
+  writer-campaign-planning:
+    name: ci-writer-campaign-planning
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      # Separate typed-plan/short-body denominator. Existing geometry is unchanged.
+      - name: Execute bilingual three-chapter and 123-task Node planning profiles
+        run: npm run profile:writer-campaign-planning
+        timeout-minutes: 15
+      - name: Execute native-IDB planning profiles and actual cold process reopens
+        if: ${{ !cancelled() }}
+        run: npm run test:browser-writer-campaign-planning
+        timeout-minutes: 20
+      - name: Verify real production Lab preview and stale-publication flows
+        if: ${{ !cancelled() }}
+        run: npm run test:browser-writer-campaign-planning-ui
+        timeout-minutes: 5
+      - name: Archive only closed planning reports and manifest
+        id: archive_planning
+        if: ${{ !cancelled() }}
+        run: node --import tsx scripts/prepare-planning-evidence.ts
+      - name: Upload source-free planning engineering evidence
+        if: ${{ !cancelled() && steps.archive_planning.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: writer-campaign-planning-evidence-${{ github.run_attempt }}
+          path: artifacts/ci-evidence/writer-campaign-planning
+          if-no-files-found: error
+          retention-days: 7
+
   writer-campaign-storage:
     name: ci-writer-campaign-storage
     runs-on: ubuntu-latest

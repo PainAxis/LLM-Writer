@@ -80,6 +80,8 @@
 
 独立 [Campaign 持久基础](docs/writer-campaign-foundation.zh-CN.md)已在 [PR #44](https://github.com/PainAxis/LLM-Writer/pull/44) 验收，合并 `84e704afff08921763d4b83136d881a39946900a`，tree `cc53d33565ff574fd6bbce2f76bdcca9aecda406`。[main run 40154748857](https://github.com/PainAxis/LLM-Writer/actions/runs/40154748857) 十二项全过，含真实 IndexedDB Campaign 12/12 和既有 Agent 90/90。它提供任务／依赖、不可变本地产物、有限预算与可恢复检查点，仅注册离线 QA adapter；未知 intent 不重放，取消不能撤回此前已授权在途调用。原基础几何在中文 200,004／英文 350,007 scalar 停止。下一项聚焦 [v2 存储 allocation／settlement](docs/writer-campaign-storage.zh-CN.md)，只对已接受 artifact 原子释放未用存储 allowance，保留未知义务与 64 MiB 上限，并测读取成本。[PR #45](https://github.com/PainAxis/LLM-Writer/pull/45) 合并前通过了全部 13 项 CI 和中英文原生 IDB 百万字符测试；但同树的[主分支后续运行](https://github.com/PainAxis/LLM-Writer/actions/runs/40163096714)中，Node 中文在 966,686 字符处超时，原生中英文仍完成。本轮因此聚焦[验证 CPU 修正](docs/testing/writer-campaign-cpu-2026-10-25/REPORT.zh-CN.md)，保持原有限制；不能用先前成功替代本次失败门槛。这些是结构测试，不是小说。事实／上下文构造、真实供应商校准、自主编排、全书审计与有界修复仍未完成。
 
+后续 [PR #47](https://github.com/PainAxis/LLM-Writer/pull/47) 的 action-private proof 修正已在 main `dfb94ffdba92da976d3540f8d9c76fd96284c385`、tree `19fbd21e1b6309d269ec07b200ff40c61cad141f` 验收；[main run 40183366291](https://github.com/PainAxis/LLM-Writer/actions/runs/40183366291) 全部 13 项通过。下一有界切片 [Planning Contract v1](docs/writer-campaign-planning.zh-CN.md) 增加四阶段封闭 payload、精确修订上下文和可选的全部规划优先离线 Lab 预览。其新结构／原生／容量门槛独立于已接受的修正与文学验收；不包含真实供应商、已成立正文事实账本或自主小说／审计／修复循环。
+
 ### 第四阶段最终验收：两部自主百万字符小说
 
 用户最终标准已明确：从大纲、人设，再到细纲、章纲，**自主创作中文、英文各一部小说，每部正文 100 万字符**，规划文档不计入。两部作品必须在全书范围维持题材、剧情、人设和暗线伏笔不漂移。[长篇验收合同](docs/writer-agent-longform-acceptance.zh-CN.md)规定计数、全文证据、失败／未知、恢复及尚缺架构。
