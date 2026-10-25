@@ -15,6 +15,7 @@
     "smoke:all": "node scripts/run-smoke.mjs",
     "test:browser": "node scripts/run-browser.mjs",
     "smoke:ci-evidence": "node scripts/smoke-ci-evidence.mjs",
+    "smoke:browser-scenario-lifecycle": "node scripts/smoke-browser-scenario-lifecycle.mjs",
     "smoke:release": "node scripts/smoke-release.mjs",
     "smoke:short-story-selection": "node --import tsx scripts/smoke-short-story-selection.ts",
     "smoke:book-analysis-library": "node --import tsx scripts/smoke-book-analysis-library.ts",
@@ -162,7 +163,13 @@
     "smoke:writer-campaign-read-batches": "node --import tsx scripts/smoke-writer-campaign-read-batches.ts",
     "smoke:writer-campaign-comparisons": "node --import tsx scripts/smoke-writer-campaign-comparisons.ts",
     "smoke:writer-campaign-cpu-equivalence": "node --import tsx scripts/smoke-writer-campaign-cpu-equivalence.ts",
-    "smoke:writer-campaign-timeouts": "node --import tsx scripts/smoke-writer-campaign-timeouts.ts"
+    "smoke:writer-campaign-timeouts": "node --import tsx scripts/smoke-writer-campaign-timeouts.ts",
+    "smoke:writer-campaign-action-proof": "node --import tsx scripts/smoke-writer-campaign-action-proof.ts",
+    "smoke:writer-campaign-action-proof-engine": "node --import tsx scripts/smoke-writer-campaign-action-proof-engine.ts",
+    "smoke:writer-campaign-heap-observation": "node --import tsx scripts/smoke-writer-campaign-heap-observation.ts",
+    "smoke:writer-campaign-action-timing": "node --import tsx scripts/smoke-writer-campaign-action-timing.ts",
+    "smoke:writer-campaign-action-proof-browser": "node --import tsx scripts/smoke-writer-campaign-action-proof-browser.ts",
+    "smoke:writer-campaign-operation-timing": "node --import tsx scripts/smoke-writer-campaign-operation-timing.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

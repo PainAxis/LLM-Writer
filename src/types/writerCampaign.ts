@@ -214,12 +214,43 @@ export interface CampaignRepositoryIO {
   getMany(keys: readonly string[]): Promise<Map<string, string | null>>
   compareAndSwapMany(entries: ReadonlyArray<{ key: string; expectedValue: string | null; value: string }>, canCommit?: () => boolean): Promise<boolean>
 }
+/** Opaque runtime capability. Only its creating repository can admit this token. */
+export interface CampaignActionScope { readonly __campaignActionScope: unique symbol }
+export type CampaignProofDisposalReason = 'completed' | 'capacity' | 'admission' | 'concurrent' | 'mismatch' | 'conflict' | 'error' | 'replay'
+/** Source-free observations. Serialized retention is not a JavaScript heap bound. */
+export interface CampaignActionProofStats {
+  admittedScopes: number
+  fallbackScopes: number
+  disposedScopes: number
+  coldReplays: number
+  coldReplaysCompleted: number
+  /** Completed whole-prefix observations. Records/bytes also include matched work in failed passes. */
+  exactPasses: number
+  exactRecords: number
+  exactBytes: number
+  /** Fully validated proposed transitions reaching CAS, including cold fallback and unsuccessful CAS attempts. */
+  transitions: number
+  retainedBytes: number
+  retainedEntries: number
+  peakRetainedBytes: number
+  peakRetainedEntries: number
+  activeRecords: number
+  peakActiveRecords: number
+  coldMs: number
+  coldMaxMs: number
+  exactMs: number
+  exactMaxMs: number
+  disposalReasons: Record<CampaignProofDisposalReason, number>
+}
 export interface CampaignRepository {
   list(): Promise<string[]>
   create(manifest: CampaignManifest, operationId: string): Promise<CampaignCommitResult>
   inspect(campaignId: string): Promise<CampaignInspection | null>
-  read(campaignId: string): Promise<CampaignSnapshot | null>
-  commit(expected: CampaignSnapshot, mutation: CampaignMutation, canCommit?: () => boolean): Promise<CampaignCommitResult>
+  createActionScope?(campaignId: string): CampaignActionScope
+  disposeActionScope?(scope: CampaignActionScope): void
+  getActionProofStats?(): CampaignActionProofStats
+  read(campaignId: string, scope?: CampaignActionScope): Promise<CampaignSnapshot | null>
+  commit(expected: CampaignSnapshot, mutation: CampaignMutation, canCommit?: () => boolean, scope?: CampaignActionScope): Promise<CampaignCommitResult>
   getReceipt(campaignId: string, operationId: string): Promise<CampaignReceipt | null>
   getOperationArtifacts(campaignId: string, operationId: string): Promise<CampaignArtifact[] | null>
 }

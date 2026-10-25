@@ -1,0 +1,110 @@
+{
+  "evidenceKind": "derived-not-raw",
+  "baseline": "d098d27ba53a2edebbd1d7ec8dd49166cd81ec8f",
+  "measuredCodeCommit": "a0693312a1a1393bbf9ab10c3eb35f1ed60ea681",
+  "measuredCodeTree": "aa965db583a53bc132dd7df9e9202e9ebadf2e9e",
+  "nativePathCount": 474,
+  "nativeManifestCanonicalSha256": "543dade7be73fd518ff858726b34eec5e95a970a4de79cb0826c587046ce38cc",
+  "nativeDrift": false,
+  "lint": "passed; max-warnings0",
+  "strictTypes": "passed",
+  "build": "passed",
+  "smokeSuitesPassed": 128,
+  "independentFocusedReview": "repository217, lifecycle49, timing11 before final two test-only late-rejection variants, existingtimeouts15/store/engine44/read-batches21; final full suite includes timing13",
+  "localBrowser": "NOT_RUN",
+  "exactHeadCI": "pending",
+  "longformAcceptance": "NOT_RUN",
+  "changedSourceSha256": {
+    "package.json": "cb7f8f6d52d2ab8c3a1a703026a0fd6f238e9d0b347b37e29c4ff7191b6c909d",
+    "scripts/browser-writer-campaign-storage.mjs": "548ddaa5c0a019d02ab700c0a64fc7fc283629b79c22cb5cd4ac8712a54f119c",
+    "scripts/campaign-build-identity.mjs": "a688ba758e70703fc0231d4f31bd84981141f881a66d590d5da5f46f3d0a1eea",
+    "scripts/campaign-evidence.mjs": "4480c546948e3d75d88f1b7dadb55a3830b6814c29be45729bd024cdc1c1f43c",
+    "scripts/fixtures/campaign-storage-evidence-case.mjs": "26b02ba27bd219012877859c7795ddf602fcce7d9793861819669cddfa5c7590",
+    "scripts/fixtures/writer-campaign-action-proof-browser.ts": "be38725f02e2967417dafcb5e2fe1445dc24c8cdd5c716dfbecbc0b20d872ff8",
+    "scripts/fixtures/writer-campaign-action-timing.ts": "4309b0c0c43d660ab00fc00bee526149ff90a8cf9941dbd3357aea668037824a",
+    "scripts/fixtures/writer-campaign-capacity-profile.ts": "2d644db1053276f662814dca28a7088558b7dafa4e940bb17cdf8140b486f07d",
+    "scripts/fixtures/writer-campaign-heap-observation.ts": "a4dd5f4179299f715185f6f78646c4abae01cf011093462f702633c7930088cb",
+    "scripts/fixtures/writer-campaign-storage-browser.ts": "57b111f48e5b765e2de537d183b0c0a69e4cae85118a5e51e690648dbe91c5fa",
+    "scripts/fixtures/writer-campaign-storage-identity.mjs": "8f9c4a16f644e1981e0a4f335fecb06f376b9975efd56ba7fe6c0b20eac1e22e",
+    "scripts/lib/writer-campaign-storage-reporting.mjs": "723f780c1020183cf9bdb93e02afb5cc81597aa635276e8a1e93d8efe051baab",
+    "scripts/profile-writer-campaign-capacity.ts": "1fdb13c3894a5c8a763e770ec717833e35ad3e724b381d2ee33cfa446a157a33",
+    "scripts/smoke-writer-campaign-action-proof-browser.ts": "2bcd5fb18f57c6b1d04112f4743c8a4b7483c4c36c6b135b7242f08db62ae875",
+    "scripts/smoke-writer-campaign-action-proof-engine.ts": "6e1fe6b4ad5a86896da5f1e14e3bbb5b0ae74c75267382d7ebf39b9760bfec23",
+    "scripts/smoke-writer-campaign-action-proof.ts": "e052156ee5d8cdd9922b7b51269cf23210b98c7c29c8dc4a7ce9c69aedaabd03",
+    "scripts/smoke-writer-campaign-action-timing.ts": "bb84a23010190dcaf70ac4bbcab69ca13f6ae4f23976ce030c32335f3297365b",
+    "scripts/smoke-writer-campaign-heap-observation.ts": "2f49a22ce3b7681560221d6e193d00c63bc4b20e5e6a6b628a57bca23e973768",
+    "scripts/smoke-writer-campaign-operation-timing.ts": "24dc57da578222e895a6f837e885de0bef04ea5accb9930ae538ae72693f8785",
+    "scripts/smoke-writer-campaign-storage-evidence.mjs": "576c9bcb10d3f6cddaf3696145a5ec4d1df4fd74dc021e050ba20b19a4b224d0",
+    "src/services/writerCampaign/actionProof.ts": "a03c04e751e92f620bc44207f21502d3a6cc2e40bdef25f020669b3b8837c4d7",
+    "src/services/writerCampaign/engine.ts": "de09ed45c18f06950d8f6cdd6a2cdc1d7d62753b5f77287a319848e3b0c7a35f",
+    "src/services/writerCampaign/store.ts": "f03f152b73a5fe15cbcb715504f677d35ea20a4a06e9fef0e0939a464d40ac94",
+    "src/types/writerCampaign.ts": "5bcef1043b1f4b3c967999ebf4817a793f54af30014b8bf0e110945b9696b9cb"
+  },
+  "retainedLocalEvidence": [
+    {
+      "name": "full-final.log",
+      "bytes": 177290,
+      "sha256": "478b51bd81c1f5d9c3b4ce7120af03b8d60422ebe30a3777292e34b07e2d546a"
+    },
+    {
+      "name": "full-final-before.json",
+      "bytes": 52092,
+      "sha256": "37a14e5743b0fe95b5bd732066b6c097e125bb749a5a5c459b726ce7a29d5329"
+    },
+    {
+      "name": "full-final-after.json",
+      "bytes": 52092,
+      "sha256": "37a14e5743b0fe95b5bd732066b6c097e125bb749a5a5c459b726ce7a29d5329"
+    },
+    {
+      "name": "profile-final-report.json",
+      "bytes": 18546,
+      "sha256": "3e12f562ca9ef6048fb2ee86620ac7e2ccecf3ff711454dccd9d58492a200698"
+    },
+    {
+      "name": "profile-final-before.json",
+      "bytes": 52092,
+      "sha256": "37a14e5743b0fe95b5bd732066b6c097e125bb749a5a5c459b726ce7a29d5329"
+    },
+    {
+      "name": "profile-final-after.json",
+      "bytes": 52092,
+      "sha256": "37a14e5743b0fe95b5bd732066b6c097e125bb749a5a5c459b726ce7a29d5329"
+    },
+    {
+      "name": "profile-final-git-identity.txt",
+      "bytes": 82,
+      "sha256": "00b6367d6e9f83395446f3e1e0acffb215282ef5fda67aa4ffdcbff35915c3d3"
+    },
+    {
+      "name": "profile-repeat-report.json",
+      "bytes": 18543,
+      "sha256": "e5d2744ab5a598ce39d7b57922857fd7ebd80b2bbb7d6b12f379346ec6a77fb9"
+    },
+    {
+      "name": "profile-repeat-before.json",
+      "bytes": 52092,
+      "sha256": "37a14e5743b0fe95b5bd732066b6c097e125bb749a5a5c459b726ce7a29d5329"
+    },
+    {
+      "name": "profile-repeat-after.json",
+      "bytes": 52092,
+      "sha256": "37a14e5743b0fe95b5bd732066b6c097e125bb749a5a5c459b726ce7a29d5329"
+    },
+    {
+      "name": "profile-repeat-git-identity.txt",
+      "bytes": 82,
+      "sha256": "00b6367d6e9f83395446f3e1e0acffb215282ef5fda67aa4ffdcbff35915c3d3"
+    },
+    {
+      "name": "profile-final.log",
+      "bytes": 7735,
+      "sha256": "509f9da506a238dce2d00775474c369e62e7be4ed9255c2cef05e87ac847751b"
+    },
+    {
+      "name": "profile-repeat.log",
+      "bytes": 7732,
+      "sha256": "5ca1b2936b1befaf6930c85c928e88fa5ecfc25d277f86c51e73b1ebc7063da4"
+    }
+  ]
+}

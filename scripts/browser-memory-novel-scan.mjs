@@ -15,6 +15,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { chromium, expect as playwrightExpect } from '@playwright/test'
 import { startPreviewServer } from './browser-preview.mjs'
+import { cleanupInOrder, runTracedScenario } from './lib/browser-scenario-lifecycle.mjs'
 import { buildLongProfile, buildReviewCapacityProfile, LONG_FUTURE_CANARY, LONG_TARGET_TEXT, PLOT_EXPLANATION_CANARY } from './fixtures/novel-candidate-long-profile.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url)), artifacts = path.join(root, 'artifacts/browser-memory-novel-scan')
@@ -138,12 +139,32 @@ async function startProvider() {
   fixtureOrigin = `http://127.0.0.1:${provider.address().port}`
 }
 const release = () => { for (const send of [...held]) send() }
+async function writeCurrentReport() {
+  report.finishedAt = new Date().toISOString()
+  report.requests = requests
+  report.expected = { tests: 20, aCalls: 834, bCalls: 667, scanCalls: 1501, writingCalls: 3, scanSourceCharsSent: 1_388_842, scanSourceSpansSent: 3_354, controlledCandidateProposals: 568, longA: 599, longB: 9, longWriterRelationEvidenceAnchors: 3 }
+  report.totals = { tests: report.tests.length, passed: report.tests.filter(item => item.status === 'passed').length, writingCalls: writingRequests().length,
+    scanCalls: scanRequests().length, sourceCharsSent: scanRequests().reduce((sum, entry) => sum + entry.sourceChars, 0), inputChars: scanRequests().reduce((sum, entry) => sum + entry.inputChars, 0), inputBytes: scanRequests().reduce((sum, entry) => sum + entry.inputBytes, 0), unmockedRequests: report.blockedRequests.length }
+  await writeFile(path.join(artifacts, 'report.json'), JSON.stringify(report, null, 2))
+}
 async function step(name, run) {
   const item = { name, status: 'running', callsBefore: requests.length }; report.tests.push(item)
   console.log(`START ${name}`)
   const started = Date.now()
-  try { await run(); item.status = 'passed'; console.log(`PASS  ${name}`) }
-  catch (error) { item.status = 'failed'; item.error = String(error.stack || error); await page.screenshot({ path: path.join(artifacts, 'failure.png'), fullPage: true }).catch(() => {}); throw error }
+  try {
+    await runTracedScenario({ tracing: context.tracing, run,
+      failurePath: path.join(localEvidence, 'failure-trace.zip'),
+      recordFailure: async error => {
+        item.status = 'failed'; item.error = String(error?.stack || error)
+        item.durationMs = Date.now() - started; item.callsAfter = requests.length
+        report.error ||= item.error; process.exitCode = 1
+        await writeCurrentReport()
+      },
+      captureFailure: () => page.screenshot({ path: path.join(artifacts, 'failure.png'), fullPage: true }),
+    })
+    item.status = 'passed'; console.log(`PASS  ${name}`)
+  }
+  catch (error) { item.status = 'failed'; item.error = String(error?.stack || error); throw error }
   finally { item.durationMs = Date.now() - started; item.callsAfter = requests.length }
 }
 async function dismiss() { const button = page.getByRole('button', { name: '我知道了', exact: true }); try { await button.waitFor({ state: 'visible', timeout: 1200 }); await button.click() } catch { /* Optional announcement. */ } }
@@ -334,7 +355,6 @@ try {
   }, { fixtureOrigin })
   page = await context.newPage(); page.setDefaultTimeout(30_000)
   page.on('pageerror', error => report.browserErrors.push(String(error.stack || error)))
-  await context.tracing.start({ screenshots: true, snapshots: true, sources: false })
   await step('01 Default-off, zero-call preview, separate A/B approval, frozen three-premise bridge', async () => {
     await seed(); await openLab(); await runScan()
     assert.ok(await cards().count() >= 2)
@@ -566,18 +586,25 @@ try {
   assert.equal(scanRequests().reduce((sum, entry) => sum + entry.sourceChars, 0), 1_388_842)
   assert.equal(scanRequests().reduce((sum, entry) => sum + entry.sourceCount, 0), 3_354)
   assert.equal(scanRequests().reduce((sum, entry) => sum + entry.candidateCount, 0), 568)
-  console.log(`PASS ${report.tests.length} novel candidate built-app journeys; 1,317,800 disclosed source characters; no live model`)
 } catch (error) {
-  report.error = String(error.stack || error); console.error(report.error); process.exitCode = 1
+  report.error = String(error?.stack || error); console.error(report.error); process.exitCode = 1
   report.diagnostics = { url: page?.url(), text: await page?.locator('body').innerText({ timeout: 3000 }).catch(() => '') }
 } finally {
-  release(); report.finishedAt = new Date().toISOString()
-  report.requests = requests
-  report.expected = { tests: 20, aCalls: 834, bCalls: 667, scanCalls: 1501, writingCalls: 3, scanSourceCharsSent: 1_388_842, scanSourceSpansSent: 3_354, controlledCandidateProposals: 568, longA: 599, longB: 9, longWriterRelationEvidenceAnchors: 3 }
-  report.totals = { tests: report.tests.length, passed: report.tests.filter(item => item.status === 'passed').length, writingCalls: writingRequests().length,
-    scanCalls: scanRequests().length, sourceCharsSent: scanRequests().reduce((sum, entry) => sum + entry.sourceChars, 0), inputChars: scanRequests().reduce((sum, entry) => sum + entry.inputChars, 0), inputBytes: scanRequests().reduce((sum, entry) => sum + entry.inputBytes, 0), unmockedRequests: report.blockedRequests.length }
-  await writeFile(path.join(artifacts, 'report.json'), JSON.stringify(report, null, 2))
-  await context?.tracing.stop({ path: path.join(localEvidence, 'trace.zip') }).catch(() => {})
-  await browser?.close()
-  for (const server of [provider, preview]) if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)) }
+  release()
+  try {
+    await cleanupInOrder([
+      ['report-write', writeCurrentReport],
+      ['browser-close', () => browser?.close()],
+      ...[['provider-close', provider], ['preview-close', preview]].filter(([, server]) => server).map(([name, server]) => [name, async () => {
+        server.closeAllConnections(); await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+      }]),
+    ])
+  } catch (error) {
+    // An earlier scenario error remains primary, but cleanup failure cannot
+    // produce a final PASS or prevent the other resources being closed.
+    if (!report.error) { report.error = String(error?.stack || error); console.error(report.error) }
+    process.exitCode = 1
+    await writeCurrentReport().catch(() => {})
+  }
 }
+if (!process.exitCode) console.log(`PASS ${report.tests.length} novel candidate built-app journeys; 1,317,800 disclosed source characters; no live model`)

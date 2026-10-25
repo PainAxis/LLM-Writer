@@ -8,6 +8,7 @@ import { canonicalStringify, decodeStorageBytes } from '../../src/services/write
 import { createCampaignRepository } from '../../src/services/writerCampaign/store'
 import { createOfflineCampaignEngine, type OfflineCampaignEngine } from '../../src/services/writerCampaign/engine'
 import { runCampaignCapacityProfile, type StorageObservation } from './writer-campaign-capacity-profile'
+export { ACTION_PROOF_BOUNDARIES, runActionProofBoundary, inspectActionProofAfterRestart } from './writer-campaign-action-proof-browser'
 const verify = (condition: unknown) => { if (!condition) throw new Error('storage_boundary_failed') }
 const meter = () => (globalThis as unknown as { __campaignStorageMeter: { snapshot(): StorageObservation } }).__campaignStorageMeter.snapshot()
 const restartIdentity = () => (globalThis as unknown as { __campaignStorageMeter: { restartIdentity(): { checkpointHash: string } } }).__campaignStorageMeter.restartIdentity()

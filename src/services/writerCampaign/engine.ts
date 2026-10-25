@@ -1,4 +1,4 @@
-import type { CampaignArtifact, CampaignBudget, CampaignManifest, CampaignMutation, CampaignRepository, CampaignRequest, CampaignResponse, CampaignSnapshot, CampaignState, CampaignTaskSpec, CampaignTaskState } from '../../types/writerCampaign'
+import type { CampaignActionScope, CampaignArtifact, CampaignBudget, CampaignManifest, CampaignMutation, CampaignRepository, CampaignRequest, CampaignResponse, CampaignSnapshot, CampaignState, CampaignTaskSpec, CampaignTaskState } from '../../types/writerCampaign'
 import { createCampaignRepository } from './store'
 import { getCampaignBuildIdentity } from './buildIdentity'
 import { CampaignProtocolError, campaignId, encodeStorageBytes, hashCampaignValue, sealCampaignArtifact, sealCampaignManifest, sealCampaignRequest, utf8Bytes } from './protocol'
@@ -71,7 +71,27 @@ export interface CampaignTimeoutDiagnostics {
   events: CampaignTimeoutDiagnostic[]
   overflow: number
 }
-interface Run { id: string; controller: AbortController; epoch: number | null; startedAt: number; phase: CampaignTimeoutPhase; recovering?: boolean; deadlineObserved?: boolean }
+export const CAMPAIGN_OPERATION_TIMING_UPPER_MS = Object.freeze([1, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 3000, 5000, 10000, Infinity] as const)
+export interface CampaignOperationTiming {
+  phase: CampaignTimeoutPhase
+  count: number
+  success: number
+  error: number
+  abort: number
+  timeout: number
+  minMs: number | null
+  maxMs: number | null
+  histogram: number[]
+}
+export interface CampaignOperationTimings {
+  status: 'collected' | 'not_collected'
+  phases: CampaignOperationTiming[]
+}
+const emptyOperationTimings = (): CampaignOperationTiming[] => CAMPAIGN_TIMEOUT_PHASES.map(phase => ({
+  phase, count: 0, success: 0, error: 0, abort: 0, timeout: 0, minMs: null, maxMs: null,
+  histogram: Array<number>(CAMPAIGN_OPERATION_TIMING_UPPER_MS.length).fill(0),
+}))
+interface Run { id: string; controller: AbortController; epoch: number | null; startedAt: number; phase: CampaignTimeoutPhase; recovering?: boolean; deadlineObserved?: boolean; scope?: CampaignActionScope }
 
 /** Generic orchestration over a repository and an explicit host capability. No stored JSON supplies authority. */
 export function createCampaignEngine(options: CampaignEngineOptions) {
@@ -83,6 +103,26 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
   if (![ioTimeout, dispatchTimeout].every(n => Number.isSafeInteger(n) && n > 0 && n <= 10_000)) throw new CampaignRuntimeError('timeout_invalid')
   const runs = new Map<string, Run>(), commands = new Map<string, Promise<CampaignSnapshot>>()
   let disposed = false
+  function disposeScope(run?: Run) {
+    const scope = run?.scope
+    if (!run || !scope) return
+    // Drop local authority before calling an injected repository's cleanup. A
+    // late promise can never acquire this Run's capability again.
+    run.scope = undefined
+    try { repository.disposeActionScope?.(scope) } catch { /* Cache cleanup must not change the action outcome. */ }
+  }
+  function beginRun(id: string, scoped = true): Run {
+    const run: Run = { id, controller: new AbortController(), epoch: null, startedAt: performance.now(), phase: 'read' }
+    runs.set(id, run)
+    run.controller.signal.addEventListener('abort', () => disposeScope(run), { once: true })
+    // Both optional methods are needed: old/injected repositories continue on
+    // their ordinary cold path, never through a bypass around read/commit.
+    if (scoped && repository.createActionScope && repository.disposeActionScope) {
+      try { run.scope = repository.createActionScope(id) } catch { /* Proof admission is optional. */ }
+    }
+    if (run.controller.signal.aborted || runs.get(id) !== run) disposeScope(run)
+    return run
+  }
   function stopLocal(id?: string) {
     for (const [key, run] of runs) if (id === undefined || key === id) { run.controller.abort(); runs.delete(key) }
   }
@@ -90,6 +130,24 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
   // state or authority; a failed diagnostic must never change the command result.
   const timeoutEvents: CampaignTimeoutDiagnostic[] = []
   let timeoutOverflow = 0
+  // Fixed-size, source-free operation observations. A failed measurement makes
+  // the whole report unavailable rather than presenting a partial distribution.
+  const operationTimings = emptyOperationTimings()
+  let operationTimingsCollected = true
+  function recordOperation(phase: CampaignTimeoutPhase, outcome: 'success' | 'error' | 'abort' | 'timeout', start: number | null, end: number | null) {
+    if (!operationTimingsCollected) return
+    try {
+      const elapsed = start === null || end === null ? NaN : end - start
+      if (!Number.isFinite(elapsed) || elapsed < 0) { operationTimingsCollected = false; return }
+      const row = operationTimings[CAMPAIGN_TIMEOUT_PHASES.indexOf(phase)]!
+      if (!Number.isSafeInteger(row.count + 1)) { operationTimingsCollected = false; return }
+      let bucket = 0
+      while (elapsed >= CAMPAIGN_OPERATION_TIMING_UPPER_MS[bucket]!) bucket++
+      row.count++; row[outcome]++; row.histogram[bucket]++
+      row.minMs = row.minMs === null ? elapsed : Math.min(row.minMs, elapsed)
+      row.maxMs = row.maxMs === null ? elapsed : Math.max(row.maxMs, elapsed)
+    } catch { operationTimingsCollected = false }
+  }
   function recordTimeout(event: CampaignTimeoutDiagnostic) {
     try {
       if (timeoutEvents.length < CAMPAIGN_TIMEOUT_DIAGNOSTIC_LIMIT) timeoutEvents.push(event)
@@ -116,7 +174,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
         if (active) recordDeadline(run, elapsed)
       }
     }
-    if (disposed || (run && (run.controller.signal.aborted || runs.get(run.id) !== run))) throw new CampaignRuntimeError('local_stopped')
+    if (disposed || (run && (run.controller.signal.aborted || runs.get(run.id) !== run))) { disposeScope(run); throw new CampaignRuntimeError('local_stopped') }
   }
   function diagnosticNow(): number | null {
     try {
@@ -125,36 +183,44 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     } catch { return null }
   }
   function canCommit(run?: Run) {
-    if (disposed || (run && (runs.get(run.id) !== run || run.controller.signal.aborted))) return false
+    if (disposed || (run && (runs.get(run.id) !== run || run.controller.signal.aborted))) { disposeScope(run); return false }
     if (run) {
       const elapsed = performance.now() - run.startedAt
       if (elapsed < 10_000) return true
       if (elapsed >= 10_000) recordDeadline(run, elapsed)
+      disposeScope(run)
       return false
     }
     return true
   }
   function bounded<T>(operation: () => Promise<T>, phase: CampaignTimeoutPhase, timeout = ioTimeout, run?: Run): Promise<T> {
     const operationStartedAt = diagnosticNow(), observedPhase = phaseOf(phase, run)
+    if (operationStartedAt === null) operationTimingsCollected = false
     if (run) run.phase = observedPhase
     // Preserve the existing timer boundary: the operation is invoked before
     // selecting/scheduling its timer. Elapsed time also includes synchronous work.
-    const promise = operation()
+    let promise: Promise<T>
+    try { promise = operation() } catch (error) {
+      const observedAt = diagnosticNow()
+      disposeScope(run); recordOperation(observedPhase, 'error', operationStartedAt, observedAt); throw error
+    }
     return new Promise((resolve, reject) => {
       let settled = false
-      const finish = (error: unknown, value?: T) => {
+      const finish = (error: unknown, value?: T, outcome: 'success' | 'error' | 'abort' | 'timeout' = error ? 'error' : 'success', observedAt?: number | null) => {
         if (settled) return false
         settled = true; clearTimeout(timer); run?.controller.signal.removeEventListener('abort', abort)
-        if (error) reject(error); else resolve(value as T)
+        const finishedAt = observedAt === undefined ? diagnosticNow() : observedAt
+        if (error) { disposeScope(run); reject(error) } else resolve(value as T)
+        recordOperation(observedPhase, outcome, operationStartedAt, finishedAt)
         return true
       }
-      const abort = () => { finish(new CampaignRuntimeError('local_stopped')) }
+      const abort = () => { finish(new CampaignRuntimeError('local_stopped'), undefined, 'abort') }
       const remaining = run ? Math.max(0, 10_000 - (performance.now() - run.startedAt)) : timeout
       const scheduledTimeoutMs = Math.min(timeout, remaining)
       const timer = setTimeout(() => {
         // Sample the firing boundary, not time spent in synchronous abort listeners.
         const observedAt = diagnosticNow()
-        const won = finish(new CampaignRuntimeError('operation_timeout'))
+        const won = finish(new CampaignRuntimeError('operation_timeout'), undefined, 'timeout', observedAt)
         run?.controller.abort()
         if (won && observedAt !== null && operationStartedAt !== null) {
           try {
@@ -168,12 +234,12 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
       }, scheduledTimeoutMs)
       run?.controller.signal.addEventListener('abort', abort, { once: true })
       if (run?.controller.signal.aborted) abort()
-      promise.then(value => finish(null, value), error => finish(error))
+      promise.then(value => finish(null, value), error => finish(error, undefined, 'error'))
     })
   }
   async function read(id: string, run?: Run): Promise<CampaignSnapshot> {
     assertRun(run, 'read')
-    const snapshot = await bounded(() => repository.read(id), 'read', ioTimeout, run)
+    const snapshot = await bounded(() => repository.read(id, run?.scope), 'read', ioTimeout, run)
     assertRun(run)
     if (!snapshot) throw new CampaignRuntimeError('campaign_missing')
     if (snapshot.manifest.runtimeIdentity !== identity.runtimeIdentity || snapshot.manifest.source.commit !== identity.source.commit || snapshot.manifest.source.tree !== identity.source.tree) throw new CampaignRuntimeError('runtime_identity_changed')
@@ -183,8 +249,9 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
   function checkClock(snapshot: CampaignSnapshot) { checkCampaignClock(snapshot.manifest, snapshot.checkpoint.lastWallTime, clock()) }
   async function commit(snapshot: CampaignSnapshot, mutation: CampaignMutation, run?: Run) {
     assertRun(run, 'commit')
-    const result = await bounded(() => repository.commit(snapshot, mutation, () => canCommit(run)), 'commit', ioTimeout, run)
+    const result = await bounded(() => repository.commit(snapshot, mutation, () => canCommit(run), run?.scope), 'commit', ioTimeout, run)
     assertRun(run)
+    if (result.replayed) disposeScope(run)
     return result
   }
   function dependencies(snapshot: CampaignSnapshot, taskId: string): CampaignArtifact[] {
@@ -212,6 +279,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     return next
   }
   async function failClosed(id: string, run: Run, reason: string): Promise<CampaignSnapshot> {
+    disposeScope(run)
     run.recovering = true
     const snapshot = await read(id, run)
     if (terminal(snapshot) || snapshot.head.status === 'paused') return snapshot
@@ -267,7 +335,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     if (commandId.length > 100) throw new CampaignRuntimeError('command_id_too_long')
     assertRun()
     if (runs.has(id)) throw new CampaignRuntimeError('operation_in_progress')
-    const run: Run = { id, controller: new AbortController(), epoch: null, startedAt: performance.now(), phase: 'read' }; runs.set(id, run)
+    const run = beginRun(id)
     try {
       let snapshot = await read(id, run); run.epoch = snapshot.head.executionEpoch
       // Duplicate business commands are read-only even after completion, budget exhaustion or restart.
@@ -354,6 +422,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
       const retained = snapshot.requests.get(snapshot.checkpoint.tasks.find(t => t.taskId === intent.taskId)!.request!.hash)!
       return await saveResponse(snapshot, retained, run)
     } catch (error) {
+      disposeScope(run)
       const code = error instanceof CampaignRuntimeError || error instanceof CampaignProtocolError ? error.code : 'persistence_or_integrity'
       if (code === 'operation_conflict') throw error
       if (code === 'conflict') { const current = await bounded(() => repository.read(id), 'recovery_read'); if (current) return current }
@@ -362,7 +431,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
         if (snapshot) return snapshot
       }
       if (code === 'operation_timeout' && runs.get(id) === run) {
-        const recoveryRun: Run = { id, controller: new AbortController(), epoch: run.epoch, startedAt: performance.now(), phase: 'read' }; runs.set(id, recoveryRun)
+        const recoveryRun = beginRun(id, false); recoveryRun.epoch = run.epoch
         try { return await failClosed(id, recoveryRun, code) } catch { /* The outcome remains unconfirmed if the fence cannot persist. */ }
         finally { recoveryRun.controller.abort(); if (runs.get(id) === recoveryRun) runs.delete(id) }
       }
@@ -384,7 +453,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
   }
   async function control(id: string, kind: 'pause' | 'resume' | 'cancel', commandId: string): Promise<CampaignSnapshot> {
     campaignId(commandId); assertRun()
-    const run: Run = { id, controller: new AbortController(), epoch: null, startedAt: performance.now(), phase: 'read' }; runs.set(id, run)
+    const run = beginRun(id)
     try {
       let snapshot = await read(id, run); run.epoch = snapshot.head.executionEpoch
       const receipt = await bounded(() => repository.getReceipt(id, commandId), 'receipt', ioTimeout, run)
@@ -412,7 +481,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
   }
   async function recoverSaveOnly(id: string, commandId = newCommand()): Promise<CampaignSnapshot> {
     stopLocal(id); campaignId(commandId); assertRun()
-    const run: Run = { id, controller: new AbortController(), epoch: null, startedAt: performance.now(), phase: 'read' }; runs.set(id, run)
+    const run = beginRun(id, false)
     try {
       let snapshot = await read(id, run); run.epoch = snapshot.head.executionEpoch
       const previous = await bounded(() => repository.getReceipt(id, commandId), 'receipt', ioTimeout, run)
@@ -435,12 +504,12 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
   }
   async function replaceCandidate(id: string, taskId: string, text: string, commandId = newCommand()): Promise<CampaignSnapshot> {
     stopLocal(id); assertRun()
-    const run: Run = { id, controller: new AbortController(), epoch: null, startedAt: performance.now(), phase: 'read' }; runs.set(id, run)
+    const run = beginRun(id)
     try {
     let snapshot = await read(id, run); run.epoch = snapshot.head.executionEpoch
-    const priorReceipt = await bounded(() => repository.getReceipt(id, commandId), 'receipt')
+    const priorReceipt = await bounded(() => repository.getReceipt(id, commandId), 'receipt', ioTimeout, run)
     if (priorReceipt) {
-      const priorArtifacts = await bounded(() => repository.getOperationArtifacts(id, commandId), 'read')
+      const priorArtifacts = await bounded(() => repository.getOperationArtifacts(id, commandId), 'read', ioTimeout, run)
       if (priorReceipt.kind !== 'replace_candidate' || priorArtifacts?.length !== 1 || priorArtifacts[0]!.taskId !== taskId || priorArtifacts[0]!.text !== text) throw new CampaignRuntimeError('operation_conflict')
       return snapshot
     }
@@ -484,6 +553,10 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     readTimeoutDiagnostics(): CampaignTimeoutDiagnostics {
       return { status: timeoutEvents.length ? 'observed' : 'not_observed',
         events: timeoutEvents.map(event => ({ ...event })), overflow: timeoutOverflow }
+    },
+    readOperationTimings(): CampaignOperationTimings {
+      return { status: operationTimingsCollected ? 'collected' : 'not_collected',
+        phases: operationTimingsCollected ? operationTimings.map(row => ({ ...row, histogram: [...row.histogram] })) : emptyOperationTimings() }
     },
     step,
     pause(id: string, commandId = newCommand()) { stopLocal(id); return control(id, 'pause', commandId) },

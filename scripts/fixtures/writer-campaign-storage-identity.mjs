@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { campaignBuildIdentity, CAMPAIGN_CORE_PATHS } from '../campaign-build-identity.mjs'
-export const STORAGE_HARNESS_PATHS = Object.freeze(['scripts/campaign-evidence.mjs', 'scripts/lib/writer-campaign-storage-reporting.mjs', 'scripts/campaign-build-identity.mjs', 'scripts/fixtures/writer-campaign-browser-probe.mjs', 'scripts/profile-writer-campaign-capacity.ts', 'scripts/browser-writer-campaign-storage.mjs', 'scripts/fixtures/writer-campaign-capacity-profile.ts', 'scripts/fixtures/writer-campaign-storage-browser.ts', 'scripts/fixtures/writer-campaign-storage-meter.mjs', 'scripts/fixtures/writer-campaign-storage-identity.mjs'])
+export const STORAGE_HARNESS_PATHS = Object.freeze(['scripts/campaign-evidence.mjs', 'scripts/lib/writer-campaign-storage-reporting.mjs', 'scripts/campaign-build-identity.mjs', 'scripts/fixtures/writer-campaign-browser-probe.mjs', 'scripts/profile-writer-campaign-capacity.ts', 'scripts/browser-writer-campaign-storage.mjs', 'scripts/fixtures/writer-campaign-capacity-profile.ts', 'scripts/fixtures/writer-campaign-heap-observation.ts', 'scripts/fixtures/writer-campaign-action-timing.ts', 'scripts/fixtures/writer-campaign-action-proof-browser.ts', 'scripts/fixtures/writer-campaign-storage-browser.ts', 'scripts/fixtures/writer-campaign-storage-meter.mjs', 'scripts/fixtures/writer-campaign-storage-identity.mjs'])
 const hash = value => createHash('sha256').update(value).digest('hex')
 export async function storageEvidenceIdentity(root) {
   const hashes = async files => Promise.all([...files].sort().map(async file => [file, hash(await readFile(path.join(root, file)))]))
