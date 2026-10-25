@@ -27,19 +27,23 @@ export function campaignRequestBounds(preparedInput: string, taskCount: number, 
 export function campaignRequestStorageAllowance(preparedInput: string, taskCount: number, responseBytes: number): StorageBytes16 {
   return enc(campaignRequestBounds(preparedInput, taskCount, responseBytes).allowance)
 }
-export function campaignRequestPhaseBound(request: CampaignRequest, taskCount: number): number {
-  const { M, Q, X, G } = campaignRequestBounds(request.preparedInput, taskCount, request.reservation.responseBytes)
-  return M + Q + (request.status === 'committed' ? 2 * X + G : request.status === 'response_retained' ? X : 0)
+function requestPhaseBound(status: CampaignRequest['status'], { M, Q, X, G }: ReturnType<typeof campaignRequestBounds>): number {
+  return M + Q + (status === 'committed' ? 2 * X + G : status === 'response_retained' ? X : 0)
 }
-export function campaignRequestFutureBound(request: CampaignRequest, taskCount: number): number {
-  const { M, Q, X, G } = campaignRequestBounds(request.preparedInput, taskCount, request.reservation.responseBytes)
-  switch (request.status) {
+export function campaignRequestPhaseBound(request: CampaignRequest, taskCount: number): number {
+  return requestPhaseBound(request.status, campaignRequestBounds(request.preparedInput, taskCount, request.reservation.responseBytes))
+}
+function requestFutureBound(status: CampaignRequest['status'], { M, Q, X, G }: ReturnType<typeof campaignRequestBounds>): number {
+  switch (status) {
     case 'reserved': return 4 * (M + Q) + 3 * X + G
     case 'dispatch_intent': return 3 * (M + Q) + 3 * X + G
     case 'outcome_unknown': return 2 * (M + Q) + 3 * X + G
     case 'response_retained': return M + Q + 2 * X + G
     default: return 0
   }
+}
+export function campaignRequestFutureBound(request: CampaignRequest, taskCount: number): number {
+  return requestFutureBound(request.status, campaignRequestBounds(request.preparedInput, taskCount, request.reservation.responseBytes))
 }
 export function emptyCampaignStorage(recoveryBytes: number | StorageBytes16): CampaignStorageState {
   return { writtenBytes: ZERO, allocatedBytes: ZERO, allocationConsumedBytes: ZERO, releasedBytes: ZERO, outstandingBytes: ZERO,
@@ -65,11 +69,12 @@ export function applyCampaignStorage(manifest: CampaignManifest, previous: Campa
   storage.writtenBytes = enc(addStorage(dec(previous.writtenBytes), charge))
   if (request) {
     const index = storage.openAllocations.findIndex(row => row.request.id === request.id)
-    let remaining: number
+    let remaining: number, bounds: ReturnType<typeof campaignRequestBounds>
     if (kind === 'reserve') {
       campaignAssert(index < 0 && storage.openAllocations.length < CAMPAIGN_MAX_OPEN_ALLOCATIONS, 'Open allocation limit or duplicate allocation', 'budget')
       const allowance = dec(request.storageAllocationBytes)
-      campaignAssert(request.storageAllocationBytes === campaignRequestStorageAllowance(request.preparedInput, manifest.tasks.length, request.reservation.responseBytes), 'Request allocation differs from immutable envelope', 'budget')
+      bounds = campaignRequestBounds(request.preparedInput, manifest.tasks.length, request.reservation.responseBytes)
+      campaignAssert(request.storageAllocationBytes === enc(bounds.allowance), 'Request allocation differs from immutable envelope', 'budget')
       // Admission includes the whole grant; its reserve write is paid from it.
       campaignAssert(addStorage(addStorage(addStorage(dec(previous.writtenBytes), dec(previous.outstandingBytes)), allowance), dec(previous.recoveryRemainingBytes)) <= dec(manifest.storage.limitBytes), 'Request allocation exceeds storage budget', 'budget')
       storage.allocatedBytes = enc(addStorage(dec(storage.allocatedBytes), allowance))
@@ -79,10 +84,12 @@ export function applyCampaignStorage(manifest: CampaignManifest, previous: Campa
     } else {
       campaignAssert(index >= 0, 'Request allocation is not open')
       remaining = dec(storage.openAllocations[index]!.remainingBytes)
+      bounds = campaignRequestBounds(request.preparedInput, manifest.tasks.length, request.reservation.responseBytes)
     }
-    campaignAssert(charge <= campaignRequestPhaseBound(request, manifest.tasks.length), 'Request phase exceeds proved envelope', 'budget')
+    // Reuse only this invocation's validated immutable envelope, never a request/revision cache.
+    campaignAssert(charge <= requestPhaseBound(request.status, bounds), 'Request phase exceeds proved envelope', 'budget')
     const residual = subtractStorage(remaining, charge)
-    campaignAssert(residual >= campaignRequestFutureBound(request, manifest.tasks.length), 'Request cannot fund its remaining phases', 'budget')
+    campaignAssert(residual >= requestFutureBound(request.status, bounds), 'Request cannot fund its remaining phases', 'budget')
     storage.allocationConsumedBytes = enc(addStorage(dec(storage.allocationConsumedBytes), charge))
     storage.outstandingBytes = enc(subtractStorage(dec(storage.outstandingBytes), charge))
     if (kind === 'accept_artifact') {

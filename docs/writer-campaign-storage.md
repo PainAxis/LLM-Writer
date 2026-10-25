@@ -2,7 +2,7 @@
 
 [English](writer-campaign-storage.md) | [简体中文](writer-campaign-storage.zh-CN.md)
 
-Status: both fixed Node structural profiles passed at 1,000,000 body scalars each under the unchanged cap and deadlines. Local lint, strict TypeScript, build and all 120 smoke suites passed. Real IndexedDB capacity, final exact-head review binding and all thirteen CI jobs remain pending. This is not novel-writing or autonomous-longform acceptance. See the [measurement report](testing/writer-campaign-storage-2026-10-25/REPORT.md).
+Status: PR #45 passed all 13 jobs and real-IDB bilingual million-scalar profiles before merge. Same-tree main follow-through then failed Node Chinese at 966,686 scalars, despite native profiles passing again. The [focused CPU repair and preserved failure](testing/writer-campaign-cpu-2026-10-25/REPORT.md) track this unresolved timing gate without raising limits. Historical local measurements below are unchanged; this is not autonomous novel or literary acceptance.
 
 The preceding [durability foundation](writer-campaign-foundation.md) was accepted in PR #44: merge `84e704afff08921763d4b83136d881a39946900a`, tree `cc53d33565ff574fd6bbce2f76bdcca9aecda406`. [Main run 40154748857](https://github.com/PainAxis/LLM-Writer/actions/runs/40154748857) passed all twelve jobs, including all 90 author-Agent scenarios and all 12 Campaign cases. Those results do not validate the new accounting implementation.
 

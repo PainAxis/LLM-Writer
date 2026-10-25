@@ -77,7 +77,8 @@ const STORAGE_ROOT_KEYS = ['schemaVersion', 'reportKind', 'commit', 'sourceTreeS
 const GEOMETRY = { version: 'synthetic-storage-geometry-60x16667-v1', plannedTasks: 123, plannedBodyTasks: 60, targetBodyScalars: 1_000_000, storageCeilingBytes: 67_108_864, recoveryReserveBytes: 524_288 }
 const BASELINE = { zh: { committedBodyScalars: 200_004, completedTasks: 28, cumulativeWrittenBytes: 6_346_657, permanentStorageReservationBytes: 66_456_411, totalReadBytes: 570_635_858, totalReadCalls: 10_577 }, en: { committedBodyScalars: 350_007, completedTasks: 46, cumulativeWrittenBytes: 6_618_786, permanentStorageReservationBytes: 65_625_495, totalReadBytes: 997_803_343, totalReadCalls: 26_957 } }
 const PROFILE_NUMBERS = ['committedBodyScalars', 'committedTasks', 'actualFixtureInvocations', 'reservedAttempts', 'committedOperations', 'cumulativeWrittenBytes', 'cumulativeAllocatedBytes', 'allocationConsumedBytes', 'outstandingBytes', 'peakOutstandingBytes', 'releasedBytes', 'recoveryRemainingBytes', 'openAllocations', 'liveRecordCount', 'liveSerializedMapBytes', 'cumulativeActiveReservationMs', 'totalReadBytes', 'totalReadCalls', 'maxReadBatchKeys', 'maxReadBatchBytes', 'coldRepositoryReadMs', 'coldRepositoryReadBytes', 'coldRepositoryReadCalls', 'coldProcessReadMs', 'coldProcessReadBytes', 'coldProcessReadCalls', 'executionMs', 'maxStepMs', 'accountingMismatches', 'committedTransactions']
-const PROFILE_KEYS = ['language', 'status', 'blockerCode', 'execution', 'coldProcessRestart', 'liveBytesByRecordKind', ...PROFILE_NUMBERS].sort()
+const LEGACY_PROFILE_KEYS = ['language', 'status', 'blockerCode', 'execution', 'coldProcessRestart', 'liveBytesByRecordKind', ...PROFILE_NUMBERS].sort()
+const PROFILE_KEYS = [...LEGACY_PROFILE_KEYS, 'timeoutDiagnostics'].sort()
 const RECORD_KINDS = ['catalog', 'manifest', 'head', 'checkpoint', 'receipt', 'request', 'artifact'].sort()
 const STORAGE_CODES = ['budget', 'storage_budget_exhausted', 'budget_exhausted', 'active_budget_exhausted', 'operation_timeout', 'storage_unknown', 'integrity', 'conflict', 'local_stopped', 'profile_failure', 'dispatch_outcome_unknown', 'deadline', 'clock_rollback']
 const BOUNDARY_KEYS = ['id', 'status', 'failureStage', 'fixtureDispatchEntries', 'committedTransactions', 'cumulativeWrittenBytes', 'outstandingBytes', 'releasedBytes', 'accountingMismatches'].sort()
@@ -89,12 +90,53 @@ function fixedObject(input, expected) {
   }
   return structuredClone(expected)
 }
+// These closed diagnostic fields are observations only, never Campaign payloads.
+export const CAMPAIGN_STORAGE_TIMEOUT_PHASES = Object.freeze(['read', 'receipt', 'commit', 'prepare', 'dispatch', 'reconcile', 'save', 'recovery_read', 'recovery_receipt', 'recovery_commit'])
+const TIMEOUT_KEYS = ['status', 'events', 'overflow'].sort()
+const TIMEOUT_EVENT_KEYS = ['phase', 'trigger', 'selectedBudget', 'operationTimeoutMs', 'actionTimeoutMs', 'actionRemainingMs', 'scheduledTimeoutMs', 'operationElapsedMs', 'actionElapsedMs'].sort()
+const duration = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER
+const uncollectedTimeoutDiagnostics = () => ({ status: 'not_collected', events: [], overflow: 0 })
+function projectTimeoutDiagnostics(input) {
+  exact(input, TIMEOUT_KEYS)
+  if (!['not_collected', 'not_observed', 'observed'].includes(input.status)
+    || !Array.isArray(input.events) || input.events.length > 8 || !integer(input.overflow)
+    || (input.status === 'observed' ? input.events.length === 0 : input.events.length !== 0 || input.overflow !== 0)
+    || (input.overflow > 0 && input.events.length !== 8)) invalid()
+  const events = input.events.map(event => {
+    exact(event, TIMEOUT_EVENT_KEYS)
+    if (!CAMPAIGN_STORAGE_TIMEOUT_PHASES.includes(event.phase)
+      || !['timer', 'action_deadline_check'].includes(event.trigger)
+      || !['operation', 'action', 'tie'].includes(event.selectedBudget)) invalid()
+    if (event.trigger === 'action_deadline_check') {
+      if (event.selectedBudget !== 'action' || event.operationTimeoutMs !== null || event.actionTimeoutMs !== 10_000
+        || event.actionRemainingMs !== null || event.scheduledTimeoutMs !== null || event.operationElapsedMs !== null
+        || !duration(event.actionElapsedMs) || event.actionElapsedMs < 10_000) invalid()
+    } else {
+      // Profile producers use the unchanged production limits, not virtual or
+      // raised deadlines. Keep elapsed values exact rather than rounding them.
+      if (event.operationTimeoutMs !== (event.phase === 'dispatch' ? 5_000 : 3_000)
+        || !duration(event.scheduledTimeoutMs) || !duration(event.operationElapsedMs)) invalid()
+      if (event.actionTimeoutMs === null) {
+        if (event.actionRemainingMs !== null || event.actionElapsedMs !== null
+          || event.selectedBudget !== 'operation' || event.scheduledTimeoutMs !== event.operationTimeoutMs) invalid()
+      } else {
+        if (event.actionTimeoutMs !== 10_000 || !duration(event.actionRemainingMs) || event.actionRemainingMs > 10_000
+          || !duration(event.actionElapsedMs) || event.operationElapsedMs > event.actionElapsedMs
+          || event.actionElapsedMs < 10_000 - event.actionRemainingMs
+          || event.scheduledTimeoutMs !== Math.min(event.operationTimeoutMs, event.actionRemainingMs)
+          || event.selectedBudget !== (event.operationTimeoutMs < event.actionRemainingMs ? 'operation' : event.operationTimeoutMs > event.actionRemainingMs ? 'action' : 'tie')) invalid()
+      }
+    }
+    return Object.fromEntries(TIMEOUT_EVENT_KEYS.map(key => [key, event[key]]))
+  })
+  return { status: input.status, events, overflow: input.overflow }
+}
 export function emptyCampaignStorageProfile(language) {
-  return { language, status: 'not_run', blockerCode: null, execution: 'not_run', coldProcessRestart: 'not_run', ...Object.fromEntries(PROFILE_NUMBERS.map(key => [key, 0])), liveBytesByRecordKind: Object.fromEntries(RECORD_KINDS.map(key => [key, 0])) }
+  return { language, status: 'not_run', blockerCode: null, execution: 'not_run', coldProcessRestart: 'not_run', timeoutDiagnostics: uncollectedTimeoutDiagnostics(), ...Object.fromEntries(PROFILE_NUMBERS.map(key => [key, 0])), liveBytesByRecordKind: Object.fromEntries(RECORD_KINDS.map(key => [key, 0])) }
 }
 export function projectCampaignStorageReport(input) {
   exact(input, STORAGE_ROOT_KEYS)
-  if (input.schemaVersion !== 1 || input.reportKind !== 'campaign-storage-v2' || !hex(input.commit, 40)
+  if (![1, 2].includes(input.schemaVersion) || input.reportKind !== 'campaign-storage-v2' || !hex(input.commit, 40)
     || !['sourceTreeSha256', 'harnessSha256', 'buildSha256'].every(key => hex(input[key], 64))
     || !['node-injected-atomic-io-not-browser-idb', 'browser-native-idb'].includes(input.environment)
     || input.buildMode !== (input.environment === 'browser-native-idb' ? 'test_driver_production_modules' : 'node_typescript_production_modules')
@@ -114,7 +156,9 @@ export function projectCampaignStorageReport(input) {
     return Object.fromEntries(BOUNDARY_KEYS.map(key => [key, row[key]]))
   })
   const profiles = input.profiles.map((row, index) => {
-    exact(row, PROFILE_KEYS); exact(row.liveBytesByRecordKind, RECORD_KINDS)
+    exact(row, input.schemaVersion === 1 ? LEGACY_PROFILE_KEYS : PROFILE_KEYS); exact(row.liveBytesByRecordKind, RECORD_KINDS)
+    // Legacy projection is a derived upgrade, not a newly collected observation.
+    const timeoutDiagnostics = input.schemaVersion === 1 ? uncollectedTimeoutDiagnostics() : projectTimeoutDiagnostics(row.timeoutDiagnostics)
     if (row.language !== ['zh', 'en'][index] || !['pass', 'refused', 'timeout', 'fail', 'not_run', 'running'].includes(row.status)
       || !(row.blockerCode === null || STORAGE_CODES.includes(row.blockerCode))
       || !['not_applicable', 'not_run', 'verified', 'failed'].includes(row.coldProcessRestart)
@@ -135,12 +179,12 @@ export function projectCampaignStorageReport(input) {
       || row.outstandingBytes !== 0 || row.openAllocations !== 0 || row.accountingMismatches !== 0
       || row.coldProcessRestart !== (input.environment === 'browser-native-idb' ? 'verified' : 'not_applicable')
       || (input.environment === 'browser-native-idb' && row.coldProcessReadCalls === 0))) invalid()
-    if (row.status === 'not_run' && (row.execution !== 'not_run' || row.blockerCode !== null || PROFILE_NUMBERS.some(key => row[key] !== 0))) invalid()
-    return { ...Object.fromEntries(PROFILE_KEYS.filter(key => key !== 'liveBytesByRecordKind').map(key => [key, row[key]])), liveBytesByRecordKind: Object.fromEntries(RECORD_KINDS.map(key => [key, row.liveBytesByRecordKind[key]])) }
+    if (row.status === 'not_run' && (row.execution !== 'not_run' || row.blockerCode !== null || PROFILE_NUMBERS.some(key => row[key] !== 0) || timeoutDiagnostics.status !== 'not_collected')) invalid()
+    return { ...Object.fromEntries(LEGACY_PROFILE_KEYS.filter(key => key !== 'liveBytesByRecordKind').map(key => [key, row[key]])), timeoutDiagnostics, liveBytesByRecordKind: Object.fromEntries(RECORD_KINDS.map(key => [key, row.liveBytesByRecordKind[key]])) }
   })
   if (input.buildSha256 === '0'.repeat(64) && (profiles.some(row => row.status === 'pass') || boundaries.some(row => row.status === 'pass'))) invalid()
   if (profiles.every(row => row.status === 'pass') && boundaries.every(row => row.status === 'pass') && (input.browserErrors || input.blockedExternalRequests)) invalid()
-  return { ...Object.fromEntries(STORAGE_ROOT_KEYS.filter(key => !['geometry', 'baselineV1', 'boundaries', 'profiles'].includes(key)).map(key => [key, input[key]])), geometry, baselineV1, boundaries, profiles }
+  return { ...Object.fromEntries(STORAGE_ROOT_KEYS.filter(key => !['geometry', 'baselineV1', 'boundaries', 'profiles'].includes(key)).map(key => [key, input[key]])), schemaVersion: 2, geometry, baselineV1, boundaries, profiles }
 }
 
 /** Both CLI producers use this gate. Partial/running evidence is never exit 0. */

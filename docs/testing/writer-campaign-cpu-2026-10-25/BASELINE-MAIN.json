@@ -1,0 +1,102 @@
+{
+  "evidenceKind": "derived-not-raw",
+  "scope": "Historical merged-main failure; not a repair result",
+  "commit": "a0edc99f1b7e649d27ae5cb70050d42e9c123b08",
+  "tree": "b7609ad577272901ea3623416a2f2884057192b5",
+  "runUrl": "https://github.com/PainAxis/LLM-Writer/actions/runs/40163096714",
+  "jobId": 121078567792,
+  "jobsSucceeded": 12,
+  "jobsFailed": 1,
+  "timeoutOrigin": "not_collected; operation_timeout does not identify operation-vs-action timer",
+  "observations": [
+    {
+      "environment": "node-injected-atomic-io-not-browser-idb",
+      "rawSummaryBytes": 4445,
+      "rawSummarySha256": "61fab20aa7c46d526e54acd0e0c76a87eadbc5cd3a183331911cfac843cffdf9",
+      "sourceTreeSha256": "e956d58eb59f1127f45fc3513793e1225c646608df796fd85614961a4fddec2a",
+      "harnessSha256": "2791403c1559f31d229855189cf346ac23f5ff0d5c186534e16b8ee147e941d1",
+      "nativeBoundariesPassed": 0,
+      "browserErrors": 0,
+      "realModelRequests": 0,
+      "profiles": [
+        {
+          "language": "zh",
+          "status": "timeout",
+          "blockerCode": "operation_timeout",
+          "committedBodyScalars": 966686,
+          "committedTasks": 120,
+          "actualFixtureInvocations": 121,
+          "committedOperations": 486,
+          "cumulativeWrittenBytes": 36132141,
+          "outstandingBytes": 1927388,
+          "openAllocations": 1,
+          "accountingMismatches": 0,
+          "executionMs": 564095,
+          "maxStepMs": 14014,
+          "coldProcessRestart": "not_applicable"
+        },
+        {
+          "language": "en",
+          "status": "pass",
+          "blockerCode": null,
+          "committedBodyScalars": 1000000,
+          "committedTasks": 123,
+          "actualFixtureInvocations": 123,
+          "committedOperations": 494,
+          "cumulativeWrittenBytes": 23151368,
+          "outstandingBytes": 0,
+          "openAllocations": 0,
+          "accountingMismatches": 0,
+          "executionMs": 469497,
+          "maxStepMs": 8436,
+          "coldProcessRestart": "not_applicable"
+        }
+      ]
+    },
+    {
+      "environment": "browser-native-idb",
+      "rawSummaryBytes": 6716,
+      "rawSummarySha256": "10d4377a8d21841865bbe55122c7dd52a5db373e4731e18edb8a1c6f37029948",
+      "sourceTreeSha256": "e956d58eb59f1127f45fc3513793e1225c646608df796fd85614961a4fddec2a",
+      "harnessSha256": "2791403c1559f31d229855189cf346ac23f5ff0d5c186534e16b8ee147e941d1",
+      "nativeBoundariesPassed": 8,
+      "browserErrors": 0,
+      "realModelRequests": 0,
+      "profiles": [
+        {
+          "language": "zh",
+          "status": "pass",
+          "blockerCode": null,
+          "committedBodyScalars": 1000000,
+          "committedTasks": 123,
+          "actualFixtureInvocations": 123,
+          "committedOperations": 494,
+          "cumulativeWrittenBytes": 37019200,
+          "outstandingBytes": 0,
+          "openAllocations": 0,
+          "accountingMismatches": 0,
+          "executionMs": 549072,
+          "maxStepMs": 9733,
+          "coldProcessRestart": "verified"
+        },
+        {
+          "language": "en",
+          "status": "pass",
+          "blockerCode": null,
+          "committedBodyScalars": 1000000,
+          "committedTasks": 123,
+          "actualFixtureInvocations": 123,
+          "committedOperations": 494,
+          "cumulativeWrittenBytes": 23151368,
+          "outstandingBytes": 0,
+          "openAllocations": 0,
+          "accountingMismatches": 0,
+          "executionMs": 418136,
+          "maxStepMs": 7490,
+          "coldProcessRestart": "verified"
+        }
+      ]
+    }
+  ],
+  "longformAcceptance": "NOT_RUN"
+}

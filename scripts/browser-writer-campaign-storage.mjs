@@ -19,7 +19,7 @@ async function main() {
 const root = fileURLToPath(new URL('../', import.meta.url)), hash = value => createHash('sha256').update(value).digest('hex')
 const privateRoot = await mkdtemp(path.join(tmpdir(), 'campaign-storage-idb-'))
 const provenance = await storageEvidenceIdentity(root)
-const report = { schemaVersion: 1, reportKind: 'campaign-storage-v2', commit: provenance.commit, sourceTreeSha256: provenance.sourceTreeSha256,
+const report = { schemaVersion: 2, reportKind: 'campaign-storage-v2', commit: provenance.commit, sourceTreeSha256: provenance.sourceTreeSha256,
   harnessSha256: provenance.harnessSha256, buildSha256: '0'.repeat(64), environment: 'browser-native-idb', buildMode: 'test_driver_production_modules', readAccounting: 'native_idb_get_transactions_including_cas_and_aborts', baselineReadAccounting: 'historical_node_repository_getMany_only',
   geometry: { version: 'synthetic-storage-geometry-60x16667-v1', plannedTasks: 123, plannedBodyTasks: 60, targetBodyScalars: 1_000_000, storageCeilingBytes: 67_108_864, recoveryReserveBytes: 524_288 },
   baselineV1: { zh: { committedBodyScalars: 200_004, completedTasks: 28, cumulativeWrittenBytes: 6_346_657, permanentStorageReservationBytes: 66_456_411, totalReadBytes: 570_635_858, totalReadCalls: 10_577 }, en: { committedBodyScalars: 350_007, completedTasks: 46, cumulativeWrittenBytes: 6_618_786, permanentStorageReservationBytes: 65_625_495, totalReadBytes: 997_803_343, totalReadCalls: 26_957 } },

@@ -42,7 +42,7 @@ function memoryObservation() {
 try {
   globalThis.fetch = async () => { throw new Error('Network forbidden in local capacity profile') }
   const provenance = await storageEvidenceIdentity(root)
-  const report = { schemaVersion: 1, reportKind: 'campaign-storage-v2', commit: provenance.commit, sourceTreeSha256: provenance.sourceTreeSha256,
+  const report = { schemaVersion: 2, reportKind: 'campaign-storage-v2', commit: provenance.commit, sourceTreeSha256: provenance.sourceTreeSha256,
     harnessSha256: provenance.harnessSha256, buildSha256: provenance.identity.runtimeIdentity.split(':')[1], environment: 'node-injected-atomic-io-not-browser-idb', buildMode: 'node_typescript_production_modules', readAccounting: 'repository_getMany_only', baselineReadAccounting: 'historical_node_repository_getMany_only',
     geometry: CAPACITY_GEOMETRY, baselineV1: CAPACITY_V1_BASELINE, boundaries: [], profiles: ['zh', 'en'].map(emptyCampaignStorageProfile) as Array<ReturnType<typeof emptyCampaignStorageProfile> | Awaited<ReturnType<typeof runCampaignCapacityProfile>>>, browserErrors: 0, blockedExternalRequests: 0, realModelRequests: 0, longformAcceptance: 'NOT_RUN' }
   const persist = async () => {
