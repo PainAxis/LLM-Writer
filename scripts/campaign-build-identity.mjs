@@ -8,6 +8,7 @@ export const CAMPAIGN_CORE_PATHS = Object.freeze([
   'src/services/blobStore.ts',
   'src/services/writerCampaign/buildIdentity.ts',
   'src/services/writerCampaign/budget.ts',
+  'src/services/writerCampaign/actionProof.ts',
   'src/services/writerCampaign/engine.ts',
   'src/services/writerCampaign/fixtureAdapter.ts',
   'src/services/writerCampaign/legacyProtocol.ts',

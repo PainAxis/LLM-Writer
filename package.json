@@ -162,7 +162,13 @@
     "smoke:writer-campaign-read-batches": "node --import tsx scripts/smoke-writer-campaign-read-batches.ts",
     "smoke:writer-campaign-comparisons": "node --import tsx scripts/smoke-writer-campaign-comparisons.ts",
     "smoke:writer-campaign-cpu-equivalence": "node --import tsx scripts/smoke-writer-campaign-cpu-equivalence.ts",
-    "smoke:writer-campaign-timeouts": "node --import tsx scripts/smoke-writer-campaign-timeouts.ts"
+    "smoke:writer-campaign-timeouts": "node --import tsx scripts/smoke-writer-campaign-timeouts.ts",
+    "smoke:writer-campaign-action-proof": "node --import tsx scripts/smoke-writer-campaign-action-proof.ts",
+    "smoke:writer-campaign-action-proof-engine": "node --import tsx scripts/smoke-writer-campaign-action-proof-engine.ts",
+    "smoke:writer-campaign-heap-observation": "node --import tsx scripts/smoke-writer-campaign-heap-observation.ts",
+    "smoke:writer-campaign-action-timing": "node --import tsx scripts/smoke-writer-campaign-action-timing.ts",
+    "smoke:writer-campaign-action-proof-browser": "node --import tsx scripts/smoke-writer-campaign-action-proof-browser.ts",
+    "smoke:writer-campaign-operation-timing": "node --import tsx scripts/smoke-writer-campaign-operation-timing.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

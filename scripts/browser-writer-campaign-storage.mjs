@@ -14,16 +14,17 @@ import { beginStorageObservation, failStorageObservation, finalizeStorageObserva
 import { installCampaignStorageMeter } from './fixtures/writer-campaign-storage-meter.mjs'
 import { installCampaignProbe } from './fixtures/writer-campaign-browser-probe.mjs'
 import { storageEvidenceIdentity } from './fixtures/writer-campaign-storage-identity.mjs'
-import { CAMPAIGN_STORAGE_REPORT_PATH, CAMPAIGN_STORAGE_BOUNDARIES, CAMPAIGN_STORAGE_FAILURE_STAGES, emptyCampaignStorageProfile, projectCampaignStorageReport, campaignStorageReportExitCode } from './campaign-evidence.mjs'
+import { CAMPAIGN_STORAGE_REPORT_PATH, CAMPAIGN_STORAGE_BOUNDARIES, CAMPAIGN_PROOF_BOUNDARIES, CAMPAIGN_STORAGE_FAILURE_STAGES, emptyCampaignProofBoundary, emptyCampaignStorageProfile, projectCampaignStorageReport, campaignStorageReportExitCode } from './campaign-evidence.mjs'
 async function main() {
 const root = fileURLToPath(new URL('../', import.meta.url)), hash = value => createHash('sha256').update(value).digest('hex')
 const privateRoot = await mkdtemp(path.join(tmpdir(), 'campaign-storage-idb-'))
 const provenance = await storageEvidenceIdentity(root)
-const report = { schemaVersion: 2, reportKind: 'campaign-storage-v2', commit: provenance.commit, sourceTreeSha256: provenance.sourceTreeSha256,
+const report = { schemaVersion: 3, sourceSchemaVersion: 3, reportKind: 'campaign-storage-v2', commit: provenance.commit, sourceTreeSha256: provenance.sourceTreeSha256,
   harnessSha256: provenance.harnessSha256, buildSha256: '0'.repeat(64), environment: 'browser-native-idb', buildMode: 'test_driver_production_modules', readAccounting: 'native_idb_get_transactions_including_cas_and_aborts', baselineReadAccounting: 'historical_node_repository_getMany_only',
   geometry: { version: 'synthetic-storage-geometry-60x16667-v1', plannedTasks: 123, plannedBodyTasks: 60, targetBodyScalars: 1_000_000, storageCeilingBytes: 67_108_864, recoveryReserveBytes: 524_288 },
   baselineV1: { zh: { committedBodyScalars: 200_004, completedTasks: 28, cumulativeWrittenBytes: 6_346_657, permanentStorageReservationBytes: 66_456_411, totalReadBytes: 570_635_858, totalReadCalls: 10_577 }, en: { committedBodyScalars: 350_007, completedTasks: 46, cumulativeWrittenBytes: 6_618_786, permanentStorageReservationBytes: 65_625_495, totalReadBytes: 997_803_343, totalReadCalls: 26_957 } },
   boundaries: CAMPAIGN_STORAGE_BOUNDARIES.map(id => ({ id, status: 'not_run', failureStage: null, fixtureDispatchEntries: 0, committedTransactions: 0, cumulativeWrittenBytes: 0, outstandingBytes: 0, releasedBytes: 0, accountingMismatches: 0 })),
+  proofBoundaries: CAMPAIGN_PROOF_BOUNDARIES.map(emptyCampaignProofBoundary),
   profiles: ['zh', 'en'].map(emptyCampaignStorageProfile), browserErrors: 0, blockedExternalRequests: 0, realModelRequests: 0, longformAcceptance: 'NOT_RUN' }
 let context, server, driver, activeObservation
 const observations = []
@@ -93,6 +94,32 @@ try {
       if (page && context?.pages().includes(page)) failureStage = await page.evaluate(() => globalThis.__campaignStorageStage ?? 'setup').catch(() => lifecycleStage)
       failStorageObservation(report, observation, CAMPAIGN_STORAGE_FAILURE_STAGES.includes(failureStage) ? failureStage : 'setup')
       process.stderr.write(`Campaign storage ${id}: boundary_failed\n`)
+    } finally {
+      if (context) await context.close().catch(() => failStorageObservation(report, observation, 'teardown'))
+      context = null
+      finalizeStorageObservation(report, observation)
+      await persist(); activeObservation = null
+    }
+  }
+  for (const [index, id] of CAMPAIGN_PROOF_BOUNDARIES.entries()) {
+    const observation = begin('proofBoundary', index)
+    let page, lifecycleStage = 'setup'
+    try {
+      const profile = await mkdtemp(path.join(privateRoot, `${id}-`))
+      page = await launch(profile, origin, observation)
+      lifecycleStage = 'exercise'
+      const { report: result, restartExpected } = await page.evaluate(async ({ url, id }) => (await import(url)).runActionProofBoundary(id), { url, id })
+      report.proofBoundaries[index] = { ...result, restartOutcome: 'not_run' }
+      lifecycleStage = 'restart'
+      await context.close(); context = null
+      const reopened = await launch(profile, origin, observation)
+      const cold = await reopened.evaluate(async ({ url, id, expected, restartExpected }) => (await import(url)).inspectActionProofAfterRestart(id, expected, restartExpected), { url, id, expected: result, restartExpected })
+      report.proofBoundaries[index] = { ...result, ...cold }
+    } catch {
+      let failureStage = lifecycleStage
+      if (page && context?.pages().includes(page)) failureStage = await page.evaluate(() => globalThis.__campaignStorageStage ?? 'setup').catch(() => lifecycleStage)
+      failStorageObservation(report, observation, CAMPAIGN_STORAGE_FAILURE_STAGES.includes(failureStage) ? failureStage : 'setup')
+      process.stderr.write(`Campaign action proof ${id}: boundary_failed\n`)
     } finally {
       if (context) await context.close().catch(() => failStorageObservation(report, observation, 'teardown'))
       context = null

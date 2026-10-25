@@ -1,0 +1,142 @@
+{
+  "evidenceKind": "derived-not-raw",
+  "runUrl": "https://github.com/PainAxis/LLM-Writer/actions/runs/40170296500",
+  "commit": "d098d27ba53a2edebbd1d7ec8dd49166cd81ec8f",
+  "tree": "be5364431e3dd3da7c5e49831d9a857b58e495a5",
+  "mainAcceptance": "FAILED",
+  "longformAcceptance": "NOT_RUN",
+  "observations": [
+    {
+      "environment": "node-injected-atomic-io-not-browser-idb",
+      "sourceTreeSha256": "19dc196840d25aec8689f22116b094fdc47e8cf22413864eba9c251b50cc918b",
+      "harnessSha256": "b8a9128073dabb959ca058d0832c79aaa655c996bc61980ee6c2eff962bf7f2a",
+      "profiles": [
+        {
+          "language": "zh",
+          "status": "timeout",
+          "committedBodyScalars": 966686,
+          "committedTasks": 120,
+          "actualFixtureInvocations": 121,
+          "committedOperations": 486,
+          "outstandingBytes": 1927388,
+          "openAllocations": 1,
+          "cumulativeWrittenBytes": 36132141,
+          "releasedBytes": 165672161,
+          "totalReadBytes": 10024215108,
+          "totalReadCalls": 22947,
+          "maxReadBatchKeys": 33,
+          "maxReadBatchBytes": 1381533,
+          "executionMs": 566957,
+          "maxStepMs": 14004,
+          "coldRepositoryReadMs": 1986,
+          "accountingMismatches": 0,
+          "timeoutDiagnostics": {
+            "status": "observed",
+            "events": [
+              {
+                "actionElapsedMs": 9999.598999000038,
+                "actionRemainingMs": 1981.3143520000158,
+                "actionTimeoutMs": 10000,
+                "operationElapsedMs": 1981.7798850000836,
+                "operationTimeoutMs": 3000,
+                "phase": "commit",
+                "scheduledTimeoutMs": 1981.3143520000158,
+                "selectedBudget": "action",
+                "trigger": "timer"
+              }
+            ],
+            "overflow": 0
+          }
+        },
+        {
+          "language": "en",
+          "status": "pass",
+          "committedBodyScalars": 1000000,
+          "committedTasks": 123,
+          "actualFixtureInvocations": 123,
+          "committedOperations": 494,
+          "outstandingBytes": 0,
+          "openAllocations": 0,
+          "cumulativeWrittenBytes": 23151368,
+          "releasedBytes": 138098593,
+          "totalReadBytes": 6237580750,
+          "totalReadCalls": 23500,
+          "maxReadBatchKeys": 33,
+          "maxReadBatchBytes": 1381446,
+          "executionMs": 491357,
+          "maxStepMs": 8750,
+          "coldRepositoryReadMs": 1753,
+          "accountingMismatches": 0,
+          "timeoutDiagnostics": {
+            "status": "not_observed",
+            "events": [],
+            "overflow": 0
+          }
+        }
+      ],
+      "boundaryPasses": 0,
+      "originalSummaryBytes": 5099,
+      "originalSummarySha256": "5adb5a0d281d5659a5278d238aa7f39bcd3b61b3002e07d94591ac30933ed5e5"
+    },
+    {
+      "environment": "browser-native-idb",
+      "sourceTreeSha256": "19dc196840d25aec8689f22116b094fdc47e8cf22413864eba9c251b50cc918b",
+      "harnessSha256": "b8a9128073dabb959ca058d0832c79aaa655c996bc61980ee6c2eff962bf7f2a",
+      "profiles": [
+        {
+          "language": "zh",
+          "status": "pass",
+          "committedBodyScalars": 1000000,
+          "committedTasks": 123,
+          "actualFixtureInvocations": 123,
+          "committedOperations": 494,
+          "outstandingBytes": 0,
+          "openAllocations": 0,
+          "cumulativeWrittenBytes": 37019200,
+          "releasedBytes": 170064291,
+          "totalReadBytes": 10317171300,
+          "totalReadCalls": 23994,
+          "maxReadBatchKeys": 33,
+          "maxReadBatchBytes": 1381528,
+          "executionMs": 522289,
+          "maxStepMs": 9177,
+          "coldRepositoryReadMs": 1826,
+          "accountingMismatches": 0,
+          "timeoutDiagnostics": {
+            "status": "not_observed",
+            "events": [],
+            "overflow": 0
+          }
+        },
+        {
+          "language": "en",
+          "status": "pass",
+          "committedBodyScalars": 1000000,
+          "committedTasks": 123,
+          "actualFixtureInvocations": 123,
+          "committedOperations": 494,
+          "outstandingBytes": 0,
+          "openAllocations": 0,
+          "cumulativeWrittenBytes": 23151368,
+          "releasedBytes": 138098593,
+          "totalReadBytes": 6237841740,
+          "totalReadCalls": 23994,
+          "maxReadBatchKeys": 33,
+          "maxReadBatchBytes": 1381446,
+          "executionMs": 408423,
+          "maxStepMs": 7310,
+          "coldRepositoryReadMs": 1490,
+          "accountingMismatches": 0,
+          "timeoutDiagnostics": {
+            "status": "not_observed",
+            "events": [],
+            "overflow": 0
+          }
+        }
+      ],
+      "boundaryPasses": 8,
+      "originalSummaryBytes": 6950,
+      "originalSummarySha256": "05e871193ac2dbc984438fb35029297b06e24defa13edbfb6a6653253859940f"
+    }
+  ]
+}

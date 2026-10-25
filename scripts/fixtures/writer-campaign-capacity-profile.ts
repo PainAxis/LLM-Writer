@@ -1,10 +1,12 @@
 /** Frozen synthetic geometry shared by Node atomic IO and real browser IDB.
  * No provider/network requests and no literary/semantic acceptance claims. */
-import type { CampaignRepositoryIO, CampaignTaskSpec, CampaignSnapshot } from '../../src/types/writerCampaign'
+import type { CampaignActionProofStats, CampaignRepositoryIO, CampaignTaskSpec, CampaignSnapshot } from '../../src/types/writerCampaign'
 import { CampaignProtocolError, decodeStorageBytes } from '../../src/services/writerCampaign/protocol'
 import { CampaignRuntimeError } from '../../src/services/writerCampaign/budget'
 import { createCampaignRepository } from '../../src/services/writerCampaign/store'
-import { createOfflineCampaignEngine, createOfflineCampaignManifest, type CampaignRuntimeIdentity, type CampaignTimeoutDiagnostics } from '../../src/services/writerCampaign/engine'
+import { createOfflineCampaignEngine, createOfflineCampaignManifest, type CampaignRuntimeIdentity, type CampaignTimeoutDiagnostics, type CampaignOperationTimings } from '../../src/services/writerCampaign/engine'
+import { createCampaignHeapObservation, type CampaignHeapObservation } from './writer-campaign-heap-observation'
+import { createCampaignActionTiming, type CampaignActionTiming } from './writer-campaign-action-timing'
 
 export const CAPACITY_GEOMETRY = Object.freeze({ version: 'synthetic-storage-geometry-60x16667-v1', plannedTasks: 123, plannedBodyTasks: 60, targetBodyScalars: 1_000_000, storageCeilingBytes: 67_108_864, recoveryReserveBytes: 524_288 })
 export const CAPACITY_V1_BASELINE = Object.freeze({
@@ -35,6 +37,7 @@ export interface StorageObservation {
   maxReadBatchBytes: number; maxReadBatchKeys: number; peakOutstandingBytes: number; accountingMismatches: number
 }
 const verify = (value: unknown): void => { if (!value) throw new Error('capacity_verification_failed') }
+type ProofObservation = { status: 'collected'; stats: CampaignActionProofStats } | { status: 'not_collected'; stats: null }
 export async function runCampaignCapacityProfile(language: 'zh' | 'en', identity: CampaignRuntimeIdentity,
   observe: () => StorageObservation, io?: CampaignRepositoryIO, onProgress?: (row: ReturnType<typeof capacityRow>) => Promise<void>) {
   // Omitting io is intentional: browser profiles use the production blobStore implementation.
@@ -51,20 +54,31 @@ export async function runCampaignCapacityProfile(language: 'zh' | 'en', identity
   const manifest = await createOfflineCampaignManifest({ identity, campaignId: `capacity-${language}`, language, tasks: capacityTasks(), fixtureVersion: CAPACITY_GEOMETRY.version })
   const started = performance.now()
   let snapshot = await engine.prepare(manifest), blockerCode: string | null = null, maxStepMs = 0
+  // Optional sampled heap observation covers execution only, not cold reads.
+  // No force-GC, request data, or heap snapshot is collected.
+  const heap = createCampaignHeapObservation()
+  const actionTiming = createCampaignActionTiming(CAPACITY_GEOMETRY.plannedTasks)
+  const proofObservation = (): ProofObservation => {
+    const stats = repository.getActionProofStats?.()
+    return stats ? { status: 'collected', stats } : { status: 'not_collected', stats: null }
+  }
   const timedStep = async (commandId: string) => {
     const stepStarted = performance.now()
     try { return await engine.step(manifest.campaignId, commandId) }
-    finally { maxStepMs = Math.max(maxStepMs, Math.round(performance.now() - stepStarted)) }
+    finally {
+      const elapsed = Math.round(performance.now() - stepStarted)
+      maxStepMs = Math.max(maxStepMs, elapsed); actionTiming.record(elapsed)
+    }
   }
-  const progress = async () => { if (onProgress) await onProgress(capacityRow(language, snapshot, observe(), calls, io === undefined, engine.readTimeoutDiagnostics(), 'running', null, Math.round(performance.now() - started), maxStepMs)) }
-  await progress()
+  const progress = async () => { if (onProgress) await onProgress(capacityRow(language, snapshot, observe(), calls, io === undefined, engine.readTimeoutDiagnostics(), engine.readOperationTimings(), proofObservation(), heap.snapshot(), actionTiming.snapshot(), 'running', null, Math.round(performance.now() - started), maxStepMs)) }
   try {
+    await progress()
     for (let attempt = 0; attempt < manifest.tasks.length && !['blocked', 'paused', 'cancelled', 'completed'].includes(snapshot.head.status); attempt++) {
       try { snapshot = await timedStep(`profile-${attempt}`) }
       catch (error) { blockerCode = safeStorageCode(error); snapshot = (await repository.read(manifest.campaignId))!; break }
       await progress()
     }
-  } finally { engine.dispose() }
+  } finally { try { engine.dispose() } finally { heap.stop() } }
   const executionMs = Math.round(performance.now() - started)
   blockerCode ??= snapshot.checkpoint.reason === null ? null : safeStorageCode(snapshot.checkpoint.reason)
   const before = observe(), coldStart = performance.now()
@@ -82,15 +96,15 @@ export async function runCampaignCapacityProfile(language: 'zh' | 'en', identity
   verify(decodeStorageBytes(manifest.storage.limitBytes) === CAPACITY_GEOMETRY.storageCeilingBytes)
   const complete = snapshot.head.status === 'completed'
   if (complete) verify(snapshot.checkpoint.bodyCharacters === 1_000_000 && committedTasks === 123 && calls === 123 && snapshot.checkpoint.budget.operations === 494 && outstandingBytes === 0 && storage.openAllocations.length === 0)
-  return capacityRow(language, snapshot, metrics, calls, io === undefined, engine.readTimeoutDiagnostics(), complete ? 'pass' : blockerCode === 'operation_timeout' || blockerCode === 'local_stopped' ? 'timeout' : 'refused', blockerCode, executionMs, maxStepMs, coldRepositoryReadMs, metrics.totalReadBytes - before.totalReadBytes, metrics.totalReadCalls - before.totalReadCalls)
+  return capacityRow(language, snapshot, metrics, calls, io === undefined, engine.readTimeoutDiagnostics(), engine.readOperationTimings(), proofObservation(), heap.snapshot(), actionTiming.snapshot(), complete ? 'pass' : blockerCode === 'operation_timeout' || blockerCode === 'local_stopped' ? 'timeout' : 'refused', blockerCode, executionMs, maxStepMs, coldRepositoryReadMs, metrics.totalReadBytes - before.totalReadBytes, metrics.totalReadCalls - before.totalReadCalls)
 }
 
-function capacityRow(language: 'zh' | 'en', snapshot: CampaignSnapshot, metrics: StorageObservation, calls: number, nativeIDB: boolean, timeoutDiagnostics: CampaignTimeoutDiagnostics, status: string, blockerCode: string | null, executionMs: number, maxStepMs: number, coldRepositoryReadMs = 0, coldRepositoryReadBytes = 0, coldRepositoryReadCalls = 0) {
+function capacityRow(language: 'zh' | 'en', snapshot: CampaignSnapshot, metrics: StorageObservation, calls: number, nativeIDB: boolean, timeoutDiagnostics: CampaignTimeoutDiagnostics, operationTiming: CampaignOperationTimings, actionProof: ProofObservation, memoryObservation: CampaignHeapObservation, actionTiming: CampaignActionTiming, status: string, blockerCode: string | null, executionMs: number, maxStepMs: number, coldRepositoryReadMs = 0, coldRepositoryReadBytes = 0, coldRepositoryReadCalls = 0) {
   const storage = snapshot.checkpoint.storage
   const writtenBytes = decodeStorageBytes(storage.writtenBytes), outstandingBytes = decodeStorageBytes(storage.outstandingBytes)
   const allocatedBytes = decodeStorageBytes(storage.allocatedBytes), consumedBytes = decodeStorageBytes(storage.allocationConsumedBytes), releasedBytes = decodeStorageBytes(storage.releasedBytes)
   const recoveryRemainingBytes = decodeStorageBytes(storage.recoveryRemainingBytes), committedTasks = snapshot.checkpoint.tasks.filter(task => task.status === 'committed').length
-  return { language, status, blockerCode, timeoutDiagnostics, coldProcessRestart: nativeIDB ? 'not_run' : 'not_applicable', coldProcessReadMs: 0, coldProcessReadBytes: 0, coldProcessReadCalls: 0,
+  return { language, status, blockerCode, timeoutDiagnostics, operationTiming, actionProof, memoryObservation, actionTiming, coldProcessRestart: nativeIDB ? 'not_run' : 'not_applicable', coldProcessReadMs: 0, coldProcessReadBytes: 0, coldProcessReadCalls: 0,
     execution: snapshot.head.status, committedBodyScalars: snapshot.checkpoint.bodyCharacters, committedTasks, actualFixtureInvocations: calls,
     reservedAttempts: snapshot.checkpoint.budget.attempts, committedOperations: snapshot.checkpoint.budget.operations,
     cumulativeWrittenBytes: writtenBytes, cumulativeAllocatedBytes: allocatedBytes, allocationConsumedBytes: consumedBytes,

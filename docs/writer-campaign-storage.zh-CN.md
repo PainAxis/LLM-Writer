@@ -2,7 +2,7 @@
 
 [English](writer-campaign-storage.md) | [简体中文](writer-campaign-storage.zh-CN.md)
 
-状态：PR #45 合并前通过全部 13 项任务及中英文原生 IDB 百万字符测试；但同树主分支后续运行中，Node 中文在 966,686 字符处超时，原生测试再次通过。[聚焦 CPU 修正及保留失败](testing/writer-campaign-cpu-2026-10-25/REPORT.zh-CN.md)记录这项尚未关闭的时延门槛，不提高限制。下方历史本地测量保持原样；这不是自主小说或文学验收。
+状态：PR #45 合并前通过全部 13 项任务及中英文原生 IDB 百万字符测试；但同树主分支后续运行中，Node 中文在 966,686 字符处超时，原生测试再次通过。[聚焦 CPU 修正及保留失败](testing/writer-campaign-cpu-2026-10-25/REPORT.zh-CN.md)仍未关闭门槛：PR #46 main run 40170296500 的 Node 中文在同一前缀再次超时。新增 [action 私有验证证明](writer-campaign-action-proof.zh-CN.md)保留完整历史 IO 与 raw 精确比较，最终源码 profile 及全部 13 项 CI 均为 NOT RUN。下方描述和本地测量记录 proof 之前的实现，保持原样；不是自主小说或文学验收。
 
 前一项[持久化基础](writer-campaign-foundation.zh-CN.md)已由 PR #44 验收，合并提交 `84e704afff08921763d4b83136d881a39946900a`，tree `cc53d33565ff574fd6bbce2f76bdcca9aecda406`。[main run 40154748857](https://github.com/PainAxis/LLM-Writer/actions/runs/40154748857) 十二项全部通过，含作者 Agent 90 场景及 Campaign 12 场景；这些结果不替代新记账实现的验证。
 
@@ -73,6 +73,6 @@ engine 去掉两次被随后完整校验 commit 覆盖的 refresh，正常成功
 
 ## 证据与清理
 
-CI 只归档精确白名单内的专用闭合结构摘要及 manifest；未知字段使准备失败。完整备份、trace、store dump、生成正文和可重建请求／响应全集不上传；错误仅用有限枚举／哈希，不复制原始 stack 或 DOM。源码、构建及 probe 身份明确区分生产模块与测试观测。当前核心源码摘要覆盖 12 个指定文件，包括 v1 只读校验器和 v2 记账模块，并非完整编译器／依赖证明。本地未提交运行的 report.commit 只标识 checkout 基线，不代表修改后内容；实测源码由精确 source/harness 摘要及前后 manifest 绑定。Node 报告的 buildSha256 是这份核心源码摘要，不是编译产物哈希；浏览器报告则对测试 driver 的实际输出 assets 集合计哈希，harnessSha256 独立绑定 driver 与观测源码。repository 冷读和真实浏览器进程重启读取分别报告。浏览器 buildSha256 全零仅表示初始化未产生可测 assets 的不可用哨兵，不得视为成功构建证明。
+CI 只归档精确白名单内的专用闭合结构摘要及 manifest；未知字段使准备失败。完整备份、trace、store dump、生成正文和可重建请求／响应全集不上传；错误仅用有限枚举／哈希，不复制原始 stack 或 DOM。源码、构建及 probe 身份明确区分生产模块与测试观测。核心源码摘要覆盖 [campaign-build-identity.mjs](../scripts/campaign-build-identity.mjs) 中显式 `CAMPAIGN_CORE_PATHS` 清单，包含 v1 只读校验器和 v2 记账模块；应以实测修订的清单为准，而非历史文件数量，也不是完整编译器／依赖证明。本地未提交运行的 report.commit 只标识 checkout 基线，不代表修改后内容；实测源码由精确 source/harness 摘要及前后 manifest 绑定。Node 报告的 buildSha256 是这份核心源码摘要，不是编译产物哈希；浏览器报告则对测试 driver 的实际输出 assets 集合计哈希，harnessSha256 独立绑定 driver 与观测源码。repository 冷读和真实浏览器进程重启读取分别报告。浏览器 buildSha256 全零仅表示初始化未产生可测 assets 的不可用哨兵，不得视为成功构建证明。
 
 功能代码、正式测试、验证报告及 CI 附件保留。仅在全部测试结束后清理可丢弃的临时 profile／中间材料；原始本地备份和用户文件不归入临时材料。本存储工作不声称真实模型或文学质量验收通过。
