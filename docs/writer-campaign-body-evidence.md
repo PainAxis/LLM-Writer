@@ -75,6 +75,12 @@ New bounds, with aggregate limits taking precedence:
 
 A maximum in one dimension does not guarantee all maxima fit together. Overflow is refusal, not truncation. Existing 128-task, 64-MiB W+U+P, 1-MiB record, 3-second IO, 5-second fixture dispatch and 10-second action limits are not increased. Preview does not spend additional request or durable operation budget.
 
+## Bounded verified-read reuse
+
+Repository reads still validate every retained record, replay every historical operation, and perform the same final fresh-head fence. Within a single read attempt, the private validator parses each immutable raw record into its own object and reuses its exact canonical members when checking the record hash. Public object validators and mutable returned snapshots keep their existing behavior.
+
+Historical checkpoints alone are privately frozen. Their exact task-array identity may reuse an already encoded fragment for operation-digest verification, bounded to 32 entries and 1 MiB per history batch. Capacity overflow falls back to ordinary canonical encoding. Fragments are released after use and cleared on batch completion, failure, conflict retry and read exit; late completions cannot refill a closed batch. There is no cross-read cache or skipped source check. Canonical bytes, hash domains, refusal order and complexity limits remain unchanged.
+
 ## Acceptance gates and evidence limits
 
 Required acceptance is separate from earlier planning, Campaign, Writer Agent and legacy million-scalar geometry results:

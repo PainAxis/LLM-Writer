@@ -147,6 +147,7 @@
     "smoke:writer-agent-eval-fixture": "node --import tsx scripts/smoke-writer-agent-eval-fixture.ts",
     "smoke:writer-agent-eval-review": "node --import tsx scripts/smoke-writer-agent-eval-review.ts",
     "smoke:writer-campaign-store": "node --import tsx scripts/smoke-writer-campaign-store.ts",
+    "smoke:writer-campaign-owned-wire": "node --import tsx scripts/smoke-writer-campaign-owned-wire.ts",
     "smoke:writer-campaign-engine": "node --import tsx scripts/smoke-writer-campaign-engine.ts",
     "smoke:writer-campaign-ui": "node --import tsx scripts/smoke-writer-campaign-ui.ts",
     "smoke:writer-campaign-evidence": "node --import tsx scripts/smoke-writer-campaign-evidence.mjs",
