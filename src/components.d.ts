@@ -86,6 +86,7 @@ declare module 'vue' {
     NovelMetadataForm: typeof import('./components/novel-management/NovelMetadataForm.vue')['default']
     OptimizeDialog: typeof import('./components/writer/dialogs/OptimizeDialog.vue')['default']
     PlotLinksPanel: typeof import('./components/memory/PlotLinksPanel.vue')['default']
+    ProducerLabPanel: typeof import('./components/ProducerLabPanel.vue')['default']
     PromptPickerDialog: typeof import('./components/writer/dialogs/PromptPickerDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

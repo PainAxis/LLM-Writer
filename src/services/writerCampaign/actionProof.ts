@@ -13,8 +13,11 @@ export interface CampaignProofLease {
   attempted: boolean
   entries: Map<string, RawEntry>
   bytes: number
+  activeRecords: number
   snapshot: CampaignSnapshot | null
   catalogPrefix: string[]
+  /** Identity only, retained across capacity fallback; never a replacement proof. */
+  verificationHead: string | null
 }
 
 function add(a: number, b = 1): number { return Math.min(Number.MAX_SAFE_INTEGER, a + b) }
@@ -48,7 +51,7 @@ export class CampaignActionProofPool {
   create(campaignIdValue: string): CampaignActionScope {
     campaignId(campaignIdValue)
     const token = Object.freeze({}) as CampaignActionScope
-    this.scopes.set(token, { campaignId: campaignIdValue, live: true, cancelled: false, busy: false, attempted: false, entries: new Map(), bytes: 0, snapshot: null, catalogPrefix: [] })
+    this.scopes.set(token, { campaignId: campaignIdValue, live: true, cancelled: false, busy: false, attempted: false, entries: new Map(), bytes: 0, activeRecords: 0, snapshot: null, catalogPrefix: [], verificationHead: null })
     return token
   }
 
@@ -61,6 +64,20 @@ export class CampaignActionProofPool {
     return lease
   }
   end(lease: CampaignProofLease | null): void { if (lease) lease.busy = false }
+  seedVerification(lease: CampaignProofLease | null, snapshot: CampaignSnapshot | null): void {
+    if (lease && !lease.cancelled && snapshot) lease.verificationHead = snapshot.rawHead
+  }
+  /** Strict acquisition is separate from legacy begin's optional optimization. */
+  acquireForVerification(token: CampaignActionScope, campaignIdValue: string, expectedRawHead: string): CampaignProofLease {
+    const lease = this.scopes.get(token)
+    campaignAssert(lease && !lease.cancelled && lease.campaignId === campaignIdValue, 'Unknown or closed Campaign verification scope', 'conflict')
+    if (lease.busy) { this.discard(lease, 'concurrent'); campaignAssert(false, 'Concurrent Campaign verification scope', 'conflict') }
+    if (lease.verificationHead !== expectedRawHead || lease.verificationHead === null) {
+      this.discard(lease, 'conflict'); campaignAssert(false, 'Campaign verification scope cannot rebase', 'conflict')
+    }
+    lease.busy = true
+    return lease
+  }
   isLive(lease: CampaignProofLease | null): boolean { return lease !== null && lease.live }
   canCommit(lease: CampaignProofLease | null): boolean { return lease === null || !lease.cancelled }
   dispose(token: CampaignActionScope): void { const lease = this.scopes.get(token); if (lease) this.discard(lease, 'completed') }
@@ -69,10 +86,10 @@ export class CampaignActionProofPool {
     if (!lease) return
     // Admission/capacity only disable an optional optimization. Action closure
     // also fences operations already in flight, including their cold fallback.
-    if (reason !== 'capacity' && reason !== 'admission') lease.cancelled = true
+    if (reason !== 'capacity' && reason !== 'admission') { lease.cancelled = true; lease.verificationHead = null }
     if (!lease.live) return
     lease.live = false
-    lease.entries.clear(); lease.bytes = 0; lease.snapshot = null; lease.catalogPrefix = []
+    lease.entries.clear(); lease.bytes = 0; lease.activeRecords = 0; lease.snapshot = null; lease.catalogPrefix = []
     if (this.admitted === lease) { this.admitted = null; this.stats.retainedBytes = 0; this.stats.retainedEntries = 0; this.stats.activeRecords = 0 }
     this.stats.disposedScopes = add(this.stats.disposedScopes)
     this.stats.disposalReasons[reason] = add(this.stats.disposalReasons[reason])
@@ -121,8 +138,18 @@ export class CampaignActionProofPool {
       if (!this.collecting(lease)) return
       lease.snapshot = detached; lease.catalogPrefix = [...prefix]
       this.stats.activeRecords = snapshot.artifacts.size + snapshot.requests.size
+      lease.activeRecords = this.stats.activeRecords
       this.stats.peakActiveRecords = Math.max(this.stats.peakActiveRecords, this.stats.activeRecords)
     } catch { this.discard(lease, 'capacity') }
+  }
+
+  /** Internal aggregate replay admission. Never replaces the verified v2 baseline. */
+  sealAggregate(lease: CampaignProofLease, verifiedWrittenBytes: number, activeRecords: number): void {
+    campaignInteger(verifiedWrittenBytes, CAMPAIGN_LIMITS.serializedBytes)
+    campaignInteger(activeRecords, 4 * CAMPAIGN_LIMITS.tasks)
+    campaignAssert(this.collecting(lease) && lease.snapshot !== null && lease.bytes <= verifiedWrittenBytes, 'Aggregate verification transcript lacks verified capacity')
+    lease.activeRecords = activeRecords; this.stats.activeRecords = activeRecords
+    this.stats.peakActiveRecords = Math.max(this.stats.peakActiveRecords, activeRecords)
   }
 
   extend(lease: CampaignProofLease | null, snapshot: CampaignSnapshot, entries: ReadonlyArray<{ key: string; value: string }>, valueBytes: ReadonlyMap<string, number>): void {

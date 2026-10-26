@@ -18,6 +18,48 @@ concurrency:
 # Raw reports, backups, traces and full export payloads remain runner-local (ephemeral).
 # A failed test still fails its job; derived evidence never substitutes for test success.
 jobs:
+  writer-body-producer:
+    name: ci-writer-body-producer
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # This opt-in is confined to CI; no local browser readiness is claimed.
+      BODY_PRODUCER_CI_APPROVED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Verify distinct session contract and unchanged legacy deadline controls
+        run: npm run smoke:writer-body-producer-session-store && npm run smoke:writer-body-producer-session-engine && npm run smoke:writer-body-producer-deadlines && npm run smoke:writer-body-producer-report && npm run smoke:writer-body-producer-archive
+      # Serial real N60 histories and actual bounded SDK against a synthetic
+      # loopback server only. No external endpoint, credentials or model budget.
+      - name: Measure bilingual Node N60 proposal readiness
+        run: npm run profile:writer-body-producer
+        timeout-minutes: 15
+      - name: Verify native IndexedDB reopens, author panel and actual App session interruption
+        if: ${{ !cancelled() }}
+        run: npm run test:browser-writer-body-producer
+        timeout-minutes: 25
+      - name: Archive only closed source-free producer reports
+        id: archive_body_producer
+        if: ${{ !cancelled() }}
+        run: node --import tsx scripts/prepare-body-producer-evidence.ts
+      - name: Upload source-free offline adapter readiness report
+        if: ${{ !cancelled() && steps.archive_body_producer.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: writer-body-producer-${{ github.run_attempt }}
+          path: artifacts/ci-evidence/writer-body-producer
+          if-no-files-found: error
+          retention-days: 7
+
   writer-campaign-body-evidence:
     name: ci-writer-campaign-body-evidence
     runs-on: ubuntu-latest
