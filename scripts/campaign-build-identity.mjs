@@ -21,6 +21,10 @@ export const CAMPAIGN_CORE_PATHS = Object.freeze([
   'src/services/writerCampaign/planningProfile.ts',
   'src/services/writerCampaign/planningFixture.ts',
   'src/services/writerCampaign/planningValidation.ts',
+  'src/services/writerCampaign/bodyEvidenceProtocol.ts',
+  'src/services/writerCampaign/bodyEvidence.ts',
+  'src/services/writerCampaign/bodyEvidenceFixture.ts',
+  'src/services/writerCampaign/bodyEvidenceFixtureData.ts',
 
   'src/services/writerCampaign/storageAccounting.ts',
   'src/services/writerCampaign/store.ts',

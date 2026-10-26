@@ -11,6 +11,8 @@
       <button data-testid="campaign-create-en" :disabled="busy || loading" @click="create('en')">创建英文小案例</button>
       <button data-testid="campaign-create-planning-zh" :disabled="busy || loading || !planningAvailable" @click="createPlanning('zh')">创建中文规划案例（3 章）</button>
       <button data-testid="campaign-create-planning-en" :disabled="busy || loading || !planningAvailable" @click="createPlanning('en')">Create English planning fixture (3 chapters)</button>
+      <button data-testid="campaign-create-body-evidence-zh" :disabled="busy || loading || !bodyEvidenceAvailable" @click="createBodyEvidence('zh')">创建中文正文证据案例（3 章）</button>
+      <button data-testid="campaign-create-body-evidence-en" :disabled="busy || loading || !bodyEvidenceAvailable" @click="createBodyEvidence('en')">Create English body-evidence fixture (3 chapters)</button>
       <button data-testid="campaign-refresh" :disabled="busy || loading" @click="refresh">重新读取持久状态</button>
     </div>
     <p v-if="error" role="alert" data-testid="campaign-error">{{ error }}</p>
@@ -83,6 +85,54 @@
           <p>后续正文步骤将重新验证资格并编译不同的派发 packet；本预览不会复用为请求。远期规划与已隐藏材料的分区只验证声明，不保证模型不会泄露内容。</p>
         </template>
       </section>
+      <section v-if="planningProfile" data-testid="campaign-body-evidence" aria-label="Body evidence and coverage read-only preview" :aria-busy="bodyPreviewLoading || bodyDraftLoading">
+        <h3>Body Evidence &amp; Coverage v1 · 正文证据与覆盖（只读）</h3>
+        <p class="notice" data-testid="campaign-body-semantic-boundary">核验的是已接纳正文的精确来源、原始 UTF-16 引用与声明的前提，不是语义真伪。Proposals are not established facts. Semantic extraction / adjudication / autonomous generation / whole-work audit: NOT RUN.</p>
+        <p>仅本地作者预览；不预留、不派发、不保存、不修改 Writer，也不授予读者、角色或外部模型披露权限。固定示例的来源标签和“已检查”范围都是未认证声明，不是独立审阅凭证。</p>
+        <div class="actions" aria-label="选择固定示例的已接纳正文前缀">
+          <button v-for="prefix in bodyPrefixRows" :key="prefix.taskId" :data-testid="`campaign-body-prefix-${prefix.ordinal}`"
+            :disabled="busy || loading" :aria-pressed="bodyPrefix === prefix.ordinal" @click="selectBodyPrefix(prefix.ordinal)">Example prefix 1–{{ prefix.ordinal }}</button>
+        </div>
+        <p v-if="!bodyPrefixRows.length">尚无连续已接纳正文前缀。先按上方“一步”完成全部规划并接纳正文；此区域不会执行任务。</p>
+        <div class="actions">
+          <button data-testid="campaign-body-load-example" :disabled="!canLoadBodyDraft" @click="loadBodyEvidenceExample">Load fixed proposal example · 加载固定提案示例</button>
+          <button data-testid="campaign-body-validate" :disabled="!canPreviewBody" @click="previewBody">Validate local proposals · 核验本地提案</button>
+        </div>
+        <p v-if="bodyDraftLoading" role="status" data-testid="campaign-body-draft-loading">正在从本页已读取的精确修订构造固定示例；不会提取语义或调用模型…</p>
+        <p v-if="bodyDraftRefusal" role="status" data-testid="campaign-body-draft-refusal">Draft refused: {{ bodyDraftRefusal }}。没有截断、自动修复或保存。</p>
+        <label class="body-proposal-label" for="campaign-body-proposal-input">Canonical proposal JSON · 可编辑的未信任本地输入（最多 64 KiB；不持久保存）</label>
+        <textarea id="campaign-body-proposal-input" data-testid="campaign-body-proposal-input" :value="bodyDraft" :disabled="busy || loading"
+          rows="10" spellcheck="false" @input="editBodyProposal" />
+        <p>可编辑任何受支持的封闭提案；核验总是重新读取仓库。前缀选择用于加载示例，手动 JSON 的实际前缀会在结果中单独显示。更改输入、切换预览或重新读取会立即撤销旧结果。</p>
+        <p v-if="bodyPreviewLoading" role="status" data-testid="campaign-body-preview-loading">正在重新核验正文来源、引用、前提与覆盖范围…</p>
+        <p v-else-if="!bodyPreview" data-testid="campaign-body-preview-empty">尚无核验结果。加载示例或输入规范 JSON，再显式核验；本页不会自动提取或检查小说语义。</p>
+        <p v-else-if="bodyPreview.status === 'refused'" role="status" data-testid="campaign-body-preview-refusal">Body evidence refused: {{ bodyPreview.refusalCode }}。无部分就绪结果；没有新请求、保存或语义裁决。</p>
+        <div v-else data-testid="campaign-body-preview-ready">
+          <p class="notice">Source anchors and declared premises verified only. Semantic review NOT RUN. Producer provenance is an unauthenticated declaration; a complete supplied or declared-examined union is not complete extraction.</p>
+          <dl class="metadata">
+            <dt>Actual body prefix</dt><dd data-testid="campaign-body-preview-prefix" :data-prefix="bodyPreview.throughChapterOrdinal">1–{{ bodyPreview.throughChapterOrdinal }} / {{ bodyPreview.coverage.availablePrefix.plannedChapterCount }} planned chapters</dd>
+            <dt>Purpose / exposure</dt><dd>local_author_continuity_preview / local_author_only（不是 dispatch）</dd>
+            <dt>Body prefix root</dt><dd data-testid="campaign-body-preview-root">{{ bodyPreview.bodyPrefixRoot }}</dd>
+            <dt>Canon / full-plan roots</dt><dd>{{ bodyPreview.canonBaseRoot }}<br>{{ bodyPreview.fullPlanRoot }}</dd>
+            <dt>Packet digest</dt><dd data-testid="campaign-body-preview-digest">{{ bodyPreview.packetDigest }}</dd>
+            <dt>Exact packet size</dt><dd data-testid="campaign-body-preview-size">{{ bodyPreview.packetBytes }} UTF-8 bytes / {{ bodyPreview.packetUtf16 }} UTF-16 units（不是 token）</dd>
+            <dt>Observed head</dt><dd>{{ bodyPreview.sourceHead.sequence }} / epoch {{ bodyPreview.sourceHead.executionEpoch }} / {{ bodyPreview.sourceHead.rawHeadHash }}</dd>
+            <dt>Source identity</dt><dd><pre>{{ bodyPreview.sourceIdentity }}</pre></dd>
+            <dt>Available / supplied</dt><dd>{{ bodyPreview.coverage.availablePrefix.totalUtf16Units }} available original UTF-16 units / {{ bodyPreview.coverage.supplied.coveredUtf16Units }} supplied · {{ bodyPreview.coverage.supplied.status }}</dd>
+            <dt>Declared examined</dt><dd>{{ bodyPreview.coverage.examinedDeclaration.declaredUtf16Units }} / {{ bodyPreview.coverage.availablePrefix.totalUtf16Units }} original UTF-16 units · {{ bodyPreview.coverage.examinedDeclaration.status }} · {{ bodyPreview.coverage.examinedDeclaration.verification }}</dd>
+            <dt>Semantic review</dt><dd>NOT RUN / not_reviewed · relation completeness not_assessed</dd>
+            <dt>Proposed claim kinds</dt><dd><pre>{{ bodyClaimCounts }}</pre></dd>
+            <dt>Exact coverage / gaps</dt><dd><pre data-testid="campaign-body-preview-coverage">{{ bodyPreview.coverage }}</pre></dd>
+          </dl>
+          <template v-if="bodyPacket">
+            <h4>Exact stored body revisions · 不等于已提供全文</h4>
+            <ul data-testid="campaign-body-preview-sources"><li v-for="source in bodyPacket.bodySources" :key="source.artifact.hash">Chapter {{ source.chapterOrdinal }} · {{ source.artifact.taskId }} r{{ source.artifact.revision }} · {{ source.artifact.hash }} · {{ source.rawUtf16Units }} original UTF-16 units</li></ul>
+            <p>Planning records supplied / omitted: {{ bodyPacket.planning.suppliedRecordCount }} / {{ bodyPacket.planning.omittedRecordCount }}. Omitted chapter-outline texts: {{ bodyPacket.planning.chapterOutlinesOmitted }}; omitted scenes: {{ bodyPacket.planning.chapterOutlineScenesOmitted }}. Roots do not supply omitted text.</p>
+          </template>
+          <details data-testid="campaign-body-preview-packet"><summary>Exact local packet / citations（只读；不上传、不保存）</summary><pre>{{ bodyPreview.packetText }}</pre></details>
+          <p>这是核验时的观察，不是持续跨页签授权。来源后来变化时必须重新读取并核验；不得把此 packet 用作请求、事实库或语义通过凭据。</p>
+        </div>
+      </section>
       <h3>任务依赖与状态</h3>
       <ol data-testid="campaign-tasks"><li v-for="task in taskRows" :key="task.taskId">{{ task.kind }} · r{{ task.revision }} · {{ task.status }}</li></ol>
       <section data-testid="campaign-budgets" aria-label="累计预算与观测用量">
@@ -130,7 +180,13 @@ import { useWriterCampaign } from '@/composables/useWriterCampaign'
 const { ids, selectedId, snapshot, busy, loading, error, status, locallyStopped, persistentOutcome,
   canStep, canResume, canStop, canSaveOnly, unresolved, taskRows, artifactRows, completedTasks, unknownRequests, inactiveUnknownRequests, readOnly, storageSummary, legacyStorageSummary,
   planningAvailable, planningProfile, chapterRows, selectedChapter, planningPreview, previewLoading, canPreview, previewChapter,
+  bodyEvidenceAvailable, bodyPrefixRows, bodyPrefix, bodyDraft, bodyPreview, bodyPacket, bodyClaimCounts, bodyPreviewLoading, bodyDraftLoading, bodyDraftRefusal,
+  canLoadBodyDraft, canPreviewBody, setBodyDraft, selectBodyPrefix, loadBodyEvidenceExample, previewBody, createBodyEvidence,
   observedUsage, refresh, select, create, createPlanning, step, saveOnly, pause, resume, cancel, dispose } = useWriterCampaign()
+function editBodyProposal(event: Event) {
+  const field = event.target as HTMLTextAreaElement
+  if (!setBodyDraft(field.value)) field.value = bodyDraft.value
+}
 onMounted(() => { void refresh() })
 onUnmounted(dispose)
 </script>
@@ -142,6 +198,9 @@ h1 { margin-bottom: 12px; } h2 { margin-top: 30px; } h3 { margin-top: 24px; }
 .notice { border-left: 4px solid #bd8122; background: var(--el-color-warning-light-9, #fff7e8); padding: 12px 16px; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
 button { border: 1px solid var(--el-border-color, #bdc4ce); border-radius: 6px; padding: 9px 13px; background: var(--el-bg-color, white); color: inherit; font: inherit; cursor: pointer; }
+.body-proposal-label { display: block; font-weight: 600; margin: 12px 0 6px; }
+textarea { box-sizing: border-box; width: 100%; resize: vertical; padding: 10px; color: inherit; background: var(--el-bg-color, white); border: 1px solid var(--el-border-color, #bdc4ce); border-radius: 6px; font-family: monospace; }
+textarea:focus-visible { outline: 3px solid #2876c9; outline-offset: 3px; }
 button:disabled { opacity: .5; cursor: not-allowed; } button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #2876c9; outline-offset: 3px; }
 button[aria-pressed="true"] { border-color: #2876c9; background: var(--el-color-primary-light-9, #ecf5ff); }
 .campaign-list { padding-left: 20px; } .campaign-list li { margin: 8px 0; } .campaign-list button { word-break: break-all; text-align: left; }

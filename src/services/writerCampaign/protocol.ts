@@ -109,8 +109,19 @@ function requestRef(value: unknown): asserts value is CampaignRequestRef {
 }
 function array(value: unknown, max: number): asserts value is unknown[] { campaignAssert(Array.isArray(value) && value.length <= max, 'Invalid bounded array') }
 function unique(values: unknown[]): void { campaignAssert(new Set(values).size === values.length, 'Duplicate identity') }
-async function verifyHash(value: { hash: string }, domain: string): Promise<void> {
+async function verifyHash(value: { hash: string }, domain: string, owned?: OwnedCanonicalProjection): Promise<void> {
   hash(value.hash)
+  if (owned) {
+    try {
+      // Removing the string hash leaf and adding the domain/value envelope costs
+      // exactly one node and one level for these nonempty, validated records.
+      // Keep this check at the original hash-verification point, after schema checks.
+      campaignAssert(owned.nodeCount + 1 <= 100_000 && owned.maxDepth + 1 <= 32, 'Canonical value exceeds bounded complexity')
+      const payload = `{${owned.members.filter(member => member.key !== 'hash').map(member => member.encoded).join(',')}}`
+      campaignAssert(await hashText(`{"domain":${JSON.stringify(domain)},"value":${payload}}`) === value.hash, `${domain}: digest mismatch`)
+    } finally { owned.members.length = 0 }
+    return
+  }
   const { hash: _hash, ...payload } = value
   campaignAssert(await hashCampaignValue(domain, payload) === value.hash, `${domain}: digest mismatch`)
 }
@@ -119,6 +130,9 @@ export async function sealCampaignManifest(value: Omit<CampaignManifest, 'hash'>
   return validateCampaignManifest(result)
 }
 export async function validateCampaignManifest(value: unknown): Promise<CampaignManifest> {
+  return validateCampaignManifestCore(value)
+}
+async function validateCampaignManifestCore(value: unknown, owned?: OwnedCanonicalProjection): Promise<CampaignManifest> {
   version(value)
   campaignRecord(value, ['schemaVersion', 'protocolVersion', 'campaignId', 'candidateId', 'language', 'bodyTarget', 'mode', 'adapterId', 'fixtureVersion', 'countingVersion', 'runtimeIdentity', 'source', 'createdAt', 'expiresAt', 'maxRepairRounds', 'maxProviderRetries', 'tasks', 'budget', 'storage', 'hash'], 'manifest')
   choice(value.protocolVersion, ['campaign-v2']); campaignId(value.campaignId); campaignId(value.candidateId)
@@ -159,14 +173,17 @@ export async function validateCampaignManifest(value: unknown): Promise<Campaign
   campaignAssert(CAMPAIGN_TASK_KINDS.every(kind => [...seen.values()].some(t => t.kind === kind)), 'Missing real task kind')
   for (const task of seen.values()) if (task.kind === 'chapter_outline') campaignAssert(ordinals.has(task.chapterOrdinal!), 'Chapter outline needs a body task')
   campaignAssert([...ordinals].sort((a, b) => a - b).every((ordinal, index) => ordinal === index + 1), 'Chapter ordinals must be contiguous')
-  await verifyHash(value as unknown as CampaignManifest, 'campaign-manifest-v2')
-  return structuredClone(value) as unknown as CampaignManifest
+  await verifyHash(value as unknown as CampaignManifest, 'campaign-manifest-v2', owned)
+  return (owned ? value : structuredClone(value)) as unknown as CampaignManifest
 }
 export async function sealCampaignArtifact(value: Omit<CampaignArtifact, 'hash' | 'raw' | 'canonical'>): Promise<CampaignArtifact> {
   const payload = { ...structuredClone(value), raw: await measureCampaignText(value.text), canonical: await measureCampaignText(canonicalCampaignText(value.text)) }
   return validateCampaignArtifact({ ...payload, hash: await hashCampaignValue('campaign-artifact-v2', payload) })
 }
 export async function validateCampaignArtifact(value: unknown): Promise<CampaignArtifact> {
+  return validateCampaignArtifactCore(value)
+}
+async function validateCampaignArtifactCore(value: unknown, owned?: OwnedCanonicalProjection): Promise<CampaignArtifact> {
   version(value)
   campaignRecord(value, ['schemaVersion', 'campaignId', 'candidateId', 'taskId', 'taskRevision', 'revision', 'kind', 'dependencies', 'parentHash', 'text', 'raw', 'canonical', 'semanticStatus', 'hash'], 'artifact')
   campaignId(value.campaignId); campaignId(value.candidateId); campaignId(value.taskId); campaignInteger(value.taskRevision, CAMPAIGN_LIMITS.operations); campaignInteger(value.revision, CAMPAIGN_LIMITS.operations)
@@ -179,13 +196,16 @@ export async function validateCampaignArtifact(value: unknown): Promise<Campaign
     campaignRecord(value[name], ['hash', 'utf8Bytes', 'utf16Units', 'scalars'], 'text metrics')
     campaignAssert(canonicalStringify(value[name]) === canonicalStringify(await measureCampaignText(text)), 'Text metrics/hash mismatch')
   }
-  await verifyHash(value as unknown as CampaignArtifact, 'campaign-artifact-v2')
-  return structuredClone(value) as unknown as CampaignArtifact
+  await verifyHash(value as unknown as CampaignArtifact, 'campaign-artifact-v2', owned)
+  return (owned ? value : structuredClone(value)) as unknown as CampaignArtifact
 }
 export async function sealCampaignRequest(value: Omit<CampaignRequest, 'hash'>): Promise<CampaignRequest> {
   return validateCampaignRequest({ ...structuredClone(value), hash: await hashCampaignValue('campaign-request-v2', value) })
 }
 export async function validateCampaignRequest(value: unknown): Promise<CampaignRequest> {
+  return validateCampaignRequestCore(value)
+}
+async function validateCampaignRequestCore(value: unknown, owned?: OwnedCanonicalProjection): Promise<CampaignRequest> {
   version(value)
   campaignRecord(value, ['schemaVersion', 'campaignId', 'id', 'revision', 'parentHash', 'taskId', 'taskRevision', 'candidateId', 'adapterId', 'inputDigest', 'preparedInput', 'commandId', 'inputBytes', 'inputUtf16', 'status', 'reservation', 'storageAllocationBytes', 'response', 'failureReason', 'hash'], 'request')
   for (const key of ['campaignId', 'id', 'taskId', 'candidateId', 'commandId']) campaignId(value[key])
@@ -208,8 +228,8 @@ export async function validateCampaignRequest(value: unknown): Promise<CampaignR
     for (const key of ['inputTokens', 'outputTokens', 'reasoningTokens']) if (value.response.usage[key] !== null) campaignInteger(value.response.usage[key])
   }
   if (value.status === 'response_retained' || value.status === 'committed') campaignAssert(value.response !== null, 'Retained/committed request lacks completion evidence')
-  await verifyHash(value as unknown as CampaignRequest, 'campaign-request-v2')
-  return structuredClone(value) as unknown as CampaignRequest
+  await verifyHash(value as unknown as CampaignRequest, 'campaign-request-v2', owned)
+  return (owned ? value : structuredClone(value)) as unknown as CampaignRequest
 }
 export function validateCampaignState(value: unknown): asserts value is CampaignState {
   campaignRecord(value, ['status', 'reason', 'executionEpoch', 'candidateId', 'tasks', 'budget', 'storage', 'lastWallTime'], 'state')
@@ -227,16 +247,22 @@ export function validateCampaignState(value: unknown): asserts value is Campaign
   unique(value.tasks.map(task => (task as { taskId: string }).taskId))
 }
 export async function validateCampaignCheckpoint(value: unknown): Promise<CampaignCheckpoint> {
+  return validateCampaignCheckpointCore(value)
+}
+async function validateCampaignCheckpointCore(value: unknown, owned?: OwnedCanonicalProjection): Promise<CampaignCheckpoint> {
   version(value)
   campaignRecord(value, ['schemaVersion', 'campaignId', 'sequence', 'manifestHash', 'previousHash', 'operationId', 'bodyCharacters', 'hash', 'status', 'reason', 'executionEpoch', 'candidateId', 'tasks', 'budget', 'storage', 'lastWallTime'], 'checkpoint')
   const { schemaVersion: _schema, campaignId: id, sequence, manifestHash, previousHash, operationId, bodyCharacters, hash: _hash, ...state } = value
   campaignId(id); campaignInteger(sequence, CAMPAIGN_LIMITS.operations - 1); hash(manifestHash); campaignId(operationId); campaignInteger(bodyCharacters, CAMPAIGN_LIMITS.tasks * CAMPAIGN_LIMITS.textBytes)
   if (previousHash !== null) hash(previousHash)
   campaignAssert((sequence === 0) === (previousHash === null), 'Invalid checkpoint predecessor')
-  validateCampaignState(state); await verifyHash(value as unknown as CampaignCheckpoint, 'campaign-checkpoint-v2')
-  return structuredClone(value) as unknown as CampaignCheckpoint
+  validateCampaignState(state); await verifyHash(value as unknown as CampaignCheckpoint, 'campaign-checkpoint-v2', owned)
+  return (owned ? value : structuredClone(value)) as unknown as CampaignCheckpoint
 }
 export async function validateCampaignReceipt(value: unknown): Promise<CampaignReceipt> {
+  return validateCampaignReceiptCore(value)
+}
+async function validateCampaignReceiptCore(value: unknown, owned?: OwnedCanonicalProjection): Promise<CampaignReceipt> {
   version(value)
   campaignRecord(value, ['schemaVersion', 'campaignId', 'operationId', 'kind', 'businessDigest', 'expectedSequence', 'sequence', 'executionEpoch', 'manifestHash', 'checkpointHash', 'artifactHashes', 'requestHashes', 'serializedBytes', 'storageEffect', 'hash'], 'receipt')
   campaignId(value.campaignId); campaignId(value.operationId); choice(value.kind, OPERATIONS)
@@ -244,8 +270,8 @@ export async function validateCampaignReceipt(value: unknown): Promise<CampaignR
   campaignInteger(value.sequence, CAMPAIGN_LIMITS.operations - 1); campaignInteger(value.executionEpoch, CAMPAIGN_LIMITS.operations); decodeStorageBytes(value.serializedBytes); validateCampaignStorageEffect(value.storageEffect)
   campaignAssert(value.expectedSequence === (value.sequence === 0 ? null : value.sequence - 1), 'Receipt sequence mismatch')
   for (const key of ['artifactHashes', 'requestHashes']) { array(value[key], CAMPAIGN_LIMITS.tasks); (value[key] as unknown[]).forEach(hash); unique(value[key] as unknown[]) }
-  await verifyHash(value as unknown as CampaignReceipt, 'campaign-receipt-v2')
-  return structuredClone(value) as unknown as CampaignReceipt
+  await verifyHash(value as unknown as CampaignReceipt, 'campaign-receipt-v2', owned)
+  return (owned ? value : structuredClone(value)) as unknown as CampaignReceipt
 }
 export function validateCampaignHead(value: unknown): CampaignHead {
   version(value)
@@ -260,6 +286,188 @@ export function parseCampaignRecord(raw: string | null): unknown {
   // Legacy parsing remains in its frozen read-only module. V2 writes have one wire spelling.
   if (parsed !== null && typeof parsed === 'object' && 'schemaVersion' in parsed && parsed.schemaVersion === 2) campaignAssert(canonicalStringify(parsed) === raw, 'Noncanonical Campaign wire record')
   return parsed
+}
+
+interface OwnedTaskEncoding {
+  encodedTasks: string
+  nodeCount: number
+  maxRelativeDepth: number
+}
+interface OwnedCanonicalProjection {
+  members: { key: string; encoded: string }[]
+  nodeCount: number
+  maxDepth: number
+  tasks?: OwnedTaskEncoding
+}
+
+// This encoder is used only on fresh JSON.parse-owned records. The public
+// canonicalStringify path above deliberately has no capture/proof instrumentation.
+function captureOwnedCanonical(value: unknown, captureTasks: boolean): { wire: string; projection: OwnedCanonicalProjection } {
+  const projection: OwnedCanonicalProjection = { members: [], nodeCount: 0, maxDepth: 0 }
+  let collectingTasks = false, taskMaxDepth = 0
+  function encode(item: unknown, depth: number): string {
+    campaignAssert(++projection.nodeCount <= 100_000 && depth <= 32, 'Canonical value exceeds bounded complexity')
+    projection.maxDepth = Math.max(projection.maxDepth, depth)
+    if (collectingTasks) taskMaxDepth = Math.max(taskMaxDepth, depth - 1)
+    if (item === null) return 'null'
+    if (typeof item === 'string') { assertScalarText(item); return JSON.stringify(item) }
+    if (typeof item === 'boolean') return String(item)
+    if (typeof item === 'number') { campaignInteger(item); return String(item) }
+    if (Array.isArray(item)) return `[${item.map(entry => encode(entry, depth + 1)).join(',')}]`
+    campaignAssert(typeof item === 'object' && item !== null && (Object.getPrototypeOf(item) === Object.prototype || Object.getPrototypeOf(item) === null), 'Non-JSON canonical value')
+    return `{${Object.keys(item).sort().map(key => {
+      const tasks = captureTasks && depth === 0 && key === 'tasks'
+      const before = projection.nodeCount
+      if (tasks) { collectingTasks = true; taskMaxDepth = 0 }
+      const encodedValue = encode((item as Record<string, unknown>)[key], depth + 1)
+      if (tasks) {
+        collectingTasks = false
+        projection.tasks = { encodedTasks: encodedValue, nodeCount: projection.nodeCount - before, maxRelativeDepth: taskMaxDepth }
+      }
+      const encoded = `${JSON.stringify(key)}:${encodedValue}`
+      if (depth === 0) projection.members.push({ key, encoded })
+      return encoded
+    }).join(',')}}`
+  }
+  return { wire: encode(value, 0), projection }
+}
+
+function parseOwnedCampaignRecord(raw: string | null, captureTasks: boolean): { value: unknown; projection?: OwnedCanonicalProjection } {
+  campaignAssert(typeof raw === 'string' && utf8Bytes(raw) <= CAMPAIGN_LIMITS.recordBytes, 'Missing or oversized Campaign record')
+  let value: unknown
+  try { value = JSON.parse(raw) } catch { throw new CampaignProtocolError('integrity', 'Malformed Campaign record; stored bytes preserved') }
+  if (value !== null && typeof value === 'object' && 'schemaVersion' in value && value.schemaVersion === 2) {
+    const { wire, projection } = captureOwnedCanonical(value, captureTasks)
+    campaignAssert(wire === raw, 'Noncanonical Campaign wire record')
+    return { value, projection }
+  }
+  return { value }
+}
+
+function freezeOwnedJSON(value: unknown): void {
+  if (value === null || typeof value !== 'object') return
+  for (const child of Object.values(value)) freezeOwnedJSON(child)
+  Object.freeze(value)
+}
+
+interface OwnedTaskFragment extends OwnedTaskEncoding {
+  readonly utf8Bytes: number
+  readonly identity: Readonly<{
+    campaignId: string; manifestHash: string; checkpointHash: string; sequence: number
+    status: CampaignCheckpoint['status']; reason: string | null; candidateId: string
+    budget: Readonly<CampaignBudget>
+  }>
+}
+
+// Narrow data-only construction: an admitted entry cannot retain the checkpoint,
+// its decode frame, original wire, or the other encoded root members.
+function ownedTaskFragment(
+  encodedTasks: string, bytes: number, nodeCount: number, maxRelativeDepth: number,
+  campaignId: string, manifestHash: string, checkpointHash: string, sequence: number,
+  status: CampaignCheckpoint['status'], reason: string | null, candidateId: string,
+  budget: CampaignBudget,
+): OwnedTaskFragment {
+  return Object.freeze({ encodedTasks, utf8Bytes: bytes, nodeCount, maxRelativeDepth,
+    identity: Object.freeze({ campaignId, manifestHash, checkpointHash, sequence, status, reason, candidateId,
+      budget: Object.freeze({ ...budget }) }) })
+}
+
+function canonicalOperationWithFragments(value: unknown, fragments: WeakMap<CampaignCheckpoint['tasks'], OwnedTaskFragment>): string {
+  let nodes = 0
+  function encode(item: unknown, depth: number): string {
+    campaignAssert(++nodes <= 100_000 && depth <= 32, 'Canonical value exceeds bounded complexity')
+    if (item === null) return 'null'
+    if (typeof item === 'string') { assertScalarText(item); return JSON.stringify(item) }
+    if (typeof item === 'boolean') return String(item)
+    if (typeof item === 'number') { campaignInteger(item); return String(item) }
+    if (Array.isArray(item)) {
+      const fragment = fragments.get(item)
+      if (fragment && Object.isFrozen(item)) {
+        // A fragment includes its array root, which was already charged above.
+        // Consume even if this insertion fails the original complexity budget.
+        fragments.delete(item)
+        nodes += fragment.nodeCount - 1
+        campaignAssert(nodes <= 100_000 && depth + fragment.maxRelativeDepth <= 32, 'Canonical value exceeds bounded complexity')
+        return fragment.encodedTasks
+      }
+      return `[${item.map(entry => encode(entry, depth + 1)).join(',')}]`
+    }
+    campaignAssert(typeof item === 'object' && item !== null && (Object.getPrototypeOf(item) === Object.prototype || Object.getPrototypeOf(item) === null), 'Non-JSON canonical value')
+    return `{${Object.keys(item).sort().map(key => `${JSON.stringify(key)}:${encode((item as Record<string, unknown>)[key], depth + 1)}`).join(',')}}`
+  }
+  return encode({ domain: 'campaign-operation-v2', value }, 0)
+}
+
+/** Private replay-attempt owner. No repository API accepts this or caller proofs. */
+export interface CampaignRawReadValidator {
+  manifest(raw: string | null): Promise<CampaignManifest>
+  checkpoint(raw: string | null): Promise<CampaignCheckpoint>
+  receipt(raw: string | null): Promise<CampaignReceipt>
+  request(raw: string | null): Promise<CampaignRequest>
+  artifact(raw: string | null): Promise<CampaignArtifact>
+  beginHistoryBatch(): void
+  historyCheckpoint(raw: string | null): Promise<Readonly<CampaignCheckpoint>>
+  operationDigest(value: unknown): Promise<string>
+  releaseHistoryCheckpoint(checkpoint: Readonly<CampaignCheckpoint>): void
+  endHistoryBatch(): void
+  dispose(): void
+}
+
+export function createCampaignRawReadValidator(): CampaignRawReadValidator {
+  let fragments = new WeakMap<CampaignCheckpoint['tasks'], OwnedTaskFragment>()
+  let disposed = false, batchActive = false, admissionOpen = false, generation = 0
+  // Admission is monotone within a batch: released/consumed capacity never
+  // readmits a later fragment. These are UTF-8 retention bounds, not heap bounds.
+  let admittedBytes = 0, admittedEntries = 0
+  function clearBatch(): void {
+    batchActive = false; admissionOpen = false; generation++
+    fragments = new WeakMap(); admittedBytes = 0; admittedEntries = 0
+  }
+  async function normal<T>(raw: string | null, validate: (value: unknown, owned?: OwnedCanonicalProjection) => Promise<T>): Promise<T> {
+    if (disposed) return validate(parseCampaignRecord(raw))
+    const { value, projection } = parseOwnedCampaignRecord(raw, false)
+    try { return structuredClone(await validate(value, projection)) }
+    finally { if (projection) { projection.members.length = 0; projection.tasks = undefined } }
+  }
+  return {
+    manifest: raw => normal(raw, validateCampaignManifestCore),
+    checkpoint: raw => normal(raw, validateCampaignCheckpointCore),
+    receipt: raw => normal(raw, validateCampaignReceiptCore),
+    request: raw => normal(raw, validateCampaignRequestCore),
+    artifact: raw => normal(raw, validateCampaignArtifactCore),
+    beginHistoryBatch() {
+      clearBatch()
+      if (!disposed) { batchActive = true; admissionOpen = true }
+    },
+    async historyCheckpoint(raw) {
+      if (disposed || !batchActive) return validateCampaignCheckpoint(parseCampaignRecord(raw))
+      const observedGeneration = generation
+      const { value, projection } = parseOwnedCampaignRecord(raw, true)
+      try {
+        const checkpoint = await validateCampaignCheckpointCore(value, projection)
+        freezeOwnedJSON(checkpoint)
+        const tasks = projection?.tasks
+        if (!disposed && batchActive && admissionOpen && generation === observedGeneration && checkpoint.sequence !== 0 && tasks) {
+          const bytes = utf8Bytes(tasks.encodedTasks)
+          if (admittedEntries < 32 && admittedBytes + bytes <= CAMPAIGN_LIMITS.recordBytes) {
+            fragments.set(checkpoint.tasks, ownedTaskFragment(tasks.encodedTasks, bytes, tasks.nodeCount, tasks.maxRelativeDepth,
+              checkpoint.campaignId, checkpoint.manifestHash, checkpoint.hash, checkpoint.sequence,
+              checkpoint.status, checkpoint.reason, checkpoint.candidateId, checkpoint.budget))
+            admittedBytes += bytes; admittedEntries++
+          }
+        }
+        return checkpoint
+      } finally { if (projection) { projection.members.length = 0; projection.tasks = undefined } }
+    },
+    async operationDigest(value) {
+      admissionOpen = false
+      if (disposed || !batchActive || admittedEntries === 0) return hashCampaignValue('campaign-operation-v2', value)
+      return hashText(canonicalOperationWithFragments(value, fragments))
+    },
+    releaseHistoryCheckpoint(checkpoint) { admissionOpen = false; fragments.delete(checkpoint.tasks) },
+    endHistoryBatch: clearBatch,
+    dispose() { disposed = true; clearBatch() },
+  }
 }
 
 /** Reject numeric/string mixing and every noncanonical or unsafe wire encoding. */

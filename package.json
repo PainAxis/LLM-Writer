@@ -147,6 +147,7 @@
     "smoke:writer-agent-eval-fixture": "node --import tsx scripts/smoke-writer-agent-eval-fixture.ts",
     "smoke:writer-agent-eval-review": "node --import tsx scripts/smoke-writer-agent-eval-review.ts",
     "smoke:writer-campaign-store": "node --import tsx scripts/smoke-writer-campaign-store.ts",
+    "smoke:writer-campaign-owned-wire": "node --import tsx scripts/smoke-writer-campaign-owned-wire.ts",
     "smoke:writer-campaign-engine": "node --import tsx scripts/smoke-writer-campaign-engine.ts",
     "smoke:writer-campaign-ui": "node --import tsx scripts/smoke-writer-campaign-ui.ts",
     "smoke:writer-campaign-evidence": "node --import tsx scripts/smoke-writer-campaign-evidence.mjs",
@@ -181,7 +182,17 @@
     "smoke:writer-campaign-planning-evidence": "node --import tsx scripts/smoke-writer-campaign-planning-evidence.ts",
     "test:browser-writer-campaign-planning-ui": "node scripts/browser-writer-campaign-planning-ui.mjs",
     "smoke:writer-campaign-planning-ui-evidence": "node scripts/smoke-writer-campaign-planning-ui-evidence.mjs",
-    "smoke:writer-campaign-scalar-equivalence": "node --import tsx scripts/smoke-writer-campaign-scalar-equivalence.ts"
+    "smoke:writer-campaign-scalar-equivalence": "node --import tsx scripts/smoke-writer-campaign-scalar-equivalence.ts",
+    "smoke:writer-campaign-body-evidence": "node --import tsx scripts/smoke-writer-campaign-body-evidence.ts",
+    "smoke:writer-campaign-body-evidence-engine": "node --import tsx scripts/smoke-writer-campaign-body-evidence-engine.ts",
+    "smoke:writer-campaign-body-evidence-fixture": "node --import tsx scripts/smoke-writer-campaign-body-evidence-fixture.ts",
+    "smoke:writer-campaign-body-evidence-report": "node --import tsx scripts/smoke-writer-campaign-body-evidence-report.ts",
+    "smoke:writer-campaign-body-evidence-archive": "node --import tsx scripts/smoke-writer-campaign-body-evidence-archive.ts",
+    "smoke:writer-campaign-body-evidence-replacement-control": "node --import tsx scripts/smoke-writer-campaign-body-evidence-replacement-control.ts",
+    "profile:writer-campaign-body-evidence": "node --import tsx scripts/profile-writer-campaign-body-evidence.ts",
+    "test:browser-writer-campaign-body-evidence": "node --import tsx scripts/browser-writer-campaign-body-evidence.mjs",
+    "test:browser-writer-campaign-body-evidence-ui": "node --import tsx scripts/browser-writer-campaign-body-evidence-ui.mjs",
+    "smoke:writer-campaign-body-evidence-ui": "node --import tsx scripts/smoke-writer-campaign-body-evidence-ui.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

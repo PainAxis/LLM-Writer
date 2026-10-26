@@ -3,12 +3,15 @@ import type { CampaignManifest, CampaignTaskSpec } from '../../types/writerCampa
 import type { OfflineManifestOptions } from './engine'
 import { canonicalStringify } from './protocol'
 import { PlanningRefusalError } from './planningProtocol'
+import { BODY_EVIDENCE_BODY_FIXTURES, bodyEvidenceFixtureBodyTarget } from './bodyEvidenceFixtureData'
 
 export const PLANNING_PROFILE_PREFIX = 'planning-contract-'
 export const PLANNING_THREE_CHAPTER_PROFILE = 'planning-contract-v1-three-chapter'
 export const PLANNING_COMPACT_PROFILE = 'planning-contract-v1-compact-60'
+export const BODY_EVIDENCE_THREE_CHAPTER_PROFILE = 'planning-contract-v1-body-evidence-three-chapter'
 export const PLANNING_TEMPLATE_VERSION = 'campaign-planning-template-v1'
 export type PlanningProfileName = 'three-chapter' | 'compact-60'
+export type RegisteredPlanningProfileName = PlanningProfileName | 'body-evidence-three-chapter'
 
 export const PLANNING_BRIEF = Object.freeze({
   zh: Object.freeze({ premise: '守塔人与潮汐记录员寻找铜铃，恢复灯塔信号。', scope: '离线固定结构夹具；规划意图不等于正文事实。读者可见仅指计划允许披露，不代表读者已知或事实已确立。角色认知和叙述者的时序分区只是作者规划，不授予读者披露许可。' }),
@@ -34,13 +37,13 @@ export const PLANNING_STAGE_INSTRUCTIONS = Object.freeze({
 /** Unknown versions in the reserved namespace must never become opaque legacy text. */
 export function isPlanningProfile(value: CampaignManifest | string): boolean {
   const version = typeof value === 'string' ? value : value.fixtureVersion
-  if (version === PLANNING_THREE_CHAPTER_PROFILE || version === PLANNING_COMPACT_PROFILE) return true
+  if (version === PLANNING_THREE_CHAPTER_PROFILE || version === PLANNING_COMPACT_PROFILE || version === BODY_EVIDENCE_THREE_CHAPTER_PROFILE) return true
   if (version.startsWith(PLANNING_PROFILE_PREFIX)) throw new PlanningRefusalError('unsupported_profile')
   return false
 }
 export function planningChapterCount(manifest: CampaignManifest): 3 | 60 {
   if (!isPlanningProfile(manifest)) throw new PlanningRefusalError('unsupported_profile')
-  return manifest.fixtureVersion === PLANNING_THREE_CHAPTER_PROFILE ? 3 : 60
+  return manifest.fixtureVersion === PLANNING_COMPACT_PROFILE ? 60 : 3
 }
 export function planningTasks(chapterCount: 3 | 60): CampaignTaskSpec[] {
   if (chapterCount !== 3 && chapterCount !== 60) throw new PlanningRefusalError('invalid_planning_graph')
@@ -59,7 +62,8 @@ export function validatePlanningProfile(manifest: CampaignManifest): boolean {
   if (!isPlanningProfile(manifest)) return false
   if (manifest.mode !== 'offline_fixture' || manifest.adapterId !== 'offline-fixture-v1'
     || manifest.maxProviderRetries !== 0 || manifest.maxRepairRounds !== 0
-    || manifest.bodyTarget.characters !== planningFixtureBodyTarget(manifest.language, planningChapterCount(manifest))
+    || manifest.bodyTarget.characters !== (manifest.fixtureVersion === BODY_EVIDENCE_THREE_CHAPTER_PROFILE
+      ? bodyEvidenceFixtureBodyTarget(manifest.language) : planningFixtureBodyTarget(manifest.language, planningChapterCount(manifest)))
     || canonicalStringify(manifest.tasks) !== canonicalStringify(planningTasks(planningChapterCount(manifest)))) {
     throw new PlanningRefusalError('invalid_planning_graph')
   }
@@ -83,7 +87,8 @@ export const PLANNING_COMPACT_BODY = Object.freeze({ zh: '灯塔日志记录了�
 export function planningBodyFixture(manifest: CampaignManifest, ordinal: number): string {
   const count = planningChapterCount(manifest)
   if (!Number.isSafeInteger(ordinal) || ordinal < 1 || ordinal > count) throw new PlanningRefusalError('invalid_planning_graph')
-  return count === 60 ? PLANNING_COMPACT_BODY[manifest.language] : PLANNING_BODY_FIXTURES[manifest.language][ordinal - 1]!
+  return manifest.fixtureVersion === BODY_EVIDENCE_THREE_CHAPTER_PROFILE ? BODY_EVIDENCE_BODY_FIXTURES[manifest.language][ordinal - 1]!
+    : count === 60 ? PLANNING_COMPACT_BODY[manifest.language] : PLANNING_BODY_FIXTURES[manifest.language][ordinal - 1]!
 }
 export interface PlanningManifestOptions {
   campaignId: string
@@ -91,7 +96,7 @@ export interface PlanningManifestOptions {
   identity: Pick<CampaignManifest, 'runtimeIdentity' | 'source'>
   now?: number
   expiresAt?: number
-  profile?: PlanningProfileName
+  profile?: RegisteredPlanningProfileName
 }
 export function planningFixtureBodyTarget(language: 'zh' | 'en', count: 3 | 60): number {
   const bodies = count === 60 ? Array<string>(60).fill(PLANNING_COMPACT_BODY[language]) : PLANNING_BODY_FIXTURES[language]
@@ -99,10 +104,11 @@ export function planningFixtureBodyTarget(language: 'zh' | 'en', count: 3 | 60):
 }
 /** The engine's existing constructor remains the sole default-budget implementation. */
 export function planningManifestOptions(options: PlanningManifestOptions): OfflineManifestOptions {
-  if (options.profile !== undefined && options.profile !== 'three-chapter' && options.profile !== 'compact-60') throw new PlanningRefusalError('unsupported_profile')
+  if (options.profile !== undefined && options.profile !== 'three-chapter' && options.profile !== 'compact-60' && options.profile !== 'body-evidence-three-chapter') throw new PlanningRefusalError('unsupported_profile')
   const count = options.profile === 'compact-60' ? 60 : 3
   return { campaignId: options.campaignId, language: options.language, identity: options.identity,
     ...(options.now === undefined ? {} : { now: options.now }), ...(options.expiresAt === undefined ? {} : { expiresAt: options.expiresAt }),
-    fixtureVersion: count === 3 ? PLANNING_THREE_CHAPTER_PROFILE : PLANNING_COMPACT_PROFILE,
-    tasks: planningTasks(count), bodyTarget: planningFixtureBodyTarget(options.language, count) }
+    fixtureVersion: options.profile === 'body-evidence-three-chapter' ? BODY_EVIDENCE_THREE_CHAPTER_PROFILE : count === 3 ? PLANNING_THREE_CHAPTER_PROFILE : PLANNING_COMPACT_PROFILE,
+    tasks: planningTasks(count), bodyTarget: options.profile === 'body-evidence-three-chapter'
+      ? bodyEvidenceFixtureBodyTarget(options.language) : planningFixtureBodyTarget(options.language, count) }
 }

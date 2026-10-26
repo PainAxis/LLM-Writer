@@ -84,6 +84,9 @@ The isolated [Campaign durability foundation](docs/writer-campaign-foundation.md
 
 The subsequent [PR #47](https://github.com/PainAxis/LLM-Writer/pull/47) action-private proof repair is accepted at main `dfb94ffdba92da976d3540f8d9c76fd96284c385`, tree `19fbd21e1b6309d269ec07b200ff40c61cad141f`; [main run 40183366291](https://github.com/PainAxis/LLM-Writer/actions/runs/40183366291) passed all 13 jobs. The next bounded [Planning Contract v1](docs/writer-campaign-planning.md) adds closed four-stage payloads, exact-revision context and an opt-in all-plans-first offline Lab preview. Its new structural/native/capacity gates remain separate from that accepted repair and from literary acceptance. No live provider, established-body fact ledger or autonomous novel/audit/repair loop is included.
 
+The next bounded [Body Evidence & Coverage v1](docs/writer-campaign-body-evidence.md) connects exact accepted body revisions to a generic local proposal validator and read-only Lab preview. Its source/structure, coverage, lifecycle and separate Node/native N60 gates are not semantic review, a durable ledger or autonomous extraction. Existing v2 hashing/counting and finite budgets remain unchanged; implementation and acceptance evidence must be reported separately from the final novels.
+
+
 ### Stage-four final acceptance: two autonomous million-character novels
 
 The user’s final standard is now explicit: autonomously produce **one Chinese novel and one English novel, each with 1,000,000 body-text characters**, starting with outline and character design, then detailed outline and chapter outlines. Planning documents do not count. Both works must preserve genre, plot, characterization and hidden foreshadowing throughout the entire work. The [long-form acceptance contract](docs/writer-agent-longform-acceptance.md) defines counting, full-work evidence, fail/unknown handling, recovery and the remaining architecture gap.
