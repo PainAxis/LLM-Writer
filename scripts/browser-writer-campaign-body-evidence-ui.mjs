@@ -52,11 +52,15 @@ export function installBodyEvidenceUiGate({ expectedOrigin }) {
     }
   }
   const complete = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete')
-  let armedRead = null, pendingRead = null, readObserved = 0, readReleased = 0, readAborts = 0
+  let armedRead = null, pendingRead = null, pendingReadBatch = null, readObserved = 0, readReleased = 0, readAborts = 0
   let armedDigest = false, pendingDigest = null, digestObserved = 0, digestReleased = 0
-  const selected = new WeakSet()
+  const selected = new WeakSet(), requestedKeys = new WeakMap()
   IDBObjectStore.prototype.get = function (key) {
     const request = nativeGet.apply(this, arguments)
+    const keys = requestedKeys.get(this.transaction)
+    // Three expected requests plus one permanent overflow marker, never an
+    // unbounded key log or truncation that could turn an extra batch into a match.
+    if (keys && keys.length < 4) keys.push(keys.length < 3 ? { store: this.name, key } : null)
     if (armedRead !== null && key === armedRead.key && this.transaction.mode === 'readonly') {
       if (armedRead.skip > 0) armedRead.skip--
       else {
@@ -70,14 +74,23 @@ export function installBodyEvidenceUiGate({ expectedOrigin }) {
   IDBDatabase.prototype.transaction = function () {
     const tx = nativeTransaction.apply(this, arguments)
     if (tx.mode !== 'readonly') return tx
+    requestedKeys.set(tx, [])
     let callback = null
     Object.defineProperty(tx, 'oncomplete', { configurable: true, get() { return callback }, set(value) {
       callback = value
       complete.set.call(tx, event => {
+        // Select only after every native request is known and the native read
+        // transaction actually completed. A first head probe is not a snapshot.
+        const keys = requestedKeys.get(tx)
+        let matchedBatch = null
+        if (armedRead?.batchKeys && tx.db.name === 'llm-writer' && keys.length === armedRead.batchKeys.length
+          && keys.every((row, index) => row.store === 'kv' && row.key === armedRead.batchKeys[index])) {
+          matchedBatch = [...armedRead.batchKeys]; armedRead = null; selected.add(tx)
+        }
         const invoke = () => { if (typeof callback === 'function') callback.call(tx, event) }
         if (selected.has(tx)) {
           if (pendingRead) throw new Error('body_evidence_ui_gate_overlap')
-          selected.delete(tx); readObserved++; pendingRead = invoke
+          selected.delete(tx); readObserved++; pendingRead = invoke; pendingReadBatch = matchedBatch
         } else invoke()
       })
     } })
@@ -98,10 +111,17 @@ export function installBodyEvidenceUiGate({ expectedOrigin }) {
       if (armedRead !== null || pendingRead) throw new Error('body_evidence_ui_gate_busy')
       armedRead = { key, action, skip }
     },
-    releaseRead() { if (!pendingRead) throw new Error('body_evidence_ui_gate_empty'); const fn = pendingRead; pendingRead = null; readReleased++; fn() },
+    armReadBatch(keys) {
+      if (armedRead !== null || pendingRead) throw new Error('body_evidence_ui_gate_busy')
+      if (!Array.isArray(keys) || keys.length !== 3 || typeof keys[0] !== 'string' || !/^writer-campaign:.+:head$/.test(keys[0])
+        || keys[1] !== 'writer-campaign:catalog' || typeof keys[2] !== 'string'
+        || !keys[2].startsWith(`${keys[0].slice(0, -4)}checkpoint:`) || !/^[1-9][0-9]*$/.test(keys[2].slice(`${keys[0].slice(0, -4)}checkpoint:`.length))) throw new Error('body_evidence_ui_gate_batch')
+      armedRead = { batchKeys: [...keys] }
+    },
+    releaseRead() { if (!pendingRead) throw new Error('body_evidence_ui_gate_empty'); const fn = pendingRead; pendingRead = null; pendingReadBatch = null; readReleased++; fn() },
     armDigest() { if (armedDigest || pendingDigest) throw new Error('body_evidence_ui_digest_busy'); armedDigest = true },
     releaseDigest() { if (!pendingDigest) throw new Error('body_evidence_ui_digest_empty'); const fn = pendingDigest; pendingDigest = null; digestReleased++; fn() },
-    snapshot: () => ({ readHeld: pendingRead !== null, digestHeld: pendingDigest !== null, readObserved, readReleased, readAborts, digestObserved, digestReleased }),
+    snapshot: () => ({ readHeld: pendingRead !== null, heldReadKind: pendingRead ? pendingReadBatch ? 'exact_read_batch' : 'key_request' : null, heldReadBatch: pendingReadBatch ? [...pendingReadBatch] : null, digestHeld: pendingDigest !== null, readObserved, readReleased, readAborts, digestObserved, digestReleased }),
     authority: () => ({ ...counters }),
     /** Browser-local independent byte oracle. Captured native reads avoid instrumenting the oracle itself. */
     async observe(id) {
@@ -192,6 +212,14 @@ async function main() {
   async function holdRead(page, id) {
     await page.evaluate(key => globalThis.__bodyEvidenceUiGate.armRead(key), `writer-campaign:${encodeURIComponent(id)}:head`)
     await node(page, 'body-validate').click(); await expect.poll(async () => (await gate(page)).readHeld).toBe(true)
+  }
+  async function holdReadFence(page, id, successor) {
+    const prefix = `writer-campaign:${encodeURIComponent(id)}:`
+    const keys = [`${prefix}head`, 'writer-campaign:catalog', `${prefix}checkpoint:${successor}`]
+    await page.evaluate(keys => globalThis.__bodyEvidenceUiGate.armReadBatch(keys), keys)
+    await node(page, 'body-validate').click(); await expect.poll(async () => (await gate(page)).readHeld).toBe(true)
+    const held = await gate(page)
+    assert.equal(held.heldReadKind, 'exact_read_batch'); assert.deepEqual(held.heldReadBatch, keys)
   }
   async function holdDraft(page) {
     await page.evaluate(() => globalThis.__bodyEvidenceUiGate.armDigest())
@@ -370,10 +398,16 @@ async function main() {
         await check('cross_tab_change', async () => {
           await select(page, secondaryId); await load(page, 2)
           const other = await context.newPage(); await other.goto(`${origin}/#/campaigns`); await expect(node(other, 'refresh')).toBeEnabled(); await select(other, secondaryId)
-          await holdRead(page, secondaryId); await node(other, 'step').click(); await expect(node(other, 'task-progress')).toHaveText('9 / 9（不是长篇验收）'); await expect(node(other, 'refresh')).toBeEnabled()
+          const beforeStep = await observe(page, secondaryId)
+          assert.equal(beforeStep.bodyArtifacts, 2); assert.equal(beforeStep.attempts, 8)
+          // Hold the initial verified read's exact final fence, not its legacy
+          // head probe. Appending chapter 3 leaves K2 itself valid, but the later
+          // independent read must detect that the observed source head changed.
+          await holdReadFence(page, secondaryId, beforeStep.sequence + 1); await node(other, 'step').click(); await expect(node(other, 'task-progress')).toHaveText('9 / 9（不是长篇验收）'); await expect(node(other, 'refresh')).toBeEnabled()
           const afterStep = await observe(page, secondaryId)
+          assert.equal(afterStep.sequence, beforeStep.sequence + 4); assert.equal(afterStep.bodyArtifacts, 3); assert.equal(afterStep.attempts, 9)
           await readOnly(page, secondaryId, row, async () => {
-            await releaseRead(page); await expect(node(page, 'body-preview-refusal')).toBeVisible(); await expect(node(page, 'body-preview-digest')).toHaveCount(0)
+            await releaseRead(page); await expect(node(page, 'body-preview-refusal')).toContainText('Body evidence refused: source_changed。'); await expect(node(page, 'body-preview-ready')).toHaveCount(0); await expect(node(page, 'body-preview-digest')).toHaveCount(0)
           }, afterStep)
           await other.close(); row.heldReadRaces++
         })
