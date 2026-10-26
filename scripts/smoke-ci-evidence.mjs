@@ -48,16 +48,17 @@ const expectedGroups = {
 }
 // Deliberately couple to this workflow's simple, fixed step layout. A formatting
 // change must update this guard instead of silently broadening the upload scope.
-function verifyWorkflow(workflow, { groups = Object.keys(CI_EVIDENCE_GROUPS), metadataPaths = [], planning = true, ciJobs = 14 } = {}) {
+function verifyWorkflow(workflow, { groups = Object.keys(CI_EVIDENCE_GROUPS), metadataPaths = [], planning = true, bodyEvidence = true, ciJobs = 15 } = {}) {
   const steps = workflow.split(/(?=^      - )/m).filter(step => step.startsWith('      - '))
   const uploads = steps.map((step, index) => ({ step, index })).filter(({ step }) => /uses: actions\/upload-artifact@/.test(step))
-  const expectedUploads = groups.length + metadataPaths.length + (planning ? 1 : 0)
+  const expectedUploads = groups.length + metadataPaths.length + (planning ? 1 : 0) + (bodyEvidence ? 1 : 0)
   assert.equal(uploads.length, expectedUploads, 'Every artifact upload must be explicitly audited')
   assert.equal((workflow.match(/actions\/upload-artifact/g) || []).length, expectedUploads, 'No extra upload may bypass the guarded layout')
   assert.equal((workflow.match(/run: node scripts\/prepare-ci-evidence\.mjs /g) || []).length, groups.length)
-  if (ciJobs !== null) assert.equal((workflow.match(/^  [a-z0-9-]+:\n    name: ci-/gm) || []).length, ciJobs, 'Existing thirteen CI jobs plus the separate planning job remain intact')
+  if (ciJobs !== null) assert.equal((workflow.match(/^  [a-z0-9-]+:\n    name: ci-/gm) || []).length, ciJobs, 'Existing fourteen CI jobs plus the separate body evidence job remain intact')
   assert.equal((workflow.match(/run: node --import tsx scripts\/prepare-planning-evidence\.ts/g) || []).length, planning ? 1 : 0)
-  const seen = [], seenMetadata = [], seenPlanning = []
+  assert.equal((workflow.match(/run: node --import tsx scripts\/prepare-body-evidence-evidence\.ts/g) || []).length, bodyEvidence ? 1 : 0)
+  const seen = [], seenMetadata = [], seenPlanning = [], seenBodyEvidence = []
   for (const { step, index } of uploads) {
     const paths = [...step.matchAll(/^          path: (.+)$/gm)]
     assert.equal(paths.length, 1, 'Each upload must have one isolated directory')
@@ -65,6 +66,16 @@ function verifyWorkflow(workflow, { groups = Object.keys(CI_EVIDENCE_GROUPS), me
     assert.match(step, /^          if-no-files-found: error$/m)
     if (metadataPaths.includes(paths[0][1])) {
       seenMetadata.push(paths[0][1])
+      continue
+    }
+    if (paths[0][1] === 'artifacts/ci-evidence/writer-campaign-body-evidence') {
+      assert.ok(bodyEvidence, 'Body evidence archive is allowed only in its audited CI job')
+      const preparation = steps[index - 1]
+      assert.equal(preparation.match(/^        id: (.+)$/m)?.[1], 'archive_body_evidence')
+      assert.equal(preparation.match(/^        run: (.+)$/m)?.[1], 'node --import tsx scripts/prepare-body-evidence-evidence.ts')
+      assert.equal(preparation.match(/^        if: (.+)$/m)?.[1], '${{ !cancelled() }}')
+      assert.equal(step.match(/^        if: (.+)$/m)?.[1], "${{ !cancelled() && steps.archive_body_evidence.outcome == 'success' }}")
+      seenBodyEvidence.push('body-evidence')
       continue
     }
     if (paths[0][1] === 'artifacts/ci-evidence/writer-campaign-planning') {
@@ -89,6 +100,7 @@ function verifyWorkflow(workflow, { groups = Object.keys(CI_EVIDENCE_GROUPS), me
     assert.equal(step.match(/^        if: (.+)$/m)?.[1], `\${{ !cancelled() && steps.${id}.outcome == 'success' }}`)
     seen.push(group)
   }
+  assert.deepEqual(seenBodyEvidence, bodyEvidence ? ['body-evidence'] : [])
   assert.deepEqual(seenPlanning, planning ? ['planning'] : [])
   assert.deepEqual(seen.sort(), [...groups].sort(), 'Every approved group is uploaded exactly once')
   assert.deepEqual(seenMetadata.sort(), [...metadataPaths].sort(), 'Only exact approved metadata files may bypass evidence preparation')
@@ -98,9 +110,9 @@ function verifyAllWorkflows(workflows) {
   for (const [name, workflow] of workflows) {
     if (name === 'ci.yml') verifyWorkflow(workflow)
     else if (name === 'writer-browser-tunnel.yml') verifyWorkflow(workflow, {
-      groups: ['browser'], metadataPaths: ['${{ runner.temp }}/preview-url.json'], planning: false, ciJobs: null,
+      groups: ['browser'], metadataPaths: ['${{ runner.temp }}/preview-url.json'], planning: false, bodyEvidence: false, ciJobs: null,
     })
-    else verifyWorkflow(workflow, { groups: [], metadataPaths: [], planning: false, ciJobs: null })
+    else verifyWorkflow(workflow, { groups: [], metadataPaths: [], planning: false, bodyEvidence: false, ciJobs: null })
   }
 }
 const sources = new Map()
@@ -134,6 +146,9 @@ try {
   verifyAllWorkflows(workflows)
   const workflow = workflows.get('ci.yml')
   for (const unsafe of [
+    workflow.replace('path: artifacts/ci-evidence/writer-campaign-body-evidence', 'path: artifacts/writer-campaign-body-evidence'),
+    workflow.replace(" && steps.archive_body_evidence.outcome == 'success'", ''),
+    workflow.replace('run: node --import tsx scripts/prepare-body-evidence-evidence.ts', 'run: node --import tsx scripts/prepare-planning-evidence.ts'),
     workflow.replace('path: artifacts/ci-evidence/writer-campaign-planning', 'path: artifacts/writer-campaign-planning'),
     workflow.replace(" && steps.archive_planning.outcome == 'success'", ''),
     workflow.replace('run: node --import tsx scripts/prepare-planning-evidence.ts', 'run: node scripts/prepare-ci-evidence.mjs --group=writer-campaign'),
@@ -154,7 +169,7 @@ try {
     tunnel.replace('path: ${{ runner.temp }}/preview-url.json', 'path: artifacts/browser/report.json'),
   ]) assert.throws(() => verifyAllWorkflows(new Map(workflows).set('writer-browser-tunnel.yml', unsafe)))
   assert.throws(() => verifyAllWorkflows(new Map(workflows).set('future-unreviewed.yml', tunnel)), 'New workflows must not introduce unaudited uploads')
-  console.log('✓ Every workflow is checked: 15 existing CI archives, the closed planning archive and the tunnel browser archive require successful preparation; only exact preview URL metadata is exempt')
+  console.log('✓ Every workflow is checked: 15 existing CI archives, the closed planning/body-evidence archives and the tunnel browser archive require successful preparation; only exact preview URL metadata is exempt')
   assert.deepEqual(Object.fromEntries(Object.entries(CI_EVIDENCE_GROUPS).map(([key, values]) => [key, values.length])), expectedGroups)
   for (const allowed of Object.values(CI_EVIDENCE_GROUPS)) {
     assert.equal(new Set(allowed).size, allowed.length)

@@ -1,14 +1,16 @@
 import type { CampaignActionScope, CampaignArtifact, CampaignBudget, CampaignManifest, CampaignMutation, CampaignRepository, CampaignRequest, CampaignResponse, CampaignSnapshot, CampaignState, CampaignTaskSpec, CampaignTaskState } from '../../types/writerCampaign'
 import { createCampaignRepository } from './store'
 import { getCampaignBuildIdentity } from './buildIdentity'
-import { CampaignProtocolError, campaignId, encodeStorageBytes, hashCampaignValue, sealCampaignArtifact, sealCampaignManifest, sealCampaignRequest, utf8Bytes } from './protocol'
+import { CampaignProtocolError, campaignId, encodeStorageBytes, hashCampaignValue, hashText, sealCampaignArtifact, sealCampaignManifest, sealCampaignRequest, utf8Bytes } from './protocol'
 import { CampaignRuntimeError, CAMPAIGN_DISPATCH_TIMEOUT_MS, CAMPAIGN_IO_TIMEOUT_MS, campaignMetadataReservation, campaignRequestReservation, campaignRequestStorageAllowance, checkCampaignClock, emptyCampaignBudget, reserveCampaignBudget } from './budget'
 import { createOfflineFixtureHost, isOfflineCampaignHost, type CampaignAuthorizationHost, type CampaignProviderContext, type OfflineFixtureOptions } from './fixtureAdapter'
 
-import { isPlanningProfile, planningManifestOptions, PLANNING_THREE_CHAPTER_PROFILE } from './planningProfile'
+import { isPlanningProfile, planningManifestOptions, PLANNING_THREE_CHAPTER_PROFILE, BODY_EVIDENCE_THREE_CHAPTER_PROFILE } from './planningProfile'
 import { compilePlanningContext, type PlanningPreviewResult } from './planningContext'
 import { PlanningRefusalError } from './planningProtocol'
 import { PlanningValidationView } from './planningValidation'
+import { compileBodyEvidence } from './bodyEvidence'
+import { BodyEvidenceRefusalError, parseBodyEvidenceProposal, type BodyEvidencePreviewResult } from './bodyEvidenceProtocol'
 
 export type CampaignRuntimeIdentity = Pick<CampaignManifest, 'runtimeIdentity' | 'source'>
 export interface CampaignEngineOptions {
@@ -96,6 +98,7 @@ const emptyOperationTimings = (): CampaignOperationTiming[] => CAMPAIGN_TIMEOUT_
   phase, count: 0, success: 0, error: 0, abort: 0, timeout: 0, minMs: null, maxMs: null,
   histogram: Array<number>(CAMPAIGN_OPERATION_TIMING_UPPER_MS.length).fill(0),
 }))
+interface PreviewRun { id: string; controller: AbortController; startedAt: number }
 interface Run { id: string; controller: AbortController; epoch: number | null; startedAt: number; phase: CampaignTimeoutPhase; recovering?: boolean; deadlineObserved?: boolean; scope?: CampaignActionScope }
 
 /** Generic orchestration over a repository and an explicit host capability. No stored JSON supplies authority. */
@@ -107,7 +110,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
   const ioTimeout = options.ioTimeoutMs ?? CAMPAIGN_IO_TIMEOUT_MS, dispatchTimeout = options.dispatchTimeoutMs ?? CAMPAIGN_DISPATCH_TIMEOUT_MS
   if (![ioTimeout, dispatchTimeout].every(n => Number.isSafeInteger(n) && n > 0 && n <= 10_000)) throw new CampaignRuntimeError('timeout_invalid')
   const runs = new Map<string, Run>(), commands = new Map<string, Promise<CampaignSnapshot>>()
-  const previews = new Map<string, AbortController>()
+  let activePreview: PreviewRun | null = null
   let disposed = false
   function disposeScope(run?: Run) {
     const scope = run?.scope
@@ -118,6 +121,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     try { repository.disposeActionScope?.(scope) } catch { /* Cache cleanup must not change the action outcome. */ }
   }
   function beginRun(id: string, scoped = true): Run {
+    cancelPreviews(id)
     const run: Run = { id, controller: new AbortController(), epoch: null, startedAt: performance.now(), phase: 'read' }
     runs.set(id, run)
     run.controller.signal.addEventListener('abort', () => disposeScope(run), { once: true })
@@ -129,8 +133,16 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     if (run.controller.signal.aborted || runs.get(id) !== run) disposeScope(run)
     return run
   }
+  /** Preview revocation never takes durable Run ownership. */
+  function cancelPreviews(id?: string) {
+    const current = activePreview
+    if (current && (id === undefined || id === current.id)) {
+      activePreview = null
+      current.controller.abort()
+    }
+  }
   function stopLocal(id?: string) {
-    for (const [key, preview] of previews) if (id === undefined || key === id) { preview.abort(); previews.delete(key) }
+    cancelPreviews(id)
     for (const [key, run] of runs) if (id === undefined || key === id) { run.controller.abort(); runs.delete(key) }
   }
   // Engine-local, bounded and source-free. Observation has no callbacks, durable
@@ -561,15 +573,72 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     return snapshot
     } finally { run.controller.abort(); if (runs.get(id) === run) runs.delete(id) }
   }
+  /** One shared read-only owner. Its deadline and abort cannot acquire a durable Run. */
+  function beginPreview(id: string, refusal: (code: 'cancelled' | 'deadline_exceeded') => Error) {
+    cancelPreviews()
+    const preview: PreviewRun = { id, controller: new AbortController(), startedAt: performance.now() }
+    activePreview = preview
+    let totalDeadlineObserved = false
+    const check = () => {
+      if (disposed || preview.controller.signal.aborted || activePreview !== preview) throw refusal('cancelled')
+      if (performance.now() - preview.startedAt >= 10_000) { totalDeadlineObserved = true; throw refusal('deadline_exceeded') }
+    }
+    const wait = <T>(operation: (operationCheck: () => void) => Promise<T>, phase: 'read' | 'prepare'): Promise<T> => {
+      check()
+      const operationStartedAt = performance.now(), start = diagnosticNow(), remaining = Math.max(0, 10_000 - (operationStartedAt - preview.startedAt))
+      const operationLimit = Math.min(CAMPAIGN_IO_TIMEOUT_MS, ioTimeout), timeout = Math.min(operationLimit, remaining)
+      if (start === null) operationTimingsCollected = false
+      let operationDeadlineObserved = false
+      const operationCheck = () => {
+        check()
+        // Cooperative timeouts count in operationTimings; timeoutEvents contains only
+        // its existing timer/action diagnostics, not an exhaustive timeout total.
+        if (performance.now() - operationStartedAt >= operationLimit) { operationDeadlineObserved = true; throw refusal('deadline_exceeded') }
+      }
+      return new Promise<T>((resolve, reject) => {
+        let settled = false
+        const finish = (error: unknown, value: T | undefined, outcome: 'success' | 'error' | 'abort' | 'timeout') => {
+          if (settled) return
+          settled = true; clearTimeout(timer); preview.controller.signal.removeEventListener('abort', abort)
+          recordOperation(phase, outcome, start, diagnosticNow())
+          if (error) reject(error); else resolve(value as T)
+        }
+        const abort = () => finish(refusal('cancelled'), undefined, 'abort')
+        const timer = setTimeout(() => {
+          const now = diagnosticNow()
+          finish(refusal('deadline_exceeded'), undefined, 'timeout')
+          if (now !== null && start !== null) recordTimeout({ phase, trigger: 'timer',
+            selectedBudget: operationLimit < remaining ? 'operation' : operationLimit > remaining ? 'action' : 'tie',
+            operationTimeoutMs: operationLimit, actionTimeoutMs: 10_000, actionRemainingMs: remaining,
+            scheduledTimeoutMs: timeout, operationElapsedMs: now - start, actionElapsedMs: now - preview.startedAt })
+          if (activePreview === preview) activePreview = null
+          preview.controller.abort()
+        }, timeout)
+        preview.controller.signal.addEventListener('abort', abort, { once: true })
+        try {
+          operationCheck()
+          // A timer cannot preempt synchronous work. Cooperative checks before/after
+          // every operation and compiler loop are the corresponding deadline gate.
+          Promise.resolve(operation(operationCheck)).then(value => {
+            if (settled) return
+            try {
+              operationCheck()
+              finish(null, value, 'success')
+            } catch (error) { finish(error, undefined, preview.controller.signal.aborted ? 'abort' : 'timeout') }
+          }, error => finish(error, undefined, totalDeadlineObserved || operationDeadlineObserved ? 'timeout' : 'error'))
+        } catch (error) { finish(error, undefined, totalDeadlineObserved || operationDeadlineObserved ? 'timeout' : 'error') }
+      })
+    }
+    const finish = () => {
+      if (activePreview === preview) activePreview = null
+      preview.controller.abort()
+    }
+    return { check, wait, finish }
+  }
   /** Read-only, independently fenced preview. Never owns/replaces an executing Run. */
   async function previewPlanningContext(id: string, chapterOrdinal: number): Promise<PlanningPreviewResult> {
-    previews.get(id)?.abort()
-    const controller = new AbortController(), started = performance.now()
-    previews.set(id, controller)
-    const check = () => {
-      if (disposed || controller.signal.aborted || previews.get(id) !== controller) throw new PlanningRefusalError('planning_cancelled')
-      if (performance.now() - started >= 10_000) throw new PlanningRefusalError('preview_unavailable')
-    }
+    const preview = beginPreview(id, code => new PlanningRefusalError(code === 'cancelled' ? 'planning_cancelled' : 'preview_unavailable'))
+    const { check, wait } = preview
     const validate = (snapshot: CampaignSnapshot | null): CampaignSnapshot => {
       check()
       if (!snapshot) throw new PlanningRefusalError('missing_planning_source')
@@ -581,7 +650,7 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
     }
     try {
       check(); campaignId(id)
-      const snapshot = validate(await bounded(() => repository.read(id, undefined, check), 'read'))
+      const snapshot = validate(await wait(operationCheck => repository.read(id, undefined, operationCheck), 'read'))
       const task = snapshot.manifest.tasks.find(task => task.kind === 'chapter_body' && task.chapterOrdinal === chapterOrdinal)
       const outline = snapshot.manifest.tasks.find(task => task.kind === 'chapter_outline' && task.chapterOrdinal === chapterOrdinal)
       const state = task && snapshot.checkpoint.tasks.find(state => state.taskId === task.id)
@@ -592,9 +661,9 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
         if (state?.status !== 'committed' || !artifact) throw new PlanningRefusalError('incomplete_plan')
         return artifact
       })
-      const compiled = await bounded(() => compilePlanningContext({ manifest: snapshot.manifest, candidateId: snapshot.checkpoint.candidateId, task, taskRevision: state.revision, dependencies: sources }, 'planning_preview', check), 'prepare')
+      const compiled = await wait(operationCheck => compilePlanningContext({ manifest: snapshot.manifest, candidateId: snapshot.checkpoint.candidateId, task, taskRevision: state.revision, dependencies: sources }, 'planning_preview', operationCheck), 'prepare')
       check()
-      const fresh = validate(await bounded(() => repository.read(id, undefined, check), 'read'))
+      const fresh = validate(await wait(operationCheck => repository.read(id, undefined, operationCheck), 'read'))
       if (fresh.rawHead !== snapshot.rawHead) throw new PlanningRefusalError('source_changed')
       const next = snapshot.checkpoint.tasks.find(task => task.status !== 'committed')
       const nextSpec = next && snapshot.manifest.tasks.find(task => task.id === next.taskId)
@@ -607,10 +676,45 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
         input: compiled.text, inputDigest: compiled.digest, inputBytes: compiled.bytes, inputUtf16: compiled.utf16 }
     } catch (error) {
       return { status: 'refused', refusalCode: error instanceof PlanningRefusalError ? error.code : 'preview_unavailable' }
-    } finally { controller.abort(); if (previews.get(id) === controller) previews.delete(id) }
+    } finally { preview.finish() }
+  }
+  /** Caller text is untrusted; only fresh repository reads establish the source view. */
+  async function previewBodyEvidence(id: string, proposalText: string): Promise<BodyEvidencePreviewResult> {
+    const preview = beginPreview(id, code => new BodyEvidenceRefusalError(code))
+    const { check, wait } = preview
+    const validate = (snapshot: CampaignSnapshot | null): CampaignSnapshot => {
+      check()
+      if (!snapshot) throw new BodyEvidenceRefusalError('no_accepted_body')
+      try { if (!isPlanningProfile(snapshot.manifest)) throw new BodyEvidenceRefusalError('unsupported_profile') } catch { throw new BodyEvidenceRefusalError('unsupported_profile') }
+      if (snapshot.manifest.runtimeIdentity !== identity.runtimeIdentity || snapshot.manifest.source.commit !== identity.source.commit || snapshot.manifest.source.tree !== identity.source.tree) throw new BodyEvidenceRefusalError('runtime_identity_changed')
+      if (snapshot.head.status === 'cancelled') throw new BodyEvidenceRefusalError('cancelled')
+      try { checkClock(snapshot) } catch { throw new BodyEvidenceRefusalError('expired') }
+      return snapshot
+    }
+    try {
+      check(); campaignId(id)
+      parseBodyEvidenceProposal(proposalText, check)
+      const snapshot = validate(await wait(operationCheck => repository.read(id, undefined, operationCheck), 'read'))
+      const compiled = await wait(operationCheck => compileBodyEvidence(snapshot, proposalText, operationCheck), 'prepare')
+      const rawHeadHash = await wait(() => hashText(snapshot.rawHead), 'prepare')
+      check()
+      const fresh = validate(await wait(operationCheck => repository.read(id, undefined, operationCheck), 'read'))
+      if (fresh.rawHead !== snapshot.rawHead) throw new BodyEvidenceRefusalError('source_changed')
+      check()
+      return { status: 'ready', packetText: compiled.packetText, packetDigest: compiled.packetDigest, packetBytes: compiled.packetBytes, packetUtf16: compiled.packetUtf16,
+        throughChapterOrdinal: compiled.throughChapterOrdinal, bodyPrefixRoot: compiled.bodyPrefixRoot,
+        canonBaseRoot: compiled.canonBaseRoot, fullPlanRoot: compiled.fullPlanRoot, coverage: compiled.coverage,
+        sourceHead: { sequence: snapshot.head.sequence, checkpointHash: snapshot.head.checkpointHash, executionEpoch: snapshot.head.executionEpoch, rawHeadHash },
+        sourceIdentity: { runtimeIdentity: identity.runtimeIdentity, source: { ...identity.source } } }
+    } catch (error) {
+      return { status: 'refused', refusalCode: error instanceof BodyEvidenceRefusalError ? error.code
+        : error instanceof PlanningRefusalError && error.code === 'unsupported_profile' ? 'unsupported_profile' : 'preview_unavailable' }
+    } finally { preview.finish() }
   }
   return {
     previewPlanningContext,
+    previewBodyEvidence,
+    cancelPreviews,
     async preparePlanning(input: PrepareOfflineCampaign, commandId?: string) {
       assertRun()
       const existing = await bounded(() => repository.read(input.campaignId), 'read')
@@ -620,6 +724,17 @@ export function createCampaignEngine(options: CampaignEngineOptions) {
         return existing
       }
       const manifest = await createOfflineCampaignManifest(planningManifestOptions({ ...input, identity, now: clock() }))
+      return (await bounded(() => repository.create(manifest, commandId ?? `create-${manifest.campaignId}`), 'prepare')).snapshot
+    },
+    async prepareBodyEvidence(input: PrepareOfflineCampaign, commandId?: string) {
+      assertRun(); cancelPreviews(input.campaignId)
+      const existing = await bounded(() => repository.read(input.campaignId), 'read')
+      if (existing) {
+        const prior = await bounded(() => repository.getReceipt(input.campaignId, commandId ?? `create-${input.campaignId}`), 'receipt')
+        if (prior?.kind !== 'create' || existing.manifest.fixtureVersion !== BODY_EVIDENCE_THREE_CHAPTER_PROFILE || existing.manifest.language !== input.language || existing.manifest.runtimeIdentity !== identity.runtimeIdentity || existing.manifest.source.commit !== identity.source.commit || existing.manifest.source.tree !== identity.source.tree) throw new CampaignRuntimeError('operation_conflict')
+        return existing
+      }
+      const manifest = await createOfflineCampaignManifest(planningManifestOptions({ ...input, identity, now: clock(), profile: 'body-evidence-three-chapter' }))
       return (await bounded(() => repository.create(manifest, commandId ?? `create-${manifest.campaignId}`), 'prepare')).snapshot
     },
     async prepare(input: PrepareOfflineCampaign | CampaignManifest, commandId?: string) {

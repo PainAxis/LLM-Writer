@@ -2,7 +2,9 @@ import { computed, ref, shallowRef } from 'vue'
 import { createOfflineCampaignEngine } from '@/services/writerCampaign/engine'
 import type { PlanningPreviewResult } from '@/services/writerCampaign/planningContext'
 import { isPlanningProfile } from '@/services/writerCampaign/planningProfile'
-import { decodeStorageBytes } from '@/services/writerCampaign/protocol'
+import { decodeStorageBytes, utf8Bytes } from '@/services/writerCampaign/protocol'
+import { buildBodyEvidenceFixtureProposal } from '@/services/writerCampaign/bodyEvidenceFixture'
+import { BODY_EVIDENCE_LIMITS, BodyEvidenceRefusalError, type BodyEvidencePacket, type BodyEvidencePreviewResult, type BodyEvidenceRefusalCode } from '@/services/writerCampaign/bodyEvidenceProtocol'
 import type { CampaignInspection, CampaignSnapshot, LegacyCampaignSnapshot } from '@/types/writerCampaign'
 
 /** Presentation only. Neither these refs nor a saved manifest authorize execution. */
@@ -10,6 +12,9 @@ export interface CampaignLabEngine {
   list(): Promise<string[]>
   inspect(id: string): Promise<CampaignInspection | null>
   prepare(input: { campaignId: string; language: 'zh' | 'en' }): Promise<unknown>
+  prepareBodyEvidence?(input: { campaignId: string; language: 'zh' | 'en' }): Promise<unknown>
+  previewBodyEvidence?(id: string, proposalText: string): Promise<BodyEvidencePreviewResult>
+  cancelPreviews?(id?: string): void
   preparePlanning?(input: { campaignId: string; language: 'zh' | 'en' }): Promise<unknown>
   previewPlanningContext?(id: string, chapterOrdinal: number): Promise<PlanningPreviewResult>
   step(id: string): Promise<unknown>
@@ -23,7 +28,7 @@ export interface CampaignLabEngine {
 type PersistentOutcome = 'none' | 'pending' | 'confirmed' | 'unconfirmed'
 const blockedReason = '操作未确认。请重新读取持久状态；不要把未知请求当作可重试模型请求。'
 
-export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?: () => string } = {}) {
+export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?: () => string; bodyEvidenceDraftBuilder?: typeof buildBodyEvidenceFixtureProposal } = {}) {
   const engine: CampaignLabEngine = options.engine ?? createOfflineCampaignEngine()
   const ids = ref<string[]>([])
   const selectedId = ref('')
@@ -36,6 +41,14 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   const selectedChapter = ref(1)
   const planningPreview = shallowRef<PlanningPreviewResult | null>(null)
   const previewLoading = ref(false)
+  const bodyPrefix = ref(1)
+  const bodyDraft = ref('')
+  const bodyPreview = shallowRef<BodyEvidencePreviewResult | null>(null)
+  const bodyPreviewLoading = ref(false)
+  const bodyDraftLoading = ref(false)
+  const bodyDraftRefusal = ref<BodyEvidenceRefusalCode | ''>('')
+  let bodyDraftOwner = 0, bodyEditorRevision = 0
+  let draftController: AbortController | null = null
   let previewOwner = 0
   let desiredStop: 'paused' | 'cancelled' | null = null
   let owner = 0
@@ -57,6 +70,32 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   const canPreview = computed(() => planningProfile.value && !busy.value && !loading.value
     && Boolean(engine.previewPlanningContext))
   const planningAvailable = Boolean(engine.preparePlanning && engine.previewPlanningContext)
+  const bodyEvidenceAvailable = Boolean(engine.prepareBodyEvidence && engine.previewBodyEvidence)
+  const bodyPrefixRows = computed(() => {
+    if (!planningProfile.value || !snapshot.value) return []
+    const rows: Array<{ ordinal: number; taskId: string }> = []
+    for (const task of snapshot.value.manifest.tasks.filter(task => task.kind === 'chapter_body').sort((a, b) => a.chapterOrdinal! - b.chapterOrdinal!)) {
+      const state = snapshot.value.checkpoint.tasks.find(state => state.taskId === task.id)
+      if (state?.status !== 'committed' || !state.artifact) break
+      rows.push({ ordinal: task.chapterOrdinal!, taskId: task.id })
+    }
+    return rows
+  })
+  const bodyPacket = computed<BodyEvidencePacket | null>(() => {
+    const value = bodyPreview.value
+    if (value?.status !== 'ready') return null
+    // This is bounded escaped presentation, not a source or authority cache.
+    try { return JSON.parse(value.packetText) as BodyEvidencePacket } catch { return null }
+  })
+  const bodyClaimCounts = computed(() => {
+    const counts: Record<string, number> = {}
+    for (const claim of bodyPacket.value?.claims ?? []) counts[claim.kind] = (counts[claim.kind] ?? 0) + 1
+    return counts
+  })
+  const canLoadBodyDraft = computed(() => planningProfile.value && !busy.value && !loading.value
+    && bodyPrefixRows.value.some(row => row.ordinal === bodyPrefix.value))
+  const canPreviewBody = computed(() => planningProfile.value && !busy.value && !loading.value && !bodyDraftLoading.value
+    && Boolean(engine.previewBodyEvidence) && bodyDraft.value.length > 0)
   const currentStorage = computed(() => {
     const value = snapshot.value
     if (!value || value.manifest.schemaVersion !== 2) return null
@@ -119,11 +158,106 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
     return { input: inputs ? input : null, output: outputs ? output : null, unknown }
   })
 
+  function cancelDraftLoad() {
+    bodyDraftOwner++; draftController?.abort(); draftController = null; bodyDraftLoading.value = false
+  }
   function clearPreview() {
-    previewOwner++; previewLoading.value = false; planningPreview.value = null
+    previewOwner++; engine.cancelPreviews?.(selectedId.value || undefined)
+    previewLoading.value = false; planningPreview.value = null
+    bodyPreviewLoading.value = false; bodyPreview.value = null
+    cancelDraftLoad()
+  }
+  function clearBodyDraft() {
+    bodyEditorRevision++; bodyDraft.value = ''; bodyDraftRefusal.value = ''; bodyPrefix.value = 1
+  }
+  function setBodyDraft(value: string): boolean {
+    if (disposed) return false
+    clearPreview(); bodyEditorRevision++; bodyDraftRefusal.value = ''
+    // Reject, never truncate or retain, oversized editable source. The engine still
+    // independently validates this untrusted string before reading any source.
+    try {
+      if (typeof value !== 'string' || value.length > BODY_EVIDENCE_LIMITS.envelopeUtf16 || utf8Bytes(value) > BODY_EVIDENCE_LIMITS.envelopeBytes) throw new BodyEvidenceRefusalError('envelope_budget_exceeded')
+      bodyDraft.value = value
+      return true
+    } catch (error) {
+      bodyDraft.value = ''
+      bodyDraftRefusal.value = error instanceof BodyEvidenceRefusalError ? error.code : 'invalid_scalar_text'
+      return false
+    }
+  }
+  function selectBodyPrefix(ordinal: number) {
+    if (disposed || !bodyPrefixRows.value.some(row => row.ordinal === ordinal)) return false
+    clearPreview(); bodyPrefix.value = ordinal; bodyDraftRefusal.value = ''
+    return true
+  }
+  async function loadBodyEvidenceExample() {
+    if (disposed || !canLoadBodyDraft.value || snapshot.value?.manifest.schemaVersion !== 2) return false
+    clearPreview(); bodyDraftRefusal.value = ''
+    const id = selectedId.value, token = owner, ordinal = bodyPrefix.value, editor = bodyEditorRevision
+    const source = snapshot.value as CampaignSnapshot, load = ++bodyDraftOwner, controller = new AbortController(), started = performance.now()
+    draftController = controller; bodyDraftLoading.value = true
+    const current = () => valid(token, id) && bodyDraftOwner === load && draftController === controller
+      && bodyPrefix.value === ordinal && bodyEditorRevision === editor && !controller.signal.aborted
+    const check = () => {
+      if (!current()) throw new BodyEvidenceRefusalError('cancelled')
+      if (performance.now() - started >= 10_000) throw new BodyEvidenceRefusalError('deadline_exceeded')
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let abort: (() => void) | undefined
+    try {
+      const proposal = await new Promise<string>((resolve, reject) => {
+        let settled = false
+        const finish = (error: unknown, value?: string) => {
+          if (settled) return
+          settled = true; if (timer !== undefined) clearTimeout(timer)
+          if (abort) controller.signal.removeEventListener('abort', abort)
+          if (error) reject(error); else resolve(value!)
+        }
+        abort = () => finish(new BodyEvidenceRefusalError('cancelled'))
+        controller.signal.addEventListener('abort', abort, { once: true })
+        timer = setTimeout(() => finish(new BodyEvidenceRefusalError('deadline_exceeded')), Math.max(0, 10_000 - (performance.now() - started)))
+        try {
+          check()
+          Promise.resolve((options.bodyEvidenceDraftBuilder ?? buildBodyEvidenceFixtureProposal)(source, ordinal, check)).then(value => {
+            try { check(); finish(null, value) } catch (error) { finish(error) }
+          }, error => finish(error))
+        } catch (error) { finish(error) }
+      })
+      check()
+      if (proposal.length > BODY_EVIDENCE_LIMITS.envelopeUtf16 || utf8Bytes(proposal) > BODY_EVIDENCE_LIMITS.envelopeBytes) throw new BodyEvidenceRefusalError('envelope_budget_exceeded')
+      bodyDraft.value = proposal; bodyEditorRevision++
+      return true
+    } catch (error) {
+      if (current()) bodyDraftRefusal.value = error instanceof BodyEvidenceRefusalError ? error.code : 'preview_unavailable'
+      return false
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+      if (abort) controller.signal.removeEventListener('abort', abort)
+      // A successful adoption increments editor revision; cleanup is keyed to the
+      // loader identity, not the now-superseded editor revision.
+      if (bodyDraftOwner === load && draftController === controller) { bodyDraftLoading.value = false; draftController = null }
+      controller.abort()
+    }
+  }
+  async function previewBody() {
+    if (disposed || !canPreviewBody.value) return false
+    clearPreview()
+    const id = selectedId.value, token = owner, preview = ++previewOwner, editor = bodyEditorRevision, proposal = bodyDraft.value
+    bodyPreviewLoading.value = true
+    const current = () => valid(token, id) && preview === previewOwner && editor === bodyEditorRevision && proposal === bodyDraft.value
+    try {
+      const result = await engine.previewBodyEvidence!(id, proposal)
+      if (!current()) return false
+      bodyPreview.value = result
+      return result.status === 'ready'
+    } catch {
+      if (current()) bodyPreview.value = { status: 'refused', refusalCode: 'preview_unavailable' }
+      return false
+    } finally { if (current()) bodyPreviewLoading.value = false }
   }
   async function previewChapter(ordinal: number) {
     if (disposed || !canPreview.value || !chapterRows.value.some(row => row.ordinal === ordinal)) return false
+    clearPreview()
     const id = selectedId.value, token = owner, preview = ++previewOwner
     selectedChapter.value = ordinal; planningPreview.value = null; previewLoading.value = true
     const current = () => valid(token, id) && preview === previewOwner && selectedChapter.value === ordinal
@@ -174,22 +308,23 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   async function select(id: string) {
     if (disposed || !ids.value.includes(id)) return false
     engine.stopLocal(selectedId.value || undefined)
-    owner++; readOwner++; clearPreview(); selectedChapter.value = 1
+    owner++; readOwner++; clearPreview(); clearBodyDraft(); selectedChapter.value = 1
     busy.value = false; loading.value = false
     selectedId.value = id; snapshot.value = null; error.value = ''
     locallyStopped.value = false; desiredStop = null; persistentOutcome.value = 'none'
     return refresh()
   }
-  async function createProfile(language: 'zh' | 'en', planning: boolean) {
-    if (disposed || busy.value || loading.value || (planning && !planningAvailable)) return false
+  async function createProfile(language: 'zh' | 'en', profile: 'legacy' | 'planning' | 'body-evidence') {
+    if (disposed || busy.value || loading.value || (profile === 'planning' && !planningAvailable) || (profile === 'body-evidence' && !bodyEvidenceAvailable)) return false
     engine.stopLocal(selectedId.value || undefined)
-    owner++; readOwner++; clearPreview(); selectedChapter.value = 1
+    owner++; readOwner++; clearPreview(); clearBodyDraft(); selectedChapter.value = 1
     const token = owner
     const id = options.newId?.() ?? `campaign-${crypto.randomUUID()}`
     selectedId.value = id; snapshot.value = null; busy.value = true; error.value = ''
     locallyStopped.value = false; desiredStop = null; persistentOutcome.value = 'none'
     try {
-      if (planning) await engine.preparePlanning!({ campaignId: id, language })
+      if (profile === 'body-evidence') await engine.prepareBodyEvidence!({ campaignId: id, language })
+      else if (profile === 'planning') await engine.preparePlanning!({ campaignId: id, language })
       else await engine.prepare({ campaignId: id, language })
       if (!valid(token, id)) return false
       if (!await readSelected(token, id)) return false
@@ -246,7 +381,7 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
   }
   function dispose() {
     if (disposed) return
-    disposed = true; owner++; readOwner++; clearPreview()
+    disposed = true; owner++; readOwner++; clearPreview(); clearBodyDraft()
     engine.stopLocal()
   }
 
@@ -254,7 +389,10 @@ export function useWriterCampaign(options: { engine?: CampaignLabEngine; newId?:
     canStep, canResume, canStop, canSaveOnly, unresolved, taskRows, artifactRows, completedTasks, requests,
     unknownRequests, inactiveUnknownRequests, readOnly, storageSummary, legacyStorageSummary, observedUsage, refresh, select,
     planningAvailable, planningProfile, chapterRows, selectedChapter, planningPreview, previewLoading, canPreview, previewChapter,
-    create: (language: 'zh' | 'en') => createProfile(language, false),
-    createPlanning: (language: 'zh' | 'en') => createProfile(language, true),
+    bodyEvidenceAvailable, bodyPrefixRows, bodyPrefix, bodyDraft, bodyPreview, bodyPacket, bodyClaimCounts, bodyPreviewLoading, bodyDraftLoading, bodyDraftRefusal,
+    canLoadBodyDraft, canPreviewBody, setBodyDraft, selectBodyPrefix, loadBodyEvidenceExample, previewBody,
+    createBodyEvidence: (language: 'zh' | 'en') => createProfile(language, 'body-evidence'),
+    create: (language: 'zh' | 'en') => createProfile(language, 'legacy'),
+    createPlanning: (language: 'zh' | 'en') => createProfile(language, 'planning'),
     step: () => execute('step'), saveOnly: () => execute('recoverSaveOnly'), resume: () => execute('resume'), pause: () => stop('pause'), cancel: () => stop('cancel'), dispose }
 }

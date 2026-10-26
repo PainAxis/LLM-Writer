@@ -82,6 +82,9 @@
 
 后续 [PR #47](https://github.com/PainAxis/LLM-Writer/pull/47) 的 action-private proof 修正已在 main `dfb94ffdba92da976d3540f8d9c76fd96284c385`、tree `19fbd21e1b6309d269ec07b200ff40c61cad141f` 验收；[main run 40183366291](https://github.com/PainAxis/LLM-Writer/actions/runs/40183366291) 全部 13 项通过。下一有界切片 [Planning Contract v1](docs/writer-campaign-planning.zh-CN.md) 增加四阶段封闭 payload、精确修订上下文和可选的全部规划优先离线 Lab 预览。其新结构／原生／容量门槛独立于已接受的修正与文学验收；不包含真实供应商、已成立正文事实账本或自主小说／审计／修复循环。
 
+下一有界切片 [Body Evidence & Coverage v1](docs/writer-campaign-body-evidence.zh-CN.md) 将精确已接受的正文修订连接到通用本地提案校验与只读 Lab 预览。来源/结构、覆盖、生命周期及独立 Node/原生 N60 门槛不等于语义审查、持久账本或自主抽取；v2 哈希/计数与有限预算保持不变，切片验收证据与最终小说验收分开报告。
+
+
 ### 第四阶段最终验收：两部自主百万字符小说
 
 用户最终标准已明确：从大纲、人设，再到细纲、章纲，**自主创作中文、英文各一部小说，每部正文 100 万字符**，规划文档不计入。两部作品必须在全书范围维持题材、剧情、人设和暗线伏笔不漂移。[长篇验收合同](docs/writer-agent-longform-acceptance.zh-CN.md)规定计数、全文证据、失败／未知、恢复及尚缺架构。
