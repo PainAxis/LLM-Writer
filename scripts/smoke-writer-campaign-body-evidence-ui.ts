@@ -93,6 +93,7 @@ try {
     new Function('require', 'exports', compiled)((id: string) => {
       if (id === 'vue') return Vue
       if (id === '@/composables/useWriterCampaign') return { useWriterCampaign: () => ui }
+      if (id === '@/components/ProducerLabPanel.vue') return { default: { render: () => null } }
       throw new Error('unexpected_ui_import')
     }, exports)
     return exports.default!

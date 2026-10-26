@@ -1,5 +1,5 @@
 /** Pure read-local source/proposal compiler. A supplied snapshot is not repository proof. */
-import type { CampaignArtifact, CampaignArtifactRef, CampaignSnapshot, CampaignTaskSpec } from '../../types/writerCampaign'
+import type { CampaignArtifact, CampaignArtifactRef, CampaignSnapshot, CampaignTaskSpec, CampaignManifest, CampaignTaskState } from '../../types/writerCampaign'
 import { assertScalarText, canonicalStringify, hashCampaignValue, hashText, utf8Bytes } from './protocol'
 import { buildPlanningCanon, planningArtifactRef, planningClosure, type PlanningCanon, type PlanningClosureSeed, type PlanningRecord } from './planningCanon'
 import { planningChapterCount, validatePlanningProfile } from './planningProfile'
@@ -9,7 +9,7 @@ import {
   BodyEvidenceRefusalError, bodyEvidenceAssert, parseBodyEvidenceProposal,
   type BodyCoverage, type BodyEvidenceCheck, type BodyEvidencePacket, type BodyEvidenceRange, type BodyEvidenceRefusalCode,
   type BodySource, type ClaimProposal, type CoverageRow, type CoverageStatus,
-  type PacketPlanning, type PacketSpan, type PlanningRecordIdentity,
+  type PacketPlanning, type PacketSpan, type PlanningRecordIdentity, type BodyEvidenceProposalEnvelope,
 } from './bodyEvidenceProtocol'
 
 const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0
@@ -33,26 +33,40 @@ export interface BodyEvidencePrefix {
   canonBaseRoot: string; fullPlanRoot: string; bodyPrefixRoot: string; bodySources: BodySource[]
   bodyArtifacts: CampaignArtifact[]; canon: PlanningCanon; plannedChapterCount: number; acceptedBodyCount: number; acceptedOutsidePrefix: number
 }
-/** Caller must obtain snapshot through the current verified repository read. This
- * rechecks active membership/dependencies/metrics, not the entire historical log.
- * No brand or digest from this result grants execution or persistent authority. */
+/** Explicit projection of current source membership; never a fabricated v2 checkpoint.
+ * This pure view grants no repository, persistence or dispatch authority. */
+export interface BodyEvidenceSourceView {
+  sourceManifest: CampaignManifest
+  candidateId: string
+  tasks: readonly CampaignTaskState[]
+  artifacts: ReadonlyMap<string, CampaignArtifact>
+}
+export function bodyEvidenceSourceView(snapshot: CampaignSnapshot): BodyEvidenceSourceView {
+  return { sourceManifest: snapshot.manifest, candidateId: snapshot.checkpoint.candidateId,
+    tasks: snapshot.checkpoint.tasks, artifacts: snapshot.artifacts }
+}
 export async function deriveBodyEvidencePrefix(snapshot: CampaignSnapshot, throughChapterOrdinal: number, check: BodyEvidenceCheck = noCheck): Promise<BodyEvidencePrefix> {
+  return deriveBodyEvidencePrefixFromSource(bodyEvidenceSourceView(snapshot), throughChapterOrdinal, check)
+}
+/** Caller must obtain the source view through a current verified repository read.
+ * Rechecks active membership/dependencies/metrics, not the entire historical log. */
+export async function deriveBodyEvidencePrefixFromSource(source: BodyEvidenceSourceView, throughChapterOrdinal: number, check: BodyEvidenceCheck = noCheck): Promise<BodyEvidencePrefix> {
   check()
   let count: number
-  try { bodyEvidenceAssert(validatePlanningProfile(snapshot.manifest), 'unsupported_profile'); count = planningChapterCount(snapshot.manifest) } catch (error) { planError(error) }
+  try { bodyEvidenceAssert(validatePlanningProfile(source.sourceManifest), 'unsupported_profile'); count = planningChapterCount(source.sourceManifest) } catch (error) { planError(error) }
   bodyEvidenceAssert(Number.isSafeInteger(throughChapterOrdinal) && throughChapterOrdinal >= 1 && throughChapterOrdinal <= count!, 'source_outside_prefix')
-  const { manifest, checkpoint } = snapshot
+  const manifest = source.sourceManifest
   const active = (spec: CampaignTaskSpec, missing: BodyEvidenceRefusalCode): CampaignArtifact => {
     check()
-    const state = checkpoint.tasks.find(row => row.taskId === spec.id)
-    const artifact = state?.artifact && snapshot.artifacts.get(state.artifact.hash)
+    const state = source.tasks.find(row => row.taskId === spec.id)
+    const artifact = state?.artifact && source.artifacts.get(state.artifact.hash)
     bodyEvidenceAssert(state?.status === 'committed' && state.artifact && artifact, missing)
     bodyEvidenceAssert(artifact.campaignId === manifest.campaignId && artifact.taskId === spec.id && artifact.kind === spec.kind
       && artifact.taskRevision === state.revision && same(planningArtifactRef(artifact), state.artifact), 'source_identity_mismatch')
     const dependencies = spec.dependsOn.map(id => {
       check()
-      const dependencyState = checkpoint.tasks.find(row => row.taskId === id)
-      const dependency = dependencyState?.artifact && snapshot.artifacts.get(dependencyState.artifact.hash)
+      const dependencyState = source.tasks.find(row => row.taskId === id)
+      const dependency = dependencyState?.artifact && source.artifacts.get(dependencyState.artifact.hash)
       bodyEvidenceAssert(dependencyState?.status === 'committed' && dependencyState.artifact && dependency
         && dependency.campaignId === manifest.campaignId && dependency.taskId === id && dependency.taskRevision === dependencyState.revision
         && same(planningArtifactRef(dependency), dependencyState.artifact), 'source_identity_mismatch')
@@ -66,7 +80,7 @@ export async function deriveBodyEvidencePrefix(snapshot: CampaignSnapshot, throu
   try { canon = await buildPlanningCanon(manifest, planningArtifacts, check) } catch (error) { planError(error) }
   check(); bodyEvidenceAssert(canon!.canonBaseRoot && canon!.fullPlanRoot, 'incomplete_plan')
   const bodySpecs = manifest.tasks.filter(task => task.kind === 'chapter_body')
-  const acceptedBodyCount = bodySpecs.filter(task => checkpoint.tasks.find(row => row.taskId === task.id)?.status === 'committed').length
+  const acceptedBodyCount = bodySpecs.filter(task => source.tasks.find(row => row.taskId === task.id)?.status === 'committed').length
   bodyEvidenceAssert(acceptedBodyCount > 0, 'no_accepted_body')
   const bodyArtifacts: CampaignArtifact[] = [], bodySources: BodySource[] = []
   let sourceBytes = 0
@@ -86,7 +100,7 @@ export async function deriveBodyEvidencePrefix(snapshot: CampaignSnapshot, throu
       artifactCandidateId: artifact.candidateId, rawBodyHash: artifact.raw.hash, rawUtf16Units: artifact.raw.utf16Units,
       rawUtf8Bytes: artifact.raw.utf8Bytes, rawScalars: artifact.raw.scalars })
   }
-  const identity = { campaignId: manifest.campaignId, currentCandidateId: checkpoint.candidateId, manifestHash: manifest.hash,
+  const identity = { campaignId: manifest.campaignId, currentCandidateId: source.candidateId, manifestHash: manifest.hash,
     canonBaseRoot: canon!.canonBaseRoot!, fullPlanRoot: canon!.fullPlanRoot!, throughChapterOrdinal }
   check(); const bodyPrefixRoot = await hashCampaignValue(BODY_EVIDENCE_PREFIX_PROTOCOL, { protocol: BODY_EVIDENCE_PREFIX_PROTOCOL, ...identity, bodySources }); check()
   return { ...identity, bodyPrefixRoot, bodySources, bodyArtifacts, canon: canon!, plannedChapterCount: count!, acceptedBodyCount, acceptedOutsidePrefix: acceptedBodyCount - throughChapterOrdinal }
@@ -136,12 +150,19 @@ export interface CompiledBodyEvidence {
   packet: BodyEvidencePacket; packetText: string; packetDigest: string; packetBytes: number; packetUtf16: number
   throughChapterOrdinal: number; bodyPrefixRoot: string; canonBaseRoot: string; fullPlanRoot: string; coverage: BodyCoverage
 }
-/** No IO, provider or persistence ports. The only callback is a cooperative
- * check owned by the production engine; proposal JSON cannot supply a callback.
- * All semantics remain unreviewed even for a perfect quoted-span/premise match. */
-export async function compileBodyEvidence(snapshot: CampaignSnapshot, proposalText: unknown, check: BodyEvidenceCheck = noCheck): Promise<CompiledBodyEvidence> {
-  const envelope = parseBodyEvidenceProposal(proposalText, check)
-  const prefix = await deriveBodyEvidencePrefix(snapshot, envelope.throughChapterOrdinal, check)
+export type BodyEvidenceDeclarationProvenance = 'local_declaration' | 'offline_fixture_declaration' | 'registered_producer_declaration'
+export type BodyEvidenceCoreCoverage<P extends BodyEvidenceDeclarationProvenance> = Omit<BodyCoverage, 'examinedDeclaration'> & {
+  examinedDeclaration: Extract<BodyCoverage['examinedDeclaration'], { status: 'not_run' }>
+    | (Omit<Extract<BodyCoverage['examinedDeclaration'], { status: 'producer_declared' }>, 'provenance'> & { provenance: P })
+}
+export type BodyEvidenceCoreProposal = Omit<BodyEvidenceProposalEnvelope, 'protocol' | 'purpose' | 'producer'>
+export type CompiledBodyEvidenceCore<P extends BodyEvidenceDeclarationProvenance> = Omit<BodyEvidencePacket,
+  'protocol' | 'purpose' | 'exposure' | 'producer' | 'proposalDigest' | 'coverage' | 'limitations'> & { coverage: BodyEvidenceCoreCoverage<P> }
+/** Shared pure source, quote, declared-premise and coverage checks. Inputs must be
+ * closed parsed data assembled by the entrypoint; no producer provenance is forged. */
+export async function compileBodyEvidenceCore<P extends BodyEvidenceDeclarationProvenance>(source: BodyEvidenceSourceView,
+  envelope: BodyEvidenceCoreProposal, declarationProvenance: P, check: BodyEvidenceCheck = noCheck): Promise<CompiledBodyEvidenceCore<P>> {
+  const prefix = await deriveBodyEvidencePrefixFromSource(source, envelope.throughChapterOrdinal, check)
   check()
   for (const key of ['campaignId', 'currentCandidateId', 'manifestHash', 'canonBaseRoot', 'fullPlanRoot', 'bodyPrefixRoot', 'throughChapterOrdinal'] as const) {
     bodyEvidenceAssert(envelope[key] === prefix[key], 'source_identity_mismatch')
@@ -150,7 +171,7 @@ export async function compileBodyEvidence(snapshot: CampaignSnapshot, proposalTe
   const findSource = (ref: CampaignArtifactRef): number => {
     const index = sourceIndex.get(refKey(ref))
     if (index !== undefined) return index
-    const spec = snapshot.manifest.tasks.find(task => task.id === ref.taskId)
+    const spec = source.sourceManifest.tasks.find(task => task.id === ref.taskId)
     if (spec?.kind === 'chapter_body' && spec.chapterOrdinal! > prefix.throughChapterOrdinal) throw new BodyEvidenceRefusalError('source_outside_prefix')
     throw new BodyEvidenceRefusalError('source_identity_mismatch')
   }
@@ -170,7 +191,7 @@ export async function compileBodyEvidence(snapshot: CampaignSnapshot, proposalTe
   }
   const suppliedRows = coverageRows(prefix.bodySources, suppliedRanges, check), totalUtf16Units = prefix.bodySources.reduce((sum, source) => sum + source.rawUtf16Units, 0)
   const suppliedUnits = suppliedRows.reduce((sum, row) => sum + row.coveredUtf16Units, 0)
-  const coverage: BodyCoverage = {
+  const coverage: BodyEvidenceCoreCoverage<P> = {
     availablePrefix: { sourceCount: prefix.bodySources.length, totalUtf16Units, plannedChapterCount: prefix.plannedChapterCount, acceptedBodyCount: prefix.acceptedBodyCount, acceptedOutsidePrefix: prefix.acceptedOutsidePrefix },
     supplied: { rows: suppliedRows, coveredUtf16Units: suppliedUnits, status: status(suppliedUnits, totalUtf16Units) },
     examinedDeclaration: { status: 'not_run', provenance: null, verification: 'not_run', rows: [], declaredUtf16Units: 0, coverageStatus: 'none' },
@@ -184,7 +205,7 @@ export async function compileBodyEvidence(snapshot: CampaignSnapshot, proposalTe
       const ranges = examinedRanges.get(source) ?? []; ranges.push([window.startUtf16, window.endUtf16]); examinedRanges.set(source, ranges)
     }
     const rows = coverageRows(prefix.bodySources, examinedRanges, check), units = rows.reduce((sum, row) => sum + row.coveredUtf16Units, 0)
-    coverage.examinedDeclaration = { status: 'producer_declared', provenance: envelope.producer.kind === 'offline_fixture' ? 'offline_fixture_declaration' : 'local_declaration',
+    coverage.examinedDeclaration = { status: 'producer_declared', provenance: declarationProvenance,
       verification: 'range_and_identity_only', rows, declaredUtf16Units: units, coverageStatus: status(units, totalUtf16Units) }
   }
   const positions = new Map<string, Position>(), claims = new Map(envelope.claims.map(claim => [claim.id, claim]))
@@ -245,10 +266,10 @@ export async function compileBodyEvidence(snapshot: CampaignSnapshot, proposalTe
   for (const claim of envelope.claims) visit(claim.id)
   let closure: PlanningRecord[]
   try { closure = planningClosure(prefix.canon, seeds, check) } catch (error) { planError(error) }
-  const planningOrder = new Map(snapshot.manifest.tasks.map((task, index) => [task.id, index]))
+  const planningOrder = new Map(source.sourceManifest.tasks.map((task, index) => [task.id, index]))
   closure!.sort((a, b) => planningOrder.get(a.artifact.taskId)! - planningOrder.get(b.artifact.taskId)! || compare(a.recordKind, b.recordKind) || compare(a.recordId, b.recordId))
   const neededSources = new Set(closure!.map(record => refKey(record.artifact)))
-  const planningSources = snapshot.manifest.tasks.filter(task => task.kind !== 'chapter_body').map(task => prefix.canon.artifactsByTask.get(task.id)!)
+  const planningSources = source.sourceManifest.tasks.filter(task => task.kind !== 'chapter_body').map(task => prefix.canon.artifactsByTask.get(task.id)!)
     .filter(artifact => neededSources.has(refKey(planningArtifactRef(artifact)))).map(planningArtifactRef)
   const planningIndex = new Map(planningSources.map((source, index) => [refKey(source), index]))
   let omittedScenes = 0
@@ -258,18 +279,25 @@ export async function compileBodyEvidence(snapshot: CampaignSnapshot, proposalTe
     return { sourceIndex: source, recordKind: record.recordKind, recordId: record.recordId, value: record.value }
   }), suppliedRecordCount: closure!.length, omittedRecordCount: prefix.canon.records.length - closure!.length,
   chapterOutlinesSupplied: 0, chapterOutlinesOmitted: prefix.plannedChapterCount, chapterOutlineScenesSupplied: 0, chapterOutlineScenesOmitted: omittedScenes }
-  check(); const proposalDigest = await hashText(proposalText as string); check()
-  const packet: BodyEvidencePacket = { protocol: BODY_EVIDENCE_PACKET_PROTOCOL, purpose: BODY_EVIDENCE_PURPOSE, exposure: 'local_author_only',
-    campaignId: prefix.campaignId, currentCandidateId: prefix.currentCandidateId, manifestHash: prefix.manifestHash, canonBaseRoot: prefix.canonBaseRoot,
-    fullPlanRoot: prefix.fullPlanRoot, bodyPrefixRoot: prefix.bodyPrefixRoot, throughChapterOrdinal: prefix.throughChapterOrdinal,
-    producer: { ...envelope.producer }, proposalDigest, bodySources: prefix.bodySources,
+  return { campaignId: prefix.campaignId, currentCandidateId: prefix.currentCandidateId, manifestHash: prefix.manifestHash,
+    canonBaseRoot: prefix.canonBaseRoot, fullPlanRoot: prefix.fullPlanRoot, bodyPrefixRoot: prefix.bodyPrefixRoot,
+    throughChapterOrdinal: prefix.throughChapterOrdinal, bodySources: prefix.bodySources,
     spans: spans.sort((a, b) => a.sourceIndex - b.sourceIndex || a.startUtf16 - b.startUtf16 || a.endUtf16 - b.endUtf16 || compare(a.id, b.id)),
-    claims: [...envelope.claims].sort((a, b) => compare(a.id, b.id)), planning, coverage, limitations: { ...BODY_EVIDENCE_LIMITATIONS } }
+    claims: [...envelope.claims].sort((a, b) => compare(a.id, b.id)), planning, coverage }
+}
+/** Legacy v1 parser and formatter retain their exact wire semantics. */
+export async function compileBodyEvidence(snapshot: CampaignSnapshot, proposalText: unknown, check: BodyEvidenceCheck = noCheck): Promise<CompiledBodyEvidence> {
+  const envelope = parseBodyEvidenceProposal(proposalText, check)
+  const core = await compileBodyEvidenceCore(bodyEvidenceSourceView(snapshot), envelope,
+    envelope.producer.kind === 'offline_fixture' ? 'offline_fixture_declaration' : 'local_declaration', check)
+  check(); const proposalDigest = await hashText(proposalText as string); check()
+  const packet: BodyEvidencePacket = { protocol: BODY_EVIDENCE_PACKET_PROTOCOL, purpose: BODY_EVIDENCE_PURPOSE,
+    exposure: 'local_author_only', ...core, producer: { ...envelope.producer }, proposalDigest, limitations: { ...BODY_EVIDENCE_LIMITATIONS } }
   check(); let packetText: string
   try { packetText = canonicalStringify(packet) } catch { throw new BodyEvidenceRefusalError('packet_budget_exceeded') }
   bodyEvidenceAssert(packetText.length <= BODY_EVIDENCE_LIMITS.packetUtf16, 'packet_budget_exceeded')
   const packetBytes = utf8Bytes(packetText); bodyEvidenceAssert(packetBytes <= BODY_EVIDENCE_LIMITS.packetBytes, 'packet_budget_exceeded')
   check(); const packetDigest = await hashText(packetText); check()
-  return { packet, packetText, packetDigest, packetBytes, packetUtf16: packetText.length, throughChapterOrdinal: prefix.throughChapterOrdinal,
-    bodyPrefixRoot: prefix.bodyPrefixRoot, canonBaseRoot: prefix.canonBaseRoot, fullPlanRoot: prefix.fullPlanRoot, coverage }
+  return { packet, packetText, packetDigest, packetBytes, packetUtf16: packetText.length, throughChapterOrdinal: core.throughChapterOrdinal,
+    bodyPrefixRoot: core.bodyPrefixRoot, canonBaseRoot: core.canonBaseRoot, fullPlanRoot: core.fullPlanRoot, coverage: core.coverage }
 }

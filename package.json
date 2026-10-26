@@ -192,7 +192,21 @@
     "profile:writer-campaign-body-evidence": "node --import tsx scripts/profile-writer-campaign-body-evidence.ts",
     "test:browser-writer-campaign-body-evidence": "node --import tsx scripts/browser-writer-campaign-body-evidence.mjs",
     "test:browser-writer-campaign-body-evidence-ui": "node --import tsx scripts/browser-writer-campaign-body-evidence-ui.mjs",
-    "smoke:writer-campaign-body-evidence-ui": "node --import tsx scripts/smoke-writer-campaign-body-evidence-ui.ts"
+    "smoke:writer-campaign-body-evidence-ui": "node --import tsx scripts/smoke-writer-campaign-body-evidence-ui.ts",
+    "smoke:writer-campaign-body-producer": "node --import tsx scripts/smoke-writer-campaign-body-producer.ts",
+    "smoke:writer-body-producer-store": "node --import tsx scripts/smoke-writer-body-producer-store.ts",
+    "smoke:writer-body-producer-transport": "node --import tsx scripts/smoke-writer-body-producer-transport.ts",
+    "smoke:writer-body-producer-engine": "node --import tsx scripts/smoke-writer-body-producer-engine.ts",
+    "smoke:writer-body-producer-ui": "node --import tsx scripts/smoke-body-producer-ui.ts",
+    "smoke:writer-body-producer-report": "node --import tsx scripts/smoke-writer-body-producer-report.ts",
+    "smoke:writer-body-producer-archive": "node --import tsx scripts/smoke-writer-body-producer-archive.ts",
+    "profile:writer-body-producer": "node --import tsx scripts/profile-writer-body-producer.ts",
+    "test:browser-writer-body-producer": "node --import tsx scripts/browser-writer-body-producer.mjs",
+    "smoke:writer-body-producer-recovery": "node --import tsx scripts/smoke-writer-body-producer-recovery.ts",
+    "smoke:writer-body-producer-proof": "node --import tsx scripts/smoke-writer-body-producer-proof.ts",
+    "smoke:writer-body-producer-deadlines": "node --import tsx scripts/smoke-writer-body-producer-deadlines.ts",
+    "smoke:writer-body-producer-session-engine": "node --import tsx scripts/smoke-writer-body-producer-session-engine.ts",
+    "smoke:writer-body-producer-session-store": "node --import tsx scripts/smoke-writer-body-producer-session-store.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

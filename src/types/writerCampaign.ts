@@ -250,6 +250,8 @@ export interface CampaignRepository {
   disposeActionScope?(scope: CampaignActionScope): void
   getActionProofStats?(): CampaignActionProofStats
   read(campaignId: string, scope?: CampaignActionScope, check?: () => void): Promise<CampaignSnapshot | null>
+  /** Same seeded head only. Closed/foreign scopes refuse; capacity fallback stays cold and pinned. */
+  verifyWithinAction?(campaignId: string, expectedRawHead: string, scope: CampaignActionScope, check?: () => void): Promise<CampaignSnapshot>
   commit(expected: CampaignSnapshot, mutation: CampaignMutation, canCommit?: () => boolean, scope?: CampaignActionScope): Promise<CampaignCommitResult>
   getReceipt(campaignId: string, operationId: string): Promise<CampaignReceipt | null>
   getOperationArtifacts(campaignId: string, operationId: string): Promise<CampaignArtifact[] | null>
