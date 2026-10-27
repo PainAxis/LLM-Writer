@@ -1,29 +1,32 @@
 <template>
-  <main class="campaign-lab" data-testid="campaign-lab" :aria-busy="busy || loading">
+  <main class="campaign-lab" data-testid="campaign-lab" :aria-busy="busy || loading || creativeBusy">
     <a href="#/" class="back-link">← 返回 LLM-Writer</a>
     <h1>Campaign Lab</h1>
     <p class="notice" data-testid="campaign-boundary"><strong>离线持久化验证，非自主小说</strong><br>
-      旧版写作步骤只生成固定合成案例；采用 v3 后可明确修订本地正文并准备单窗口提案。没有真实模型、凭证或花费授权，不导入旧小说或追加 Writer 正文。创建、重开与恢复都不会自动执行任务。</p>
+      旧版写作步骤只生成固定合成案例；采用 v3 后可明确修订本地正文并准备单窗口提案。下方 v4 提供任意简报的三章离线 SDK 就绪流程，只有明确 Start/Resume 才会按固定范围推进。没有真实模型、凭证或花费授权，不导入旧小说或追加 Writer 正文；创建、重开与读取均不自动执行。</p>
     <p data-testid="campaign-planning-boundary">可选 Planning Contract v1 验证四阶段规划与精确修订上下文；规划意图不是已成立的正文事实。Offline fixture only · semantic consistency / autonomous generation / whole-work audit: NOT RUN.</p>
     <p data-testid="campaign-local-only">Campaign 数据仅在此浏览器本地，普通 Writer 备份与恢复不包含它。清除浏览器数据会丢失 Campaign；本页没有上传、同步或完整导出。</p>
     <div class="actions">
-      <button data-testid="campaign-create-zh" :disabled="busy || loading" @click="create('zh')">创建中文小案例</button>
-      <button data-testid="campaign-create-en" :disabled="busy || loading" @click="create('en')">创建英文小案例</button>
-      <button data-testid="campaign-create-planning-zh" :disabled="busy || loading || !planningAvailable" @click="createPlanning('zh')">创建中文规划案例（3 章）</button>
-      <button data-testid="campaign-create-planning-en" :disabled="busy || loading || !planningAvailable" @click="createPlanning('en')">Create English planning fixture (3 chapters)</button>
-      <button data-testid="campaign-create-body-evidence-zh" :disabled="busy || loading || !bodyEvidenceAvailable" @click="createBodyEvidence('zh')">创建中文正文证据案例（3 章）</button>
-      <button data-testid="campaign-create-body-evidence-en" :disabled="busy || loading || !bodyEvidenceAvailable" @click="createBodyEvidence('en')">Create English body-evidence fixture (3 chapters)</button>
-      <button data-testid="campaign-refresh" :disabled="busy || loading" @click="refreshAll">重新读取持久状态</button>
+      <button data-testid="campaign-create-zh" :disabled="busy || loading || creativeBusy" @click="create('zh')">创建中文小案例</button>
+      <button data-testid="campaign-create-en" :disabled="busy || loading || creativeBusy" @click="create('en')">创建英文小案例</button>
+      <button data-testid="campaign-create-planning-zh" :disabled="busy || loading || creativeBusy || !planningAvailable" @click="createPlanning('zh')">创建中文规划案例（3 章）</button>
+      <button data-testid="campaign-create-planning-en" :disabled="busy || loading || creativeBusy || !planningAvailable" @click="createPlanning('en')">Create English planning fixture (3 chapters)</button>
+      <button data-testid="campaign-create-body-evidence-zh" :disabled="busy || loading || creativeBusy || !bodyEvidenceAvailable" @click="createBodyEvidence('zh')">创建中文正文证据案例（3 章）</button>
+      <button data-testid="campaign-create-body-evidence-en" :disabled="busy || loading || creativeBusy || !bodyEvidenceAvailable" @click="createBodyEvidence('en')">Create English body-evidence fixture (3 chapters)</button>
+      <button data-testid="campaign-refresh" :disabled="busy || loading || creativeBusy" @click="refreshAll">重新读取持久状态</button>
     </div>
-    <p v-if="error && !producerIsV3" role="alert" data-testid="campaign-error">{{ error }}</p>
+    <p v-if="routingError" role="alert" data-testid="campaign-routing-error">{{ routingError }} · 此记录未作为空 Campaign 或可执行状态处理，原始字节保持不变。</p>
+    <p v-if="error && !producerIsV3 && routeVersion !== 4" role="alert" data-testid="campaign-error">{{ error }}</p>
     <section aria-label="本地 Campaign" data-testid="campaign-list">
       <h2>本地 Campaign</h2>
       <p v-if="!ids.length">{{ loading ? '正在读取…' : '尚无 Campaign。不会自动创建或执行。' }}</p>
       <ul v-else class="campaign-list">
-        <li v-for="id in ids" :key="id"><button :data-testid="`campaign-select-${id}`" :disabled="busy || loading" :aria-pressed="selectedId === id" @click="select(id)">{{ id }}</button></li>
+        <li v-for="id in ids" :key="id"><button :data-testid="`campaign-select-${id}`" :disabled="busy || loading" :aria-pressed="selectedId === id" @click="selectCampaign(id)">{{ id }}</button></li>
       </ul>
     </section>
-    <section v-if="snapshot && !producerIsV3" aria-label="持久化检查" data-testid="campaign-inspection">
+    <CreativePilotPanel ref="creativePanel" :campaign-id="selectedId" :selected-v4="routeVersion === 4" :ids="ids" :external-busy="busy || loading"
+      @created="creativeCreated" @select="selectCampaign" @busy="creativeBusy = $event" />
+    <section v-if="snapshot && !producerIsV3 && routeVersion !== 4" aria-label="持久化检查" data-testid="campaign-inspection">
       <h2>持久化检查</h2>
       <p v-if="readOnly" class="notice" data-testid="campaign-read-only">旧版 Campaign v1 仅可检查，不能执行、恢复、取消或迁移。原始数据保持不变；旧预留不解释为可回收空间。</p>
       <dl class="metadata">
@@ -171,30 +174,42 @@
         <dl class="metadata"><dt>操作</dt><dd>{{ snapshot.receipt.kind }}</dd><dt>Operation ID</dt><dd>{{ snapshot.receipt.operationId }}</dd><dt>Sequence / epoch</dt><dd>{{ snapshot.receipt.sequence }} / {{ snapshot.receipt.executionEpoch }}</dd><dt>Receipt hash</dt><dd>{{ snapshot.receipt.hash }}</dd><dt>本次 artifact 数</dt><dd>{{ snapshot.receipt.artifactHashes.length }}</dd></dl>
       </section>
     </section>
-    <ProducerLabPanel v-if="selectedId" :key="selectedId" ref="producerPanel" :campaign-id="selectedId" :legacy-snapshot="snapshot" @version="producerIsV3 = $event === 3" />
+    <ProducerLabPanel v-if="selectedId && routeVersion === 'legacy'" :key="selectedId" ref="producerPanel" :campaign-id="selectedId" :legacy-snapshot="snapshot" @version="producerIsV3 = $event === 3" />
   </main>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import ProducerLabPanel from '@/components/ProducerLabPanel.vue'
+import CreativePilotPanel from '@/components/CreativePilotPanel.vue'
 import { useWriterCampaign } from '@/composables/useWriterCampaign'
+import { createCreativePilotLegacyRouter } from '@/composables/useCreativePilotLab'
+const creativeBusy = ref(false)
+const creativePanel = ref<{ refresh(): Promise<boolean>; stop(): void } | null>(null)
+const legacyRoute = createCreativePilotLegacyRouter({ currentId: () => selectedId.value })
+const routeVersion = legacyRoute.version, routingError = legacyRoute.error
 const { ids, selectedId, snapshot, busy, loading, error, status, locallyStopped, persistentOutcome,
   canStep, canResume, canStop, canSaveOnly, unresolved, taskRows, artifactRows, completedTasks, unknownRequests, inactiveUnknownRequests, readOnly, storageSummary, legacyStorageSummary,
   planningAvailable, planningProfile, chapterRows, selectedChapter, planningPreview, previewLoading, canPreview, previewChapter,
   bodyEvidenceAvailable, bodyPrefixRows, bodyPrefix, bodyDraft, bodyPreview, bodyPacket, bodyClaimCounts, bodyPreviewLoading, bodyDraftLoading, bodyDraftRefusal,
   canLoadBodyDraft, canPreviewBody, setBodyDraft, selectBodyPrefix, loadBodyEvidenceExample, previewBody, createBodyEvidence,
-  observedUsage, refresh, select, create, createPlanning, step, saveOnly, pause, resume, cancel, dispose } = useWriterCampaign()
+  observedUsage, refresh, select, create, createPlanning, step, saveOnly, pause, resume, cancel, dispose } = useWriterCampaign({ engine: legacyRoute.engine })
 const producerIsV3 = ref(false)
 const producerPanel = ref<{ refresh(): Promise<boolean> } | null>(null)
-watch(selectedId, () => { producerIsV3.value = false }, { flush: 'sync' })
-async function refreshAll() { await Promise.all([refresh(), producerPanel.value?.refresh()]) }
+watch(selectedId, () => { legacyRoute.reset(); producerIsV3.value = false }, { flush: 'sync' })
+async function selectCampaign(id: string) { creativePanel.value?.stop(); return select(id) }
+async function creativeCreated(id: string) { await refresh(); await selectCampaign(id) }
+async function refreshAll() {
+  await refresh()
+  if (routeVersion.value === 4) await creativePanel.value?.refresh()
+  else await producerPanel.value?.refresh()
+}
 function editBodyProposal(event: Event) {
   const field = event.target as HTMLTextAreaElement
   if (!setBodyDraft(field.value)) field.value = bodyDraft.value
 }
 onMounted(() => { void refresh() })
-onUnmounted(dispose)
+onUnmounted(() => { legacyRoute.dispose(); creativePanel.value?.stop(); dispose() })
 </script>
 
 <style scoped>

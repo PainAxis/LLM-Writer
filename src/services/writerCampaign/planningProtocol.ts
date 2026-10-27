@@ -1,4 +1,5 @@
-import type { CampaignArtifactRef, CampaignManifest, CampaignTaskKind, CampaignTaskSpec } from '../../types/writerCampaign'
+import type { PlanningSourceManifest } from './planningSource'
+import type { CampaignArtifactRef, CampaignTaskKind, CampaignTaskSpec } from '../../types/writerCampaign'
 import { assertScalarText, canonicalStringify, utf8Bytes } from './protocol'
 
 export const PLANNING_PROTOCOL = 'campaign-plan-v1' as const
@@ -90,18 +91,18 @@ function refs(value: unknown, kinds: readonly PlanningRecordKind[], max = 8, min
   array(value, max, min); value.forEach(item => ref(item, kinds))
   planningAssert(new Set(value.map(item => canonicalStringify(item))).size === value.length)
 }
-export function planningChapterAddress(manifest: CampaignManifest, ordinal: number): ChapterAddress {
+export function planningChapterAddress(manifest: PlanningSourceManifest, ordinal: number): ChapterAddress {
   const outline = manifest.tasks.find(t => t.kind === 'chapter_outline' && t.chapterOrdinal === ordinal)
   const body = manifest.tasks.find(t => t.kind === 'chapter_body' && t.chapterOrdinal === ordinal)
   planningAssert(outline && body, 'invalid_planning_schedule')
   return { ordinal, outlineTaskId: outline.id, bodyTaskId: body.id }
 }
-function address(value: unknown, manifest: CampaignManifest): void {
+function address(value: unknown, manifest: PlanningSourceManifest): void {
   object(value, ['ordinal', 'outlineTaskId', 'bodyTaskId']); integer(value.ordinal, PLANNING_LIMITS.chapters, 1)
   const expected = planningChapterAddress(manifest, value.ordinal)
   planningAssert(value.outlineTaskId === expected.outlineTaskId && value.bodyTaskId === expected.bodyTaskId, 'invalid_planning_schedule')
 }
-function interval(value: Record<string, unknown>, manifest: CampaignManifest): void {
+function interval(value: Record<string, unknown>, manifest: PlanningSourceManifest): void {
   address(value.validFrom, manifest); address(value.validThrough, manifest)
   planningAssert((value.validFrom as ChapterAddress).ordinal <= (value.validThrough as ChapterAddress).ordinal, 'invalid_planning_schedule')
 }
@@ -119,7 +120,7 @@ function boundedTree(value: unknown, check: PlanningCheck): void {
   walk(value, 0)
 }
 /** Wire parsing only; reference identity and relational schedules are checked by planningCanon. */
-export function parsePlanningEnvelope(raw: string, manifest: CampaignManifest, task: CampaignTaskSpec, dependencies: readonly CampaignArtifactRef[], check: PlanningCheck = () => {}): PlanningEnvelope {
+export function parsePlanningEnvelope(raw: string, manifest: PlanningSourceManifest, task: CampaignTaskSpec, dependencies: readonly CampaignArtifactRef[], check: PlanningCheck = () => {}): PlanningEnvelope {
   check(); planningAssert(task.kind !== 'chapter_body')
   planningAssert(typeof raw === 'string')
   planningByteLength(raw, PLANNING_STAGE_LIMITS[task.kind].responseBytes)

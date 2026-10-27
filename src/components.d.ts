@@ -31,6 +31,7 @@ declare module 'vue' {
     ContinueDialog: typeof import('./components/writer/dialogs/ContinueDialog.vue')['default']
     CorpusEditDialog: typeof import('./components/writer/dialogs/CorpusEditDialog.vue')['default']
     CorpusPanel: typeof import('./components/writer/panels/CorpusPanel.vue')['default']
+    CreativePilotPanel: typeof import('./components/CreativePilotPanel.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElButtonGroup: typeof import('element-plus/es')['ElButtonGroup']

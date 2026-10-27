@@ -85,7 +85,9 @@
 下一有界切片 [Body Evidence & Coverage v1](docs/writer-campaign-body-evidence.zh-CN.md) 将精确已接受的正文修订连接到通用本地提案校验与只读 Lab 预览。来源/结构、覆盖、生命周期及独立 Node/原生 N60 门槛不等于语义审查、持久账本或自主抽取；v2 哈希/计数与有限预算保持不变，切片验收证据与最终小说验收分开报告。
 
 
-下一项[单窗口正文提案生产器](docs/writer-body-proposal-producer.zh-CN.md)正在验证离线适配就绪：在 Body Evidence 之后，补齐“任意已接受正文 → 精确且明确调用的生产器输入 → 单次持久记账结果 → 共用编译器校验的只读提案与未解决清单”这一具体缺口。显式采用 Campaign v3，保留 v2 字节与共享预算；手工正文修订有独立身份，不能计入自主创作。默认应用不授权供应商调用，真实 SDK 测试仅连接本地合成端点；原生/UI CI、语义质量及最终小说仍分别验收。
+[单窗口正文提案生产器](docs/writer-body-proposal-producer.zh-CN.md)已补齐有界离线适配就绪：在 Body Evidence 之后，补齐“任意已接受正文 → 精确且明确调用的生产器输入 → 单次持久记账结果 → 共用编译器校验的只读提案与未解决清单”这一具体缺口。显式采用 Campaign v3，保留 v2 字节与共享预算；手工正文修订有独立身份，不能计入自主创作。默认应用不授权供应商调用，真实 SDK 测试仅连接本地合成端点；原生/UI CI、语义质量及最终小说仍分别验收。
+
+生产器离线就绪切片已在 [PR #50](https://github.com/PainAxis/LLM-Writer/pull/50) 验收，main 为 `e7b6d06cea78e6070fed65ec0b36edbf563d8361`，tree 为 `afd255cde8687ec6a6f5e4c0986b836016387017`；[main run 40344698511](https://github.com/PainAxis/LLM-Writer/actions/runs/40344698511) 全部 16 jobs 通过，18 个证据 archive 已审计。先前本地旧中文规划超时记录仍保留，不因独立 CI 通过而抹去。下一项 [Creative Pilot v4](docs/writer-creative-pilot.zh-CN.md) 正在实现：任意作者简报、一次九任务有界授权、完整六份规划，以及包含全部已接受前章正文的三章创作。这是真实 App／SDK／持久链路，不是仅有 fixture 的包装；离线控制、真实模型文学审查及最终小说分别验收。
 
 ### 第四阶段最终验收：两部自主百万字符小说
 

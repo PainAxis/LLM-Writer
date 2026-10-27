@@ -1,4 +1,4 @@
-import type { CampaignManifest, CampaignOperationKind, CampaignRequest, CampaignStorageEffect, CampaignStorageState, StorageBytes16 } from '../../types/writerCampaign'
+import type { CampaignManifest, CampaignStoragePolicy, CampaignOperationKind, CampaignRequest, CampaignStorageEffect, CampaignStorageState, StorageBytes16 } from '../../types/writerCampaign'
 import { campaignAssert, campaignInteger, decodeStorageBytes as dec, encodeStorageBytes as enc, utf8Bytes, validateCampaignStorage } from './protocol'
 
 export const CAMPAIGN_MAX_OPEN_ALLOCATIONS = 128
@@ -54,12 +54,15 @@ export function campaignStorageSource(kind: CampaignOperationKind, request: Camp
   return ['pause', 'cancel', 'reconcile', 'block'].includes(kind) ? 'recovery' : 'direct'
 }
 export function assertCampaignStorage(manifest: CampaignManifest, storage: CampaignStorageState): void {
+  assertStorageConservation(manifest.storage, storage)
+}
+export function assertStorageConservation(policy: CampaignStoragePolicy, storage: CampaignStorageState): void {
   validateCampaignStorage(storage)
   const W = dec(storage.writtenBytes), L = dec(storage.allocatedBytes), Q = dec(storage.allocationConsumedBytes), S = dec(storage.releasedBytes), U = dec(storage.outstandingBytes), P = dec(storage.recoveryRemainingBytes)
   campaignAssert(subtractStorage(subtractStorage(L, Q), S) === U, 'Storage allocation conservation mismatch')
   campaignAssert(storage.openAllocations.reduce((sum, row) => addStorage(sum, dec(row.remainingBytes)), 0) === U, 'Open allocation sum mismatch')
-  campaignAssert(Q <= W && P <= dec(manifest.storage.recoveryReserveBytes), 'Storage source conservation mismatch')
-  campaignAssert(addStorage(addStorage(W, U), P) <= dec(manifest.storage.limitBytes), 'Campaign storage budget exceeded', 'budget')
+  campaignAssert(Q <= W && P <= dec(policy.recoveryReserveBytes), 'Storage source conservation mismatch')
+  campaignAssert(addStorage(addStorage(W, U), P) <= dec(policy.limitBytes), 'Campaign storage budget exceeded', 'budget')
 }
 /** All totals and effects are repository-derived. The operation fixes row shape before D is measured. */
 export function applyCampaignStorage(manifest: CampaignManifest, previous: CampaignStorageState, kind: CampaignOperationKind, request: CampaignRequest | null, charge: number): { storage: CampaignStorageState; effect: CampaignStorageEffect } {

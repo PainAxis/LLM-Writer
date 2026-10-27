@@ -206,7 +206,22 @@
     "smoke:writer-body-producer-proof": "node --import tsx scripts/smoke-writer-body-producer-proof.ts",
     "smoke:writer-body-producer-deadlines": "node --import tsx scripts/smoke-writer-body-producer-deadlines.ts",
     "smoke:writer-body-producer-session-engine": "node --import tsx scripts/smoke-writer-body-producer-session-engine.ts",
-    "smoke:writer-body-producer-session-store": "node --import tsx scripts/smoke-writer-body-producer-session-store.ts"
+    "smoke:writer-body-producer-session-store": "node --import tsx scripts/smoke-writer-body-producer-session-store.ts",
+    "smoke:creative-pilot-controls": "node --import tsx scripts/smoke-creative-pilot-controls.ts",
+    "smoke:creative-pilot-identity": "node scripts/smoke-creative-pilot-identity.mjs",
+    "smoke:creative-pilot-report": "node --import tsx scripts/smoke-creative-pilot-report.ts",
+    "smoke:creative-pilot-archive": "node --import tsx scripts/smoke-creative-pilot-archive.ts",
+    "smoke:creative-pilot-compiler": "node --import tsx scripts/smoke-creative-pilot-compiler.ts",
+    "smoke:creative-pilot-store": "node --import tsx scripts/smoke-creative-pilot-store.ts",
+    "smoke:creative-pilot-engine": "node --import tsx scripts/smoke-creative-pilot-engine.ts",
+    "smoke:creative-pilot-transport": "node --import tsx scripts/smoke-creative-pilot-transport.ts",
+    "smoke:creative-pilot-boundaries": "node --import tsx scripts/smoke-creative-pilot-boundaries.ts",
+    "smoke:creative-pilot-ui": "node --import tsx scripts/smoke-creative-pilot-ui.ts",
+    "profile:creative-pilot": "node --import tsx scripts/profile-creative-pilot.ts",
+    "test:browser-creative-pilot": "node --import tsx scripts/browser-creative-pilot.mjs",
+    "evidence:creative-pilot": "node --import tsx scripts/prepare-creative-pilot-evidence.ts",
+    "smoke:creative-pilot-build": "node scripts/smoke-creative-pilot-build.mjs",
+    "smoke:creative-pilot-failure": "node --import tsx scripts/smoke-creative-pilot-failure.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
