@@ -27,8 +27,19 @@ function delta(http: CreativeHttpObservation, before: CreativeHttpObservation): 
     attempts: http.attempts - before.attempts, errors: http.errors - before.errors, blockedExternalRequests: http.blockedExternalRequests - before.blockedExternalRequests, records: http.records.slice(before.records.length) }
 }
 async function helperMetrics(page: Page, url: string) { return page.evaluate(async url => (await import(url) as Helper).observeCreativeAppMetrics(), url) }
+export async function waitForCreativeIoState(page: Page, url: string, state: 'held' | 'drained') {
+  // waitForFunction polls truthiness synchronously: an async predicate is a
+  // truthy Promise even when it resolves false. Import first, then poll values.
+  const helper = await page.evaluateHandle(async url => await import(url) as Helper, url)
+  try {
+    await page.waitForFunction(({ helper, state }) => {
+      const s = helper.observeCreativeIoHold()
+      return state === 'held' ? s.held : !s.held && s.activeRepositoryOperations === 0 && s.activeIoOperations === 0 && s.pendingRequestOutcomes === 0
+    }, { helper, state }, { timeout: 65000 })
+  } finally { await helper.dispose() }
+}
 async function drain(page: Page, url: string) {
-  await page.waitForFunction(async url => { const m = await import(url) as Helper; const s = m.observeCreativeIoHold(); return !s.held && s.activeRepositoryOperations === 0 && s.activeIoOperations === 0 && s.pendingRequestOutcomes === 0 }, url, { timeout: 65000 })
+  await waitForCreativeIoState(page, url, 'drained')
   await page.waitForFunction(() => document.querySelector('[data-testid="creative-pilot-panel"]')?.getAttribute('aria-busy') !== 'true', undefined, { timeout: 65000 })
 }
 async function evidence(page: Page, url: string, id: string) {
@@ -207,7 +218,7 @@ async function armAck(page: Page, url: string, kind: 'dispatch_intent' | 'retain
   await page.evaluate(async ({ url, kind }) => (await import(url) as Helper).armCreativeCommitAckHold(kind), { url, kind })
 }
 async function held(page: Page, url: string) {
-  await page.waitForFunction(async url => (await import(url) as Helper).observeCreativeIoHold().held, url, { timeout: 65000 })
+  await waitForCreativeIoState(page, url, 'held')
 }
 async function releaseIo(page: Page, url: string) { await page.evaluate(async url => (await import(url) as Helper).releaseCreativeIoHold(), url) }
 async function inspect(page: Page, id: string, url: string) {

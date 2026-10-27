@@ -6,6 +6,8 @@ import * as Vue from 'vue'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import { renderToString } from '@vue/server-renderer'
 import ts from 'typescript'
+import type { Page } from '@playwright/test'
+import { waitForCreativeIoState } from './lib/creative-pilot-browser'
 import { useCreativePilotLab, type createCreativePilotLegacyRouter } from '../src/composables/useCreativePilotLab'
 import * as Hosts from '../src/composables/creativePilotHost'
 import { creativePilotRepositoryKey } from '../src/composables/creativePilotHost'
@@ -21,9 +23,11 @@ const campaignId = 'creative-ui-presentation', hash = 'a'.repeat(64), otherHash 
 const runtime = { runtimeIdentity: `campaign-core-sha256:${hash}`, source: { commit: 'c'.repeat(40), tree: 'd'.repeat(40) } }
 const draft: CreativeBriefV1 = { protocol: 'creative-brief-v1', language: 'en', premise: '  An arbitrary brief.\nKeep its spaces. <script>not executable</script>', constraints: ['Do not normalize this: e\u0301.'] }
 const cases: string[] = [], views: ReturnType<typeof useCreativePilotLab>[] = []
+let appWaitCases = 0
 function deferred<T>() { let resolve!: (value: T) => void, reject!: (reason: unknown) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 async function flush() { for (let n = 0; n < 30; n++) await Promise.resolve(); await Vue.nextTick() }
 async function test(id: string, action: () => Promise<void>) {
+  if (process.argv.includes('--app-waits-only')) return
   if (process.argv.includes('--observer-only') && !id.startsWith('observer_')) return
   await action(); cases.push(id); console.log(`PASS ${id}`)
 }
@@ -119,7 +123,61 @@ function routeFixture() {
   return { router, legacyReads: () => legacyReads, setRaw(value: string | null) { raw = value }, failLegacy() { legacyFailure = true },
     select(value: string) { selected = value; router.reset() }, hold() { const gate = deferred<Map<string, string | null>>(); reads.push(gate.promise); return gate } }
 }
+/** Playwright's polling contract checks predicate truthiness synchronously.
+ * This page double tests driver synchronization only, not App/native acceptance. */
+function appWaitFixture(timeout = false) {
+  const state = { held: false, activeRepositoryOperations: 1, activeIoOperations: 1, pendingRequestOutcomes: 1, readCalls: 0 }
+  const module = { observeCreativeIoHold: () => ({ ...state }) }
+  let poll: () => void = () => {}, polls = 0, disposed = 0
+  const page = {
+    async evaluateHandle(_action: unknown, url: string) {
+      assert.equal(url, 'controlled-helper'); return { dispose: async () => { disposed++ } }
+    },
+    async waitForFunction(predicate: (value: { helper: typeof module; state: string }) => unknown, value: { state: string }, options: { timeout: number }) {
+      assert.equal(options.timeout, 65000)
+      if (timeout) throw Object.assign(new Error('controlled_wait_timeout'), { name: 'TimeoutError' })
+      return new Promise(resolve => {
+        poll = () => {
+          const success = predicate({ helper: module, state: value.state }); polls++
+          // A Promise would be truthy before its boolean resolves: reject that
+          // exact regression rather than making this double await predicates.
+          assert.equal(typeof success, 'boolean')
+          if (success) resolve(success)
+        }
+        poll()
+      })
+    },
+  } as unknown as Page
+  return { page, state, poll: () => poll(), polls: () => polls, disposed: () => disposed }
+}
+async function appWaitControls() {
+  // Reproduce why the old async predicate returned before a hold was entered.
+  const oldResult = (async () => false)()
+  assert.equal(Boolean(oldResult), true); assert.equal(await oldResult, false)
+  const held = appWaitFixture(); let heldDone = false
+  const holding = waitForCreativeIoState(held.page, 'controlled-helper', 'held').then(() => { heldDone = true })
+  await flush(); assert.equal(heldDone, false); assert.equal(held.polls(), 1)
+  // Three completed reads do not themselves prove the fourth-read hold.
+  held.state.readCalls = 3; held.poll(); await flush(); assert.equal(heldDone, false)
+  held.state.held = true; held.poll(); await holding
+  assert.equal(heldDone, true); assert.equal(held.disposed(), 1); appWaitCases++
+  const drained = appWaitFixture(); let drainDone = false
+  const draining = waitForCreativeIoState(drained.page, 'controlled-helper', 'drained').then(() => { drainDone = true })
+  await flush(); assert.equal(drainDone, false)
+  drained.state.activeRepositoryOperations = 0; drained.poll(); await flush(); assert.equal(drainDone, false)
+  drained.state.activeIoOperations = 0; drained.poll(); await flush(); assert.equal(drainDone, false)
+  drained.state.pendingRequestOutcomes = 0; drained.state.held = true; drained.poll(); await flush(); assert.equal(drainDone, false)
+  drained.state.held = false; drained.poll(); await draining
+  assert.equal(drainDone, true); assert.equal(drained.disposed(), 1); appWaitCases++
+  const timed = appWaitFixture(true)
+  await assert.rejects(waitForCreativeIoState(timed.page, 'controlled-helper', 'held'), { name: 'TimeoutError', message: 'controlled_wait_timeout' })
+  assert.equal(timed.disposed(), 1); appWaitCases++
+  for (const path of ['./lib/creative-pilot-browser.ts', './browser-creative-pilot.mjs']) {
+    assert.doesNotMatch(fs.readFileSync(new URL(path, import.meta.url), 'utf8'), /waitForFunction\(async\b/)
+  }
+}
 try {
+  if (!process.argv.includes('--observer-only')) await appWaitControls()
   await test('observer_is_detached_exception_isolated_and_not_presentation_authority', async () => {
     const observed: Readonly<CreativeProgressEvent>[] = []
     const f = fixture(false, event => { observed.push(event); assert.ok(Object.isFrozen(event)); assert.equal(Reflect.set(event, 'acceptedTasks', 99), false); throw new Error('observer_failure') })
@@ -308,4 +366,5 @@ try {
     assert.equal(f.ui.progress.value, null); assert.equal(f.calls.dispose, 1); assert.equal(await f.ui.refresh(), false)
   })
   console.log(`Creative pilot UI: ${cases.length} presentation/ownership cases passed. Real default-engine injected-memory Prepare/dry-preview included; actual App/native/SDK/literary acceptance NOT_RUN here.`)
+  console.log(`Creative App wait synchronization: ${appWaitCases} browser-free polling controls passed (separate from presentation and actual-App denominators).`)
 } finally { for (const view of views) view.dispose() }
