@@ -20,6 +20,11 @@ interface Common {
 }
 const by = (page: Page, id: string) => page.getByTestId(`creative-pilot-${id}`)
 const failureCode = (error: unknown) => error instanceof Error && error.name === 'TimeoutError' ? 'operation_timeout' : safeCreativeCode(error)
+export function recordCreativeAppFailure(row: CreativePositiveRow | null, error: unknown): void {
+  if (!row || row.status === 'pass' || row.errorCode !== null) return
+  row.errorCode = failureCode(error)
+  row.status = ['deadline_exceeded', 'operation_timeout'].includes(row.errorCode) ? 'timeout' : 'failed'
+}
 const campaignRoute = (page: Page) => { const url = new URL(page.url()); url.hash = '/campaigns'; return url.href }
 function decode(value: CreativeAppSnapshot): CreativeSnapshot { return { ...value, artifacts: new Map(value.artifacts), requests: new Map(value.requests), phases: new Map(value.phases), responses: new Map(value.responses) } }
 function delta(http: CreativeHttpObservation, before: CreativeHttpObservation): CreativeHttpObservation {
@@ -27,6 +32,13 @@ function delta(http: CreativeHttpObservation, before: CreativeHttpObservation): 
     attempts: http.attempts - before.attempts, errors: http.errors - before.errors, blockedExternalRequests: http.blockedExternalRequests - before.blockedExternalRequests, records: http.records.slice(before.records.length) }
 }
 async function helperMetrics(page: Page, url: string) { return page.evaluate(async url => (await import(url) as Helper).observeCreativeAppMetrics(), url) }
+export async function navigateCreativeHostProbe(page: Page) {
+  const markerUrl = new URL(page.url()); markerUrl.searchParams.set('creativePilotOffline', '1')
+  // The normal page is reused across languages. Navigating to its identical
+  // hash URL can stay in-document; host separation requires a fresh App mount.
+  if (markerUrl.href === page.url()) await page.reload()
+  else await page.goto(markerUrl.href)
+}
 export async function waitForCreativeIoState(page: Page, url: string, state: 'held' | 'drained') {
   // waitForFunction polls truthiness synchronously: an async predicate is a
   // truthy Promise even when it resolves false. Import first, then poll values.
@@ -160,8 +172,7 @@ export async function runCreativeAppJourney(input: Common & { row: CreativePosit
     controlAssert(row.afterOrdinaryHash === row.beforeOrdinaryHash); await pass('route_no_replay')
     await begin('default_host_separation'); controlAssert(await by(input.normalPage, 'start').isDisabled())
     await input.normalPage.evaluate(() => localStorage.setItem('creative-pilot-offline-host', JSON.stringify({ mode: 'offline_control', configurationRevision: 'creative-control-v1' })))
-    const markerUrl = new URL(input.normalPage.url()); markerUrl.searchParams.set('creativePilotOffline', '1')
-    await input.normalPage.goto(markerUrl.href); await input.normalPage.getByTestId(`campaign-select-${normalId}`).click()
+    await navigateCreativeHostProbe(input.normalPage); await input.normalPage.getByTestId(`campaign-select-${normalId}`).click()
     await by(input.normalPage, 'identity').waitFor(); await by(input.normalPage, 'dry-prepare').click(); await by(input.normalPage, 'preview').waitFor()
     controlAssert((await by(input.normalPage, 'readiness').textContent())?.includes('unconfigured'))
     await by(input.normalPage, 'consent').locator('input').check(); controlAssert(await by(input.normalPage, 'start').isDisabled())

@@ -7,7 +7,9 @@ import { compileScript, parse } from '@vue/compiler-sfc'
 import { renderToString } from '@vue/server-renderer'
 import ts from 'typescript'
 import type { Page } from '@playwright/test'
-import { waitForCreativeIoState } from './lib/creative-pilot-browser'
+import { navigateCreativeHostProbe, recordCreativeAppFailure, waitForCreativeIoState } from './lib/creative-pilot-browser'
+import { emptyCreativeReport } from './lib/creative-pilot-report'
+import { creativeSchemaSource } from './lib/creative-pilot-report-fixtures'
 import { useCreativePilotLab, type createCreativePilotLegacyRouter } from '../src/composables/useCreativePilotLab'
 import * as Hosts from '../src/composables/creativePilotHost'
 import { creativePilotRepositoryKey } from '../src/composables/creativePilotHost'
@@ -24,10 +26,12 @@ const runtime = { runtimeIdentity: `campaign-core-sha256:${hash}`, source: { com
 const draft: CreativeBriefV1 = { protocol: 'creative-brief-v1', language: 'en', premise: '  An arbitrary brief.\nKeep its spaces. <script>not executable</script>', constraints: ['Do not normalize this: e\u0301.'] }
 const cases: string[] = [], views: ReturnType<typeof useCreativePilotLab>[] = []
 let appWaitCases = 0
+let appNavigationCases = 0
+let appFailureCases = 0
 function deferred<T>() { let resolve!: (value: T) => void, reject!: (reason: unknown) => void; const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }
 async function flush() { for (let n = 0; n < 30; n++) await Promise.resolve(); await Vue.nextTick() }
 async function test(id: string, action: () => Promise<void>) {
-  if (process.argv.includes('--app-waits-only')) return
+  if (['--app-waits-only', '--app-navigation-only', '--app-failures-only'].some(flag => process.argv.includes(flag))) return
   if (process.argv.includes('--observer-only') && !id.startsWith('observer_')) return
   await action(); cases.push(id); console.log(`PASS ${id}`)
 }
@@ -176,8 +180,49 @@ async function appWaitControls() {
     assert.doesNotMatch(fs.readFileSync(new URL(path, import.meta.url), 'utf8'), /waitForFunction\(async\b/)
   }
 }
+async function appNavigationControls() {
+  let url = 'http://127.0.0.1:1234/normal/#/campaigns'
+  const visits: Array<{ kind: 'goto' | 'reload'; url: string }> = []
+  const page = {
+    url: () => url,
+    async goto(next: string) { url = next; visits.push({ kind: 'goto', url }) },
+    async reload() { visits.push({ kind: 'reload', url }) },
+  } as unknown as Page
+  await navigateCreativeHostProbe(page) // Chinese: changed query, new document.
+  await navigateCreativeHostProbe(page) // English: same hash URL, explicit reload.
+  assert.deepEqual(visits, [
+    { kind: 'goto', url: 'http://127.0.0.1:1234/normal/?creativePilotOffline=1#/campaigns' },
+    { kind: 'reload', url: 'http://127.0.0.1:1234/normal/?creativePilotOffline=1#/campaigns' },
+  ])
+  appNavigationCases++
+  // The real composable correctly keeps Stop revoked when selection is unchanged.
+  // Reusing that mounted state is not equivalent to reopening the ordinary App.
+  const f = fixture(); await f.ready(); const inspected = f.calls.inspect
+  f.ui.stop(); f.id.value = campaignId; f.selected.value = true; await flush()
+  assert.equal(f.calls.inspect, inspected); assert.equal(f.ui.notice.value, 'stopped')
+  assert.equal(f.ui.canDryPrepare.value, false); assert.equal(await f.ui.dryPrepare(), false)
+  await f.ui.refresh(); assert.equal(f.ui.canDryPrepare.value, true)
+  assert.equal(f.calls.start + f.calls.resume, 0); appNavigationCases++
+}
+function appFailureControls() {
+  assert.doesNotThrow(() => recordCreativeAppFailure(null, new Error('before_active_row'))); appFailureCases++
+  const fresh = () => { const row = emptyCreativeReport(creativeSchemaSource, 'browser').positiveApp[0]!; row.status = 'running'; return row }
+  const timed = fresh(); timed.activeCheck = 'default_host_separation'
+  recordCreativeAppFailure(timed, Object.assign(new Error('controlled_timeout'), { name: 'TimeoutError' }))
+  assert.equal(timed.status, 'timeout'); assert.equal(timed.errorCode, 'operation_timeout')
+  const firstFailure = structuredClone(timed)
+  recordCreativeAppFailure(timed, Object.assign(new Error('outer_acceptance_failed'), { code: 'integrity' }))
+  assert.deepEqual(timed, firstFailure); appFailureCases++
+  const passed = fresh(); passed.status = 'pass'; const priorPass = structuredClone(passed)
+  recordCreativeAppFailure(passed, new Error('later_interruption_failed'))
+  assert.deepEqual(passed, priorPass); appFailureCases++
+  const running = fresh(); recordCreativeAppFailure(running, new Error('controlled_failure'))
+  assert.equal(running.status, 'failed'); assert.equal(running.errorCode, 'integrity'); appFailureCases++
+}
 try {
-  if (!process.argv.includes('--observer-only')) await appWaitControls()
+  if (!['--observer-only', '--app-navigation-only', '--app-failures-only'].some(flag => process.argv.includes(flag))) await appWaitControls()
+  if (!['--observer-only', '--app-waits-only', '--app-failures-only'].some(flag => process.argv.includes(flag))) await appNavigationControls()
+  if (!['--observer-only', '--app-waits-only', '--app-navigation-only'].some(flag => process.argv.includes(flag))) appFailureControls()
   await test('observer_is_detached_exception_isolated_and_not_presentation_authority', async () => {
     const observed: Readonly<CreativeProgressEvent>[] = []
     const f = fixture(false, event => { observed.push(event); assert.ok(Object.isFrozen(event)); assert.equal(Reflect.set(event, 'acceptedTasks', 99), false); throw new Error('observer_failure') })
@@ -367,4 +412,6 @@ try {
   })
   console.log(`Creative pilot UI: ${cases.length} presentation/ownership cases passed. Real default-engine injected-memory Prepare/dry-preview included; actual App/native/SDK/literary acceptance NOT_RUN here.`)
   console.log(`Creative App wait synchronization: ${appWaitCases} browser-free polling controls passed (separate from presentation and actual-App denominators).`)
+  console.log(`Creative App host-probe navigation: ${appNavigationCases} browser-free controls passed (separate from presentation and actual-App denominators).`)
+  console.log(`Creative App first-failure preservation: ${appFailureCases} browser-free controls passed (separate from presentation and actual-App denominators).`)
 } finally { for (const view of views) view.dispose() }

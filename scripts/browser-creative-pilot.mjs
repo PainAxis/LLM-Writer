@@ -10,8 +10,8 @@ import { creativeAppBuildOptions, assertCreativeIndexAssets } from './lib/creati
 import { creativeIdentity, creativeIdentityMatches } from './lib/creative-pilot-identity.mjs'
 import { createCreativeControlServer } from './lib/creative-pilot-node-server.ts'
 import { creativePilotBriefs } from './lib/creative-pilot-briefs.ts'
-import { emptyCreativeReport, validateCreativeReport, creativeReportPassed, safeCreativeCode } from './lib/creative-pilot-report.ts'
-import { runCreativeAppJourney, runCreativeAppInterruptions } from './lib/creative-pilot-browser.ts'
+import { emptyCreativeReport, validateCreativeReport, creativeReportPassed } from './lib/creative-pilot-report.ts'
+import { runCreativeAppJourney, runCreativeAppInterruptions, recordCreativeAppFailure } from './lib/creative-pilot-browser.ts'
 const root = fileURLToPath(new URL('../', import.meta.url)), hash = value => createHash('sha256').update(value).digest('hex')
 const verify = value => { if (!value) throw Object.assign(new Error('integrity'), { code: 'integrity' }) }
 async function main() {
@@ -83,7 +83,7 @@ async function main() {
     const observed = server.observe(); report.blockedExternalRequests += observed.blockedExternalRequests; verify(observed.errors === 0)
     report.teardown = 'pass'; report.sourceStable = await creativeIdentityMatches(root, provenance.source) ? 'verified' : 'changed'
     verify(report.sourceStable === 'verified' && report.blockedExternalRequests === 0 && report.browserErrors === 0)
-  } catch (error) { if (active && active.status !== 'pass') { active.status = 'failed'; active.errorCode = safeCreativeCode(error) }; report.teardown = 'fail' }
+  } catch (error) { recordCreativeAppFailure(active, error); report.teardown = 'fail' }
   finally { for (const context of contexts) await context.close().catch(() => {}); server?.release(); await server?.close(); if (report.sourceStable === 'not_checked') report.sourceStable = await creativeIdentityMatches(root, provenance.source) ? 'verified' : 'changed'; await persist() }
   if (!creativeReportPassed(report)) process.exitCode = 1
 }
