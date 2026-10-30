@@ -23,25 +23,33 @@ export async function createCreativeControlServer(options: {
   const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && options.serve) { try { await options.serve(req, res) } catch { res.writeHead(404); res.end() }; return }
     if (req.method === 'POST') { observation.attempts++; observation.activeRequests++; observation.maxActiveRequests = Math.max(observation.maxActiveRequests, observation.activeRequests) }
+    let releaseRequest: (() => void) | null = null
     try {
       controlAssert(req.method === 'POST' && req.url === '/v1/chat/completions' && observation.attempts <= maximum)
+      const capturedMode = mode
+      // Arm synchronously with request admission, before any body/read/hash await.
+      // A release after attempts becomes observable belongs to this request even
+      // if its body or dynamic reply is not ready yet; idle releases never carry over.
+      if (capturedMode === 'hold') controlAssert(releaseHold === null)
+      const held = capturedMode === 'hold' ? new Promise<void>(resolve => {
+        releaseRequest = resolve; releaseHold = resolve
+      }) : null
       const chunks: Uint8Array[] = []; let bytes = 0
       for await (const chunk of req) { bytes += chunk.length; controlAssert(bytes <= 65536); chunks.push(chunk) }
       const raw = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))
-      const capturedMode = mode, reply = await creativeControlReply(raw, capturedMode)
+      const reply = await creativeControlReply(raw, capturedMode)
       controlAssert(observation.records.length < maximum)
       observation.records.push(reply.record)
-      if (capturedMode === 'hold') {
-        controlAssert(releaseHold === null)
-        await new Promise<void>(resolve => { releaseHold = resolve })
-        releaseHold = null
-      }
+      if (held) await held
       if (capturedMode === 'lost_response') { res.destroy(); return }
       if (capturedMode === 'http_redirect') { res.writeHead(302, { location: 'https://example.invalid/must-not-follow' }); res.end(); return }
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
       if (capturedMode === 'http_invalid_utf8') res.end(Buffer.from([0x7b, 0x22, 0x78, 0x22, 0x3a, 0x22, 0xc3, 0x28, 0x22, 0x7d]))
       else res.end(reply.body)
-    } catch { observation.errors++; res.destroy() } finally { if (req.method === 'POST') observation.activeRequests-- }
+    } catch { observation.errors++; res.destroy() } finally {
+      if (releaseRequest !== null && releaseHold === releaseRequest) { releaseHold?.(); releaseHold = null }
+      if (req.method === 'POST') observation.activeRequests--
+    }
   })
   const close = async () => {
     if (closed) return
