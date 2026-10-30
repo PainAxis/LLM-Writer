@@ -1,5 +1,7 @@
 /** Focused fixture/oracle development gate. Pure compiler controls are NOT SDK task evidence. */
 import type { CreativeCheckpoint, CreativeSourceView } from '../src/types/creativePilot'
+import { request as httpRequest } from 'node:http'
+import { createCreativeControlServer } from './lib/creative-pilot-node-server'
 import { createCreativeCandidate, createCreativeManifest, creativeRequestReservation, encodeCreativeResponseText, sealCreativeRequest, sealCreativeResponse } from '../src/services/writerCampaign/creativePilotProtocol'
 import { compileCreativeInput } from '../src/services/writerCampaign/creativePilotContext'
 import { compileCreativeResponse } from '../src/services/writerCampaign/creativePilotCompiler'
@@ -12,6 +14,7 @@ let checks = 0
 function check(value: unknown) { controlAssert(value); checks++ }
 function refuses(fn: () => unknown) { let refused = false; try { fn() } catch { refused = true }; check(refused) }
 async function main() {
+  let serverWire = ''
   check(await hashOracle('abc') === 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
   check(canonicalOracle({ z: [true, null, 0], a: '中🙂' }) === '{"a":"中🙂","z":[true,null,0]}')
   refuses(() => scalarOracle('\ud800')); refuses(() => scalarOracle('\udc00')); refuses(() => canonicalOracle({ n: 0.7 })); refuses(() => canonicalOracle({ n: -1 }))
@@ -39,6 +42,7 @@ async function main() {
     const prepared = await compileCreativeInput(view, 'outline')
     check(prepared.inputDigest === await hashOracle(canonicalOracle(prepared.wire)))
     const rawBody = JSON.stringify({ model: CREATIVE_CONTROL_MODEL, temperature: 0.7, max_tokens: 4096, messages: [{ role: 'system', content: prepared.wire.system }, { role: 'user', content: prepared.wire.prompt }] })
+    if (!serverWire) serverWire = rawBody
     const reply = await creativeControlReply(rawBody), text = JSON.parse(reply.body).choices[0].message.content as string
     check(reply.record.bodyDigest === await hashOracle(rawBody) && reply.record.inputDigest === prepared.inputDigest)
     const parsed = JSON.parse(text); check(parsed.payload.premise === fixture.brief.premise && parsed.payload.genreRules[0].statement === fixture.brief.constraints[0])
@@ -53,5 +57,46 @@ async function main() {
   }
   check(digests.size === 6)
   process.stdout.write(JSON.stringify({ status: 'pass', scope: 'fixture_oracle_pure_outline_controls', checks, pureOutlineCompilations: 6, sdkRequests: 0, positiveGenerationTasksAwarded: 0 }) + '\n')
+  await serverHoldControls(serverWire)
 }
-main().catch(() => { process.stdout.write(JSON.stringify({ status: 'failed', scope: 'fixture_oracle_pure_outline_controls', checks, sdkRequests: 0, positiveGenerationTasksAwarded: 0 }) + '\n'); process.exitCode = 1 })
+/** Real loopback HTTP, without SDK/browser: partial body makes the early-release race deterministic. */
+async function serverHoldControls(wire: string) {
+  const server = await createCreativeControlServer({ maxAttempts: 3, guardNodeFetch: false })
+  const clients: ReturnType<typeof httpRequest>[] = []
+  const wait = async (predicate: () => boolean) => {
+    const until = Date.now() + 2000
+    while (!predicate()) { controlAssert(Date.now() < until, 'server_hold_control_timeout'); await new Promise(resolve => setTimeout(resolve, 5)) }
+  }
+  try {
+    for (const early of [true, false, false]) {
+      server.release() // An idle release must not authorize the following request.
+      server.setMode('hold')
+      const before = server.observe().attempts
+      let completed = false, failed = false, status = 0
+      const req = httpRequest(server.endpoint + '/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json' } }, res => {
+        status = res.statusCode ?? 0; res.resume(); res.on('end', () => { completed = true }); res.on('error', () => { failed = true })
+      })
+      clients.push(req); req.on('error', () => { failed = true })
+      req.write(wire.slice(0, 1))
+      await wait(() => server.observe().attempts === before + 1)
+      controlAssert(server.observe().records.length === before && !completed && !failed)
+      if (early) { server.release(); server.release() }
+      req.end(wire.slice(1))
+      if (!early) {
+        await wait(() => server.observe().records.length === before + 1)
+        controlAssert(server.observe().activeRequests === 1 && !completed && !failed)
+        server.release(); server.release()
+      }
+      await wait(() => completed || failed)
+      controlAssert(completed && !failed && status === 200)
+      const final = server.observe()
+      controlAssert(final.activeRequests === 0 && final.maxActiveRequests === 1 && final.attempts === before + 1 && final.errors === 0)
+    }
+    process.stdout.write(JSON.stringify({ status: 'pass', scope: 'loopback_server_hold_controls', cases: 3, httpRequests: 3, sdkRequests: 0, positiveGenerationTasksAwarded: 0 }) + '\n')
+  } catch (error) {
+    const observed = server.observe()
+    process.stdout.write(JSON.stringify({ status: 'failed', scope: 'loopback_server_hold_controls', attempts: observed.attempts, records: observed.records.length, activeRequests: observed.activeRequests, maxActiveRequests: observed.maxActiveRequests, errors: observed.errors }) + '\n')
+    throw error
+  } finally { for (const req of clients) req.destroy(); await server.close() }
+}
+main().catch(() => { process.stdout.write(JSON.stringify({ status: 'failed', scope: 'creative_pilot_controls', checks, sdkRequests: 0, positiveGenerationTasksAwarded: 0 }) + '\n'); process.exitCode = 1 })
