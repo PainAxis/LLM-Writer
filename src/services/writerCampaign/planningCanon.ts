@@ -1,4 +1,5 @@
-import type { CampaignArtifact, CampaignArtifactRef, CampaignManifest } from '../../types/writerCampaign'
+import type { PlanningSourceArtifact, PlanningSourceManifest } from './planningSource'
+import type { CampaignArtifact, CampaignArtifactRef } from '../../types/writerCampaign'
 import { canonicalStringify, hashCampaignValue, utf8Bytes } from './protocol'
 import {
   PLANNING_LIMITS, PLANNING_PROTOCOL, parsePlanningEnvelope, planningAssert, planningChapterAddress,
@@ -31,10 +32,10 @@ export interface GlobalPlanningCanonV1 {
   characterBible: CharacterBiblePayload
   detailedOutline: DetailedOutlinePayload
 }
-export interface PlanningCanon {
+export interface PlanningCanon<A extends PlanningSourceArtifact = CampaignArtifact> {
   records: PlanningRecord[]
   envelopes: Map<string, PlanningEnvelope>
-  artifactsByTask: Map<string, CampaignArtifact>
+  artifactsByTask: Map<string, A>
   canonBaseRoot: string | null
   fullPlanRoot: string | null
   globalCanon: GlobalPlanningCanonV1 | null
@@ -44,8 +45,8 @@ export interface PlanningCanon {
 }
 /** Caller-owned read/action-local cache. No global or durable source retention. */
 export class PlanningParseCache {
-  #entries = new WeakMap<CampaignArtifact, { text: string; manifestHash: string; taskId: string; dependencies: string; envelope: PlanningEnvelope }>()
-  parse(artifact: CampaignArtifact, manifest: CampaignManifest, check: PlanningCheck): PlanningEnvelope {
+  #entries = new WeakMap<PlanningSourceArtifact, { text: string; manifestHash: string; taskId: string; dependencies: string; envelope: PlanningEnvelope }>()
+  parse(artifact: PlanningSourceArtifact, manifest: PlanningSourceManifest, check: PlanningCheck): PlanningEnvelope {
     const task = manifest.tasks.find(task => task.id === artifact.taskId)
     planningAssert(task && task.kind === artifact.kind, 'source_identity_mismatch')
     const dependencies = canonicalStringify(artifact.dependencies), cached = this.#entries.get(artifact)
@@ -57,7 +58,7 @@ export class PlanningParseCache {
     return envelope
   }
 }
-export function planningArtifactRef(artifact: CampaignArtifact): CampaignArtifactRef { return { taskId: artifact.taskId, revision: artifact.revision, hash: artifact.hash } }
+export function planningArtifactRef(artifact: PlanningSourceArtifact): CampaignArtifactRef { return { taskId: artifact.taskId, revision: artifact.revision, hash: artifact.hash } }
 const exact = (a: CampaignArtifactRef, b: CampaignArtifactRef) => a.taskId === b.taskId && a.revision === b.revision && a.hash === b.hash
 const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0
 const artifactKey = (ref: CampaignArtifactRef) => `${ref.taskId}/${ref.revision}/${ref.hash}`
@@ -70,7 +71,7 @@ function allRefs(value: unknown): PlanningRef[] {
   return []
 }
 /** The owner must itself be an exact supplied active artifact; ancestors must be direct accepted sources. */
-export function resolvePlanningRef(canon: PlanningCanon, ref: PlanningRef, ownerArtifact: CampaignArtifactRef): PlanningRecord {
+export function resolvePlanningRef(canon: PlanningCanon<PlanningSourceArtifact>, ref: PlanningRef, ownerArtifact: CampaignArtifactRef): PlanningRecord {
   const owner = canon.artifactsByTask.get(ownerArtifact.taskId)
   planningAssert(owner && exact(owner, ownerArtifact), 'source_identity_mismatch')
   const source = ref.source === 'self' ? ownerArtifact : ref.artifact
@@ -84,7 +85,7 @@ export function resolvePlanningRef(canon: PlanningCanon, ref: PlanningRef, owner
 }
 export interface PlanningClosureSeed { ref: PlanningRef; ownerArtifact: CampaignArtifactRef }
 /** Cyclic lore/fact adjacency is allowed; the visited set preserves every declared premise exactly once. */
-export function planningClosure(canon: PlanningCanon, seeds: readonly PlanningClosureSeed[], check: PlanningCheck = () => {}): PlanningRecord[] {
+export function planningClosure(canon: PlanningCanon<PlanningSourceArtifact>, seeds: readonly PlanningClosureSeed[], check: PlanningCheck = () => {}): PlanningRecord[] {
   const visited = new Set<string>(), queue = [...seeds]
   while (queue.length) {
     check(); planningAssert(queue.length <= PLANNING_LIMITS.edges + PLANNING_LIMITS.records, 'planning_budget_exceeded')
@@ -103,11 +104,11 @@ function recordsFor(envelope: PlanningEnvelope): Array<[PlanningRecordKind, Plan
     case 'chapter_outline': return []
   }
 }
-const values = <T extends PlanningRecordValue>(canon: PlanningCanon, kind: PlanningRecordKind) => canon.records.filter(row => row.recordKind === kind) as Array<PlanningRecord & { value: T }>
+const values = <T extends PlanningRecordValue>(canon: PlanningCanon<PlanningSourceArtifact>, kind: PlanningRecordKind) => canon.records.filter(row => row.recordKind === kind) as Array<PlanningRecord & { value: T }>
 const assertSchedule = (condition: unknown) => planningAssert(condition, 'invalid_planning_schedule')
 const active = (state: { validFrom: { ordinal: number }; validThrough: { ordinal: number } }, chapter: number) => state.validFrom.ordinal <= chapter && state.validThrough.ordinal >= chapter
 
-function validateRelations(canon: PlanningCanon, manifest: CampaignManifest, check: PlanningCheck): void {
+function validateRelations(canon: PlanningCanon<PlanningSourceArtifact>, manifest: PlanningSourceManifest, check: PlanningCheck): void {
   const chapters = manifest.tasks.filter(task => task.kind === 'chapter_outline').length
   const resolve = (owner: PlanningRecord | CampaignArtifactRef, ref: PlanningRef) => resolvePlanningRef(canon, ref, 'artifact' in owner ? owner.artifact : owner)
   const key = (owner: PlanningRecord | CampaignArtifactRef, ref: PlanningRef) => resolve(owner, ref).key
@@ -248,7 +249,7 @@ function validateRelations(canon: PlanningCanon, manifest: CampaignManifest, che
  * never enter a packet, root, index or accepted artifact. IDs/text use one byte even when
  * actual uniqueness forces longer values, so this remains a conservative lower bound.
  */
-function minimumGlobalPayloads(manifest: CampaignManifest, sources: CampaignArtifactRef[], known: Array<PlanningEnvelope['payload'] | null>): Array<PlanningEnvelope['payload']> {
+function minimumGlobalPayloads(manifest: PlanningSourceManifest, sources: CampaignArtifactRef[], known: Array<PlanningEnvelope['payload'] | null>): Array<PlanningEnvelope['payload']> {
   const last = manifest.tasks.filter(task => task.kind === 'chapter_outline').length
   const firstAddress = planningChapterAddress(manifest, 1), lastAddress = planningChapterAddress(manifest, last)
   const self = (recordKind: PlanningRecordKind): PlanningRef => ({ source: 'self', artifact: null, recordKind, recordId: 'a' })
@@ -269,8 +270,11 @@ function minimumGlobalPayloads(manifest: CampaignManifest, sources: CampaignArti
 }
 
 /** Build a derived index from already outer-validated active artifact objects, never from repository keys. */
-export async function buildPlanningCanon(manifest: CampaignManifest, artifacts: readonly CampaignArtifact[], check: PlanningCheck = () => {}, cache = new PlanningParseCache()): Promise<PlanningCanon> {
-  check(); const canon: PlanningCanon = { records: [], envelopes: new Map(), artifactsByTask: new Map(), canonBaseRoot: null, fullPlanRoot: null, globalCanon: null, globalCanonBytes: 0, planningBytes: 0, edgeCount: 0 }
+export function buildPlanningCanon<A extends PlanningSourceArtifact>(manifest: PlanningSourceManifest, artifacts: readonly A[], check?: PlanningCheck, cache?: PlanningParseCache): Promise<PlanningCanon<A>>
+// Keep ReturnType<typeof buildPlanningCanon> compatible for existing v2 callers.
+export function buildPlanningCanon(manifest: PlanningSourceManifest, artifacts: readonly CampaignArtifact[], check?: PlanningCheck, cache?: PlanningParseCache): Promise<PlanningCanon>
+export async function buildPlanningCanon<A extends PlanningSourceArtifact = CampaignArtifact>(manifest: PlanningSourceManifest, artifacts: readonly A[], check: PlanningCheck = () => {}, cache = new PlanningParseCache()): Promise<PlanningCanon<A>> {
+  check(); const canon: PlanningCanon<A> = { records: [], envelopes: new Map(), artifactsByTask: new Map(), canonBaseRoot: null, fullPlanRoot: null, globalCanon: null, globalCanonBytes: 0, planningBytes: 0, edgeCount: 0 }
   const sourceIndex = new Map(manifest.tasks.map((task, index) => [task.id, index])), ids = new Set<string>()
   let sceneCount = 0
   for (const artifact of artifacts) {
@@ -311,13 +315,13 @@ export async function buildPlanningCanon(manifest: CampaignManifest, artifacts: 
   const minimumPayloads = minimumGlobalPayloads(manifest, minimumSources, payloads)
   const lowerBound = { protocol: 'campaign-global-canon-v1', canonBaseRoot: '0'.repeat(64), sources: minimumSources, outline: minimumPayloads[0], characterBible: minimumPayloads[1], detailedOutline: minimumPayloads[2] }
   planningAssert(utf8Bytes(canonicalStringify(lowerBound)) <= PLANNING_LIMITS.globalCanonBytes, 'canon_budget_exceeded')
-  if (global.every((artifact): artifact is CampaignArtifact => !!artifact)) {
+  if (global.every((artifact): artifact is A => !!artifact)) {
     const sources = global.map(planningArtifactRef)
     check(); canon.canonBaseRoot = await hashCampaignValue('campaign-canon-base-v1', { protocol: PLANNING_PROTOCOL, manifestHash: manifest.hash, sources }); check()
     canon.globalCanon = { protocol: 'campaign-global-canon-v1', canonBaseRoot: canon.canonBaseRoot, sources, outline: payloads[0] as OutlinePayload, characterBible: payloads[1] as CharacterBiblePayload, detailedOutline: payloads[2] as DetailedOutlinePayload }
     canon.globalCanonBytes = utf8Bytes(canonicalStringify(canon.globalCanon)); planningAssert(canon.globalCanonBytes <= PLANNING_LIMITS.globalCanonBytes, 'canon_budget_exceeded')
     const outlines = manifest.tasks.filter(task => task.kind === 'chapter_outline').map(task => canon.artifactsByTask.get(task.id))
-    if (outlines.every((artifact): artifact is CampaignArtifact => !!artifact)) {
+    if (outlines.every((artifact): artifact is A => !!artifact)) {
       check(); canon.fullPlanRoot = await hashCampaignValue('campaign-full-plan-v1', { protocol: PLANNING_PROTOCOL, manifestHash: manifest.hash, canonBaseRoot: canon.canonBaseRoot, sources: [...sources, ...outlines.map(planningArtifactRef)] }); check()
     }
   }

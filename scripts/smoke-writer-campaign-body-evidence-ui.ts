@@ -94,6 +94,8 @@ try {
       if (id === 'vue') return Vue
       if (id === '@/composables/useWriterCampaign') return { useWriterCampaign: () => ui }
       if (id === '@/components/ProducerLabPanel.vue') return { default: { render: () => null } }
+      if (id === '@/components/CreativePilotPanel.vue') return { default: { render: () => null } }
+      if (id === '@/composables/useCreativePilotLab') return { createCreativePilotLegacyRouter: () => ({ engine: {}, version: Vue.ref('legacy'), error: Vue.ref(''), reset() {}, dispose() {} }) }
       throw new Error('unexpected_ui_import')
     }, exports)
     return exports.default!

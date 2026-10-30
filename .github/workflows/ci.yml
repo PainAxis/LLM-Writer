@@ -635,3 +635,53 @@ jobs:
           path: artifacts/ci-evidence/writer-campaign
           if-no-files-found: error
           retention-days: 7
+
+  creative-pilot:
+    name: ci-creative-pilot
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Verify closed Creative Pilot controls and UI ownership
+        run: |
+          npm run smoke:creative-pilot-controls
+          npm run smoke:creative-pilot-identity
+          npm run smoke:creative-pilot-build
+          npm run smoke:creative-pilot-failure
+          npm run smoke:creative-pilot-report
+          npm run smoke:creative-pilot-archive
+          npm run smoke:creative-pilot-compiler
+          npm run smoke:creative-pilot-ui
+      # Fixed independent populations: 54 Node SDK tasks; compiler/metamorphic,
+      # 63 ACK, engine/transport and report controls keep separate denominators.
+      # Only an explicit synthetic loopback endpoint; no external provider/grant.
+      - name: Measure exact-source Creative Pilot Node readiness
+        run: npm run profile:creative-pilot
+        timeout-minutes: 15
+      - name: Verify actual App and native IndexedDB Creative Pilot journey
+        if: ${{ !cancelled() }}
+        run: npm run test:browser-creative-pilot
+        env:
+          CREATIVE_PILOT_CI_APPROVED: '1'
+        timeout-minutes: 15
+      - name: Prepare closed Creative Pilot evidence
+        id: archive_creative_pilot
+        if: ${{ !cancelled() }}
+        run: node --import tsx scripts/prepare-creative-pilot-evidence.ts
+      - name: Upload source-free Creative Pilot reports only
+        if: ${{ !cancelled() && steps.archive_creative_pilot.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: creative-pilot-${{ github.run_attempt }}
+          path: artifacts/ci-evidence/creative-pilot
+          if-no-files-found: error
+          retention-days: 7
