@@ -3,9 +3,11 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { expect as playwrightExpect } from '@playwright/test'
 import { emptyProducerReport, producerBudgetRefusal, producerProfileChecks, producerReportExitCode, safeProducerCode, safeProducerReason, validateProducerReport, type ProducerReport } from './fixtures/writer-body-producer-report'
 import { producerAppBuildOptions } from './fixtures/writer-body-producer-build.mjs'
 import { forwardProducerProofCapabilities } from './fixtures/writer-body-producer-profile'
+import { finalProducerUiObservation, producerObservationStatus, producerUiFailureDetail, readProducerUiObservation, rememberProducerUiObservation } from './browser-writer-body-producer.mjs'
 const source = { commit: null, tree: null, coreSha256: 'a'.repeat(64), harnessSha256: 'b'.repeat(64), uiSha256: 'c'.repeat(64), fixtureSha256: 'd'.repeat(64), buildSha256: 'e'.repeat(64) }
 let checks = 0
 const test = (name: string, action: () => void) => { action(); checks++; console.log(`PASS ${name}`) }
@@ -132,13 +134,89 @@ const browser = await readFile(new URL('./browser-writer-body-producer.mjs', imp
 test('browser_entry_is_explicitly_ci_only_and_has_no_retry', () => { assert.ok(browser.indexOf("process.env.BODY_PRODUCER_CI_APPROVED !== '1'") < browser.indexOf('chromium.launchPersistentContext')); assert.equal(browser.match(/chromium\.launchPersistentContext/g)?.length, 1); assert.ok(!browser.includes('screenshot(') && !browser.includes('tracing.start') && !browser.includes('--no-sandbox')) })
 const root = fileURLToPath(new URL('../', import.meta.url)), main = await readFile(path.join(root, 'src/main.ts'), 'utf8'), normalVite = await readFile(path.join(root, 'vite.config.ts'), 'utf8')
 test('controlled_app_build_uses_real_composition_root_only', () => {
-  const options = producerAppBuildOptions(root, '/tmp/body-producer-build-schema-only', 'http://127.0.0.1:17321/v1'), plugin = options.plugins.find((row: { name?: string }) => row.name === 'body-producer-controlled-app-host')
+  type ControlledHostPlugin = { name: string; transform(code: string, id: string): { code: string } | null }
+  // This JS builder replaces the driver input; its inferred return retains the
+  // original driver shape. The assertions below check the actual App shape.
+  const options = producerAppBuildOptions(root, '/tmp/body-producer-build-schema-only', 'http://127.0.0.1:17321/v1') as unknown as { plugins: unknown[]; build: { rolldownOptions: { input: Record<string, string> } } }
+  const plugin = options.plugins.find((row): row is ControlledHostPlugin => !!row && typeof row === 'object' && 'name' in row && row.name === 'body-producer-controlled-app-host')
+  assert.ok(plugin)
   assert.equal(options.build.rolldownOptions.input.app, path.join(root, 'index.html')); assert.equal(options.build.rolldownOptions.input['body-producer-app-control'], path.join(root, 'scripts/fixtures/writer-body-producer-app.ts'))
   const changed = plugin.transform(main, path.join(root, 'src/main.ts'))
+  assert.ok(changed)
   assert.ok(changed.code.includes('await installBodyProducerApp(app, "http://127.0.0.1:17321/v1")') && changed.code.includes('app.use(router)') && changed.code.includes('void bootstrap()'))
   assert.equal(plugin.transform(main, path.join(root, 'src/App.vue')), null)
   assert.throws(() => plugin.transform(`${main}\nconst app = createApp(App)`, path.join(root, 'src/main.ts')))
   for (const endpoint of ['https://127.0.0.1:17321/v1', 'http://example.com:17321/v1', 'http://127.0.0.1:17321/v1?grant=1']) assert.throws(() => producerAppBuildOptions(root, '/tmp/body-producer-build-schema-only', endpoint))
   assert.ok(!main.includes('installBodyProducerApp') && !normalVite.includes('body-producer-app') && !normalVite.includes('producerAppBuildOptions'))
+})
+const testAsync = async (name: string, action: () => Promise<void>) => { await action(); checks++; console.log(`PASS ${name}`) }
+await testAsync('installed_poll_retries_only_explicit_conflict_observations', async () => {
+  let calls = 0
+  const conflict = Object.assign(new Error('closed synthetic conflict'), { code: 'conflict' })
+  const read = async () => { if (++calls === 1) throw conflict; return { latestStatus: 'outcome_unknown' } }
+  await assert.rejects(playwrightExpect.poll(read, { timeout: 1000, intervals: [1] }).toEqual({ latestStatus: 'outcome_unknown' }), error => error === conflict)
+  assert.equal(calls, 1, 'Installed expect.poll does not retry callback rejection')
+  calls = 0
+  await playwrightExpect.poll(() => producerObservationStatus(read), { timeout: 1000, intervals: [1] }).toBe('outcome_unknown')
+  assert.equal(calls, 2)
+  for (const code of ['integrity', 'storage_unknown', 'operation_timeout', 'verification_capacity']) {
+    calls = 0; const failure = Object.assign(new Error('closed synthetic refusal'), { code })
+    await assert.rejects(playwrightExpect.poll(() => producerObservationStatus(async () => { calls++; throw failure }), { timeout: 1000, intervals: [1] }).toBe('outcome_unknown'), error => error === failure)
+    assert.equal(calls, 1, `${code} is not retried`)
+  }
+})
+await testAsync('conflict_observation_poll_exhausts_without_changing_deadline_or_dispatch', async () => {
+  let reads = 0
+  await assert.rejects(playwrightExpect.poll(() => producerObservationStatus(async () => { reads++; throw { code: 'conflict' } }), { timeout: 30, intervals: [1] }).toBe('outcome_unknown'))
+  assert.ok(reads > 1)
+  const settled = reads; await new Promise(resolve => setTimeout(resolve, 5)); assert.equal(reads, settled)
+  assert.ok(browser.includes('playwrightExpect.configure({ timeout: 20_000 })'))
+  assert.equal(browser.match(/expect\.poll\(\(\) => producerObservationStatus\(observed\)\)/g)?.length, 2)
+  assert.ok(browser.includes("error.code === 'conflict') return 'read_conflict'"), 'Actual-App read-conflict policy remains intact')
+})
+await testAsync('page_boundary_preserves_closed_error_code_without_raw_error_text', async () => {
+  // Executes the exact evaluate callback in-process, with no browser or provider.
+  const page = { evaluate: (callback: (arg: unknown) => unknown, arg: unknown) => callback(arg) }
+  for (const [code, expected] of [['conflict', 'conflict'], ['integrity', 'integrity'], ['private_code', 'profile_failed']]) {
+    const moduleUrl = `data:text/javascript,${encodeURIComponent(`export async function producerUiObservation() { throw Object.assign(new Error('private body and response'), { code: '${code}' }) }`)}`
+    await assert.rejects(readProducerUiObservation(page, moduleUrl), (error: any) => error.code === expected && error.message === 'producer_observation_refused')
+  }
+})
+const verifiedUi = { requests: 2, unknown: 1, outstandingBytes: 1234, latestStatus: 'outcome_unknown', latestRequestId: 'request-12345678-1234-1234-1234-123456789abc' }
+await testAsync('failed_panel_retains_last_verified_obligations_and_one_final_read', async () => {
+  const report = emptyProducerReport(source, 'browser'), row = report.ui[0]!, state = { lastVerified: null }
+  const remember = (value: unknown) => rememberProducerUiObservation(row, state, value)
+  remember(verifiedUi); assert.equal(row.unknownRequests, 1)
+  let reads = 0
+  const failed = await finalProducerUiObservation(async () => { reads++; throw { code: 'conflict' } }, remember, 100)
+  assert.deepEqual(failed, { status: 'unconfirmed', code: 'conflict' }); assert.equal(reads, 1)
+  assert.equal(row.unknownRequests, 1); assert.deepEqual(state.lastVerified, verifiedUi)
+  row.status = 'failed'; row.refusalCode = 'profile_failed'; validateProducerReport(report)
+  const detail = producerUiFailureDetail('zh', 'navigation_settlement', { code: 'profile_failed', message: 'private raw error' }, failed, state.lastVerified)
+  assert.deepEqual(detail.lastVerified, verifiedUi); assert.equal(detail.finalObservation, 'unconfirmed')
+  const latest = { ...verifiedUi, requests: 3, unknown: 2, outstandingBytes: 2468 }
+  assert.deepEqual(await finalProducerUiObservation(async () => latest, remember, 100), { status: 'verified', code: null })
+  assert.equal(row.unknownRequests, 2); assert.deepEqual(state.lastVerified, latest)
+})
+await testAsync('final_observation_timeout_cannot_replace_evidence_later', async () => {
+  const row = { unknownRequests: 0 }, state = { lastVerified: null }
+  const remember = (value: unknown) => rememberProducerUiObservation(row, state, value)
+  remember(verifiedUi)
+  let release!: (value: unknown) => void, reads = 0
+  const result = await finalProducerUiObservation(() => { reads++; return new Promise(resolve => { release = resolve }) }, remember, 10)
+  assert.deepEqual(result, { status: 'unconfirmed', code: 'operation_timeout' }); assert.equal(reads, 1)
+  release({ ...verifiedUi, unknown: 0, outstandingBytes: 0 }); await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(row.unknownRequests, 1); assert.deepEqual(state.lastVerified, verifiedUi)
+})
+test('panel_failure_log_is_closed_and_never_invents_unobserved_zero', () => {
+  const detail = producerUiFailureDetail('zh', 'navigation_cold_reopen', { code: 'private_code', body: 'secret' }, { status: 'unconfirmed', code: 'private_code', response: 'secret' }, { ...verifiedUi, body: 'secret', response: 'secret', rawHead: 'secret' })
+  assert.deepEqual(Object.keys(detail), ['suite', 'language', 'stage', 'code', 'finalObservation', 'finalObservationCode', 'lastVerified'])
+  assert.ok(detail.lastVerified)
+  assert.deepEqual(Object.keys(detail.lastVerified), ['requests', 'unknown', 'outstandingBytes', 'latestStatus', 'latestRequestId'])
+  assert.equal(detail.code, 'profile_failed'); assert.equal(detail.finalObservationCode, 'profile_failed'); assert.doesNotMatch(JSON.stringify(detail), /secret|rawHead|private_code/)
+  assert.equal(producerUiFailureDetail('en', 'panel_setup', {}, { status: 'unconfirmed', code: 'profile_failed' }, null).lastVerified, null)
+  assert.throws(() => producerUiFailureDetail('zh', 'raw unbounded stage', {}, { status: 'unconfirmed', code: null }, null))
+  assert.throws(() => rememberProducerUiObservation({ unknownRequests: 1 }, { lastVerified: null }, { ...verifiedUi, latestStatus: 'private body' }))
+  assert.throws(() => rememberProducerUiObservation({ unknownRequests: 1 }, { lastVerified: null }, { ...verifiedUi, latestRequestId: 'private body' }))
 })
 console.log(JSON.stringify({ suite: 'body-producer-report', checks, nativeUiExecuted: false, semanticAcceptance: 'NOT_RUN' }))

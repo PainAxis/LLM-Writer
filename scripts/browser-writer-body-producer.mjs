@@ -11,10 +11,62 @@ import { build } from 'vite'
 import { producerAppBuildOptions, producerDriverBuildOptions } from './fixtures/writer-body-producer-build.mjs'
 import { producerIdentity, producerIdentityMatches } from './fixtures/writer-body-producer-identity.mjs'
 import { arbitraryProducerBody, CONTROL_MODEL, producerControlOutput } from './fixtures/writer-body-producer-control.ts'
-import { emptyProducerReport, producerReportExitCode, safeProducerCode, validateProducerReport } from './fixtures/writer-body-producer-report.ts'
+import { emptyProducerReport, producerReportExitCode, SAFE_CODES, safeProducerCode, validateProducerReport } from './fixtures/writer-body-producer-report.ts'
 const root = fileURLToPath(new URL('../', import.meta.url)), hash = value => createHash('sha256').update(value).digest('hex'), expect = playwrightExpect.configure({ timeout: 20_000 })
 const verify = value => { if (!value) throw new Error('producer_browser_verification_failed') }
 const node = (page, id) => page.getByTestId(`body-producer-${id}`)
+const UI_FAILURE_STAGES = ['panel_setup', 'cancel_dispatch', 'cancel_settlement', 'cancel_reload', 'navigation_prepare', 'navigation_dispatch', 'navigation_away', 'navigation_settlement', 'navigation_hidden', 'navigation_home', 'navigation_obligations', 'navigation_cold_reopen', 'navigation_cold_obligations', 'panel_completion']
+const PHASES = ['none', 'reserved', 'dispatch_intent', 'outcome_unknown', 'response_retained', 'resolved']
+/** Catch inside the page: Playwright transports Error message/name, not .code. */
+export async function readProducerUiObservation(page, moduleUrl) {
+  const result = await page.evaluate(async ({ moduleUrl, codes }) => {
+    try { return { value: await (await import(moduleUrl)).producerUiObservation(), code: null } }
+    catch (error) {
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : null
+      return { value: null, code: typeof code === 'string' && codes.includes(code) ? code : 'profile_failed' }
+    }
+  }, { moduleUrl, codes: [...SAFE_CODES] })
+  if (result.code !== null) throw Object.assign(new Error('producer_observation_refused'), { code: safeProducerCode(result) })
+  return result.value
+}
+/** Only a moving read fence is transient. The caller retains its fixed poll deadline. */
+export async function producerObservationStatus(read) {
+  try { return (await read()).latestStatus }
+  catch (error) { if (error?.code === 'conflict') return 'read_conflict'; throw error }
+}
+function closedUiObservation(value) {
+  for (const key of ['requests', 'unknown', 'outstandingBytes']) verify(Number.isSafeInteger(value[key]) && value[key] >= 0)
+  verify(value.requests <= 8 && value.unknown <= value.requests && value.outstandingBytes <= 67_108_864 && PHASES.includes(value.latestStatus))
+  verify(value.latestRequestId === null || typeof value.latestRequestId === 'string' && /^request-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value.latestRequestId))
+  return { requests: value.requests, unknown: value.unknown, outstandingBytes: value.outstandingBytes, latestStatus: value.latestStatus, latestRequestId: value.latestRequestId }
+}
+export function rememberProducerUiObservation(row, state, value) {
+  const closed = closedUiObservation(value)
+  state.lastVerified = closed; row.unknownRequests = closed.unknown
+  return value
+}
+/** One read-only failure observation; a late result cannot replace prior evidence. */
+export async function finalProducerUiObservation(read, remember, timeoutMs = 3000) {
+  const deadline = performance.now() + timeoutMs
+  let timer
+  try {
+    const result = await Promise.race([
+      Promise.resolve().then(read).then(value => ({ value })),
+      new Promise(resolve => { timer = setTimeout(() => resolve(null), timeoutMs) }),
+    ])
+    if (!result || performance.now() >= deadline) return { status: 'unconfirmed', code: 'operation_timeout' }
+    remember(result.value)
+    return { status: 'verified', code: null }
+  } catch (error) { return { status: 'unconfirmed', code: safeProducerCode(error) } }
+  finally { clearTimeout(timer) }
+}
+export function producerUiFailureDetail(language, stage, error, finalObservation, lastVerified) {
+  verify(['zh', 'en'].includes(language) && UI_FAILURE_STAGES.includes(stage))
+  verify(['verified', 'unconfirmed'].includes(finalObservation.status))
+  return { suite: 'body-producer-panel-failure', language, stage, code: safeProducerCode(error),
+    finalObservation: finalObservation.status, finalObservationCode: finalObservation.code === null ? null : safeProducerCode(finalObservation),
+    lastVerified: lastVerified === null ? null : closedUiObservation(lastVerified) }
+}
 async function main() {
   // This explicit guard is not a browser permission bypass. It prevents accidental
   // local execution; approved CI still uses the ordinary sandboxed launch.
@@ -98,7 +150,9 @@ async function main() {
         const mark = id => { row.checks.find(check => check.id === id).status = 'pass' }
         const profile = path.join(privateRoot, `ui-${language}`); let page = await launch(profile)
         const mount = existing => page.evaluate(async ({ moduleUrl, endpoint, language, existing }) => (await import(moduleUrl)).mountProducerUi(language, endpoint, existing), { moduleUrl, endpoint, language, existing })
-        const observed = () => page.evaluate(async moduleUrl => (await import(moduleUrl)).producerUiObservation(), moduleUrl)
+        const state = { lastVerified: null }; let stage = 'panel_setup'
+        const remember = value => rememberProducerUiObservation(row, state, value)
+        const observed = async () => remember(await readProducerUiObservation(page, moduleUrl))
         try {
           await mount(false); await expect(node(page, 'panel')).toBeVisible(); mark('actual_panel')
           await expect(node(page, 'adopt')).toBeEnabled(); await node(page, 'adopt').click(); await expect(node(page, 'identity')).toBeVisible(); verify((await observed()).adopted && observation.attempts === 0); mark('explicit_adoption')
@@ -122,24 +176,41 @@ async function main() {
           await node(page, 'revision-preview').click(); await expect(node(page, 'revision-ready')).toBeVisible(); await node(page, 'revision-commit').click()
           await expect.poll(async () => (await observed()).sourceEpoch).toBe(2); await expect(node(page, 'review')).toHaveCount(0)
           await node(page, 'prepare').click(); await expect(node(page, 'prepared')).toBeVisible(); verify(JSON.parse(await node(page, 'exact-input').textContent()).inputDigest !== firstDigest); mark('source_edit_invalidates')
+          stage = 'cancel_dispatch'
           holdNext = true; await node(page, 'invoke').click(); await expect.poll(() => observation.attempts).toBe(2); verify(held !== null)
           await node(page, 'stop-local').click(); const release = held; held = null; release()
-          await expect.poll(async () => (await observed()).latestStatus).toBe('outcome_unknown'); await node(page, 'refresh').click(); await expect(node(page, 'identity')).toBeVisible()
+          stage = 'cancel_settlement'
+          await expect.poll(() => producerObservationStatus(observed)).toBe('outcome_unknown'); await node(page, 'refresh').click(); await expect(node(page, 'identity')).toBeVisible()
           let unknown = await observed(); verify(unknown.unknown === 1 && unknown.outstandingBytes > 0 && unknown.latestStatus === 'outcome_unknown')
+          stage = 'cancel_reload'
           await context.close(); context = null; page = await launch(profile); await mount(true); await expect(node(page, 'identity')).toBeVisible(); unknown = await observed()
           verify(unknown.unknown === 1 && unknown.outstandingBytes > 0 && observation.attempts === 2); mark('cancel_unknown_retained')
+          stage = 'navigation_prepare'
           await node(page, 'chapter').selectOption('3'); await node(page, 'prepare').click(); await expect(node(page, 'prepared')).toBeVisible()
+          stage = 'navigation_dispatch'
           holdNext = true; await node(page, 'invoke').click(); await expect.poll(() => observation.attempts).toBe(3); verify(held !== null)
+          stage = 'navigation_away'
           await node(page, 'host-away').click(); await expect(node(page, 'identity')).toHaveCount(0); await expect(node(page, 'review')).toHaveCount(0)
           const lateNavigationReply = held; held = null; lateNavigationReply()
-          await expect.poll(async () => (await observed()).latestStatus).toBe('outcome_unknown')
+          stage = 'navigation_settlement'
+          await expect.poll(() => producerObservationStatus(observed)).toBe('outcome_unknown')
+          stage = 'navigation_hidden'
           await expect(node(page, 'review')).toHaveCount(0); await expect(node(page, 'source-text')).toHaveCount(0)
+          stage = 'navigation_home'
           await node(page, 'host-home').click(); await expect(node(page, 'identity')).toBeVisible(); await expect(node(page, 'review')).toHaveCount(0)
+          stage = 'navigation_obligations'
           unknown = await observed(); verify(unknown.requests === 3 && unknown.unknown === 2 && unknown.outstandingBytes > 0 && observation.attempts === 3)
+          stage = 'navigation_cold_reopen'
           await context.close(); context = null; page = await launch(profile); await mount(true); await expect(node(page, 'identity')).toBeVisible(); await expect(node(page, 'review')).toHaveCount(0)
+          stage = 'navigation_cold_obligations'
           unknown = await observed(); verify(unknown.requests === 3 && unknown.unknown === 2 && unknown.outstandingBytes > 0 && observation.attempts === 3); row.unknownRequests = unknown.unknown; mark('pending_navigation_fenced')
+          stage = 'panel_completion'
           row.httpAttempts = observation.attempts; verify(observation.errors === 0 && row.browserErrors === 0); row.status = 'pass'
-        } catch (error) { row.status = 'failed'; row.refusalCode = safeProducerCode(error); const unfinished = row.checks.find(check => check.status !== 'pass'); if (unfinished) unfinished.status = 'fail'; row.httpAttempts = observation.attempts }
+        } catch (error) {
+          row.status = 'failed'; row.refusalCode = safeProducerCode(error); const unfinished = row.checks.find(check => check.status !== 'pass'); if (unfinished) unfinished.status = 'fail'; row.httpAttempts = observation.attempts
+          const finalObservation = await finalProducerUiObservation(() => readProducerUiObservation(page, moduleUrl), remember)
+          console.error(JSON.stringify(producerUiFailureDetail(language, stage, error, finalObservation, state.lastVerified)))
+        }
         finally { if (held) { const release = held; held = null; release() }; if (context) { await context.close(); context = null }; await persist() }
         if (row.status !== 'pass') break
       }
@@ -240,4 +311,6 @@ async function main() {
     report.sourceStable = await producerIdentityMatches(root, report.source) ? 'verified' : 'changed'; await persist(); process.exitCode = producerReportExitCode(report)
   }
 }
-main().catch(() => { console.error(JSON.stringify({ suite: 'body-producer-browser', code: 'setup_failed' })); process.exitCode = 1 })
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(() => { console.error(JSON.stringify({ suite: 'body-producer-browser', code: 'setup_failed' })); process.exitCode = 1 })
+}
