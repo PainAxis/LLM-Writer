@@ -2,22 +2,23 @@
  * restored execution grant; every new HTTP call needs a fresh winning intent. */
 import type {
   CreativeAdapterResult, CreativeCommitGuard, CreativeGenerationAdapter, CreativeHeadCommand, CreativeMutation,
-  CreativeOfflineHost, CreativePhase, CreativePilotEngine, CreativeProgressEvent, CreativeProgressKind,
+  CreativeHost, CreativeLiveBinding, CreativeLiveGrantV1, CreativePhase, CreativePilotEngine, CreativeProgressEvent, CreativeProgressKind,
   CreativeRepository, CreativeRequest, CreativeResponse, CreativeRuntimeIdentity, CreativeSnapshot, CreativeTaskId, CreativeUnknownReason,
 } from '../../types/creativePilot'
 import { BoundedGenerationError } from '../aiRequestLimits'
 import { getCampaignBuildIdentity } from './buildIdentity'
 import { canonicalStringify, encodeStorageBytes } from './protocol'
 import {
-  CREATIVE_LIMITS, CreativePilotError, creativeId, creativeRequestReservation, sealCreativeRequest, sealCreativeResponse,
+  CREATIVE_LIMITS, CreativePilotError, creativeId, creativeRequestReservation, sealCreativeRequest, sealCreativeResponse, validateCreativeCampaignAuthority,
 } from './creativePilotProtocol'
 import { createCreativePilotRepository } from './creativePilotStore'
 import { compileCreativeInput } from './creativePilotContext'
-import { getCreativeOfflineSdkAdapter } from './creativePilotTransport'
+import { getCreativeSdkAdapter } from './creativePilotTransport'
 
 export interface CreativePilotEngineOptions {
   repository?: CreativeRepository
-  host?: CreativeOfflineHost
+  host?: CreativeHost
+  liveGrant?: CreativeLiveGrantV1
   identity?: CreativeRuntimeIdentity
   clock?: () => number
   monotonic?: () => number
@@ -40,7 +41,8 @@ export function createCreativePilotEngine(options: CreativePilotEngineOptions = 
   const clock = options.clock ?? Date.now, monotonic = options.monotonic ?? (() => performance.now())
   const repository = options.repository ?? createCreativePilotRepository({ clock, monotonic })
   const identity = structuredClone(options.identity ?? getCampaignBuildIdentity())
-  const adapter = getCreativeOfflineSdkAdapter(options.host)
+  const adapter = getCreativeSdkAdapter(options.host)
+  const liveGrant = options.liveGrant ? structuredClone(options.liveGrant) : undefined
   const owners = new Set<Owner>(), listeners = new Set<(event: Readonly<CreativeProgressEvent>) => void>()
   let disposed = false, ownerSequence = 0, activeRun: Run | null = null
 
@@ -86,9 +88,18 @@ export function createCreativePilotEngine(options: CreativePilotEngineOptions = 
   function checkSource(snapshot: CreativeSnapshot): void {
     if (snapshot.manifest.runtimeIdentity !== identity.runtimeIdentity || !equal(snapshot.manifest.source, identity.source)) throwCode('source_changed')
   }
+  function liveBinding(snapshot: CreativeSnapshot): CreativeLiveBinding {
+    return { campaignId: snapshot.manifest.campaignId, briefHash: snapshot.candidate.briefHash,
+      language: snapshot.manifest.language, policy: snapshot.manifest.policy }
+  }
   function checkHost(snapshot: CreativeSnapshot): CreativeGenerationAdapter {
     if (!adapter) throwCode('unconfigured')
     adapter.assertCurrent()
+    validateCreativeCampaignAuthority(snapshot.manifest, snapshot.candidate, adapter.identity)
+    if (snapshot.manifest.policy.mode === 'sdk_live_pilot') {
+      if (!adapter.assertBinding || clock() >= snapshot.manifest.policy.grant.expiresAt) throwCode('authority_revoked')
+      adapter.assertBinding(liveBinding(snapshot))
+    }
     if (snapshot.checkpoint.adapter && !equal(snapshot.checkpoint.adapter, adapter.identity)) throwCode('configuration_changed')
     return adapter
   }
@@ -230,6 +241,7 @@ export function createCreativePilotEngine(options: CreativePilotEngineOptions = 
       const admitted = request
       let intentHash: string | null = null
       const result: CreativeAdapterResult = await within(value, () => producer.invoke({ requestHash: admitted.hash, wire: admitted.prepared.wire,
+        ...(snapshot.manifest.policy.mode === 'sdk_live_pilot' ? { binding: liveBinding(snapshot) } : {}),
         signal: value.controller.signal, beforeRequest: async binding => {
           creativeCheck()
           const current = await read(value, creativeCheck)
@@ -310,7 +322,7 @@ export function createCreativePilotEngine(options: CreativePilotEngineOptions = 
     async prepare(input) {
       if (activeRun) throwCode('conflict')
       return metadata(input.campaignId, async value => {
-        const result = await repository.create({ ...input, identity: structuredClone(identity) }, guard(() => check(value)))
+        const result = await repository.create({ ...input, identity: structuredClone(identity), ...(liveGrant ? { liveGrant } : {}) }, guard(() => check(value)))
         check(value); emit(value, 'prepared', result.snapshot); check(value)
         return result.snapshot
       })
@@ -331,7 +343,7 @@ export function createCreativePilotEngine(options: CreativePilotEngineOptions = 
         if (adapter) checkHost(snapshot)
         check(value)
         return { campaignId, rawHead: snapshot.rawHead, candidateHash: snapshot.candidate.hash, prepared,
-          adapter: adapter ? { ...adapter.identity } : null, readiness: adapter ? 'offline_control_ready' as const : 'unconfigured' as const }
+          adapter: adapter ? { ...adapter.identity } : null, readiness: adapter ? (adapter.identity.mode === 'live_provider' ? 'live_provider_ready' as const : 'offline_control_ready' as const) : 'unconfigured' as const }
       })
     },
     async replaceBrief(input) {

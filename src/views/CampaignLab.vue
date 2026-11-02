@@ -2,6 +2,7 @@
   <main class="campaign-lab" data-testid="campaign-lab" :aria-busy="busy || loading || creativeBusy">
     <a href="#/" class="back-link">← 返回 LLM-Writer</a>
     <h1>Campaign Lab</h1>
+    <a href="#/creative-live-pilot">真实模型三章 pilot · 独立授权入口</a>
     <p class="notice" data-testid="campaign-boundary"><strong>离线持久化验证，非自主小说</strong><br>
       旧版写作步骤只生成固定合成案例；采用 v3 后可明确修订本地正文并准备单窗口提案。下方 v4 提供任意简报的三章离线 SDK 就绪流程，只有明确 Start/Resume 才会按固定范围推进。没有真实模型、凭证或花费授权，不导入旧小说或追加 Writer 正文；创建、重开与读取均不自动执行。</p>
     <p data-testid="campaign-planning-boundary">可选 Planning Contract v1 验证四阶段规划与精确修订上下文；规划意图不是已成立的正文事实。Offline fixture only · semantic consistency / autonomous generation / whole-work audit: NOT RUN.</p>

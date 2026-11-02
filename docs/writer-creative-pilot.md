@@ -2,7 +2,7 @@
 
 [English](writer-creative-pilot.md) | [简体中文](writer-creative-pilot.zh-CN.md)
 
-Status: local implementation and offline-readiness validation. This document does not award the pending exact-head CI gates or authorize any external provider, credential transmission, paid run or publication of manuscript data.
+Status: offline readiness accepted in [PR #51](https://github.com/PainAxis/LLM-Writer/pull/51) and [#52](https://github.com/PainAxis/LLM-Writer/pull/52); [main CI 41086963499](https://github.com/PainAxis/LLM-Writer/actions/runs/41086963499) passed all 17 jobs, with 19 audited archives. Live integration is a separate policy described below. No real-model literary acceptance has been performed.
 
 ## The concrete writing path
 
@@ -16,7 +16,7 @@ Campaign Lab accepts a new Chinese or English author brief, not a choice of fixt
 
 That is **nine lifetime requests**, with no retry, repair, extra chapter or hidden tool request. Every body depends on all six accepted plans and every preceding accepted body. Chapter 3 receives the complete exact text of bodies 1 and 2, not a summary, hash substitute or truncated window. The synthetic test endpoint derives its replies from the actual SDK request; production code does not import its recipes or brief corpus.
 
-The default application has **no transport host**. Authors can prepare and inspect a brief, but Start remains disabled and the engine independently refuses calls. Only a separately installed opaque offline-control host can use the real bounded SDK, and its destination is restricted to loopback. Query strings, local storage and saved campaign records do not grant a host. This is a working offline vertical, not approval to send a real novel to a provider.
+The ordinary Campaign Lab has **no transport host**. Authors can prepare and inspect a brief, but Start remains disabled and the engine independently refuses calls. Its separately installed offline-control host uses the real bounded SDK and is restricted to loopback. The separate Live Pilot page installs a different opaque host only after explicit session authorization. Query strings, local storage and saved campaign records do not grant a host. Saved campaigns alone never authorize provider calls.
 
 ## Author controls and disclosure
 
@@ -71,3 +71,17 @@ The frozen plan distinguishes six Node campaigns (54 real local SDK tasks), two 
 The new archive contains exactly `node-summary.json`, `browser-summary.json` and `manifest.json`: closed bounded identities, counts, outcomes and hashes only. It contains no brief, prompt, body, response, raw store, backup, screenshot or free-form diagnostic. Raw failure maps stay private for diagnosis, including unknown request identity and outstanding liability.
 
 This closes the short autonomous planning-to-writing path, not literary quality or the final million-character test. Before a live pilot, a separate decision must identify the exact endpoint/model, credential route, real author brief/language, maximum requests/output tokens, enforceable input-token and money limits, and permission to transmit the disclosed/generated text. The live literary review must then examine the actual three chapters and all plan/body consistency claims; offline structural success cannot substitute for it. Longer runs still require full-work consistency coverage, bounded repair and resource calibration before the two autonomous 1,000,000-character novels can be accepted.
+
+## Live bilingual pilot contract
+
+The **Live Pilot** entry prepares one Chinese and one English brief in the same browser storage. Preparation and restoration make zero model calls. A new `creative-pilot-live-policy-v1` embeds a hash-bound grant for exactly these two campaign IDs and brief hashes. The original offline policy and its serialized records stay unchanged; old readers reject the new policy. Live briefs cannot be replaced under an existing grant.
+
+Authorization identifies OpenAI `https://api.openai.com/v1`, model `gpt-6-luna`, Standard Chat Completions, `reasoning_effort: none`, `temperature: 0.7`, `max_completion_tokens: 4096`, `stream: false`, and `store: false`. No tools, alternate tiers, Responses API, 12-hour cache option, retries or additional samples are admitted. The key stays in the current session closure, outside saved API settings, campaign records and reports; changing or clearing it revokes the host. Reload restores inspection, not execution authority. An existing pair must be restored from its original browser records, not imported as a fresh grant.
+
+The grant reserves all **18 non-refundable request slots** up front. Each campaign retains its original nine-request CAS ledger; unknown requests consume their slot and cannot be replayed. A slot reserves the entire model context upper bound (1,050,000 input tokens) plus 4,096 output tokens, at conservative ceilings of $0.30 and $1 per million respectively: **$0.319096 per request, $5.743728 for the pair**. The author must approve at least this amount; $6 is the suggested API-token cap. These figures deliberately over-reserve context rather than pretending byte counts are tokens. Actual usage remains provider-reported evidence, not a refund or permission for another attempt.
+
+This version’s price-review validity ends **2026-11-09 00:00 UTC**. Calls after that point require a repriced version; historical results remain readable. This is a project review deadline, not a provider price lock. Grant expiry cannot exceed it.
+
+The pricing contract uses the [2026-11-02 model and Standard price table](https://developers.openai.com/api/docs/models/gpt-6-luna), including long-context and default cache-write rates. It bounds token charges for this fixed execution path under that price contract, not taxes, currency conversion, other account traffic or later price changes. `store:false` does not mean zero provider retention; review [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data) before authorizing transmission of the brief, generated plans and complete preceding bodies.
+
+Synthetic SDK and built-App tests verify the live request contract without contacting a provider. Actual paid execution still requires the chosen account/project, both briefs, transmission permission and budget approval. After it runs, review all six chapters for narrative quality, plan adherence, character knowledge and cross-chapter consistency; structural compilation alone does not pass that review.

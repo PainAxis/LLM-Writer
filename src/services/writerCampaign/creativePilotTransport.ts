@@ -1,18 +1,17 @@
-/** Real bounded SDK transport for the explicitly installed loopback control host.
- * There is no live branch, saved grant, ordinary billing hook or fixture adapter. */
+/** Bounded SDK transport. Opaque hosts carry session authority; stored descriptors do not. */
 import type { ApiConfig } from '../../types/api'
 import type {
   CreativeAdapterIdentity, CreativeAdapterResult, CreativeContentAnomaly, CreativeContentEvidence,
-  CreativeDispatchWire, CreativeFinishReason, CreativeGenerationAdapter, CreativeReportedModel, CreativeUsageEvidence, CreativeOfflineHost,
+  CreativeDispatchWire, CreativeFinishReason, CreativeGenerationAdapter, CreativeReportedModel, CreativeUsageEvidence, CreativeOfflineHost, CreativeLiveHost, CreativeHost, CreativeLiveGrantV1, CreativeLiveBinding,
 } from '../../types/creativePilot'
 import { loadAISDK, resolveLanguageModel } from '../aiProviders'
 import { BoundedGenerationError, createBoundedRequestScope, type BoundedRequestScope } from '../aiRequestLimits'
 import { usesCompletionTokenLimit } from '../../utils/generationBudget'
 import { assertScalarText, canonicalStringify, hashText, utf8Bytes } from './protocol'
-import { CREATIVE_ANOMALIES, CREATIVE_LIMITS, CreativePilotError, encodeCreativeResponseText, validateCreativeAdapter } from './creativePilotProtocol'
+import { CREATIVE_ANOMALIES, CREATIVE_LIMITS, CreativePilotError, encodeCreativeResponseText, validateCreativeAdapter, validateCreativeLiveGrant, validateCreativeBinding } from './creativePilotProtocol'
 import { parseCreativeJson } from './creativePilotJson'
 
-export type { CreativeOfflineHost } from '../../types/creativePilot'
+export type { CreativeOfflineHost, CreativeLiveHost, CreativeHost } from '../../types/creativePilot'
 export interface CreativeOfflineSdkHostOptions {
   identity: CreativeAdapterIdentity
   currentConfigurationRevision: () => string
@@ -29,8 +28,12 @@ const jsonLimits = Object.freeze({ maxUtf16: 65_536, maxDepth: 32, maxNodes: 16_
 
 /** Internal engine seam. Only opaque factory products resolve; serialized or
  * structurally matching values never disclose an adapter or confer authority. */
-export function getCreativeOfflineSdkAdapter(host: CreativeOfflineHost | undefined): CreativeGenerationAdapter | null {
+export function getCreativeSdkAdapter(host: CreativeHost | undefined): CreativeGenerationAdapter | null {
   return host && typeof host === 'object' ? hosts.get(host) ?? null : null
+}
+export function getCreativeOfflineSdkAdapter(host: CreativeOfflineHost | undefined): CreativeGenerationAdapter | null {
+  const adapter = getCreativeSdkAdapter(host)
+  return adapter?.identity.mode === 'offline_control' ? adapter : null
 }
 
 function validateConfiguration(config: ApiConfig, identity: Readonly<CreativeAdapterIdentity>): void {
@@ -54,7 +57,7 @@ function frozenWire(input: Readonly<{ system: string; prompt: string }>): Readon
 }
 
 async function observeDispatchBody(body: unknown, wire: Readonly<{ system: string; prompt: string }>, config: ApiConfig,
-  check: () => void): Promise<CreativeDispatchWire> {
+  check: () => void, live = false): Promise<CreativeDispatchWire> {
   check()
   if (typeof body !== 'string' || !body.length || body.length > CREATIVE_LIMITS.inputUtf16) wireFailure()
   let bytes: number, value: Record<string, unknown> | null
@@ -69,7 +72,8 @@ async function observeDispatchBody(body: unknown, wire: Readonly<{ system: strin
     return wireFailure()
   }
   const limitKey = usesCompletionTokenLimit(config) ? 'max_completion_tokens' : 'max_tokens'
-  if (!value || !exactKeys(value, ['model', 'temperature', 'messages', limitKey])
+  if (!value || !exactKeys(value, ['model', 'temperature', 'messages', limitKey, ...(live ? ['reasoning_effort', 'service_tier', 'stream', 'store'] : [])])
+    || (live && (value.reasoning_effort !== 'none' || value.service_tier !== 'default' || value.stream !== false || value.store !== false))
     || value.model !== config.selectedModel || value.temperature !== 0.7 || value[limitKey] !== CREATIVE_LIMITS.outputTokens
     || !Array.isArray(value.messages) || value.messages.length !== 2) wireFailure()
   const system = record(value.messages[0]), prompt = record(value.messages[1])
@@ -89,7 +93,7 @@ export async function inspectCreativeDispatchRequest(url: unknown, init: Readonl
   return observeDispatchBody(init.body, wire, config, check)
 }
 
-function projectRawMetadata(value: unknown, effectiveModelId: string): { usage: CreativeUsageEvidence; reportedModel: CreativeReportedModel } {
+function projectRawMetadata(value: unknown, effectiveModelId: string, live = false): { usage: CreativeUsageEvidence; reportedModel: CreativeReportedModel } {
   const root = record(value)
   if (!root) throw new BoundedGenerationError('transport')
   let reportedModel: CreativeReportedModel = { status: 'absent', value: null }
@@ -110,11 +114,13 @@ function projectRawMetadata(value: unknown, effectiveModelId: string): { usage: 
   const details = usage && own(usage, 'completion_tokens_details') ? record(usage.completion_tokens_details) : null
   if (usage && own(usage, 'completion_tokens_details') && !details) invalid = true
   const reasoningTokens = counter(details, 'reasoning_tokens')
+  if (live && ((inputTokens !== null && inputTokens > 1_050_000)
+    || (own(root, 'service_tier') && root.service_tier !== 'default'))) invalid = true
   if ((outputTokens !== null && outputTokens > CREATIVE_LIMITS.outputTokens)
     || (reasoningTokens !== null && outputTokens !== null && reasoningTokens > outputTokens)) invalid = true
   const known = [inputTokens, outputTokens, reasoningTokens].filter(value => value !== null).length
   return { reportedModel, usage: { status: invalid ? 'invalid' : known === 3 ? 'complete' : known ? 'partial' : 'unavailable',
-    provenance: 'synthetic_control', inputTokens, outputTokens, reasoningTokens } }
+    provenance: live ? 'provider_reported' : 'synthetic_control', inputTokens, outputTokens, reasoningTokens } }
 }
 
 /** Pure closed anomaly projection. This conveys no host or invocation authority. */
@@ -159,6 +165,55 @@ export function createCreativeOfflineSdkHost(options: CreativeOfflineSdkHostOpti
   try { validateCreativeAdapter(options.identity) } catch { throw new CreativePilotError('unconfigured') }
   if (options.identity.adapterId !== 'creative-pilot-sdk-v1' || options.identity.adapterVersion !== 'creative-pilot-sdk-v1'
     || typeof options.currentConfigurationRevision !== 'function' || typeof options.readConfiguration !== 'function') throw new CreativePilotError('unconfigured')
+  return createSdkHost(options, false) as CreativeOfflineHost
+}
+
+export interface CreativeLiveSdkHostOptions {
+  grant: CreativeLiveGrantV1
+  readCredential: () => string | null
+  currentGrant: () => CreativeLiveGrantV1 | null
+}
+
+/** Keys remain in a caller-owned session closure; this factory never reads one. */
+export async function createCreativeLiveSdkHost(options: CreativeLiveSdkHostOptions): Promise<CreativeLiveHost> {
+  const grant = structuredClone(options.grant)
+  await validateCreativeLiveGrant(grant)
+  if (typeof options.readCredential !== 'function' || typeof options.currentGrant !== 'function') throw new CreativePilotError('unconfigured')
+  const grantBytes = canonicalStringify(grant)
+  const readCredential = options.readCredential, currentGrant = options.currentGrant
+  let pinnedCredential: string | null = null
+  const current = () => {
+    try {
+      if (Date.now() >= grant.expiresAt || canonicalStringify(currentGrant()) !== grantBytes) configurationFailure()
+    } catch { configurationFailure() }
+    return grant.grantId
+  }
+  current()
+  const identity: CreativeAdapterIdentity = { mode: 'live_provider', adapterId: 'creative-pilot-live-sdk-v1',
+    adapterVersion: 'creative-pilot-live-sdk-v1', requestedModelId: grant.modelId, effectiveModelId: grant.modelId,
+    configurationRevision: grant.grantId, endpointIdentity: grant.endpoint, grantHash: grant.hash }
+  validateCreativeAdapter(identity)
+  const assertBinding = (binding: CreativeLiveBinding) => {
+    current()
+    validateCreativeBinding(binding, identity)
+    if (binding.policy.protocol !== 'creative-pilot-live-policy-v1'
+      || canonicalStringify(binding.policy.grant) !== grantBytes) configurationFailure()
+  }
+  return createSdkHost({ identity, currentConfigurationRevision: current,
+    readConfiguration: () => {
+      current()
+      const apiKey = readCredential()
+      if (typeof apiKey !== 'string' || !apiKey.length || (pinnedCredential !== null && apiKey !== pinnedCredential)) configurationFailure()
+      pinnedCredential ??= apiKey
+      return { provider: 'custom', baseURL: grant.endpoint, selectedModel: grant.modelId, apiKey,
+        maxTokens: CREATIVE_LIMITS.outputTokens, unlimitedTokens: false, temperature: 0.7,
+        thinkingProtocol: 'openai', thinkingMode: 'disabled', customHeaders: {} }
+    },
+  }, true, assertBinding) as CreativeLiveHost
+}
+
+function createSdkHost(options: CreativeOfflineSdkHostOptions, live: boolean,
+  assertBinding?: (binding: CreativeLiveBinding) => void): CreativeHost {
   const identity = Object.freeze({ ...options.identity })
   const revision = options.currentConfigurationRevision, readConfiguration = options.readConfiguration
   let configurationWasRead = false
@@ -171,6 +226,7 @@ export function createCreativeOfflineSdkHost(options: CreativeOfflineSdkHostOpti
   const adapter: CreativeGenerationAdapter = Object.freeze({
     identity,
     assertCurrent,
+    ...(assertBinding ? { assertBinding } : {}),
     async invoke(input: Parameters<CreativeGenerationAdapter['invoke']>[0]): Promise<CreativeAdapterResult> {
       const completionDeadline = performance.now() + CREATIVE_LIMITS.sdkMs
       const scope = createBoundedRequestScope({ maxAttempts: 1, maxResponseBytes: CREATIVE_LIMITS.httpBytes,
@@ -182,6 +238,10 @@ export function createCreativeOfflineSdkHost(options: CreativeOfflineSdkHostOpti
         const wire = frozenWire(input.wire)
         if (!/^[a-f0-9]{64}$/.test(input.requestHash) || typeof input.beforeRequest !== 'function') throw new CreativePilotError('input_invalid')
         assertCurrent()
+        if (live) {
+          if (!input.binding || !assertBinding) throw new CreativePilotError('unconfigured')
+          assertBinding(input.binding)
+        }
         let config: ApiConfig
         try {
           const current = readConfiguration()
@@ -208,7 +268,11 @@ export function createCreativeOfflineSdkHost(options: CreativeOfflineSdkHostOpti
           return async (url, init) => {
             scope.assertActive(); assertCurrent()
             const body = init?.body
-            binding = await inspectCreativeDispatchRequest(url, init && { method: init.method, body }, endpoint, wire, config, scope.assertActive)
+            if (live) {
+              if (url instanceof Request || (typeof url !== 'string' && !(url instanceof URL))
+                || String(url) !== endpoint || init?.method !== 'POST') wireFailure()
+              binding = await observeDispatchBody(body, wire, config, scope.assertActive, true)
+            } else binding = await inspectCreativeDispatchRequest(url, init && { method: init.method, body }, endpoint, wire, config, scope.assertActive)
             // Preserve the exact checked string across the asynchronous durable
             // guard. Copy header ownership without logging or hashing secrets.
             const ownedInit: RequestInit = { ...init, method: 'POST', body: body as string, headers: new Headers(init?.headers) }
@@ -222,7 +286,7 @@ export function createCreativeOfflineSdkHost(options: CreativeOfflineSdkHostOpti
               const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
               parsed = parseCreativeJson(decoded, jsonLimits, scope.assertActive)
             } catch { scope.assertActive(); throw new BoundedGenerationError('transport') }
-            rawMetadata = projectRawMetadata(parsed, identity.effectiveModelId)
+            rawMetadata = projectRawMetadata(parsed, identity.effectiveModelId, live)
             scope.assertActive()
             return response
           }
@@ -231,6 +295,7 @@ export function createCreativeOfflineSdkHost(options: CreativeOfflineSdkHostOpti
         const model = await scope.run(() => resolveLanguageModel(config, undefined, guardedScope))
         const result = await scope.run(() => generateText({ model, prompt: wire.prompt, system: wire.system,
           maxOutputTokens: CREATIVE_LIMITS.outputTokens, temperature: 0.7, maxRetries: 0,
+          ...(live ? { providerOptions: { custom: { reasoningEffort: 'none', service_tier: 'default', stream: false, store: false } } } : {}),
           abortSignal: scope.signal, telemetry: { isEnabled: false } }))
         scope.assertActive()
         const observed = record(result)
@@ -262,7 +327,7 @@ export function createCreativeOfflineSdkHost(options: CreativeOfflineSdkHostOpti
       } finally { rawMetadata = null; scope.close() }
     },
   })
-  const host = Object.freeze({}) as CreativeOfflineHost
+  const host = Object.freeze({}) as CreativeHost
   hosts.set(host, adapter)
   return host
 }

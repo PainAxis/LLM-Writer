@@ -685,3 +685,31 @@ jobs:
           path: artifacts/ci-evidence/creative-pilot
           if-no-files-found: error
           retention-days: 7
+
+  creative-live-pilot:
+    name: ci-creative-live-pilot
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Verify live contract without a provider connection
+        run: |
+          npm run smoke:creative-pilot-live-core
+          npm run smoke:creative-pilot-live-transport
+          npm run smoke:creative-live-engine
+          npm run smoke:creative-live-ui
+      # Fixed OpenAI-target interception; no credentials/secrets or real provider calls.
+      - name: Verify bilingual live UI with synthetic provider responses
+        run: npm run test:browser-creative-live-pilot
+        env:
+          CREATIVE_PILOT_CI_APPROVED: '1'
+        timeout-minutes: 10

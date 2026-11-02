@@ -20,6 +20,8 @@ export const CAMPAIGN_CORE_PATHS = Object.freeze([
   'src/composables/useCreativePilotLab.ts',
   'src/components/CreativePilotPanel.vue',
   'src/views/CampaignLab.vue',
+  'src/composables/useCreativeLivePilot.ts',
+  'src/views/CreativeLivePilot.vue',
   'src/types/bodyProducer.ts',
   'src/types/api.ts',
   'src/services/writerCampaign/bodyProducerEngine.ts',

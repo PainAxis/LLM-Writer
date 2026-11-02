@@ -1,7 +1,7 @@
 {
   "name": "llm-writer",
   "version": "1.0.2",
-  "description": "AI智能小说创作工具（纯前端）",
+  "description": "AI\u667a\u80fd\u5c0f\u8bf4\u521b\u4f5c\u5de5\u5177\uff08\u7eaf\u524d\u7aef\uff09",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
@@ -221,7 +221,12 @@
     "test:browser-creative-pilot": "node --import tsx scripts/browser-creative-pilot.mjs",
     "evidence:creative-pilot": "node --import tsx scripts/prepare-creative-pilot-evidence.ts",
     "smoke:creative-pilot-build": "node scripts/smoke-creative-pilot-build.mjs",
-    "smoke:creative-pilot-failure": "node --import tsx scripts/smoke-creative-pilot-failure.ts"
+    "smoke:creative-pilot-failure": "node --import tsx scripts/smoke-creative-pilot-failure.ts",
+    "smoke:creative-pilot-live-core": "node --import tsx scripts/smoke-creative-pilot-live-core.ts",
+    "smoke:creative-pilot-live-transport": "node --import tsx scripts/smoke-creative-pilot-live-transport.ts",
+    "smoke:creative-live-engine": "node --import tsx scripts/smoke-creative-live-engine.ts",
+    "smoke:creative-live-ui": "node --import tsx scripts/smoke-creative-live-ui.ts",
+    "test:browser-creative-live-pilot": "node --import tsx scripts/browser-creative-live-pilot.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

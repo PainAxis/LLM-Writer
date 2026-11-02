@@ -3,7 +3,7 @@ import type {
   CreativeAdapterIdentity, CreativeAdapterResult, CreativeArtifact, CreativeArtifactRef, CreativeArtifactTextV1, CreativeBriefV1,
   CreativeBudget, CreativeCandidate, CreativeCheckpoint, CreativeDispatchWire, CreativeErrorCode, CreativeHead, CreativeManifest,
   CreativePhase, CreativePolicy, CreativeReceipt, CreativeRequest, CreativeResolutionReason, CreativeResponse, CreativeRuntimeIdentity,
-  CreativeTaskId, CreativeTaskSpec,
+  CreativeTaskId, CreativeTaskSpec, CreativeOfflinePolicy, CreativeLiveGrantV1, CreativeLivePolicy, CreativeLiveBinding,
 } from '../../types/creativePilot'
 import {
   assertScalarText, canonicalCampaignText, canonicalStringify, decodeStorageBytes, encodeStorageBytes, hashCampaignValue, hashText,
@@ -22,8 +22,15 @@ export const CREATIVE_LIMITS = Object.freeze({ tasks: 9, attempts: 9, operations
   httpBytes: 65_536, textUtf16: 65_536, outputTokens: 4096, stageMs: 60_000, metadataMs: 10_000, sdkMs: 30_000,
   ioMs: 3_000, repositoryMs: 10_000, runMs: 900_000, briefUtf16: 1024, briefBytes: 4096, bodyUtf16: 2048,
   bodyBytes: 8192, bodyMinScalars: 256, bodyMaxScalars: 1024 })
-export const CREATIVE_POLICY: Readonly<CreativePolicy> = Object.freeze({ protocol: 'creative-pilot-policy-v1', mode: 'sdk_offline_readiness',
+export const CREATIVE_POLICY: Readonly<CreativeOfflinePolicy> = Object.freeze({ protocol: 'creative-pilot-policy-v1', mode: 'sdk_offline_readiness',
   transportPolicy: 'creative-pilot-sdk-v1', inputTokenEnforcement: 'not_enforced_offline_control', retention: 'local_campaign_lifetime_no_automatic_deletion' })
+/** Conservative reservation ceilings, not a forecast or a provider authorization. */
+export const CREATIVE_LIVE_GRANT_DEFAULTS = Object.freeze({
+  protocol: 'creative-pilot-live-grant-v1', provider: 'openai', modelId: 'gpt-6-luna', endpoint: 'https://api.openai.com/v1',
+  reasoningEffort: 'none', serviceTier: 'default', store: false, pricingDate: '2026-11-02', pricingValidUntil: 1794182400000,
+  reservedCostMicroUsd: 5743728, slots: 18, inputTokensPerSlot: 1050000, outputTokensPerSlot: 4096,
+  inputMicroUsdPerMillion: 300000, outputMicroUsdPerMillion: 1000000,
+} as const)
 export const CREATIVE_BUDGET_LIMITS: Readonly<CreativeBudget> = Object.freeze({ attempts: 9, inputBytes: 589824, inputUtf16: 589824,
   inputTokens: null, outputTokens: 36864, reasoningTokens: 0, responseBytes: 589824, activeMs: 600000, artifacts: 9, operations: 48 })
 export const CREATIVE_DOMAIN = Object.freeze({ manifest: 'creative-pilot-manifest-v4', candidate: 'creative-pilot-candidate-v1',
@@ -82,11 +89,69 @@ export function validateCreativeBrief(value: unknown): asserts value is Creative
   const parts = [value.premise, ...value.constraints as string[]]
   creativeAssert(parts.reduce((n, s) => n + s.length, 0) <= 1024 && parts.reduce((n, s) => n + utf8Bytes(s), 0) <= 4096, 'Brief capacity', 'input_invalid')
 }
+function liveGrantShape(value: unknown): asserts value is CreativeLiveGrantV1 {
+  creativeRecord(value, [...Object.keys(CREATIVE_LIVE_GRANT_DEFAULTS), 'grantId', 'campaignIds', 'briefHashes', 'maxCostMicroUsd', 'transmissionConsent', 'expiresAt', 'hash'])
+  for (const [key, fixed] of Object.entries(CREATIVE_LIVE_GRANT_DEFAULTS)) creativeAssert(value[key] === fixed)
+  creativeId(value.grantId); creativeHash(value.hash)
+  creativeRecord(value.campaignIds, ['zh', 'en']); creativeRecord(value.briefHashes, ['zh', 'en'])
+  for (const language of ['zh', 'en'] as const) { creativeId(value.campaignIds[language]); creativeHash(value.briefHashes[language]) }
+  creativeAssert(value.campaignIds.zh !== value.campaignIds.en && value.transmissionConsent === true)
+  creativeInteger(value.maxCostMicroUsd, Number.MAX_SAFE_INTEGER, CREATIVE_LIVE_GRANT_DEFAULTS.reservedCostMicroUsd)
+  // Project review deadline, not a provider price guarantee; historical reads stay valid.
+  creativeInteger(value.expiresAt, CREATIVE_LIVE_GRANT_DEFAULTS.pricingValidUntil, 1)
+}
+export async function validateCreativeLiveGrant(value: CreativeLiveGrantV1): Promise<CreativeLiveGrantV1> {
+  liveGrantShape(value); return hashed(value, 'creative-pilot-live-grant-v1')
+}
+export async function sealCreativeLiveGrant(value: Omit<CreativeLiveGrantV1, 'hash'>): Promise<CreativeLiveGrantV1> {
+  return validateCreativeLiveGrant(await sealCreativeRecord<CreativeLiveGrantV1>(value, 'creative-pilot-live-grant-v1'))
+}
+export function creativeLivePolicy(grant: CreativeLiveGrantV1): CreativeLivePolicy {
+  liveGrantShape(grant)
+  return { protocol: 'creative-pilot-live-policy-v1', mode: 'sdk_live_pilot', transportPolicy: 'creative-pilot-live-sdk-v1',
+    inputTokenEnforcement: 'worst_case_context_reservation', retention: 'local_campaign_lifetime_no_automatic_deletion', grant: structuredClone(grant) }
+}
+function policyShape(policy: CreativePolicy): void {
+  if (policy?.protocol === 'creative-pilot-policy-v1') creativeAssert(creativeEqual(policy, CREATIVE_POLICY))
+  else {
+    creativeRecord(policy, ['protocol', 'mode', 'transportPolicy', 'inputTokenEnforcement', 'retention', 'grant'])
+    liveGrantShape(policy.grant)
+    creativeAssert(creativeEqual(policy, creativeLivePolicy(policy.grant)))
+  }
+}
+export function validateCreativePolicyAdapter(policy: CreativePolicy, adapter: CreativeAdapterIdentity): void {
+  policyShape(policy); validateCreativeAdapter(adapter)
+  if (policy.protocol === 'creative-pilot-policy-v1') creativeAssert(adapter.mode === 'offline_control', 'Policy adapter mismatch', 'configuration_changed')
+  else creativeAssert(adapter.mode === 'live_provider' && adapter.grantHash === policy.grant.hash
+    && adapter.configurationRevision === policy.grant.grantId, 'Grant adapter mismatch', 'configuration_changed')
+}
+export function validateCreativeBinding(binding: CreativeLiveBinding, adapter: CreativeAdapterIdentity): void {
+  validateCreativePolicyAdapter(binding.policy, adapter)
+  if (binding.policy.protocol === 'creative-pilot-live-policy-v1') {
+    const grant = binding.policy.grant
+    choice(binding.language, ['zh', 'en'])
+    creativeAssert(binding.campaignId === grant.campaignIds[binding.language] && binding.briefHash === grant.briefHashes[binding.language], 'Grant campaign mismatch', 'authority_revoked')
+  }
+}
+export function validateCreativeCampaignAuthority(manifest: CreativeManifest, candidate: CreativeCandidate, adapter: CreativeAdapterIdentity): void {
+  creativeAssert(candidate.campaignId === manifest.campaignId && candidate.brief.language === manifest.language)
+  if (manifest.policy.protocol === 'creative-pilot-live-policy-v1') creativeAssert(candidate.hash === manifest.initialCandidateHash && candidate.revision === 0 && candidate.parentHash === null, 'Live candidate changed', 'authority_revoked')
+  validateCreativeBinding({ campaignId: manifest.campaignId, language: manifest.language, briefHash: candidate.briefHash, policy: manifest.policy }, adapter)
+}
+export function validateCreativeResponseAuthority(adapter: CreativeAdapterIdentity, response: CreativeResponse): void {
+  creativeAssert(response.usage.provenance === (adapter.mode === 'live_provider' ? 'provider_reported' : 'synthetic_control'), 'Response provenance mismatch', 'integrity')
+}
 export function validateCreativeAdapter(value: unknown): asserts value is CreativeAdapterIdentity {
-  creativeRecord(value, ['mode', 'adapterId', 'adapterVersion', 'requestedModelId', 'effectiveModelId', 'configurationRevision', 'endpointIdentity']); choice(value.mode, ['offline_control'])
+  const live = value !== null && typeof value === 'object' && (value as { mode?: unknown }).mode === 'live_provider'
+  creativeRecord(value, ['mode', 'adapterId', 'adapterVersion', 'requestedModelId', 'effectiveModelId', 'configurationRevision', 'endpointIdentity', ...(live ? ['grantHash'] : [])]); choice(value.mode, ['offline_control', 'live_provider'])
   for (const key of ['adapterId', 'adapterVersion', 'requestedModelId', 'effectiveModelId', 'configurationRevision']) creativeAssert(typeof value[key] === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$/.test(value[key] as string))
   text(value.endpointIdentity, 512)
-  try { const url = new URL(value.endpointIdentity); creativeAssert(['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+  if (live) {
+    creativeHash(value.grantHash)
+    creativeAssert(value.adapterId === 'creative-pilot-live-sdk-v1' && value.adapterVersion === 'creative-pilot-live-sdk-v1'
+      && value.requestedModelId === CREATIVE_LIVE_GRANT_DEFAULTS.modelId && value.effectiveModelId === CREATIVE_LIVE_GRANT_DEFAULTS.modelId
+      && value.endpointIdentity === CREATIVE_LIVE_GRANT_DEFAULTS.endpoint)
+  } else try { const url = new URL(value.endpointIdentity); creativeAssert(['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
     && !url.username && !url.password && !url.search && !url.hash && url.href === value.endpointIdentity) } catch { throw new CreativePilotError('integrity') }
 }
 export function validateCreativeDispatchWire(value: unknown): asserts value is CreativeDispatchWire {
@@ -123,16 +188,25 @@ export async function validateCreativeManifest(value: CreativeManifest): Promise
   creativeRecord(value, ['schemaVersion', 'protocolVersion', 'campaignId', 'language', 'initialCandidateHash', 'taskGraphVersion', 'tasks', 'compilerVersion', 'promptVersion', 'countingVersion', 'runtimeIdentity', 'source', 'policy', 'budget', 'storage', 'createdAt', 'expiresAt', 'hash'])
   choice(value.schemaVersion, [4]); choice(value.protocolVersion, ['creative-pilot-v4']); creativeId(value.campaignId); choice(value.language, ['zh', 'en']); creativeHash(value.initialCandidateHash)
   choice(value.taskGraphVersion, ['creative-three-chapter-v1']); creativeAssert(creativeEqual(value.tasks, creativeTaskGraph())); choice(value.compilerVersion, ['creative-plan-compiler-v1']); choice(value.promptVersion, ['creative-pilot-prompt-v1'])
-  choice(value.countingVersion, ['crlf-lf-nfc-scalar-v1']); runtimeIdentity(value); creativeAssert(creativeEqual(value.policy, CREATIVE_POLICY) && creativeEqual(value.budget, CREATIVE_BUDGET_LIMITS))
+  choice(value.countingVersion, ['crlf-lf-nfc-scalar-v1']); runtimeIdentity(value); policyShape(value.policy); creativeAssert(creativeEqual(value.budget, CREATIVE_BUDGET_LIMITS))
+  if (value.policy.protocol === 'creative-pilot-live-policy-v1') {
+    await validateCreativeLiveGrant(value.policy.grant)
+    creativeAssert(value.campaignId === value.policy.grant.campaignIds[value.language] && value.expiresAt <= value.policy.grant.expiresAt)
+  }
   creativeAssert(creativeEqual(value.storage, { limitBytes: encodeStorageBytes(67108864), recoveryReserveBytes: encodeStorageBytes(524288) }))
   creativeInteger(value.createdAt); creativeInteger(value.expiresAt); creativeAssert(value.expiresAt === value.createdAt + 900000)
   return hashed(value, CREATIVE_DOMAIN.manifest)
 }
-export async function createCreativeManifest(campaignId: string, candidate: CreativeCandidate, identity: CreativeRuntimeIdentity): Promise<CreativeManifest> {
+export async function createCreativeManifest(campaignId: string, candidate: CreativeCandidate, identity: CreativeRuntimeIdentity, liveGrant?: CreativeLiveGrantV1): Promise<CreativeManifest> {
+  if (liveGrant !== undefined) {
+    await validateCreativeLiveGrant(liveGrant)
+    creativeAssert(candidate.campaignId === campaignId && campaignId === liveGrant.campaignIds[candidate.brief.language] && candidate.briefHash === liveGrant.briefHashes[candidate.brief.language]
+      && candidate.revision === 0 && candidate.parentHash === null, 'Grant candidate mismatch', 'authority_revoked')
+  }
   return validateCreativeManifest(await sealCreativeRecord<CreativeManifest>({ schemaVersion: 4, protocolVersion: 'creative-pilot-v4', campaignId,
     language: candidate.brief.language, initialCandidateHash: candidate.hash, taskGraphVersion: 'creative-three-chapter-v1', tasks: creativeTaskGraph(),
     compilerVersion: 'creative-plan-compiler-v1', promptVersion: 'creative-pilot-prompt-v1', countingVersion: 'crlf-lf-nfc-scalar-v1', ...structuredClone(identity),
-    policy: { ...CREATIVE_POLICY }, budget: { ...CREATIVE_BUDGET_LIMITS }, storage: { limitBytes: encodeStorageBytes(67108864), recoveryReserveBytes: encodeStorageBytes(524288) },
+    policy: liveGrant ? creativeLivePolicy(liveGrant) : { ...CREATIVE_POLICY }, budget: { ...CREATIVE_BUDGET_LIMITS }, storage: { limitBytes: encodeStorageBytes(67108864), recoveryReserveBytes: encodeStorageBytes(524288) },
     createdAt: candidate.createdAt, expiresAt: candidate.createdAt + 900000 }, CREATIVE_DOMAIN.manifest))
 }
 export async function validateCreativeRequest(value: CreativeRequest): Promise<CreativeRequest> {
@@ -166,7 +240,7 @@ export async function validateCreativeResponse(value: CreativeResponse): Promise
   choice(value.finishReason, ['stop', 'length', 'content_filter', 'tool_calls', 'error', 'other', 'unknown'])
   creativeRecord(value.contentEvidence, ['stepCount', 'anomalies']); if (value.contentEvidence.stepCount !== null) creativeInteger(value.contentEvidence.stepCount)
   array(value.contentEvidence.anomalies, 5); creativeAssert(creativeEqual(value.contentEvidence.anomalies, CREATIVE_ANOMALIES.filter(x => value.contentEvidence.anomalies.includes(x))))
-  creativeRecord(value.usage, ['status', 'provenance', 'inputTokens', 'outputTokens', 'reasoningTokens']); choice(value.usage.status, ['complete', 'partial', 'unavailable', 'invalid']); choice(value.usage.provenance, ['synthetic_control'])
+  creativeRecord(value.usage, ['status', 'provenance', 'inputTokens', 'outputTokens', 'reasoningTokens']); choice(value.usage.status, ['complete', 'partial', 'unavailable', 'invalid']); choice(value.usage.provenance, ['synthetic_control', 'provider_reported'])
   for (const key of ['inputTokens', 'outputTokens', 'reasoningTokens'] as const) if (value.usage[key] !== null) creativeInteger(value.usage[key])
   creativeRecord(value.reportedModel, ['status', 'value']); choice(value.reportedModel.status, ['absent', 'matched', 'mismatch', 'invalid'])
   if (['absent', 'invalid'].includes(value.reportedModel.status)) creativeAssert(value.reportedModel.value === null)

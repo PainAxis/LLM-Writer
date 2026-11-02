@@ -4,9 +4,10 @@
     <p class="notice" data-testid="creative-pilot-boundary">任意简报 → 大纲 → 人设 → 细纲 → 全部三份章纲 → 三章正文。一份明确授权最多九次请求，一次只有一个请求，没有自动重试或修复。
       Structural acceptance only; live literary quality, semantic consistency and million-character acceptance: NOT_RUN.</p>
     <p data-testid="creative-pilot-retention">仅保存在本地 Campaign，不写入普通 Writer、事实库或备份。原始回复和派生规划分别保留至 Campaign 生命周期结束；过期不会删除记录、退款或消除未知请求。</p>
-    <p data-testid="creative-pilot-default-host">默认 App 没有可调用的生产者。仅独立安装的受控测试 host 可调用 loopback SDK；没有真实端点、凭证、token 计费或花费授权。</p>
+    <p v-if="!liveMode" data-testid="creative-pilot-default-host">默认 App 没有可调用的生产者。仅独立安装的受控测试 host 可调用 loopback SDK；没有真实端点、凭证、token 计费或花费授权。</p>
+    <p v-else data-testid="creative-pilot-live-host">OpenAI live pilot · 当前绑定的中英文两项 Campaign 共 18 次预留；每项最多九次。发送范围和费用授权见上方。模型输出仍需人工文学质量验收。</p>
     <div class="actions">
-      <button data-testid="creative-pilot-new-draft" :disabled="busy || loading || externalBusy" @click="newDraft">新建空白草稿 / New blank draft</button>
+      <button v-if="!lockedBrief" data-testid="creative-pilot-new-draft" :disabled="busy || loading || externalBusy" @click="newDraft">新建空白草稿 / New blank draft</button>
       <button data-testid="creative-pilot-refresh" :disabled="busy || loading || externalBusy || !selectedV4" @click="refresh">重新读取 / Inspect durable state</button>
       <button v-if="busy || loading" data-testid="creative-pilot-stop" @click="stop">停止本实例 / Stop locally</button>
     </div>
@@ -17,16 +18,16 @@
     <p v-if="error" role="alert" data-testid="creative-pilot-error">{{ error }} · 操作未获确认；重新检查持久记录，不重放未知请求。</p>
     <p v-if="notice !== 'none'" role="status" data-testid="creative-pilot-notice">{{ noticeText }}</p>
     <fieldset :disabled="!canEdit">
-      <legend>{{ draftMode ? '新创作简报 / New brief' : '候选简报编辑器 / Candidate brief editor · 修改须明确提交替换' }}</legend>
+      <legend>{{ lockedBrief ? '已锁定创作简报 / Authorized brief' : draftMode ? '新创作简报 / New brief' : '候选简报编辑器 / Candidate brief editor · 修改须明确提交替换' }}</legend>
       <label>语言 / Language
         <select data-testid="creative-pilot-language" :value="language" :disabled="!canEdit || !draftMode" @change="editField('language', $event)">
           <option value="zh">中文</option><option value="en">English</option>
         </select>
       </label>
-      <label for="creative-pilot-premise">Premise · 保留原始字符、空格与换行</label>
-      <textarea id="creative-pilot-premise" data-testid="creative-pilot-premise" :value="premise" rows="5" spellcheck="false" maxlength="4096" @input="editField('premise', $event)" />
-      <label for="creative-pilot-constraints">Constraints · JSON string array（0–8 项，例如 []；不是逐行拆分）</label>
-      <textarea id="creative-pilot-constraints" data-testid="creative-pilot-constraints" :value="constraints" rows="4" spellcheck="false" maxlength="8192" @input="editField('constraints', $event)" />
+      <label :for="`creative-pilot-premise-${campaignId}`">Premise · 保留原始字符、空格与换行</label>
+      <textarea :id="`creative-pilot-premise-${campaignId}`" data-testid="creative-pilot-premise" :value="premise" rows="5" spellcheck="false" maxlength="4096" @input="editField('premise', $event)" />
+      <label :for="`creative-pilot-constraints-${campaignId}`">Constraints · JSON string array（0–8 项，例如 []；不是逐行拆分）</label>
+      <textarea :id="`creative-pilot-constraints-${campaignId}`" data-testid="creative-pilot-constraints" :value="constraints" rows="4" spellcheck="false" maxlength="8192" @input="editField('constraints', $event)" />
       <p>简报与约束文字合计 ≤1,024 UTF-16 units / 4,096 UTF-8 bytes。固定三章，每章目标 512 canonical Unicode scalars，结构接纳范围 256–1,024；原始正文另限 2,048 UTF-16 / 8 KiB。字数不是质量证明。</p>
     </fieldset>
     <div v-if="draftMode" class="actions">
@@ -42,7 +43,7 @@
         <dt>Durable / effective status</dt><dd data-testid="creative-pilot-status" :data-status="status">{{ snapshot.checkpoint.status }} / {{ status }}</dd>
         <dt>Reason</dt><dd>{{ snapshot.checkpoint.reason ?? 'none' }}</dd>
       </dl>
-      <section aria-label="Durable brief replacement">
+      <section v-if="!lockedBrief && !liveMode" aria-label="Durable brief replacement">
         <h3>一次明确替换简报 / One explicit brief replacement</h3>
         <p>只有首次预留之前才可替换一次；会产生新候选并撤销旧预览，不延长有效期或补回九次额度。任何已花费、未派发或未知预留之后都拒绝替换。</p>
         <div class="actions"><button data-testid="creative-pilot-replace-preview" :disabled="!canReplace" @click="previewReplacement">核验替换预览 / Preview replacement</button></div>
@@ -75,7 +76,7 @@
       </div>
       <label class="grant" data-testid="creative-pilot-consent">
         <input type="checkbox" :checked="consent" :disabled="!preview || busy || loading || externalBusy" @change="consent = ($event.target as HTMLInputElement).checked">
-        我明确授权当前候选剩余的固定九任务范围：自动发送未来生成的规划和全部已接纳前章正文；结构有效的结果自动接纳到本地 Campaign。最多九次累计请求，无重试/修复。未来正文尚未产生，不假称已预览其文字。仅限所示受控离线 host。
+        我明确授权当前候选剩余的固定九任务范围：自动发送未来生成的规划和全部已接纳前章正文；结构有效的结果自动接纳到本地 Campaign。最多九次累计请求，无重试/修复。未来正文尚未产生，不假称已预览其文字。{{ liveMode ? '仅限所示 OpenAI 端点、模型和已锁定费用授权。' : '仅限所示受控离线 host。' }}
       </label>
       <div class="actions">
         <button data-testid="creative-pilot-start" :disabled="!canStart" @click="start">Start · 一次授权推进九任务</button>
@@ -108,10 +109,10 @@
           <dt>Released unused storage</dt><dd>{{ storage?.released }} bytes（不退调用、token 或时间预留）</dd>
           <dt>Input / response byte reservations</dt><dd>{{ snapshot.checkpoint.budget.inputBytes }} / {{ snapshot.checkpoint.budget.responseBytes }} bytes</dd>
           <dt>Output-token reservations</dt><dd>{{ snapshot.checkpoint.budget.outputTokens }} / 36,864 · 4,096 per call</dd>
-          <dt>Input-token admission</dt><dd>not_enforced_offline_control · bytes 不是 tokens</dd>
+          <dt>Input-token admission</dt><dd>{{ snapshot.manifest.policy.inputTokenEnforcement }} · bytes 不是 tokens</dd>
           <dt>Conservative active reservation</dt><dd>{{ snapshot.checkpoint.budget.activeMs }} / 600,000 ms（不是跨重启 CPU 实测）</dd>
           <dt>Recovery slots</dt><dd>{{ snapshot.checkpoint.metadata.recoveryUsed }} / 3 · final cancel separately protected</dd>
-          <dt>Observed synthetic usage</dt><dd>{{ observedUsage.input ?? 'unknown' }} input / {{ observedUsage.output ?? 'unknown' }} output / {{ observedUsage.reasoning ?? 'unknown' }} reasoning · {{ observedUsage.incomplete }} incomplete observations. Not a bill.</dd>
+          <dt>{{ liveMode ? 'Provider-reported usage' : 'Observed synthetic usage' }}</dt><dd>{{ observedUsage.input ?? 'unknown' }} input / {{ observedUsage.output ?? 'unknown' }} output / {{ observedUsage.reasoning ?? 'unknown' }} reasoning · {{ observedUsage.incomplete }} incomplete observations. Not a bill.</dd>
         </dl>
       </section>
       <section aria-label="Retained original responses">
@@ -144,16 +145,18 @@
 <script setup lang="ts">
 import { computed, onUnmounted, toRef, watch } from 'vue'
 import { useCreativePilotLab } from '@/composables/useCreativePilotLab'
+import type { CreativePilotEngine } from '@/types/creativePilot'
 
-const props = withDefaults(defineProps<{ campaignId: string; selectedV4: boolean; ids?: string[]; externalBusy?: boolean }>(), { ids: () => [], externalBusy: false })
+const props = withDefaults(defineProps<{ campaignId: string; selectedV4: boolean; ids?: string[]; externalBusy?: boolean; engine?: CreativePilotEngine; lockedBrief?: boolean }>(), { ids: () => [], externalBusy: false, lockedBrief: false })
 const emit = defineEmits<{ created: [id: string]; select: [id: string]; version: [version: 4 | null]; busy: [value: boolean] }>()
 const lab = useCreativePilotLab({ campaignId: toRef(props, 'campaignId'), selectedV4: toRef(props, 'selectedV4'), externalBusy: toRef(props, 'externalBusy'),
-  onCreated: id => emit('created', id), onVersion: version => emit('version', version) })
+  engine: props.engine, lockedBrief: props.lockedBrief, onCreated: id => emit('created', id), onVersion: version => emit('version', version) })
 const { snapshot, preview, progress, language, premise, constraints, draftMode, busy, loading, error, notice, consent, replacementPreview,
   idle, expired, attempts, acceptedTasks, acceptedBodies, bodyCharacters, requestRows, unknownCount, retainedRow, reservedRow,
   taskRows, artifactRows, displayedInput, storage, observedUsage, canReplace, canEdit, canDryPrepare, canStart, canResume,
   canResolve, canClose, canCancel, status, edit, newDraft, refresh, prepare, dryPrepare, previewReplacement,
   start, resume, replace, resolve, closeWithoutPublication, cancel, stop } = lab
+const liveMode = computed(() => snapshot.value?.manifest.policy.protocol === 'creative-pilot-live-policy-v1')
 const noticeText = computed(() => ({ none: '', prepared: '已持久准备；尚未授权或调用。', replaced: '已接纳新的简报候选；旧预览与权限已撤销。',
   stopped: '本实例权限已撤销。持久结果尚需重新读取确认；停止不保证零调用或零费用。', unconfirmed: '当前动作或持久结果未确认；请重新读取，不重新调用未知请求。',
   inspected: '已重新核验持久状态；检查不会授予执行权限。', resolved: '已执行本地结清；没有 SDK 调用或自动下一步。', cancelled: '持久取消已确认；未知请求义务仍保留。' })[notice.value])

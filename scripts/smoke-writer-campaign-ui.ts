@@ -184,6 +184,8 @@ function component(ui: ReturnType<typeof useWriterCampaign>) {
 }
 {
   const renderer = Vue.createRenderer({ createElement: () => ({}), createText: () => ({}), createComment: () => ({}),
+    // SFC static hoists also need the host insertion hook in this lifecycle-only renderer.
+    insertStaticContent: () => [{}, {}],
     insert() {}, remove() {}, setText() {}, setElementText() {}, parentNode: () => null, nextSibling: () => null, patchProp() {} })
   const f = fixture(), app = renderer.createApp(component(f.ui))
   app.mount({}); await flush(); assert.equal(f.calls.list, 1); assert.equal(f.calls.step, 0); assert.equal(f.calls.prepare, 0)

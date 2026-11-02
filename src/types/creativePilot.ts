@@ -5,6 +5,9 @@ import type { GlobalPlanningCanonV1 } from '../services/writerCampaign/planningC
 export type { CampaignTextMetrics }
 declare const creativeOfflineHostBrand: unique symbol
 export interface CreativeOfflineHost { readonly [creativeOfflineHostBrand]: true }
+declare const creativeLiveHostBrand: unique symbol
+export interface CreativeLiveHost { readonly [creativeLiveHostBrand]: true }
+export type CreativeHost = CreativeOfflineHost | CreativeLiveHost
 export type CreativeLanguage = 'zh' | 'en'
 export type CreativeTaskId = 'outline' | 'characters' | 'details' |
   'o-1' | 'o-2' | 'o-3' | 'b-1' | 'b-2' | 'b-3'
@@ -45,7 +48,7 @@ export interface CreativeInputScope {
   realizedBodyCoverage: 'none' | 'complete_accepted_preceding_prefix'
   suppliedBodyOrdinals: CreativeOrdinal[]
   semanticCompleteness: 'not_reviewed'
-  exposure: 'author_and_offline_control_writer_only'
+  exposure: 'author_and_offline_control_writer_only' | 'author_and_openai_writer'
 }
 export type CreativeJson = null | boolean | number | string |
   CreativeJson[] | { [key: string]: CreativeJson }
@@ -94,10 +97,17 @@ export interface CreativeDispatchWire {
   wireProtocol: 'creative-pilot-http-wire-v1'
   bodyDigest: string; bodyBytes: number; bodyUtf16: number
 }
-export interface CreativeAdapterIdentity {
+export interface CreativeOfflineAdapterIdentity {
   mode: 'offline_control'; adapterId: string; adapterVersion: string
   requestedModelId: string; effectiveModelId: string
   configurationRevision: string; endpointIdentity: string
+}
+export interface CreativeLiveAdapterIdentity extends Omit<CreativeOfflineAdapterIdentity, 'mode'> {
+  mode: 'live_provider'; grantHash: string
+}
+export type CreativeAdapterIdentity = CreativeOfflineAdapterIdentity | CreativeLiveAdapterIdentity
+export interface CreativeLiveBinding {
+  campaignId: string; briefHash: string; language: CreativeLanguage; policy: CreativePolicy
 }
 export type CreativeFinishReason = 'stop' | 'length' | 'content_filter' |
   'tool_calls' | 'error' | 'other' | 'unknown'
@@ -108,7 +118,7 @@ export interface CreativeContentEvidence {
 }
 export interface CreativeUsageEvidence {
   status: 'complete' | 'partial' | 'unavailable' | 'invalid'
-  provenance: 'synthetic_control'
+  provenance: 'synthetic_control' | 'provider_reported'
   inputTokens: number | null; outputTokens: number | null
   reasoningTokens: number | null
 }
@@ -126,7 +136,9 @@ export interface CreativeAdapterResult {
 export interface CreativeGenerationAdapter {
   readonly identity: Readonly<CreativeAdapterIdentity>
   assertCurrent(): void
+  assertBinding?(binding: CreativeLiveBinding): void
   invoke(input: {
+    binding?: CreativeLiveBinding
     requestHash: string; wire: Readonly<{ system: string; prompt: string }>
     signal: AbortSignal
     beforeRequest: (binding: Readonly<CreativeDispatchWire>) => Promise<void>
@@ -156,7 +168,7 @@ export interface CreativeDryPreview {
   campaignId: string; rawHead: string; candidateHash: string
   prepared: PreparedCreativeInputV1
   adapter: Readonly<CreativeAdapterIdentity> | null
-  readiness: 'unconfigured' | 'offline_control_ready'
+  readiness: 'unconfigured' | 'offline_control_ready' | 'live_provider_ready'
 }
 export type CreativeProgressKind = 'verifying' | 'prepared' | 'reserved' |
   'dispatch_intent' | 'response_retained' | 'accepted' | 'refused' |
@@ -189,10 +201,27 @@ export interface CreativePilotEngine {
 export type CreativeResolutionReason = CreativeCompileRefusal | 'cancelled' | 'expired' | 'stage_expired_before_intent' | 'closed_before_intent' | 'authority_revoked'
 export type CreativeUnknownReason = 'interrupted' | 'deadline' | 'transport_unknown' | 'ack_uncertain'
 export type CreativeErrorCode = 'unsupported_schema' | 'integrity' | 'conflict' | 'operation_conflict' | 'budget' | 'storage_unknown' | 'cancelled' | 'deadline_exceeded' | 'operation_timeout' | 'unconfigured' | 'configuration_changed' | 'authority_revoked' | 'expired' | 'clock_rollback' | 'context_capacity' | 'source_changed' | 'input_invalid' | 'transport_wire_invalid' | 'retention_capacity' | 'unknown_outcome' | 'attempt_spent' | 'replacement_after_reservation' | 'already_terminal' | 'metadata_capacity'
-export interface CreativePolicy {
+export interface CreativeOfflinePolicy {
   protocol: 'creative-pilot-policy-v1'; mode: 'sdk_offline_readiness'; transportPolicy: 'creative-pilot-sdk-v1'
   inputTokenEnforcement: 'not_enforced_offline_control'; retention: 'local_campaign_lifetime_no_automatic_deletion'
 }
+/** Immutable descriptor only: a saved grant never supplies credentials or runtime dispatch authority. */
+export interface CreativeLiveGrantV1 {
+  protocol: 'creative-pilot-live-grant-v1'; grantId: string
+  provider: 'openai'; modelId: 'gpt-6-luna'; endpoint: 'https://api.openai.com/v1'
+  reasoningEffort: 'none'; serviceTier: 'default'; store: false; pricingDate: '2026-11-02'; pricingValidUntil: 1794182400000
+  campaignIds: { zh: string; en: string }; briefHashes: { zh: string; en: string }
+  maxCostMicroUsd: number; reservedCostMicroUsd: 5743728; slots: 18
+  inputTokensPerSlot: 1050000; outputTokensPerSlot: 4096
+  inputMicroUsdPerMillion: 300000; outputMicroUsdPerMillion: 1000000
+  transmissionConsent: true; expiresAt: number; hash: string
+}
+export interface CreativeLivePolicy {
+  protocol: 'creative-pilot-live-policy-v1'; mode: 'sdk_live_pilot'; transportPolicy: 'creative-pilot-live-sdk-v1'
+  inputTokenEnforcement: 'worst_case_context_reservation'; retention: 'local_campaign_lifetime_no_automatic_deletion'
+  grant: CreativeLiveGrantV1
+}
+export type CreativePolicy = CreativeOfflinePolicy | CreativeLivePolicy
 export interface CreativeTaskSpec { id: CreativeTaskId; kind: CreativeStage; chapterOrdinal: CreativeOrdinal | null; dependsOn: CreativeTaskId[] }
 export interface CreativeBudget {
   attempts: number; inputBytes: number; inputUtf16: number; inputTokens: null; outputTokens: number; reasoningTokens: number
@@ -258,7 +287,7 @@ export interface CreativeSnapshot extends CreativeSourceView {
   requests: Map<string, CreativeRequest>; phases: Map<string, CreativePhase>; responses: Map<string, CreativeResponse>
 }
 export interface CreativeCommitGuard { canCommit(): boolean; canPublish(): boolean }
-export interface CreateCreativeCommand { campaignId: string; operationId: string; brief: CreativeBriefV1; identity: CreativeRuntimeIdentity }
+export interface CreateCreativeCommand { campaignId: string; operationId: string; brief: CreativeBriefV1; identity: CreativeRuntimeIdentity; liveGrant?: CreativeLiveGrantV1 }
 export interface ReplaceCreativeBriefCommand { operationId: string; brief: CreativeBriefV1 }
 export type CreativeMutation = { operationId: string; recovery: boolean } & (
   | { kind: 'reserve'; request: CreativeRequest }

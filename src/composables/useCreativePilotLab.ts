@@ -32,6 +32,7 @@ export function useCreativePilotLab(options: {
   onCreated?(id: string): void
   onVersion?(version: 4 | null): void
   engine?: CreativePilotEngine
+  lockedBrief?: boolean
   newId?: () => string
 }) {
   const host = inject(creativePilotHostKey, null)
@@ -105,10 +106,10 @@ export function useCreativePilotLab(options: {
     }
     return { input: inputKnown ? input : null, output: outputKnown ? output : null, reasoning: reasoningKnown ? reasoning : null, incomplete }
   })
-  const canReplace = computed(() => Boolean(snapshot.value && selectedSnapshot.value && idle.value && !draftMode.value && !expired.value
+  const canReplace = computed(() => Boolean(!options.lockedBrief && snapshot.value && snapshot.value.manifest.policy.protocol !== 'creative-pilot-live-policy-v1' && selectedSnapshot.value && idle.value && !draftMode.value && !expired.value
     && snapshot.value.checkpoint.budget.attempts === 0 && !snapshot.value.checkpoint.metadata.replacementUsed
     && snapshot.value.checkpoint.status === 'prepared'))
-  const canEdit = computed(() => idle.value && (draftMode.value || canReplace.value))
+  const canEdit = computed(() => !options.lockedBrief && idle.value && (draftMode.value || canReplace.value))
   const candidateDraftMatches = computed(() => {
     if (!snapshot.value || draftMode.value) return false
     try { return canonicalStringify(brief()) === canonicalStringify(snapshot.value.candidate.brief) } catch { return false }
@@ -117,7 +118,7 @@ export function useCreativePilotLab(options: {
     && preview.value.candidateHash === snapshot.value.candidate.hash && candidateDraftMatches.value))
   const canDryPrepare = computed(() => Boolean(snapshot.value && selectedSnapshot.value && idle.value && !draftMode.value && !expired.value && !unknownCount.value && !retainedRow.value
     && candidateDraftMatches.value && ['prepared', 'running'].includes(snapshot.value.checkpoint.status)))
-  const canRun = computed(() => Boolean(idle.value && selectedSnapshot.value && validPreview.value && consent.value && preview.value?.readiness === 'offline_control_ready'
+  const canRun = computed(() => Boolean(idle.value && selectedSnapshot.value && validPreview.value && consent.value && ['offline_control_ready', 'live_provider_ready'].includes(preview.value?.readiness ?? '')
     && !expired.value && !unknownCount.value && !retainedRow.value && snapshot.value && ['prepared', 'running'].includes(snapshot.value.checkpoint.status)))
   const canStart = computed(() => canRun.value && snapshot.value!.checkpoint.budget.attempts === 0)
   const canResume = computed(() => canRun.value && snapshot.value!.checkpoint.budget.attempts > 0)
@@ -138,7 +139,7 @@ export function useCreativePilotLab(options: {
     notice.value = 'stopped'; error.value = ''
   }
   function edit(field: 'language' | 'premise' | 'constraints', value: string) {
-    if (disposed || (!draftMode.value && !canReplace.value && !busy.value && !loading.value)) return false
+    if (disposed || options.lockedBrief || (!draftMode.value && !canReplace.value && !busy.value && !loading.value)) return false
     if (busy.value || loading.value) stop()
     editorRevision++; invalidate(); notice.value = 'none'; error.value = ''
     if (field === 'language') {
@@ -171,6 +172,7 @@ export function useCreativePilotLab(options: {
     else options.onVersion?.(null)
   }
   function newDraft() {
+    if (options.lockedBrief) return
     stop(); draftMode.value = true; premise.value = ''; constraints.value = '[]'; editorRevision++
     candidateDraft = false; notice.value = 'none'; invalidate(true)
   }
@@ -190,7 +192,7 @@ export function useCreativePilotLab(options: {
     } finally { if (current(token, id)) loading.value = false }
   }
   async function prepare() {
-    if (disposed || !idle.value || !draftMode.value) return false
+    if (disposed || options.lockedBrief || !idle.value || !draftMode.value) return false
     let value: CreativeBriefV1
     try { value = brief() } catch { error.value = 'input_invalid'; return false }
     const token = ++owner, selected = options.campaignId.value, id = options.newId?.() ?? `creative-${crypto.randomUUID()}`

@@ -13,7 +13,7 @@ import {
   CREATIVE_DOMAIN as DOMAIN, CREATIVE_LIMITS as L, CreativePilotError, creativeAssert, creativeEqual as equal, creativeId, creativeInteger,
   creativeRecord, createCreativeCandidate, createCreativeManifest, emptyCreativeBudget, parseCreativeRecord, sealCreativeRecord,
   validateCreativeArtifact, validateCreativeBrief, validateCreativeCandidate, validateCreativeCheckpoint, validateCreativeDispatchWire,
-  validateCreativeHead, validateCreativeManifest, validateCreativePhase, validateCreativeReceipt, validateCreativeRequest, validateCreativeResponse,
+  validateCreativeCampaignAuthority, validateCreativeResponseAuthority, validateCreativeHead, validateCreativeManifest, validateCreativePhase, validateCreativeReceipt, validateCreativeRequest, validateCreativeResponse,
 } from './creativePilotProtocol'
 import { applyCreativeStorage } from './creativePilotStorage'
 import { compileCreativeInput } from './creativePilotContext'
@@ -144,6 +144,7 @@ export function createCreativePilotRepository(options: CreativeRepositoryOptions
       creativeAssert(checkpoint.requests.length < 9 && checkpoint.storage.openAllocations.length === 0, 'Request allowance exhausted', 'attempt_spent')
       request = await validateCreativeRequest(structuredClone(mutation.request)); ctx.check()
       creativeAssert(mutation.operationId === `${request.operationId}:reserve` && request.campaignId === previous.manifest.campaignId && request.manifestHash === previous.manifest.hash && request.candidateHash === previous.candidate.hash)
+      validateCreativeCampaignAuthority(previous.manifest, previous.candidate, request.adapter)
       const task = checkpoint.tasks.find(t => t.status !== 'accepted')
       creativeAssert(task && task.status === 'pending' && task.taskId === request.taskId && task.revision === request.taskRevision, 'Task is not eligible', 'attempt_spent')
       creativeAssert(!checkpoint.requests.some(r => r.id === request!.id) && at >= request.createdAt && at < request.expiresAt && request.expiresAt === Math.min(request.createdAt + L.stageMs, previous.manifest.expiresAt), 'Request deadline', 'expired')
@@ -183,6 +184,7 @@ export function createCreativePilotRepository(options: CreativeRepositoryOptions
           creativeAssert(['dispatch_intent', 'outcome_unknown'].includes(prior.status) && mutation.operationId === `${request.operationId}:retain`, 'Retention phase conflict')
           const response = await validateCreativeResponse(structuredClone(mutation.response)), intentHash = prior.status === 'dispatch_intent' ? prior.hash : prior.intentHash!
           creativeAssert(response.campaignId === request.campaignId && response.requestHash === request.hash && response.intentHash === intentHash, 'Response correlation mismatch')
+          validateCreativeResponseAuthority(request.adapter, response)
           records.response = response; phase = await nextPhase(request, prior, { status: 'response_retained', intentHash, responseHash: response.hash, reason: null })
         } else {
           creativeAssert((mutation.recovery || mutation.operationId === `${request.operationId}:resolve`) && ['publish_if_valid', 'accounting_only'].includes(mutation.disposition), 'Resolution identity mismatch')
@@ -226,6 +228,7 @@ export function createCreativePilotRepository(options: CreativeRepositoryOptions
   async function replacement(previous: CreativeSnapshot, command: ReplaceCreativeBriefCommand, at: number, ctx: Context) {
     ctx.check(); creativeRecord(command, ['operationId', 'brief']); creativeId(command.operationId); validateCreativeBrief(command.brief)
     creativeAssert(at >= previous.checkpoint.lastWallTime, 'Clock regressed', 'clock_rollback')
+    creativeAssert(previous.manifest.policy.protocol !== 'creative-pilot-live-policy-v1', 'Live brief is immutable', 'authority_revoked')
     creativeAssert(previous.checkpoint.budget.attempts === 0 && !previous.checkpoint.metadata.replacementUsed, 'Brief replacement no longer eligible', 'replacement_after_reservation')
     creativeAssert(at < previous.manifest.expiresAt && previous.checkpoint.status === 'prepared', 'Run is not prepared', 'expired')
     creativeAssert(command.brief.language === previous.manifest.language, 'Language is immutable', 'input_invalid')
@@ -355,8 +358,8 @@ export function createCreativePilotRepository(options: CreativeRepositoryOptions
       if (!snapshot) {
         creativeAssert(receipt.kind === 'create' && sequence === 0 && equal(records.candidate, initialCandidate))
         candidate = initialCandidate; derived = none(); derived.candidate = initialCandidate
-        command = { campaignId: id, operationId: receipt.operationId, brief: candidate.brief, identity: { runtimeIdentity: manifest.runtimeIdentity, source: manifest.source } }
-        const recreated = await createCreativeManifest(id, candidate, (command as CreateCreativeCommand).identity)
+        command = { campaignId: id, operationId: receipt.operationId, brief: candidate.brief, identity: { runtimeIdentity: manifest.runtimeIdentity, source: manifest.source }, ...(manifest.policy.protocol === 'creative-pilot-live-policy-v1' ? { liveGrant: manifest.policy.grant } : {}) }
+        const recreated = await createCreativeManifest(id, candidate, (command as CreateCreativeCommand).identity, (command as CreateCreativeCommand).liveGrant)
         creativeAssert(equal(recreated, manifest), 'Creation manifest differs')
         draft = initialCheckpoint(manifest, candidate, receipt.operationId); slot = 'create'
         const index = ids.indexOf(id), prefix = ids.slice(0, index)
@@ -444,7 +447,7 @@ export function createCreativePilotRepository(options: CreativeRepositoryOptions
     const guard = captureGuard(suppliedGuard), ctx = context(guarded(guard)), command = structuredClone(input); let verified: Awaited<ReturnType<typeof replay>> = null
     return boundedOperation(ctx, async () => {
       try {
-        creativeRecord(command, ['campaignId', 'operationId', 'brief', 'identity']); creativeId(command.campaignId); creativeId(command.operationId); validateCreativeBrief(command.brief)
+        creativeRecord(command, ['campaignId', 'operationId', 'brief', 'identity', ...(Object.hasOwn(command, 'liveGrant') ? ['liveGrant'] : [])]); if (Object.hasOwn(command, 'liveGrant')) creativeAssert(command.liveGrant !== undefined); creativeId(command.campaignId); creativeId(command.operationId); validateCreativeBrief(command.brief)
         creativeRecord(command.identity, ['runtimeIdentity', 'source'])
         const digest = await operationDigest('create', command); ctx.check()
         verified = await replay(command.campaignId, ctx)
@@ -457,7 +460,7 @@ export function createCreativePilotRepository(options: CreativeRepositoryOptions
         creativeAssert((values.get(creativePilotKeys.head(command.campaignId)) ?? null) === null && !ids.includes(command.campaignId), 'Campaign creation conflict', 'conflict')
         creativeAssert(ids.length < 32, 'Campaign catalog full', 'budget')
         const at = clock(); creativeInteger(at)
-        const candidate = await createCreativeCandidate(command.campaignId, command.brief, at), manifest = await createCreativeManifest(command.campaignId, candidate, command.identity)
+        const candidate = await createCreativeCandidate(command.campaignId, command.brief, at), manifest = await createCreativeManifest(command.campaignId, candidate, command.identity, command.liveGrant)
         const records = none(); records.candidate = candidate
         const built = await buildWrite(null, manifest, initialCheckpoint(manifest, candidate, command.operationId), 'create', command.operationId, digest, records, 'create', null, null,
           { before: rawCatalog, after: canonicalStringify({ schemaVersion: 1, ids: [...ids, command.campaignId] }) })

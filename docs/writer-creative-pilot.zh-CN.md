@@ -2,7 +2,7 @@
 
 [English](writer-creative-pilot.md) | [简体中文](writer-creative-pilot.zh-CN.md)
 
-状态：本地实现与离线就绪验证中。本文不代表尚未执行的准确 head CI 已通过，也不批准外部供应商、密钥传输、付费运行或公开正文数据。
+状态：离线就绪已由 [PR #51](https://github.com/PainAxis/LLM-Writer/pull/51)、[#52](https://github.com/PainAxis/LLM-Writer/pull/52) 验收；[main CI 41086963499](https://github.com/PainAxis/LLM-Writer/actions/runs/41086963499) 全部 17 jobs 通过，19 个证据 archive 已审计。下文的真实模型接入使用独立 policy；真实模型文学验收尚未执行。
 
 ## 实际创作链路
 
@@ -10,7 +10,7 @@ Campaign Lab 接收作者自行填写的中文或英文简报，不是让作者�
 
 每章正文依赖全部六份已接受规划与所有已接受前章正文。第三章实际收到第一、二章的完整原文，不用摘要、哈希或截断窗口冒充。测试端点根据真实 SDK 请求动态构造合成响应；生产代码不导入测试故事或响应配方。
 
-默认应用**没有调用 host**：可以准备和检查简报，但 Start 禁用，engine 也独立拒绝调用。只有显式安装的不透明离线控制 host 能调用真实有界 SDK，目标限制为 loopback。URL 参数、localStorage 和保存的 Campaign 均不授予 host。这是可运行的离线纵向链路，不是发送真实小说给供应商的授权。
+普通 Campaign Lab **没有调用 host**：可以准备和检查简报，但 Start 禁用，engine 也独立拒绝调用。其显式安装的不透明离线控制 host 调用真实有界 SDK，目标限制为 loopback。独立 Live Pilot 页在明确会话授权后安装另一种 host。URL 参数、localStorage 和保存的 Campaign 均不授予 host。保存的记录本身不会恢复供应商调用权限。
 
 ## 作者操作和披露
 
@@ -65,3 +65,17 @@ V4 在普通 Campaign head 下建立新聚合，使用独立 `v4:` 不可变子�
 新增 archive 恰好包含 `node-summary.json`、`browser-summary.json`、`manifest.json`，只有封闭有界身份、计数、结果与哈希，不含简报、prompt、正文、响应、原始存储、备份、截图或自由文本诊断。原始失败 map 私下保留用于诊断，保留未知请求身份和未结清责任。
 
 本切片补齐短程自主“规划到正文”链路，不验收文学质量或百万字符小说。真实 pilot 仍须另外确定精确端点／模型、密钥通道、真实作者简报／语言、请求／输出 token 上限、可执行的输入 token 与金额限制，以及传输所披露／生成文字的授权；随后审查实际三章及规划／正文一致性。离线结构通过不能替代文学审查。扩展长篇还需要全书一致性覆盖、有界修复和资源校准，才能验收两部自主百万字符小说。
+
+## 真实模型中英文 pilot 合同
+
+**Live Pilot** 入口在同一浏览器存储中准备中文、英文各一份简报。准备和恢复均为零调用。独立的 `creative-pilot-live-policy-v1` 以哈希绑定两个 campaign ID 和两份简报；旧离线 policy 及其序列化记录不变，旧 reader 会拒绝新 policy。已有 live grant 不能替换简报。
+
+会话授权固定 OpenAI `https://api.openai.com/v1`、`gpt-6-luna`、Standard Chat Completions、`reasoning_effort: none`、`temperature: 0.7`、`max_completion_tokens: 4096`、`stream: false`、`store: false`。不允许工具、其他 tier、Responses API、12 小时缓存选项、重试或额外样本。密钥只留在当前会话闭包，不进入常规 API 设置、campaign 记录或报告；更换或清空密钥即撤权。刷新只恢复查看，不恢复调用权限；恢复配对必须使用原浏览器记录，不通过导入创建另一份可执行授权。
+
+授权一次性预留 **18 个不可退款的请求槽位**。每个 campaign 继续由原九请求 CAS 账本管理；未知请求占用槽位，不可重放。每槽位按模型完整上下文上界 1,050,000 输入 tokens 加 4,096 输出 tokens，采用每百万分别 $0.30／$1 的保守单价：**单次 $0.319096，双语合计 $5.743728**。作者授权额须至少覆盖此数，建议 API token 预算为 $6。此算法主动超额预留上下文，不把字节数假称 tokens；供应商报告的实际 usage 不用于退款或增发请求额度。
+
+本版本价格审核有效期截至 **2026-11-09 00:00 UTC**，到期后须使用重新核价的版本才能调用；历史结果仍可查看。这是项目复核期限，不是供应商价格锁定。授权到期时间不得超过该期限。
+
+价格合同依据 [2026-11-02 模型与 Standard 价表](https://developers.openai.com/api/docs/models/gpt-6-luna)，包含长上下文及默认缓存写入费。上界针对该固定执行路径的 token 费用，不是税费、汇率、账户其他流量或未来调价的账单保证。`store:false` 不等于供应商零留存；授权发送简报、生成规划及完整前章正文前，应阅读 [OpenAI 数据控制](https://developers.openai.com/api/docs/guides/your-data)。
+
+合成 SDK 与真实构建 App 测试验证 live 请求合同，不联系真实供应商。实际付费执行仍须确认账户／项目、两份简报、外发许可和预算。运行后须审查全部六章的叙事质量、规划遵循、人物知识与跨章一致性；结构编译通过不替代文学审查。
