@@ -2,7 +2,7 @@
 
 [English](writer-creative-pilot.md) | [简体中文](writer-creative-pilot.zh-CN.md)
 
-状态：离线就绪已由 [PR #51](https://github.com/PainAxis/LLM-Writer/pull/51)、[#52](https://github.com/PainAxis/LLM-Writer/pull/52) 验收；[main CI 41086963499](https://github.com/PainAxis/LLM-Writer/actions/runs/41086963499) 全部 17 jobs 通过，19 个证据 archive 已审计。下文的真实模型接入使用独立 policy；真实模型文学验收尚未执行。
+状态：离线就绪已由 [PR #51](https://github.com/PainAxis/LLM-Writer/pull/51)、[#52](https://github.com/PainAxis/LLM-Writer/pull/52) 验收；[main CI 41086963499](https://github.com/PainAxis/LLM-Writer/actions/runs/41086963499) 全部 17 jobs 通过，19 个证据 archive 已审计。OpenAI live 接入已在 [PR #53](https://github.com/PainAxis/LLM-Writer/pull/53) 验收：合并后 main `ccbde956fe0318e48561a092dd77b35bd4d179eb` 的 [run 41434499185](https://github.com/PainAxis/LLM-Writer/actions/runs/41434499185) 全部 18 jobs 通过，19 个证据 archive 已审计。测试使用合成供应商响应；真实模型文学验收仍待执行。
 
 ## 实际创作链路
 
@@ -79,3 +79,8 @@ V4 在普通 Campaign head 下建立新聚合，使用独立 `v4:` 不可变子�
 价格合同依据 [2026-11-02 模型与 Standard 价表](https://developers.openai.com/api/docs/models/gpt-6-luna)，包含长上下文及默认缓存写入费。上界针对该固定执行路径的 token 费用，不是税费、汇率、账户其他流量或未来调价的账单保证。`store:false` 不等于供应商零留存；授权发送简报、生成规划及完整前章正文前，应阅读 [OpenAI 数据控制](https://developers.openai.com/api/docs/guides/your-data)。
 
 合成 SDK 与真实构建 App 测试验证 live 请求合同，不联系真实供应商。实际付费执行仍须确认账户／项目、两份简报、外发许可和预算。运行后须审查全部六章的叙事质量、规划遵循、人物知识与跨章一致性；结构编译通过不替代文学审查。
+
+
+## OpenCode Go pilot
+
+独立 [Node Go pilot](writer-creative-go-pilot.zh-CN.md) 使用自己的供应商授权、计费证据及会话 header，不把 OpenAI 密钥或 policy 解释为 Go。真实模型质量验收仍待执行。

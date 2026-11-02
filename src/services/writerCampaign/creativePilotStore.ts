@@ -228,7 +228,7 @@ export function createCreativePilotRepository(options: CreativeRepositoryOptions
   async function replacement(previous: CreativeSnapshot, command: ReplaceCreativeBriefCommand, at: number, ctx: Context) {
     ctx.check(); creativeRecord(command, ['operationId', 'brief']); creativeId(command.operationId); validateCreativeBrief(command.brief)
     creativeAssert(at >= previous.checkpoint.lastWallTime, 'Clock regressed', 'clock_rollback')
-    creativeAssert(previous.manifest.policy.protocol !== 'creative-pilot-live-policy-v1', 'Live brief is immutable', 'authority_revoked')
+    creativeAssert(previous.manifest.policy.mode !== 'sdk_live_pilot', 'Live brief is immutable', 'authority_revoked')
     creativeAssert(previous.checkpoint.budget.attempts === 0 && !previous.checkpoint.metadata.replacementUsed, 'Brief replacement no longer eligible', 'replacement_after_reservation')
     creativeAssert(at < previous.manifest.expiresAt && previous.checkpoint.status === 'prepared', 'Run is not prepared', 'expired')
     creativeAssert(command.brief.language === previous.manifest.language, 'Language is immutable', 'input_invalid')
@@ -358,7 +358,7 @@ export function createCreativePilotRepository(options: CreativeRepositoryOptions
       if (!snapshot) {
         creativeAssert(receipt.kind === 'create' && sequence === 0 && equal(records.candidate, initialCandidate))
         candidate = initialCandidate; derived = none(); derived.candidate = initialCandidate
-        command = { campaignId: id, operationId: receipt.operationId, brief: candidate.brief, identity: { runtimeIdentity: manifest.runtimeIdentity, source: manifest.source }, ...(manifest.policy.protocol === 'creative-pilot-live-policy-v1' ? { liveGrant: manifest.policy.grant } : {}) }
+        command = { campaignId: id, operationId: receipt.operationId, brief: candidate.brief, identity: { runtimeIdentity: manifest.runtimeIdentity, source: manifest.source }, ...(manifest.policy.mode === 'sdk_live_pilot' ? { liveGrant: manifest.policy.grant } : {}) }
         const recreated = await createCreativeManifest(id, candidate, (command as CreateCreativeCommand).identity, (command as CreateCreativeCommand).liveGrant)
         creativeAssert(equal(recreated, manifest), 'Creation manifest differs')
         draft = initialCheckpoint(manifest, candidate, receipt.operationId); slot = 'create'

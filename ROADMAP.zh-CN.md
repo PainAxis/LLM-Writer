@@ -87,7 +87,9 @@
 
 [单窗口正文提案生产器](docs/writer-body-proposal-producer.zh-CN.md)已补齐有界离线适配就绪：在 Body Evidence 之后，补齐“任意已接受正文 → 精确且明确调用的生产器输入 → 单次持久记账结果 → 共用编译器校验的只读提案与未解决清单”这一具体缺口。显式采用 Campaign v3，保留 v2 字节与共享预算；手工正文修订有独立身份，不能计入自主创作。默认应用不授权供应商调用，真实 SDK 测试仅连接本地合成端点；原生/UI CI、语义质量及最终小说仍分别验收。
 
-生产器离线就绪切片已在 [PR #50](https://github.com/PainAxis/LLM-Writer/pull/50) 验收。[Creative Pilot v4](docs/writer-creative-pilot.zh-CN.md) 随后在 [PR #51](https://github.com/PainAxis/LLM-Writer/pull/51) 合并，回环测试的提前释放竞态由 [PR #52](https://github.com/PainAxis/LLM-Writer/pull/52) 修复。main `68b118d568b17834d79119c23c8bf9beff68d0a5` 的 [run 41086963499](https://github.com/PainAxis/LLM-Writer/actions/runs/41086963499) 全部 17 jobs 通过，19 个证据 archive 已审计：任意简报、九任务规划到三章的 App／SDK／持久链路已通过合成离线控制验收。本次交付增加独立 live policy、仅会话密钥、中英文配对授权及保守 token 费用预留。合成集成测试与下一项验收分开：获得授权后的真实模型中英文 pilot，以及实际章节的文学与一致性审查。真实模型审查和最终百万字符小说均未运行。
+生产器离线就绪切片已在 [PR #50](https://github.com/PainAxis/LLM-Writer/pull/50) 验收。[Creative Pilot v4](docs/writer-creative-pilot.zh-CN.md) 随后在 [PR #51](https://github.com/PainAxis/LLM-Writer/pull/51) 合并，回环测试的提前释放竞态由 [PR #52](https://github.com/PainAxis/LLM-Writer/pull/52) 修复。main `68b118d568b17834d79119c23c8bf9beff68d0a5` 的 [run 41086963499](https://github.com/PainAxis/LLM-Writer/actions/runs/41086963499) 全部 17 jobs 通过，19 个证据 archive 已审计：任意简报、九任务规划到三章的 App／SDK／持久链路已通过合成离线控制验收。独立 OpenAI live policy、仅会话密钥、中英文配对授权及保守 token 费用预留已在 [PR #53](https://github.com/PainAxis/LLM-Writer/pull/53) 验收。合并后 main `ccbde956fe0318e48561a092dd77b35bd4d179eb` 的 [run 41434499185](https://github.com/PainAxis/LLM-Writer/actions/runs/41434499185) 全部 18 jobs 通过，19 个证据 archive 已审计。合成集成测试与下一项验收分开：获得授权后的真实模型中英文 pilot，以及实际章节的文学与一致性审查。真实模型审查和最终百万字符小说均未运行。
+
+下一项供应商接入为 [OpenCode Go Node pilot](docs/writer-creative-go-pilot.zh-CN.md)：独立 MiMo-V2.6-Flash 授权、订阅计费证据、私有持久状态及默认单任务执行。保留 OpenAI 浏览器路径，实际账户、剩余额度和 Extra Usage 设置核实前使用合成测试。下一项质量验收仍是实际中英文三章。
 
 ### 第四阶段最终验收：两部自主百万字符小说
 

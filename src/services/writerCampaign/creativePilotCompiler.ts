@@ -3,7 +3,7 @@ import type { CreativeCompileRefusal, CreativeCompileResult, CreativeJson, Creat
 import { assertScalarText, canonicalCampaignText, canonicalStringify, hashCampaignValue, measureCampaignText, utf8Bytes } from './protocol'
 import { buildPlanningCanon } from './planningCanon'
 import { PLANNING_STAGE_LIMITS, PlanningRefusalError, planningChapterAddress } from './planningProtocol'
-import { CREATIVE_LIVE_GRANT_DEFAULTS, CreativePilotError, validateCreativeCampaignAuthority, validateCreativeResponseAuthority, sealCreativeArtifactCandidate, validateCreativeRequest, validateCreativeResponse } from './creativePilotProtocol'
+import { CreativePilotError, validateCreativeCampaignAuthority, validateCreativeResponseAuthority, sealCreativeArtifactCandidate, validateCreativeRequest, validateCreativeResponse } from './creativePilotProtocol'
 import { compileCreativeInput } from './creativePilotContext'
 import { creativePlanOutputSchema } from './creativePilotSchema'
 import { CreativeJsonError, parseCreativeJson } from './creativePilotJson'
@@ -121,7 +121,7 @@ export async function compileCreativeResponse(viewInput: CreativeSourceView, req
     if (response.reportedModel.status !== 'matched' || response.reportedModel.value !== request.adapter.effectiveModelId) refuse('reported_model_mismatch')
     if (response.contentEvidence.anomalies.includes('reasoning_present') || (response.usage.reasoningTokens ?? 0) > 0) refuse('reasoning_disallowed')
     if (response.usage.status === 'invalid' || (response.usage.outputTokens ?? 0) > 4096
-      || (request.adapter.mode === 'live_provider' && (response.usage.inputTokens ?? 0) > CREATIVE_LIVE_GRANT_DEFAULTS.inputTokensPerSlot)
+      || (view.manifest.policy.mode === 'sdk_live_pilot' && (response.usage.inputTokens ?? 0) > view.manifest.policy.grant.inputTokensPerSlot)
       || (response.usage.reasoningTokens !== null && response.usage.outputTokens !== null && response.usage.reasoningTokens > response.usage.outputTokens)) refuse('usage_invalid')
     if (response.contentEvidence.stepCount !== 1 || response.contentEvidence.anomalies.length) refuse('content_evidence_invalid')
     const raw: unknown = JSON.parse(response.textJson)
