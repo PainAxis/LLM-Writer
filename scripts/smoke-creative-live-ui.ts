@@ -1,5 +1,8 @@
 /** Local UI/session checks, with networking forbidden. Not model acceptance. */
 import assert from 'node:assert/strict'
+import * as Vue from 'vue'
+import { useCreativePilotLab } from '../src/composables/useCreativePilotLab'
+import type { CreativePilotEngine, CreativeSnapshot } from '../src/types/creativePilot'
 import { CAMPAIGN_CORE_PATHS } from './campaign-build-identity.mjs'
 assert.ok(CAMPAIGN_CORE_PATHS.includes('src/composables/useCreativeLivePilot.ts'))
 assert.ok(CAMPAIGN_CORE_PATHS.includes('src/views/CreativeLivePilot.vue'))
@@ -51,6 +54,40 @@ try {
   const preview = await session.engines.value.zh!.dryPrepare(grant.campaignIds.zh)
   assert.equal(preview.readiness, 'live_provider_ready')
   assert.equal(attempts, 0)
+  // Two mounted-panel ownership chains: one held run blocks the sibling,
+  // then its completion must release the sibling's preview and Start controls.
+  const running = Vue.reactive({ zh: false, en: false }), app = Vue.createApp({ render: () => null })
+  const labs: Partial<Record<'zh' | 'en', ReturnType<typeof useCreativePilotLab>>> = {}
+  const stopWatches: Array<() => void> = []
+  let finishChinese!: (value: CreativeSnapshot) => void
+  const heldChinese = new Promise<CreativeSnapshot>(resolve => { finishChinese = resolve })
+  for (const language of ['zh', 'en'] as const) {
+    const original = session.engines.value[language]!
+    const engine: CreativePilotEngine = { ...original, start: language === 'zh' ? () => heldChinese : original.start }
+    const lab = app.runWithContext(() => useCreativePilotLab({ campaignId: Vue.ref(grant.campaignIds[language]), selectedV4: Vue.ref(true), lockedBrief: true, engine,
+      externalBusy: Vue.computed(() => running[language === 'zh' ? 'en' : 'zh']) }))
+    labs[language] = lab
+    stopWatches.push(Vue.watch([lab.busy, lab.loading], ([active, reading]) => { running[language] = active || reading }, { flush: 'sync' }))
+  }
+  try {
+    for (let spin = 0; spin < 1000 && (labs.zh!.loading.value || labs.en!.loading.value); spin++) await new Promise(resolve => setTimeout(resolve, 1))
+    assert.equal(labs.zh!.canDryPrepare.value, true)
+    assert.equal(labs.en!.canDryPrepare.value, true)
+    assert.equal(await labs.zh!.dryPrepare(), true)
+    labs.zh!.consent.value = true
+    const started = labs.zh!.start()
+    assert.equal(running.zh, true); assert.equal(labs.en!.canDryPrepare.value, false)
+    const completed = structuredClone(labs.zh!.snapshot.value!)
+    completed.checkpoint.status = 'completed'; finishChinese(completed)
+    assert.equal(await started, true)
+    await Vue.nextTick()
+    assert.equal(running.zh, false); assert.equal(labs.en!.canDryPrepare.value, true)
+    assert.equal(await labs.en!.dryPrepare(), true)
+    labs.en!.consent.value = true
+    assert.equal(labs.en!.canStart.value, true)
+    assert.equal(attempts, 0)
+    console.log('PASS paired panel busy ownership releases English preview and Start after Chinese completion')
+  } finally { stopWatches.forEach(stop => stop()); labs.zh?.dispose(); labs.en?.dispose() }
   session.revoke()
   assert.equal(session.authorized.value, false)
   assert.deepEqual(session.engines.value, {})

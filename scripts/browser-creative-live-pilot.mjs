@@ -7,10 +7,10 @@ import { startPreviewServer } from './browser-preview.mjs'
 import { creativeControlText } from './lib/creative-pilot-control.ts'
 
 if (process.env.CI !== 'true' || process.env.CREATIVE_PILOT_CI_APPROVED !== '1') throw new Error('creative_browser_ci_only')
-const report = { protocol: 'creative-live-browser-v1', evidence: 'synthetic_provider_interception', fixtureClock: '2026-11-02T12:00:00.000Z', status: 'running', requests: 0,
+const report = { protocol: 'creative-live-browser-v1', evidence: 'synthetic_provider_interception', fixtureClock: '2026-11-02T12:00:00.000Z', status: 'running', stage: 'setup', failureKind: null, panels: [], requests: 0,
   acceptedTasks: 0, acceptedBodies: 0, zeroCallPreparation: false, zeroCallRestoration: false, credentialNotStored: false,
   sessionRevocation: false, unknownNotReplayed: false, externalRequestsBlocked: 0, browserErrors: 0 }
-let server, browser, context, hold = false, held = null, observeHeld = () => {}
+let server, browser, context, page, hold = false, held = null, observeHeld = () => {}
 const key = 'synthetic-live-browser-credential'
 const target = 'https://api.openai.com/v1/chat/completions'
 try {
@@ -35,7 +35,7 @@ try {
       model: 'gpt-6-luna', service_tier: 'default', choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: text } }],
       usage: { prompt_tokens: 100, completion_tokens: 200, completion_tokens_details: { reasoning_tokens: 0 } } }) })
   })
-  const page = await context.newPage()
+  page = await context.newPage()
   await page.clock.setFixedTime(new Date(report.fixtureClock))
   page.on('pageerror', () => { report.browserErrors++ })
   const open = async () => {
@@ -67,9 +67,12 @@ try {
     await page.getByTestId('live-authority').filter({ hasText: '会话连接已启用' }).waitFor()
     return readyPanels()
   }
-  const preview = async panel => {
+  const preview = async (panel, language = 'interrupted') => {
+    report.stage = `${language}_preview_click`
     await panel.getByTestId('creative-pilot-dry-prepare').click()
+    report.stage = `${language}_readiness_wait`
     await panel.getByTestId('creative-pilot-readiness').filter({ hasText: 'live_provider_ready' }).waitFor()
+    report.stage = `${language}_consent_check`
     await panel.getByTestId('creative-pilot-consent').locator('input').check()
   }
   const storageSafe = async () => page.evaluate(async needle => {
@@ -78,21 +81,29 @@ try {
     try { return await new Promise((resolve, reject) => { const transaction = db.transaction('kv', 'readonly'), request = transaction.objectStore('kv').getAll();
       request.onsuccess = () => resolve(!JSON.stringify(request.result).includes(needle)); request.onerror = () => reject(new Error('idb_read')) }) } finally { db.close() }
   }, key)
+  report.stage = 'open'
   await open()
+  report.stage = 'prepare'
   const ids = await prepare()
   assert.equal(report.requests, 0); report.zeroCallPreparation = true
+  report.stage = 'authorize'
   let panels = await authorize()
   assert.equal(report.requests, 0)
   for (let i = 0; i < 2; i++) {
     const panel = panels.nth(i)
-    await preview(panel); await panel.getByTestId('creative-pilot-start').click()
+    const language = ['zh', 'en'][i]
+    await preview(panel, language); report.stage = `${language}_start_click`; await panel.getByTestId('creative-pilot-start').click()
+    report.stage = `${language}_completion_wait`
     await panel.getByTestId('creative-pilot-status').filter({ hasText: 'completed' }).waitFor({ timeout: 180_000 })
+    report.stage = `${language}_artifacts_verify`
     assert.equal(await panel.getByTestId('creative-pilot-artifact').count(), 9)
     assert.equal(await panel.locator('[data-testid="creative-pilot-artifact"][data-task^="b-"]').count(), 3)
     report.acceptedTasks += 9; report.acceptedBodies += 3
   }
+  report.stage = 'pair_storage_verify'
   assert.equal(report.requests, 18); assert.equal(await storageSafe(), true)
   report.credentialNotStored = true
+  report.stage = 'pair_reload_restore'
   await page.reload(); await page.getByTestId('creative-live-pilot').waitFor()
   assert.equal(await page.getByTestId('creative-pilot-panel').count(), 0)
   await page.getByTestId('live-restore-id').fill(ids.zh); await page.getByTestId('live-restore').click(); panels = await readyPanels()
@@ -103,17 +114,20 @@ try {
   report.zeroCallRestoration = true
 
   // A new explicitly created synthetic pair exercises an in-flight revocation.
+  report.stage = 'interrupted_pair_prepare'
   await page.reload(); const interrupted = await prepare(); panels = await authorize()
   const heldRequest = new Promise(resolve => { observeHeld = resolve })
   hold = true; await preview(panels.nth(0)); await panels.nth(0).getByTestId('creative-pilot-start').click()
   let heldTimer
   try { await Promise.race([heldRequest, new Promise((_, reject) => { heldTimer = setTimeout(() => reject(new Error('held_request_deadline')), 30_000) })]) }
   finally { clearTimeout(heldTimer) }
+  report.stage = 'interrupted_revoke'
   await page.getByTestId('live-revoke').click()
   assert.match(await page.getByTestId('live-authority').innerText(), /未启用/)
   assert.equal(await page.getByTestId('live-key').inputValue(), '')
   if (held) { await held.abort().catch(() => {}); held = null }
   hold = false; report.sessionRevocation = true
+  report.stage = 'interrupted_restore'
   await page.reload(); await page.getByTestId('live-restore-id').fill(interrupted.zh); await page.getByTestId('live-restore').click(); panels = await readyPanels()
   const requests = report.requests
   await panels.nth(0).getByTestId('creative-pilot-unknown').waitFor()
@@ -122,8 +136,26 @@ try {
   assert.equal(report.requests, requests); assert.equal(requests, 19)
   report.unknownNotReplayed = true
   assert.equal(await storageSafe(), true); assert.equal(report.externalRequestsBlocked, 0); assert.equal(report.browserErrors, 0)
-  report.status = 'pass'
-} catch { report.status = 'fail'; process.exitCode = 1 }
+  report.status = 'pass'; report.stage = 'completed'
+} catch (error) {
+  report.status = 'fail'; process.exitCode = 1
+  report.failureKind = ['TimeoutError', 'AssertionError'].includes(error?.name) ? error.name : 'other'
+  if (page && !page.isClosed()) report.panels = await page.evaluate(() => {
+    const statuses = ['prepared', 'running', 'blocked', 'completed', 'cancelled', 'expired', 'stopped', 'unconfirmed', 'draft']
+    const errors = ['unsupported_schema', 'integrity', 'conflict', 'operation_conflict', 'budget', 'storage_unknown', 'cancelled', 'deadline_exceeded', 'operation_timeout', 'unconfigured', 'configuration_changed', 'authority_revoked', 'expired', 'clock_rollback', 'context_capacity', 'source_changed', 'input_invalid', 'transport_wire_invalid', 'retention_capacity', 'unknown_outcome', 'attempt_spent', 'replacement_after_reservation', 'already_terminal', 'metadata_capacity']
+    return [...document.querySelectorAll('[data-testid="creative-pilot-panel"]')].slice(0, 2).map(panel => {
+      const field = name => panel.querySelector(`[data-testid="creative-pilot-${name}"]`)
+      const status = field('status')?.getAttribute('data-status')
+      const code = field('error')?.textContent?.trim().split(/\s/)[0]
+      const readiness = field('readiness')?.textContent?.trim().split(/\s/)[0]
+      return { busy: panel.getAttribute('aria-busy') === 'true', status: statuses.includes(status) ? status : 'absent',
+        error: !code ? 'none' : errors.includes(code) ? code : 'unclassified',
+        readiness: ['unconfigured', 'offline_control_ready', 'live_provider_ready'].includes(readiness) ? readiness : 'absent',
+        dryDisabled: field('dry-prepare')?.disabled ?? null, startDisabled: field('start')?.disabled ?? null,
+        resumeDisabled: field('resume')?.disabled ?? null, consentChecked: field('consent')?.querySelector('input')?.checked ?? null }
+    })
+  }).catch(() => [])
+}
 finally {
   if (held) await held.abort().catch(() => {})
   await context?.close(); await browser?.close()
