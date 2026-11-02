@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
+  { path: '/creative-live-pilot', name: 'CreativeLivePilot', component: () => import('@/views/CreativeLivePilot.vue') },
   { path: '/campaigns', name: 'CampaignLab', component: () => import('@/views/CampaignLab.vue') },
   {
     path: '/',

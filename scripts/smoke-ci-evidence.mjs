@@ -48,14 +48,14 @@ const expectedGroups = {
 }
 // Deliberately couple to this workflow's simple, fixed step layout. A formatting
 // change must update this guard instead of silently broadening the upload scope.
-function verifyWorkflow(workflow, { groups = Object.keys(CI_EVIDENCE_GROUPS), metadataPaths = [], planning = true, bodyEvidence = true, bodyProducer = true, creativePilot = true, ciJobs = 17 } = {}) {
+function verifyWorkflow(workflow, { groups = Object.keys(CI_EVIDENCE_GROUPS), metadataPaths = [], planning = true, bodyEvidence = true, bodyProducer = true, creativePilot = true, ciJobs = 18 } = {}) {
   const steps = workflow.split(/(?=^      - )/m).filter(step => step.startsWith('      - '))
   const uploads = steps.map((step, index) => ({ step, index })).filter(({ step }) => /uses: actions\/upload-artifact@/.test(step))
   const expectedUploads = groups.length + metadataPaths.length + (planning ? 1 : 0) + (bodyEvidence ? 1 : 0) + (bodyProducer ? 1 : 0) + (creativePilot ? 1 : 0)
   assert.equal(uploads.length, expectedUploads, 'Every artifact upload must be explicitly audited')
   assert.equal((workflow.match(/actions\/upload-artifact/g) || []).length, expectedUploads, 'No extra upload may bypass the guarded layout')
   assert.equal((workflow.match(/run: node scripts\/prepare-ci-evidence\.mjs /g) || []).length, groups.length)
-  if (ciJobs !== null) assert.equal((workflow.match(/^  [a-z0-9-]+:\n    name: ci-/gm) || []).length, ciJobs, 'All sixteen existing CI jobs plus the separate Creative Pilot job remain intact')
+  if (ciJobs !== null) assert.equal((workflow.match(/^  [a-z0-9-]+:\n    name: ci-/gm) || []).length, ciJobs, 'All seventeen existing CI jobs plus the separate live-contract integration job remain intact')
   assert.equal((workflow.match(/run: node --import tsx scripts\/prepare-planning-evidence\.ts/g) || []).length, planning ? 1 : 0)
   assert.equal((workflow.match(/run: node --import tsx scripts\/prepare-body-evidence-evidence\.ts/g) || []).length, bodyEvidence ? 1 : 0)
   assert.equal((workflow.match(/run: node --import tsx scripts\/prepare-body-producer-evidence\.ts/g) || []).length, bodyProducer ? 1 : 0)
@@ -134,7 +134,13 @@ function verifyWorkflow(workflow, { groups = Object.keys(CI_EVIDENCE_GROUPS), me
 function verifyAllWorkflows(workflows) {
   assert.ok(workflows.has('ci.yml') && workflows.has('writer-browser-tunnel.yml'))
   for (const [name, workflow] of workflows) {
-    if (name === 'ci.yml') verifyWorkflow(workflow)
+    if (name === 'ci.yml') {
+      verifyWorkflow(workflow)
+      const liveJob = workflow.split('  creative-live-pilot:\n')[1]
+      assert.ok(liveJob, 'The separate live-contract job is required')
+      assert.match(liveJob, /run: npm run test:browser-creative-live-pilot/)
+      assert.doesNotMatch(liveJob, /actions\/upload-artifact|secrets\./, 'Synthetic live tests neither upload raw artifacts nor receive provider secrets')
+    }
     else if (name === 'writer-browser-tunnel.yml') verifyWorkflow(workflow, {
       groups: ['browser'], metadataPaths: ['${{ runner.temp }}/preview-url.json'], planning: false, bodyEvidence: false, bodyProducer: false, creativePilot: false, ciJobs: null,
     })
