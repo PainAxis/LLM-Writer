@@ -94,7 +94,7 @@ export async function compileCreativeInput(view: CreativeSourceView, taskId: Cre
       suppliedChapterOutlineOrdinals, omittedChapterOutlineOrdinals: plans.filter(row => row.kind === 'chapter_outline' && row.taskId !== selectedChapter?.outline?.source.taskId)
         .map(row => manifest.tasks.find(spec => spec.id === row.taskId)!.chapterOrdinal as CreativeOrdinal),
       realizedBodyCoverage: previousBodies.length ? 'complete_accepted_preceding_prefix' : 'none',
-      suppliedBodyOrdinals: bodies.map((_row, index) => (index + 1) as CreativeOrdinal), semanticCompleteness: 'not_reviewed', exposure: manifest.policy.protocol === 'creative-pilot-live-policy-v1' ? 'author_and_openai_writer' : 'author_and_offline_control_writer_only' },
+      suppliedBodyOrdinals: bodies.map((_row, index) => (index + 1) as CreativeOrdinal), semanticCompleteness: 'not_reviewed', exposure: manifest.policy.protocol === 'creative-pilot-go-policy-v1' ? 'author_and_opencode_go_writer' : manifest.policy.protocol === 'creative-pilot-live-policy-v1' ? 'author_and_openai_writer' : 'author_and_offline_control_writer_only' },
     stageInstruction: CREATIVE_STAGE_INSTRUCTIONS[task.kind],
     outputSchema: task.kind === 'chapter_body' ? null : creativePlanOutputSchema(task.kind, task.id, manifest.language),
   }

@@ -3,7 +3,7 @@ import type {
   CreativeAdapterIdentity, CreativeAdapterResult, CreativeArtifact, CreativeArtifactRef, CreativeArtifactTextV1, CreativeBriefV1,
   CreativeBudget, CreativeCandidate, CreativeCheckpoint, CreativeDispatchWire, CreativeErrorCode, CreativeHead, CreativeManifest,
   CreativePhase, CreativePolicy, CreativeReceipt, CreativeRequest, CreativeResolutionReason, CreativeResponse, CreativeRuntimeIdentity,
-  CreativeTaskId, CreativeTaskSpec, CreativeOfflinePolicy, CreativeLiveGrantV1, CreativeLivePolicy, CreativeLiveBinding,
+  CreativeTaskId, CreativeTaskSpec, CreativeOfflinePolicy, CreativeLiveGrantV1, CreativeLivePolicy, CreativeLiveBinding, CreativeGoGrantV1, CreativeLiveGrant, CreativeGoPolicyV1, CreativeGoBillingEvidence,
 } from '../../types/creativePilot'
 import {
   assertScalarText, canonicalCampaignText, canonicalStringify, decodeStorageBytes, encodeStorageBytes, hashCampaignValue, hashText,
@@ -30,6 +30,13 @@ export const CREATIVE_LIVE_GRANT_DEFAULTS = Object.freeze({
   reasoningEffort: 'none', serviceTier: 'default', store: false, pricingDate: '2026-11-02', pricingValidUntil: 1794182400000,
   reservedCostMicroUsd: 5743728, slots: 18, inputTokensPerSlot: 1050000, outputTokensPerSlot: 4096,
   inputMicroUsdPerMillion: 300000, outputMicroUsdPerMillion: 1000000,
+} as const)
+/** MiMo's own 1,048,576 context ceiling, not an inherited OpenAI limit or a byte/token estimate. */
+export const CREATIVE_GO_GRANT_DEFAULTS = Object.freeze({
+  protocol: 'creative-pilot-go-grant-v1', provider: 'opencode_go', modelId: 'mimo-v2.6-flash', endpoint: 'https://opencode.ai/inference/go/openai/v1',
+  thinking: 'disabled', pricingDate: '2026-11-02', pricingValidUntil: 1794182400000,
+  reservedCostMicroUsd: 2663064, slots: 18, inputTokensPerSlot: 1048576, outputTokensPerSlot: 4096,
+  inputMicroUsdPerMillion: 140000, outputMicroUsdPerMillion: 280000, extraUsageDisabled: true,
 } as const)
 export const CREATIVE_BUDGET_LIMITS: Readonly<CreativeBudget> = Object.freeze({ attempts: 9, inputBytes: 589824, inputUtf16: 589824,
   inputTokens: null, outputTokens: 36864, reasoningTokens: 0, responseBytes: 589824, activeMs: 600000, artifacts: 9, operations: 48 })
@@ -111,23 +118,51 @@ export function creativeLivePolicy(grant: CreativeLiveGrantV1): CreativeLivePoli
   return { protocol: 'creative-pilot-live-policy-v1', mode: 'sdk_live_pilot', transportPolicy: 'creative-pilot-live-sdk-v1',
     inputTokenEnforcement: 'worst_case_context_reservation', retention: 'local_campaign_lifetime_no_automatic_deletion', grant: structuredClone(grant) }
 }
+function goGrantShape(value: unknown): asserts value is CreativeGoGrantV1 {
+  creativeRecord(value, [...Object.keys(CREATIVE_GO_GRANT_DEFAULTS), 'grantId', 'campaignIds', 'briefHashes', 'maxCostMicroUsd', 'transmissionConsent', 'expiresAt', 'hash'])
+  for (const [key, fixed] of Object.entries(CREATIVE_GO_GRANT_DEFAULTS)) creativeAssert(value[key] === fixed)
+  creativeId(value.grantId); creativeHash(value.hash)
+  creativeRecord(value.campaignIds, ['zh', 'en']); creativeRecord(value.briefHashes, ['zh', 'en'])
+  for (const language of ['zh', 'en'] as const) { creativeId(value.campaignIds[language]); creativeHash(value.briefHashes[language]) }
+  creativeAssert(value.campaignIds.zh !== value.campaignIds.en && value.transmissionConsent === true)
+  creativeInteger(value.maxCostMicroUsd, Number.MAX_SAFE_INTEGER, CREATIVE_GO_GRANT_DEFAULTS.reservedCostMicroUsd)
+  creativeInteger(value.expiresAt, CREATIVE_GO_GRANT_DEFAULTS.pricingValidUntil, 1)
+}
+export async function validateCreativeGoGrant(value: CreativeGoGrantV1): Promise<CreativeGoGrantV1> {
+  goGrantShape(value); return hashed(value, 'creative-pilot-go-grant-v1')
+}
+export async function sealCreativeGoGrant(value: Omit<CreativeGoGrantV1, 'hash'>): Promise<CreativeGoGrantV1> {
+  return validateCreativeGoGrant(await sealCreativeRecord<CreativeGoGrantV1>(value, 'creative-pilot-go-grant-v1'))
+}
+export async function validateCreativeGrant(value: CreativeLiveGrant): Promise<CreativeLiveGrant> {
+  return value?.protocol === 'creative-pilot-go-grant-v1' ? validateCreativeGoGrant(value) : validateCreativeLiveGrant(value as CreativeLiveGrantV1)
+}
+export function creativeGoPolicy(grant: CreativeGoGrantV1): CreativeGoPolicyV1 {
+  goGrantShape(grant)
+  return { protocol: 'creative-pilot-go-policy-v1', mode: 'sdk_live_pilot', transportPolicy: 'creative-pilot-opencode-go-sdk-v1',
+    inputTokenEnforcement: 'worst_case_context_reservation', retention: 'local_campaign_lifetime_no_automatic_deletion', grant: structuredClone(grant) }
+}
+function policyForGrant(grant: CreativeLiveGrant): CreativeLivePolicy | CreativeGoPolicyV1 {
+  return grant.protocol === 'creative-pilot-go-grant-v1' ? creativeGoPolicy(grant) : creativeLivePolicy(grant)
+}
 function policyShape(policy: CreativePolicy): void {
   if (policy?.protocol === 'creative-pilot-policy-v1') creativeAssert(creativeEqual(policy, CREATIVE_POLICY))
   else {
     creativeRecord(policy, ['protocol', 'mode', 'transportPolicy', 'inputTokenEnforcement', 'retention', 'grant'])
-    liveGrantShape(policy.grant)
-    creativeAssert(creativeEqual(policy, creativeLivePolicy(policy.grant)))
+    creativeAssert(creativeEqual(policy, policyForGrant(policy.grant)))
   }
 }
 export function validateCreativePolicyAdapter(policy: CreativePolicy, adapter: CreativeAdapterIdentity): void {
   policyShape(policy); validateCreativeAdapter(adapter)
   if (policy.protocol === 'creative-pilot-policy-v1') creativeAssert(adapter.mode === 'offline_control', 'Policy adapter mismatch', 'configuration_changed')
   else creativeAssert(adapter.mode === 'live_provider' && adapter.grantHash === policy.grant.hash
-    && adapter.configurationRevision === policy.grant.grantId, 'Grant adapter mismatch', 'configuration_changed')
+    && adapter.configurationRevision === policy.grant.grantId
+    && adapter.adapterId === policy.transportPolicy && adapter.adapterVersion === policy.transportPolicy
+    && adapter.requestedModelId === policy.grant.modelId && adapter.effectiveModelId === policy.grant.modelId && adapter.endpointIdentity === policy.grant.endpoint, 'Grant adapter mismatch', 'configuration_changed')
 }
 export function validateCreativeBinding(binding: CreativeLiveBinding, adapter: CreativeAdapterIdentity): void {
   validateCreativePolicyAdapter(binding.policy, adapter)
-  if (binding.policy.protocol === 'creative-pilot-live-policy-v1') {
+  if (binding.policy.mode === 'sdk_live_pilot') {
     const grant = binding.policy.grant
     choice(binding.language, ['zh', 'en'])
     creativeAssert(binding.campaignId === grant.campaignIds[binding.language] && binding.briefHash === grant.briefHashes[binding.language], 'Grant campaign mismatch', 'authority_revoked')
@@ -135,11 +170,27 @@ export function validateCreativeBinding(binding: CreativeLiveBinding, adapter: C
 }
 export function validateCreativeCampaignAuthority(manifest: CreativeManifest, candidate: CreativeCandidate, adapter: CreativeAdapterIdentity): void {
   creativeAssert(candidate.campaignId === manifest.campaignId && candidate.brief.language === manifest.language)
-  if (manifest.policy.protocol === 'creative-pilot-live-policy-v1') creativeAssert(candidate.hash === manifest.initialCandidateHash && candidate.revision === 0 && candidate.parentHash === null, 'Live candidate changed', 'authority_revoked')
+  if (manifest.policy.mode === 'sdk_live_pilot') creativeAssert(candidate.hash === manifest.initialCandidateHash && candidate.revision === 0 && candidate.parentHash === null, 'Live candidate changed', 'authority_revoked')
   validateCreativeBinding({ campaignId: manifest.campaignId, language: manifest.language, briefHash: candidate.briefHash, policy: manifest.policy }, adapter)
+}
+export function validateCreativeGoBilling(value: unknown): asserts value is CreativeGoBillingEvidence {
+  creativeRecord(value, ['status', 'billingSource', 'costUsd', 'allowanceUsd', 'listCostUsd'])
+  choice(value.status, ['valid', 'invalid']); choice(value.billingSource, ['go', 'go-plus', 'balance', 'free', 'byok', 'other', null])
+  for (const key of ['costUsd', 'allowanceUsd', 'listCostUsd']) {
+    const amount = value[key]
+    if (amount !== null) creativeAssert(typeof amount === 'string' && amount.length <= 32 && Number.isFinite(Number(amount)) && JSON.stringify(Number(amount)) === amount)
+  }
+  const valid = ['go', 'go-plus'].includes(value.billingSource as string) && value.costUsd === '0'
+    && typeof value.allowanceUsd === 'string' && Number(value.allowanceUsd) >= 0 && Number(value.allowanceUsd) <= 0.147948
+    && typeof value.listCostUsd === 'string' && Number(value.listCostUsd) >= 0 && Number(value.listCostUsd) <= 0.147948
+  creativeAssert(value.status === (valid ? 'valid' : 'invalid'))
 }
 export function validateCreativeResponseAuthority(adapter: CreativeAdapterIdentity, response: CreativeResponse): void {
   creativeAssert(response.usage.provenance === (adapter.mode === 'live_provider' ? 'provider_reported' : 'synthetic_control'), 'Response provenance mismatch', 'integrity')
+  if (adapter.adapterId === 'creative-pilot-opencode-go-sdk-v1') {
+    validateCreativeGoBilling(response.usage.go)
+    creativeAssert(response.usage.go!.status === 'valid' || response.usage.status === 'invalid')
+  } else creativeAssert(!Object.hasOwn(response.usage, 'go'), 'Unexpected Go billing evidence')
 }
 export function validateCreativeAdapter(value: unknown): asserts value is CreativeAdapterIdentity {
   const live = value !== null && typeof value === 'object' && (value as { mode?: unknown }).mode === 'live_provider'
@@ -148,9 +199,11 @@ export function validateCreativeAdapter(value: unknown): asserts value is Creati
   text(value.endpointIdentity, 512)
   if (live) {
     creativeHash(value.grantHash)
-    creativeAssert(value.adapterId === 'creative-pilot-live-sdk-v1' && value.adapterVersion === 'creative-pilot-live-sdk-v1'
-      && value.requestedModelId === CREATIVE_LIVE_GRANT_DEFAULTS.modelId && value.effectiveModelId === CREATIVE_LIVE_GRANT_DEFAULTS.modelId
-      && value.endpointIdentity === CREATIVE_LIVE_GRANT_DEFAULTS.endpoint)
+    const profile = value.adapterId === 'creative-pilot-opencode-go-sdk-v1' ? CREATIVE_GO_GRANT_DEFAULTS : CREATIVE_LIVE_GRANT_DEFAULTS
+    const transport = value.adapterId === 'creative-pilot-opencode-go-sdk-v1' ? 'creative-pilot-opencode-go-sdk-v1' : 'creative-pilot-live-sdk-v1'
+    creativeAssert(value.adapterId === transport && value.adapterVersion === transport
+      && value.requestedModelId === profile.modelId && value.effectiveModelId === profile.modelId
+      && value.endpointIdentity === profile.endpoint)
   } else try { const url = new URL(value.endpointIdentity); creativeAssert(['http:', 'https:'].includes(url.protocol) && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
     && !url.username && !url.password && !url.search && !url.hash && url.href === value.endpointIdentity) } catch { throw new CreativePilotError('integrity') }
 }
@@ -189,24 +242,24 @@ export async function validateCreativeManifest(value: CreativeManifest): Promise
   choice(value.schemaVersion, [4]); choice(value.protocolVersion, ['creative-pilot-v4']); creativeId(value.campaignId); choice(value.language, ['zh', 'en']); creativeHash(value.initialCandidateHash)
   choice(value.taskGraphVersion, ['creative-three-chapter-v1']); creativeAssert(creativeEqual(value.tasks, creativeTaskGraph())); choice(value.compilerVersion, ['creative-plan-compiler-v1']); choice(value.promptVersion, ['creative-pilot-prompt-v1'])
   choice(value.countingVersion, ['crlf-lf-nfc-scalar-v1']); runtimeIdentity(value); policyShape(value.policy); creativeAssert(creativeEqual(value.budget, CREATIVE_BUDGET_LIMITS))
-  if (value.policy.protocol === 'creative-pilot-live-policy-v1') {
-    await validateCreativeLiveGrant(value.policy.grant)
+  if (value.policy.mode === 'sdk_live_pilot') {
+    await validateCreativeGrant(value.policy.grant)
     creativeAssert(value.campaignId === value.policy.grant.campaignIds[value.language] && value.expiresAt <= value.policy.grant.expiresAt)
   }
   creativeAssert(creativeEqual(value.storage, { limitBytes: encodeStorageBytes(67108864), recoveryReserveBytes: encodeStorageBytes(524288) }))
   creativeInteger(value.createdAt); creativeInteger(value.expiresAt); creativeAssert(value.expiresAt === value.createdAt + 900000)
   return hashed(value, CREATIVE_DOMAIN.manifest)
 }
-export async function createCreativeManifest(campaignId: string, candidate: CreativeCandidate, identity: CreativeRuntimeIdentity, liveGrant?: CreativeLiveGrantV1): Promise<CreativeManifest> {
+export async function createCreativeManifest(campaignId: string, candidate: CreativeCandidate, identity: CreativeRuntimeIdentity, liveGrant?: CreativeLiveGrant): Promise<CreativeManifest> {
   if (liveGrant !== undefined) {
-    await validateCreativeLiveGrant(liveGrant)
+    await validateCreativeGrant(liveGrant)
     creativeAssert(candidate.campaignId === campaignId && campaignId === liveGrant.campaignIds[candidate.brief.language] && candidate.briefHash === liveGrant.briefHashes[candidate.brief.language]
       && candidate.revision === 0 && candidate.parentHash === null, 'Grant candidate mismatch', 'authority_revoked')
   }
   return validateCreativeManifest(await sealCreativeRecord<CreativeManifest>({ schemaVersion: 4, protocolVersion: 'creative-pilot-v4', campaignId,
     language: candidate.brief.language, initialCandidateHash: candidate.hash, taskGraphVersion: 'creative-three-chapter-v1', tasks: creativeTaskGraph(),
     compilerVersion: 'creative-plan-compiler-v1', promptVersion: 'creative-pilot-prompt-v1', countingVersion: 'crlf-lf-nfc-scalar-v1', ...structuredClone(identity),
-    policy: liveGrant ? creativeLivePolicy(liveGrant) : { ...CREATIVE_POLICY }, budget: { ...CREATIVE_BUDGET_LIMITS }, storage: { limitBytes: encodeStorageBytes(67108864), recoveryReserveBytes: encodeStorageBytes(524288) },
+    policy: liveGrant ? policyForGrant(liveGrant) : { ...CREATIVE_POLICY }, budget: { ...CREATIVE_BUDGET_LIMITS }, storage: { limitBytes: encodeStorageBytes(67108864), recoveryReserveBytes: encodeStorageBytes(524288) },
     createdAt: candidate.createdAt, expiresAt: candidate.createdAt + 900000 }, CREATIVE_DOMAIN.manifest))
 }
 export async function validateCreativeRequest(value: CreativeRequest): Promise<CreativeRequest> {
@@ -240,8 +293,9 @@ export async function validateCreativeResponse(value: CreativeResponse): Promise
   choice(value.finishReason, ['stop', 'length', 'content_filter', 'tool_calls', 'error', 'other', 'unknown'])
   creativeRecord(value.contentEvidence, ['stepCount', 'anomalies']); if (value.contentEvidence.stepCount !== null) creativeInteger(value.contentEvidence.stepCount)
   array(value.contentEvidence.anomalies, 5); creativeAssert(creativeEqual(value.contentEvidence.anomalies, CREATIVE_ANOMALIES.filter(x => value.contentEvidence.anomalies.includes(x))))
-  creativeRecord(value.usage, ['status', 'provenance', 'inputTokens', 'outputTokens', 'reasoningTokens']); choice(value.usage.status, ['complete', 'partial', 'unavailable', 'invalid']); choice(value.usage.provenance, ['synthetic_control', 'provider_reported'])
+  creativeRecord(value.usage, ['status', 'provenance', 'inputTokens', 'outputTokens', 'reasoningTokens', ...(Object.hasOwn(value.usage, 'go') ? ['go'] : [])]); choice(value.usage.status, ['complete', 'partial', 'unavailable', 'invalid']); choice(value.usage.provenance, ['synthetic_control', 'provider_reported'])
   for (const key of ['inputTokens', 'outputTokens', 'reasoningTokens'] as const) if (value.usage[key] !== null) creativeInteger(value.usage[key])
+  if (Object.hasOwn(value.usage, 'go')) { validateCreativeGoBilling(value.usage.go); creativeAssert(value.usage.go!.status === 'valid' || value.usage.status === 'invalid') }
   creativeRecord(value.reportedModel, ['status', 'value']); choice(value.reportedModel.status, ['absent', 'matched', 'mismatch', 'invalid'])
   if (['absent', 'invalid'].includes(value.reportedModel.status)) creativeAssert(value.reportedModel.value === null)
   else creativeAssert(typeof value.reportedModel.value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$/.test(value.reportedModel.value))

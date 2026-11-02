@@ -48,7 +48,7 @@ export interface CreativeInputScope {
   realizedBodyCoverage: 'none' | 'complete_accepted_preceding_prefix'
   suppliedBodyOrdinals: CreativeOrdinal[]
   semanticCompleteness: 'not_reviewed'
-  exposure: 'author_and_offline_control_writer_only' | 'author_and_openai_writer'
+  exposure: 'author_and_offline_control_writer_only' | 'author_and_openai_writer' | 'author_and_opencode_go_writer'
 }
 export type CreativeJson = null | boolean | number | string |
   CreativeJson[] | { [key: string]: CreativeJson }
@@ -116,11 +116,18 @@ export type CreativeContentAnomaly = 'reasoning_present' | 'tool_calls_present' 
 export interface CreativeContentEvidence {
   stepCount: number | null; anomalies: CreativeContentAnomaly[]
 }
+export interface CreativeGoBillingEvidence {
+  status: 'valid' | 'invalid'
+  billingSource: 'go' | 'go-plus' | 'balance' | 'free' | 'byok' | 'other' | null
+  // Canonical JSON number spellings preserve fractional USD without float arithmetic in storage.
+  costUsd: string | null; allowanceUsd: string | null; listCostUsd: string | null
+}
 export interface CreativeUsageEvidence {
   status: 'complete' | 'partial' | 'unavailable' | 'invalid'
   provenance: 'synthetic_control' | 'provider_reported'
   inputTokens: number | null; outputTokens: number | null
   reasoningTokens: number | null
+  go?: CreativeGoBillingEvidence
 }
 export interface CreativeReportedModel {
   status: 'absent' | 'matched' | 'mismatch' | 'invalid'; value: string | null
@@ -216,12 +223,30 @@ export interface CreativeLiveGrantV1 {
   inputMicroUsdPerMillion: 300000; outputMicroUsdPerMillion: 1000000
   transmissionConsent: true; expiresAt: number; hash: string
 }
+/** Go is a separate provider contract; it never changes or reinterprets an OpenAI v1 grant. */
+export interface CreativeGoGrantV1 {
+  protocol: 'creative-pilot-go-grant-v1'; grantId: string
+  provider: 'opencode_go'; modelId: 'mimo-v2.6-flash'; endpoint: 'https://opencode.ai/inference/go/openai/v1'
+  thinking: 'disabled'; pricingDate: '2026-11-02'; pricingValidUntil: 1794182400000
+  campaignIds: { zh: string; en: string }; briefHashes: { zh: string; en: string }
+  maxCostMicroUsd: number; reservedCostMicroUsd: 2663064; slots: 18
+  inputTokensPerSlot: 1048576; outputTokensPerSlot: 4096
+  inputMicroUsdPerMillion: 140000; outputMicroUsdPerMillion: 280000
+  // User attestation only, not evidence that the application inspected the remote account.
+  extraUsageDisabled: true; transmissionConsent: true; expiresAt: number; hash: string
+}
+export type CreativeLiveGrant = CreativeLiveGrantV1 | CreativeGoGrantV1
 export interface CreativeLivePolicy {
   protocol: 'creative-pilot-live-policy-v1'; mode: 'sdk_live_pilot'; transportPolicy: 'creative-pilot-live-sdk-v1'
   inputTokenEnforcement: 'worst_case_context_reservation'; retention: 'local_campaign_lifetime_no_automatic_deletion'
   grant: CreativeLiveGrantV1
 }
-export type CreativePolicy = CreativeOfflinePolicy | CreativeLivePolicy
+export interface CreativeGoPolicyV1 {
+  protocol: 'creative-pilot-go-policy-v1'; mode: 'sdk_live_pilot'; transportPolicy: 'creative-pilot-opencode-go-sdk-v1'
+  inputTokenEnforcement: 'worst_case_context_reservation'; retention: 'local_campaign_lifetime_no_automatic_deletion'
+  grant: CreativeGoGrantV1
+}
+export type CreativePolicy = CreativeOfflinePolicy | CreativeLivePolicy | CreativeGoPolicyV1
 export interface CreativeTaskSpec { id: CreativeTaskId; kind: CreativeStage; chapterOrdinal: CreativeOrdinal | null; dependsOn: CreativeTaskId[] }
 export interface CreativeBudget {
   attempts: number; inputBytes: number; inputUtf16: number; inputTokens: null; outputTokens: number; reasoningTokens: number
@@ -287,7 +312,7 @@ export interface CreativeSnapshot extends CreativeSourceView {
   requests: Map<string, CreativeRequest>; phases: Map<string, CreativePhase>; responses: Map<string, CreativeResponse>
 }
 export interface CreativeCommitGuard { canCommit(): boolean; canPublish(): boolean }
-export interface CreateCreativeCommand { campaignId: string; operationId: string; brief: CreativeBriefV1; identity: CreativeRuntimeIdentity; liveGrant?: CreativeLiveGrantV1 }
+export interface CreateCreativeCommand { campaignId: string; operationId: string; brief: CreativeBriefV1; identity: CreativeRuntimeIdentity; liveGrant?: CreativeLiveGrant }
 export interface ReplaceCreativeBriefCommand { operationId: string; brief: CreativeBriefV1 }
 export type CreativeMutation = { operationId: string; recovery: boolean } & (
   | { kind: 'reserve'; request: CreativeRequest }

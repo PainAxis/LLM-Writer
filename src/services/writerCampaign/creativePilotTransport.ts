@@ -2,13 +2,13 @@
 import type { ApiConfig } from '../../types/api'
 import type {
   CreativeAdapterIdentity, CreativeAdapterResult, CreativeContentAnomaly, CreativeContentEvidence,
-  CreativeDispatchWire, CreativeFinishReason, CreativeGenerationAdapter, CreativeReportedModel, CreativeUsageEvidence, CreativeOfflineHost, CreativeLiveHost, CreativeHost, CreativeLiveGrantV1, CreativeLiveBinding,
+  CreativeDispatchWire, CreativeFinishReason, CreativeGenerationAdapter, CreativeReportedModel, CreativeUsageEvidence, CreativeOfflineHost, CreativeLiveHost, CreativeHost, CreativeLiveGrantV1, CreativeLiveBinding, CreativeGoGrantV1,
 } from '../../types/creativePilot'
 import { loadAISDK, resolveLanguageModel } from '../aiProviders'
 import { BoundedGenerationError, createBoundedRequestScope, type BoundedRequestScope } from '../aiRequestLimits'
 import { usesCompletionTokenLimit } from '../../utils/generationBudget'
 import { assertScalarText, canonicalStringify, hashText, utf8Bytes } from './protocol'
-import { CREATIVE_ANOMALIES, CREATIVE_LIMITS, CreativePilotError, encodeCreativeResponseText, validateCreativeAdapter, validateCreativeLiveGrant, validateCreativeBinding } from './creativePilotProtocol'
+import { CREATIVE_ANOMALIES, CREATIVE_LIMITS, CreativePilotError, encodeCreativeResponseText, validateCreativeAdapter, validateCreativeLiveGrant, validateCreativeGoGrant, validateCreativeBinding } from './creativePilotProtocol'
 import { parseCreativeJson } from './creativePilotJson'
 
 export type { CreativeOfflineHost, CreativeLiveHost, CreativeHost } from '../../types/creativePilot'
@@ -17,6 +17,8 @@ export interface CreativeOfflineSdkHostOptions {
   currentConfigurationRevision: () => string
   readConfiguration: () => ApiConfig
 }
+type TransportProfile = 'offline' | 'openai' | 'opencode_go'
+const GO_USER_AGENT = 'LLM-Writer-Creative-Pilot/1.0'
 const hosts = new WeakMap<object, CreativeGenerationAdapter>()
 const identifier = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$/.test(value)
 const record = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
@@ -57,7 +59,7 @@ function frozenWire(input: Readonly<{ system: string; prompt: string }>): Readon
 }
 
 async function observeDispatchBody(body: unknown, wire: Readonly<{ system: string; prompt: string }>, config: ApiConfig,
-  check: () => void, live = false): Promise<CreativeDispatchWire> {
+  check: () => void, profile: TransportProfile = 'offline'): Promise<CreativeDispatchWire> {
   check()
   if (typeof body !== 'string' || !body.length || body.length > CREATIVE_LIMITS.inputUtf16) wireFailure()
   let bytes: number, value: Record<string, unknown> | null
@@ -72,8 +74,11 @@ async function observeDispatchBody(body: unknown, wire: Readonly<{ system: strin
     return wireFailure()
   }
   const limitKey = usesCompletionTokenLimit(config) ? 'max_completion_tokens' : 'max_tokens'
-  if (!value || !exactKeys(value, ['model', 'temperature', 'messages', limitKey, ...(live ? ['reasoning_effort', 'service_tier', 'stream', 'store'] : [])])
-    || (live && (value.reasoning_effort !== 'none' || value.service_tier !== 'default' || value.stream !== false || value.store !== false))
+  const additional = profile === 'openai' ? ['reasoning_effort', 'service_tier', 'stream', 'store'] : profile === 'opencode_go' ? ['thinking', 'stream'] : []
+  const thinking = value && record(value.thinking)
+  if (!value || !exactKeys(value, ['model', 'temperature', 'messages', limitKey, ...additional])
+    || (profile === 'openai' && (value.reasoning_effort !== 'none' || value.service_tier !== 'default' || value.stream !== false || value.store !== false))
+    || (profile === 'opencode_go' && (!thinking || !exactKeys(thinking, ['type']) || thinking.type !== 'disabled' || value.stream !== false))
     || value.model !== config.selectedModel || value.temperature !== 0.7 || value[limitKey] !== CREATIVE_LIMITS.outputTokens
     || !Array.isArray(value.messages) || value.messages.length !== 2) wireFailure()
   const system = record(value.messages[0]), prompt = record(value.messages[1])
@@ -93,7 +98,33 @@ export async function inspectCreativeDispatchRequest(url: unknown, init: Readonl
   return observeDispatchBody(init.body, wire, config, check)
 }
 
-function projectRawMetadata(value: unknown, effectiveModelId: string, live = false): { usage: CreativeUsageEvidence; reportedModel: CreativeReportedModel } {
+/** Parsed numbers can round a nonzero JSON coefficient down to zero. Keep
+ * those metadata values unavailable rather than admitting them as zero charge.
+ * Called only after the bounded, duplicate-key-rejecting JSON parser succeeds. */
+function maskUnderflowNumbers(json: string): string {
+  const number = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y
+  let output = '', quoted = false, escaped = false
+  for (let index = 0; index < json.length;) {
+    const char = json[index]!
+    if (quoted) {
+      output += char; index++
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') quoted = false
+    } else if (char === '"') { quoted = true; output += char; index++ }
+    else if (char === '-' || (char >= '0' && char <= '9')) {
+      number.lastIndex = index
+      const token = number.exec(json)?.[0]
+      if (!token) wireFailure()
+      const coefficient = token.split(/[eE]/)[0]!
+      output += Number(token) === 0 && /[1-9]/.test(coefficient) ? 'null' : token
+      index += token.length
+    } else { output += char; index++ }
+  }
+  return output
+}
+
+function projectRawMetadata(value: unknown, effectiveModelId: string, profile: TransportProfile = 'offline'): { usage: CreativeUsageEvidence; reportedModel: CreativeReportedModel } {
   const root = record(value)
   if (!root) throw new BoundedGenerationError('transport')
   let reportedModel: CreativeReportedModel = { status: 'absent', value: null }
@@ -113,14 +144,32 @@ function projectRawMetadata(value: unknown, effectiveModelId: string, live = fal
   const inputTokens = counter(usage, 'prompt_tokens'), outputTokens = counter(usage, 'completion_tokens')
   const details = usage && own(usage, 'completion_tokens_details') ? record(usage.completion_tokens_details) : null
   if (usage && own(usage, 'completion_tokens_details') && !details) invalid = true
-  const reasoningTokens = counter(details, 'reasoning_tokens')
-  if (live && ((inputTokens !== null && inputTokens > 1_050_000)
+  let reasoningTokens = counter(details, 'reasoning_tokens')
+  let go: CreativeUsageEvidence['go'] | undefined
+  if (profile === 'opencode_go') {
+    const opencode = usage && record(usage.opencode)
+    const tokens = opencode && record(opencode.tokens)
+    const billedReasoning = counter(tokens, 'reasoning')
+    if (reasoningTokens !== null && billedReasoning !== null && reasoningTokens !== billedReasoning) invalid = true
+    reasoningTokens ??= billedReasoning
+    const amount = (value: unknown): string | null => typeof value === 'number' && Number.isFinite(value) ? JSON.stringify(value) : null
+    const source = opencode?.billing_source
+    const billingSource = typeof source !== 'string' ? null
+      : ['go', 'go-plus', 'balance', 'free', 'byok'].includes(source) ? source as NonNullable<CreativeUsageEvidence['go']>['billingSource'] : 'other'
+    const costUsd = amount(usage?.cost), allowanceUsd = amount(opencode?.allowance), listCostUsd = amount(opencode?.list_cost)
+    const valid = (billingSource === 'go' || billingSource === 'go-plus') && costUsd === '0'
+      && allowanceUsd !== null && Number(allowanceUsd) >= 0 && Number(allowanceUsd) <= 0.147948
+      && listCostUsd !== null && Number(listCostUsd) >= 0 && Number(listCostUsd) <= 0.147948
+    go = { status: valid ? 'valid' : 'invalid', billingSource, costUsd, allowanceUsd, listCostUsd }
+    if (!valid || (inputTokens !== null && inputTokens > 1_048_576)) invalid = true
+  }
+  if (profile === 'openai' && ((inputTokens !== null && inputTokens > 1_050_000)
     || (own(root, 'service_tier') && root.service_tier !== 'default'))) invalid = true
   if ((outputTokens !== null && outputTokens > CREATIVE_LIMITS.outputTokens)
     || (reasoningTokens !== null && outputTokens !== null && reasoningTokens > outputTokens)) invalid = true
   const known = [inputTokens, outputTokens, reasoningTokens].filter(value => value !== null).length
   return { reportedModel, usage: { status: invalid ? 'invalid' : known === 3 ? 'complete' : known ? 'partial' : 'unavailable',
-    provenance: live ? 'provider_reported' : 'synthetic_control', inputTokens, outputTokens, reasoningTokens } }
+    provenance: profile !== 'offline' ? 'provider_reported' : 'synthetic_control', inputTokens, outputTokens, reasoningTokens, ...(go ? { go } : {}) } }
 }
 
 /** Pure closed anomaly projection. This conveys no host or invocation authority. */
@@ -165,7 +214,7 @@ export function createCreativeOfflineSdkHost(options: CreativeOfflineSdkHostOpti
   try { validateCreativeAdapter(options.identity) } catch { throw new CreativePilotError('unconfigured') }
   if (options.identity.adapterId !== 'creative-pilot-sdk-v1' || options.identity.adapterVersion !== 'creative-pilot-sdk-v1'
     || typeof options.currentConfigurationRevision !== 'function' || typeof options.readConfiguration !== 'function') throw new CreativePilotError('unconfigured')
-  return createSdkHost(options, false) as CreativeOfflineHost
+  return createSdkHost(options, 'offline') as CreativeOfflineHost
 }
 
 export interface CreativeLiveSdkHostOptions {
@@ -209,11 +258,70 @@ export async function createCreativeLiveSdkHost(options: CreativeLiveSdkHostOpti
         maxTokens: CREATIVE_LIMITS.outputTokens, unlimitedTokens: false, temperature: 0.7,
         thinkingProtocol: 'openai', thinkingMode: 'disabled', customHeaders: {} }
     },
-  }, true, assertBinding) as CreativeLiveHost
+  }, 'openai', assertBinding) as CreativeLiveHost
 }
 
-function createSdkHost(options: CreativeOfflineSdkHostOptions, live: boolean,
+export interface CreativeGoSdkHostOptions {
+  grant: CreativeGoGrantV1
+  readCredential: () => string | null
+  currentGrant: () => CreativeGoGrantV1 | null
+}
+function assertGoNodeRuntime(): void {
+  if (typeof window !== 'undefined' || typeof process === 'undefined' || process.release?.name !== 'node') configurationFailure()
+}
+/** Go requires an identifiable client and a stable campaign session. */
+export async function createCreativeGoSdkHost(options: CreativeGoSdkHostOptions): Promise<CreativeLiveHost> {
+  assertGoNodeRuntime()
+  const grant = structuredClone(options.grant)
+  await validateCreativeGoGrant(grant)
+  if (typeof options.readCredential !== 'function' || typeof options.currentGrant !== 'function') throw new CreativePilotError('unconfigured')
+  const grantBytes = canonicalStringify(grant)
+  const readCredential = options.readCredential, currentGrant = options.currentGrant
+  let pinnedCredential: string | null = null
+  const current = () => {
+    assertGoNodeRuntime()
+    try {
+      if (Date.now() >= grant.expiresAt || canonicalStringify(currentGrant()) !== grantBytes) configurationFailure()
+    } catch { configurationFailure() }
+    return grant.grantId
+  }
+  current()
+  const identity: CreativeAdapterIdentity = { mode: 'live_provider', adapterId: 'creative-pilot-opencode-go-sdk-v1',
+    adapterVersion: 'creative-pilot-opencode-go-sdk-v1', requestedModelId: grant.modelId, effectiveModelId: grant.modelId,
+    configurationRevision: grant.grantId, endpointIdentity: grant.endpoint, grantHash: grant.hash }
+  validateCreativeAdapter(identity)
+  const assertBinding = (binding: CreativeLiveBinding) => {
+    current(); validateCreativeBinding(binding, identity)
+    if (binding.policy.protocol !== 'creative-pilot-go-policy-v1'
+      || canonicalStringify(binding.policy.grant) !== grantBytes) configurationFailure()
+  }
+  return createSdkHost({ identity, currentConfigurationRevision: current,
+    readConfiguration: () => {
+      current()
+      const apiKey = readCredential()
+      if (typeof apiKey !== 'string' || !apiKey.length || (pinnedCredential !== null && apiKey !== pinnedCredential)) configurationFailure()
+      pinnedCredential ??= apiKey
+      return { provider: 'custom', baseURL: grant.endpoint, selectedModel: grant.modelId, apiKey,
+        maxTokens: CREATIVE_LIMITS.outputTokens, unlimitedTokens: false, temperature: 0.7,
+        thinkingProtocol: 'mimo', thinkingMode: 'disabled', customHeaders: {} }
+    },
+  }, 'opencode_go', assertBinding) as CreativeLiveHost
+}
+
+function goDispatchHeaders(config: ApiConfig, campaignId: string, supplied: HeadersInit | undefined): Headers {
+  const sdkHeaders = new Headers(supplied)
+  if ([...sdkHeaders.keys()].some(key => !['authorization', 'content-type', 'user-agent'].includes(key))
+    || sdkHeaders.get('authorization') !== `Bearer ${config.apiKey}`
+    || sdkHeaders.get('content-type') !== 'application/json') wireFailure()
+  // SDK UA suffixes are transport implementation details. The final request has
+  // an explicit truthful application identity and no caller-supplied headers.
+  return new Headers({ authorization: `Bearer ${config.apiKey}`, 'content-type': 'application/json',
+    'user-agent': GO_USER_AGENT, 'x-opencode-session': `ses_${campaignId}` })
+}
+
+function createSdkHost(options: CreativeOfflineSdkHostOptions, profile: TransportProfile,
   assertBinding?: (binding: CreativeLiveBinding) => void): CreativeHost {
+  const live = profile !== 'offline'
   const identity = Object.freeze({ ...options.identity })
   const revision = options.currentConfigurationRevision, readConfiguration = options.readConfiguration
   let configurationWasRead = false
@@ -238,9 +346,10 @@ function createSdkHost(options: CreativeOfflineSdkHostOptions, live: boolean,
         const wire = frozenWire(input.wire)
         if (!/^[a-f0-9]{64}$/.test(input.requestHash) || typeof input.beforeRequest !== 'function') throw new CreativePilotError('input_invalid')
         assertCurrent()
+        const campaignBinding = input.binding ? structuredClone(input.binding) : null
         if (live) {
-          if (!input.binding || !assertBinding) throw new CreativePilotError('unconfigured')
-          assertBinding(input.binding)
+          if (!campaignBinding || !assertBinding) throw new CreativePilotError('unconfigured')
+          assertBinding(campaignBinding)
         }
         let config: ApiConfig
         try {
@@ -271,11 +380,11 @@ function createSdkHost(options: CreativeOfflineSdkHostOptions, live: boolean,
             if (live) {
               if (url instanceof Request || (typeof url !== 'string' && !(url instanceof URL))
                 || String(url) !== endpoint || init?.method !== 'POST') wireFailure()
-              binding = await observeDispatchBody(body, wire, config, scope.assertActive, true)
+              binding = await observeDispatchBody(body, wire, config, scope.assertActive, profile)
             } else binding = await inspectCreativeDispatchRequest(url, init && { method: init.method, body }, endpoint, wire, config, scope.assertActive)
             // Preserve the exact checked string across the asynchronous durable
             // guard. Copy header ownership without logging or hashing secrets.
-            const ownedInit: RequestInit = { ...init, method: 'POST', body: body as string, headers: new Headers(init?.headers) }
+            const ownedInit: RequestInit = { ...init, method: 'POST', body: body as string, headers: profile === 'opencode_go' ? goDispatchHeaders(config, campaignBinding!.campaignId, init?.headers) : new Headers(init?.headers) }
             // Do not re-read an admitted mutable URL or method after hashing.
             const response = await boundedFetch(endpoint, ownedInit)
             scope.assertActive()
@@ -285,8 +394,12 @@ function createSdkHost(options: CreativeOfflineSdkHostOptions, live: boolean,
             try {
               const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
               parsed = parseCreativeJson(decoded, jsonLimits, scope.assertActive)
+              if (profile === 'opencode_go') {
+                const representable = maskUnderflowNumbers(decoded)
+                if (representable !== decoded) parsed = parseCreativeJson(representable, jsonLimits, scope.assertActive)
+              }
             } catch { scope.assertActive(); throw new BoundedGenerationError('transport') }
-            rawMetadata = projectRawMetadata(parsed, identity.effectiveModelId, live)
+            rawMetadata = projectRawMetadata(parsed, identity.effectiveModelId, profile)
             scope.assertActive()
             return response
           }
@@ -295,7 +408,8 @@ function createSdkHost(options: CreativeOfflineSdkHostOptions, live: boolean,
         const model = await scope.run(() => resolveLanguageModel(config, undefined, guardedScope))
         const result = await scope.run(() => generateText({ model, prompt: wire.prompt, system: wire.system,
           maxOutputTokens: CREATIVE_LIMITS.outputTokens, temperature: 0.7, maxRetries: 0,
-          ...(live ? { providerOptions: { custom: { reasoningEffort: 'none', service_tier: 'default', stream: false, store: false } } } : {}),
+          ...(profile === 'openai' ? { providerOptions: { custom: { reasoningEffort: 'none', service_tier: 'default', stream: false, store: false } } }
+            : profile === 'opencode_go' ? { providerOptions: { custom: { thinking: { type: 'disabled' }, stream: false } } } : {}),
           abortSignal: scope.signal, telemetry: { isEnabled: false } }))
         scope.assertActive()
         const observed = record(result)

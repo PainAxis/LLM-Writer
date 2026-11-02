@@ -226,6 +226,11 @@
     "smoke:creative-pilot-live-transport": "node --import tsx scripts/smoke-creative-pilot-live-transport.ts",
     "smoke:creative-live-engine": "node --import tsx scripts/smoke-creative-live-engine.ts",
     "smoke:creative-live-ui": "node --import tsx scripts/smoke-creative-live-ui.ts",
+    "smoke:creative-pilot-go-core": "node --import tsx scripts/smoke-creative-pilot-go-core.ts",
+    "smoke:creative-pilot-go-transport": "node --import tsx scripts/smoke-creative-pilot-go-transport.ts",
+    "smoke:creative-pilot-go-cli": "node --import tsx scripts/smoke-creative-pilot-go-cli.ts",
+    "smoke:creative-go-engine": "node --import tsx scripts/smoke-creative-go-engine.ts",
+    "pilot:go": "node --import tsx scripts/creative-pilot-go.ts",
     "test:browser-creative-live-pilot": "node --import tsx scripts/browser-creative-live-pilot.mjs"
   },
   "dependencies": {

@@ -2,7 +2,7 @@
 
 [English](writer-creative-pilot.md) | [简体中文](writer-creative-pilot.zh-CN.md)
 
-Status: offline readiness accepted in [PR #51](https://github.com/PainAxis/LLM-Writer/pull/51) and [#52](https://github.com/PainAxis/LLM-Writer/pull/52); [main CI 41086963499](https://github.com/PainAxis/LLM-Writer/actions/runs/41086963499) passed all 17 jobs, with 19 audited archives. Live integration is a separate policy described below. No real-model literary acceptance has been performed.
+Status: offline readiness accepted in [PR #51](https://github.com/PainAxis/LLM-Writer/pull/51) and [#52](https://github.com/PainAxis/LLM-Writer/pull/52); [main CI 41086963499](https://github.com/PainAxis/LLM-Writer/actions/runs/41086963499) passed all 17 jobs, with 19 audited archives. The OpenAI live integration was accepted in [PR #53](https://github.com/PainAxis/LLM-Writer/pull/53): merged main `ccbde956fe0318e48561a092dd77b35bd4d179eb` passed all 18 jobs and 19 audited archives in [run 41434499185](https://github.com/PainAxis/LLM-Writer/actions/runs/41434499185). Those tests used synthetic provider responses; real-model literary acceptance remains pending.
 
 ## The concrete writing path
 
@@ -85,3 +85,8 @@ This version’s price-review validity ends **2026-11-09 00:00 UTC**. Calls afte
 The pricing contract uses the [2026-11-02 model and Standard price table](https://developers.openai.com/api/docs/models/gpt-6-luna), including long-context and default cache-write rates. It bounds token charges for this fixed execution path under that price contract, not taxes, currency conversion, other account traffic or later price changes. `store:false` does not mean zero provider retention; review [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data) before authorizing transmission of the brief, generated plans and complete preceding bodies.
 
 Synthetic SDK and built-App tests verify the live request contract without contacting a provider. Actual paid execution still requires the chosen account/project, both briefs, transmission permission and budget approval. After it runs, review all six chapters for narrative quality, plan adherence, character knowledge and cross-chapter consistency; structural compilation alone does not pass that review.
+
+
+## OpenCode Go pilot
+
+The separate [Node Go pilot](writer-creative-go-pilot.md) uses its own provider grant, billing evidence and session headers. It does not reinterpret an OpenAI key or policy as Go. Real-model quality acceptance remains pending.

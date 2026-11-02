@@ -2,7 +2,7 @@
  * restored execution grant; every new HTTP call needs a fresh winning intent. */
 import type {
   CreativeAdapterResult, CreativeCommitGuard, CreativeGenerationAdapter, CreativeHeadCommand, CreativeMutation,
-  CreativeHost, CreativeLiveBinding, CreativeLiveGrantV1, CreativePhase, CreativePilotEngine, CreativeProgressEvent, CreativeProgressKind,
+  CreativeHost, CreativeLiveBinding, CreativeLiveGrant, CreativePhase, CreativePilotEngine, CreativeProgressEvent, CreativeProgressKind,
   CreativeRepository, CreativeRequest, CreativeResponse, CreativeRuntimeIdentity, CreativeSnapshot, CreativeTaskId, CreativeUnknownReason,
 } from '../../types/creativePilot'
 import { BoundedGenerationError } from '../aiRequestLimits'
@@ -18,7 +18,9 @@ import { getCreativeSdkAdapter } from './creativePilotTransport'
 export interface CreativePilotEngineOptions {
   repository?: CreativeRepository
   host?: CreativeHost
-  liveGrant?: CreativeLiveGrantV1
+  liveGrant?: CreativeLiveGrant
+  /** Per invocation throttle only; never renews durable lifetime slots or grant. */
+  maxTasksPerRun?: number
   identity?: CreativeRuntimeIdentity
   clock?: () => number
   monotonic?: () => number
@@ -39,6 +41,8 @@ function throwCode(code: ConstructorParameters<typeof CreativePilotError>[0]): n
 
 export function createCreativePilotEngine(options: CreativePilotEngineOptions = {}): CreativePilotEngine {
   const clock = options.clock ?? Date.now, monotonic = options.monotonic ?? (() => performance.now())
+  const maxTasksPerRun = options.maxTasksPerRun === undefined ? CREATIVE_LIMITS.tasks : options.maxTasksPerRun
+  if (!Number.isInteger(maxTasksPerRun) || maxTasksPerRun < 1 || maxTasksPerRun > CREATIVE_LIMITS.tasks) throwCode('input_invalid')
   const repository = options.repository ?? createCreativePilotRepository({ clock, monotonic })
   const identity = structuredClone(options.identity ?? getCampaignBuildIdentity())
   const adapter = getCreativeSdkAdapter(options.host)
@@ -291,7 +295,7 @@ export function createCreativePilotEngine(options: CreativePilotEngineOptions = 
       return current
     })
     run.manifestHash = snapshot.manifest.hash
-    for (let stage = 0; stage < CREATIVE_LIMITS.tasks; stage++) {
+    for (let stage = 0; stage < maxTasksPerRun; stage++) {
       if (run.controller.signal.aborted || activeRun !== run || disposed) throwCode('cancelled')
       if (snapshot.checkpoint.status === 'completed') return snapshot
       const task = snapshot.checkpoint.tasks.find(row => row.status !== 'accepted')
@@ -299,7 +303,7 @@ export function createCreativePilotEngine(options: CreativePilotEngineOptions = 
       snapshot = await executeStage(run, snapshot, task.taskId)
       if (snapshot.checkpoint.status === 'blocked' || snapshot.checkpoint.status === 'cancelled') return snapshot
     }
-    if (snapshot.checkpoint.status !== 'completed') throwCode('integrity')
+    if (maxTasksPerRun === CREATIVE_LIMITS.tasks && snapshot.checkpoint.status !== 'completed') throwCode('integrity')
     return snapshot
   }
   function startRun(command: CreativeHeadCommand, mode: 'start' | 'resume'): Promise<CreativeSnapshot> {

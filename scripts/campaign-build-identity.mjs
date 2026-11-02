@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 export const CAMPAIGN_CORE_PATHS = Object.freeze([
+  'scripts/creative-pilot-go.ts',
+  'scripts/creative-pilot-go-storage.ts',
   'src/types/writerCampaign.ts',
   'src/types/creativePilot.ts',
   'src/services/writerCampaign/creativePilotProtocol.ts',
