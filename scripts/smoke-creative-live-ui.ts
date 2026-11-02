@@ -1,5 +1,6 @@
 /** Local UI/session checks, with networking forbidden. Not model acceptance. */
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import * as Vue from 'vue'
 import { useCreativePilotLab } from '../src/composables/useCreativePilotLab'
 import type { CreativePilotEngine, CreativeSnapshot } from '../src/types/creativePilot'
@@ -35,6 +36,21 @@ const fetchBefore = globalThis.fetch
 const secret = 'synthetic-ui-secret-never-persist'
 globalThis.fetch = async () => { attempts++; throw new Error('external_network_forbidden') }
 try {
+  // Execute the actual browser open helper with a delayed-announcement control.
+  // The initial visibility sample is false; only waiting for its event reveals it.
+  const browserSource = readFileSync(new URL('./browser-creative-live-pilot.mjs', import.meta.url), 'utf8')
+  const openSource = browserSource.match(/  const open = async \(\) => \{([\s\S]*?)\n  \}\n  const readyPanels/)
+  assert.ok(openSource)
+  let announcementVisible = false, announcementClosed = false, announcementWaits = 0
+  const welcomeControl = { async isVisible() { return announcementVisible }, async waitFor() { announcementWaits++; announcementVisible = true },
+    async click() { assert.equal(announcementVisible, true); announcementClosed = true; announcementVisible = false } }
+  const pageControl = { async goto() {}, getByTestId() { return { async waitFor() {} } }, getByRole() { return welcomeControl },
+    locator() { return { async waitFor(options: { state: string }) { assert.equal(options.state, 'hidden'); assert.equal(announcementClosed, true) } } } }
+  const browserReport = { announcementDismissed: false }
+  const openActual = new Function('page', 'origin', 'report', `return async () => {${openSource[1]}}`)(pageControl, 'http://127.0.0.1:1', browserReport)
+  await openActual()
+  assert.equal(announcementWaits, 1); assert.equal(announcementClosed, true); assert.equal(browserReport.announcementDismissed, true)
+  console.log('PASS actual browser open waits for the delayed first-run announcement before dismissing it')
   assert.equal(parsePilotUsd('5.743728'), 5743728)
   for (const value of ['5.743727', 'NaN', '1e2', '-6', '6.0000001', '']) assert.throws(() => parsePilotUsd(value))
   const zh = { protocol: 'creative-brief-v1' as const, language: 'zh' as const, premise: '一位馆员寻找失落的雨声。', constraints: [] }

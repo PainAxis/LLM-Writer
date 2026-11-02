@@ -7,7 +7,7 @@ import { startPreviewServer } from './browser-preview.mjs'
 import { creativeControlText } from './lib/creative-pilot-control.ts'
 
 if (process.env.CI !== 'true' || process.env.CREATIVE_PILOT_CI_APPROVED !== '1') throw new Error('creative_browser_ci_only')
-const report = { protocol: 'creative-live-browser-v1', evidence: 'synthetic_provider_interception', fixtureClock: '2026-11-02T12:00:00.000Z', status: 'running', stage: 'setup', failureKind: null, panels: [], requests: 0,
+const report = { protocol: 'creative-live-browser-v1', evidence: 'synthetic_provider_interception', fixtureClock: '2026-11-02T12:00:00.000Z', status: 'running', stage: 'setup', failureKind: null, announcementDismissed: false, modalVisible: null, panels: [], requests: 0,
   acceptedTasks: 0, acceptedBodies: 0, zeroCallPreparation: false, zeroCallRestoration: false, credentialNotStored: false,
   sessionRevocation: false, unknownNotReplayed: false, externalRequestsBlocked: 0, browserErrors: 0 }
 let server, browser, context, page, hold = false, held = null, observeHeld = () => {}
@@ -42,7 +42,12 @@ try {
     await page.goto(`${origin}/#/creative-live-pilot`)
     await page.getByTestId('creative-live-pilot').waitFor()
     const welcome = page.getByRole('button', { name: '我知道了', exact: true })
-    if (await welcome.isVisible()) await welcome.click()
+    // A fresh context has an unread announcement, shown asynchronously by App.
+    // Wait for that UI lifecycle instead of sampling before its delayed opening.
+    await welcome.waitFor()
+    await welcome.click()
+    await page.locator('.announcement-dialog').waitFor({ state: 'hidden' })
+    report.announcementDismissed = true
   }
   const readyPanels = async () => {
     const panels = page.getByTestId('creative-pilot-panel')
@@ -83,6 +88,7 @@ try {
   }, key)
   report.stage = 'open'
   await open()
+  assert.equal(report.announcementDismissed, true)
   report.stage = 'prepare'
   const ids = await prepare()
   assert.equal(report.requests, 0); report.zeroCallPreparation = true
@@ -140,6 +146,7 @@ try {
 } catch (error) {
   report.status = 'fail'; process.exitCode = 1
   report.failureKind = ['TimeoutError', 'AssertionError'].includes(error?.name) ? error.name : 'other'
+  if (page && !page.isClosed()) report.modalVisible = await page.locator('.announcement-dialog').isVisible().catch(() => null)
   if (page && !page.isClosed()) report.panels = await page.evaluate(() => {
     const statuses = ['prepared', 'running', 'blocked', 'completed', 'cancelled', 'expired', 'stopped', 'unconfirmed', 'draft']
     const errors = ['unsupported_schema', 'integrity', 'conflict', 'operation_conflict', 'budget', 'storage_unknown', 'cancelled', 'deadline_exceeded', 'operation_timeout', 'unconfigured', 'configuration_changed', 'authority_revoked', 'expired', 'clock_rollback', 'context_capacity', 'source_changed', 'input_invalid', 'transport_wire_invalid', 'retention_capacity', 'unknown_outcome', 'attempt_spent', 'replacement_after_reservation', 'already_terminal', 'metadata_capacity']
