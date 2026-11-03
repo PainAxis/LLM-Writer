@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { createCreativePilotEngine } from '../src/services/writerCampaign/creativePilotEngine'
 import type { CreativeBriefV1, CreativeLiveAdapterIdentity, CreativeResponse } from '../src/types/creativePilot'
-import { CREATIVE_LIVE_GRANT_DEFAULTS, sealCreativeLiveGrant, CREATIVE_GO_GRANT_DEFAULTS, CREATIVE_POLICY, createCreativeCandidate, createCreativeManifest, creativeRequestReservation, encodeCreativeResponseText, sealCreativeGoGrant, sealCreativeRequest, sealCreativeResponse, validateCreativeAdapter, validateCreativeBinding, validateCreativeCampaignAuthority, validateCreativeGoGrant, validateCreativeResponseAuthority } from '../src/services/writerCampaign/creativePilotProtocol'
+import { CREATIVE_LIVE_GRANT_DEFAULTS, sealCreativeLiveGrant, CREATIVE_GO_GRANT_DEFAULTS, CREATIVE_GO_GRANT_V2_DEFAULTS, CREATIVE_POLICY, createCreativeCandidate, createCreativeManifest, creativeRequestReservation, encodeCreativeResponseText, sealCreativeGoGrant, sealCreativeRequest, sealCreativeResponse, validateCreativeAdapter, validateCreativeBinding, validateCreativeCampaignAuthority, validateCreativeGoGrant, validateCreativeResponseAuthority } from '../src/services/writerCampaign/creativePilotProtocol'
 import { createCreativePilotRepository } from '../src/services/writerCampaign/creativePilotStore'
 import { compileCreativeInput } from '../src/services/writerCampaign/creativePilotContext'
 import { createCreativeMemoryIO } from './lib/creative-pilot-io'
@@ -30,7 +30,9 @@ const openaiManifest = await createCreativeManifest('live-zh', zh, identity, ope
 // Exact accepted ccbde956 OpenAI v1 bytes remain independently pinned as well as offline records.
 check(openaiGrant.hash === '87a12d40ae7b4b170af8b557a853295783159e1d898240a380495669892690cf')
 check(openaiManifest.hash === 'b9a110bd761993d50b7a4c6ac50cad427b9275f8d5d8bf00bddca61aafd20ee3')
-const grant = await sealCreativeGoGrant({ ...CREATIVE_GO_GRANT_DEFAULTS, grantId: 'grant-core', campaignIds: { zh: 'live-zh', en: 'live-en' }, briefHashes: { zh: zh.briefHash, en: en.briefHash }, maxCostMicroUsd: 2663064, transmissionConsent: true, expiresAt: 86401000 })
+for (const defaults of [CREATIVE_GO_GRANT_DEFAULTS, CREATIVE_GO_GRANT_V2_DEFAULTS]) {
+const grant = await sealCreativeGoGrant({ ...defaults, grantId: 'grant-core', campaignIds: { zh: 'live-zh', en: 'live-en' }, briefHashes: { zh: zh.briefHash, en: en.briefHash }, maxCostMicroUsd: 2663064, transmissionConsent: true, expiresAt: 86401000 })
+const policyProtocol = grant.protocol === 'creative-pilot-go-grant-v1' ? 'creative-pilot-go-policy-v1' : 'creative-pilot-go-policy-v2'
 const { hash: _grantHash, ...grantInput } = grant
 check(grant.reservedCostMicroUsd === grant.slots * Math.ceil((grant.inputTokensPerSlot * grant.inputMicroUsdPerMillion + grant.outputTokensPerSlot * grant.outputMicroUsdPerMillion) / 1e6))
 check(CREATIVE_GO_GRANT_DEFAULTS.pricingValidUntil === Date.UTC(2026, 10, 9))
@@ -59,7 +61,15 @@ const memory = createCreativeMemoryIO(), repo = createCreativePilotRepository({ 
 const created = await repo.create({ campaignId: 'live-zh', operationId: 'create-live-zh', brief, identity, liveGrant: grant }, guard)
 const english = await repo.create({ campaignId: 'live-en', operationId: 'create-live-en', brief: enBrief, identity, liveGrant: grant }, guard)
 const snapshot = created.snapshot
-check(snapshot.manifest.policy.protocol === 'creative-pilot-go-policy-v1' && english.snapshot.manifest.policy.protocol === 'creative-pilot-go-policy-v1')
+if (grant.protocol === 'creative-pilot-go-grant-v1') {
+  // Pinned against main 61d0d4a before the balance-attestation correction.
+  check(grant.hash === '0ed3de395967888621983f13d1c02e5cd2092ae212ea9aabe4004b4adca48d8a')
+  check(snapshot.manifest.hash === 'b2aa9ab33d856482a7f601e127a388a77e9db7e04d3480035fc2155e2220f86d')
+  check(snapshot.checkpoint.hash === '204297f137e692f43f2e65b0d9118f635e9efacbecfb497ba0fa8a7e81077c7e')
+  check(created.receipt.hash === '4daa1e46db6d5bbfee4c776a25a6235ef1221cd7f08175891934117c50223995')
+  check(grant.extraUsageDisabled === true && !Object.hasOwn(grant, 'noPrepaidBalance'))
+} else check(grant.noPrepaidBalance === true && !Object.hasOwn(grant, 'extraUsageDisabled'))
+check(snapshot.manifest.policy.protocol === policyProtocol && english.snapshot.manifest.policy.protocol === policyProtocol)
 check(snapshot.manifest.budget.attempts === 9 && english.snapshot.manifest.budget.attempts === 9)
 check((await repo.read('live-zh'))?.manifest.hash === snapshot.manifest.hash)
 validateCreativeCampaignAuthority(snapshot.manifest, snapshot.candidate, adapter); checks++
@@ -108,8 +118,21 @@ const ceilingResponse = await sealCreativeResponse({ ...responseInput, usage: { 
 validateCreativeResponseAuthority(adapter, ceilingResponse); checks++
 await rejects(() => sealCreativeResponse({ ...responseInput, usage: { ...liveResponse.usage, go: { ...liveResponse.usage.go!, allowanceUsd: '0.147949' } } }))
 await rejects(() => sealCreativeGoGrant({ ...grantInput, extraUsageDisabled: false } as never))
+await rejects(() => sealCreativeGoGrant({ ...grantInput, noPrepaidBalance: false } as never))
+const oppositeProtocol = grant.protocol === 'creative-pilot-go-grant-v1' ? 'creative-pilot-go-grant-v2' : 'creative-pilot-go-grant-v1'
+await rejects(() => sealCreativeGoGrant({ ...grantInput, protocol: oppositeProtocol } as never))
+await rejects(() => validateCreativeGoGrant({ ...grant, protocol: oppositeProtocol } as never))
+const { extraUsageDisabled: _off, noPrepaidBalance: _balance, ...common } = grantInput as typeof grantInput & { extraUsageDisabled?: true; noPrepaidBalance?: true }
+const otherGrant = await sealCreativeGoGrant(grant.protocol === 'creative-pilot-go-grant-v1'
+  ? { ...common, protocol: 'creative-pilot-go-grant-v2', noPrepaidBalance: true }
+  : { ...common, protocol: 'creative-pilot-go-grant-v1', extraUsageDisabled: true })
+check(otherGrant.hash !== grant.hash)
+await rejects(() => validateCreativeGoGrant({ ...otherGrant, hash: grant.hash }))
+await rejects(() => validateCreativeBinding({ campaignId: 'live-zh', language: 'zh', briefHash: zh.briefHash,
+  policy: { ...snapshot.manifest.policy, grant: otherGrant } as never }, { ...adapter, grantHash: otherGrant.hash }))
 const cancelled = await repo.commit(resolved.snapshot, { kind: 'cancel', operationId: 'cancel-live', recovery: false }, guard)
-check(cancelled.snapshot.checkpoint.budget.attempts === 1 && cancelled.snapshot.manifest.policy.protocol === 'creative-pilot-go-policy-v1' && cancelled.snapshot.manifest.policy.grant.reservedCostMicroUsd === 2663064)
+check(cancelled.snapshot.checkpoint.budget.attempts === 1 && cancelled.snapshot.manifest.policy.protocol === policyProtocol && cancelled.snapshot.manifest.policy.grant.reservedCostMicroUsd === 2663064)
 check((await repo.read('live-zh'))?.checkpoint.budget.attempts === 1)
 check(memory.observe().accountingMismatches === 0)
+}
 console.log(JSON.stringify({ status: 'pass', scope: 'local_go_policy_storage_controls', checks, networkRequests: 0, liveProviderCalls: 0, literaryAcceptance: 'NOT_RUN' }))

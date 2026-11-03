@@ -9,6 +9,7 @@ import { runGoPilot, parseGoArguments, goPreviewUnavailableReason } from './crea
 import { openGoPrivateStorage } from './creative-pilot-go-storage'
 import { creativeControlText } from './lib/creative-pilot-control'
 import { createCreativePilotRepository } from '../src/services/writerCampaign/creativePilotStore'
+import { CREATIVE_GO_GRANT_DEFAULTS, sealCreativeGoGrant } from '../src/services/writerCampaign/creativePilotProtocol'
 import type { CreativePromptPayloadV1, CreativeRequest } from '../src/types/creativePilot'
 
 const root = fileURLToPath(new URL('../', import.meta.url)), directory = await mkdtemp(path.join(tmpdir(), 'creative-go-cli-'))
@@ -16,7 +17,7 @@ const originalFetch = globalThis.fetch, originalNow = Date.now
 Date.now = () => Date.UTC(2026, 10, 2, 18)
 const key = 'synthetic-go-cli-key-never-a-real-credential'
 let requests = 0, lostResponse = false, blockRequest: (() => Promise<void>) | null = null
-const confirmations = ['--confirm-extra-usage-off', '--confirm-transmission', '--max-usd', '2.663064']
+const confirmations = ['--confirm-no-prepaid-balance', '--confirm-transmission', '--max-usd', '2.663064']
 function argumentsFor(dir: string, language?: 'zh' | 'en', maxTasks?: number) {
   return ['--state-dir', dir, ...confirmations, ...(language ? ['--execute', '--language', language] : []), ...(maxTasks ? ['--max-tasks', String(maxTasks)] : [])]
 }
@@ -75,18 +76,45 @@ try {
     await assert.rejects(openGoPrivateStorage(casDirectory, root), error => (error as { code?: string }).code === 'locked')
     assert.equal((await stat(path.join(casDirectory, '.execution-lock'))).isDirectory(), true)
   } finally { await rm(casDirectory, { recursive: true, force: true }) }
-  for (const args of [[], ['--state-dir', directory, '--execute'], ['--state-dir', directory, '--max-tasks', '1'], ['--state-dir', directory, '--key', key], argumentsFor(directory, 'zh', 10)]) assert.throws(() => parseGoArguments(args))
+  for (const args of [[], ['--state-dir', directory, '--execute'], ['--state-dir', directory, '--max-tasks', '1'], ['--state-dir', directory, '--key', key], argumentsFor(directory, 'zh', 10), argumentsFor(directory, 'zh').map(flag => flag === '--confirm-no-prepaid-balance' ? '--confirm-extra-usage-off' : flag)]) assert.throws(() => parseGoArguments(args))
   assert.equal(parseGoArguments(argumentsFor(directory, 'zh')).maxTasks, 1)
   const noCredential = Object.defineProperty({}, 'OPENCODE_GO_API_KEY', { get() { throw new Error('credential_read_in_preview') } })
   const preflight = await runGoPilot(['--state-dir', directory], noCredential)
   assert.equal(preflight.status, 'authorization_required'); assert.equal(requests, 0)
+  assert.equal(preflight.protocol, 'creative-go-cli-summary-v2'); assert.equal(preflight.noPrepaidBalance, 'not_confirmed')
+  assert.equal(Object.hasOwn(preflight, 'extraUsageOff'), false)
+  const missingBalance = await runGoPilot(['--state-dir', directory, '--confirm-transmission', '--max-usd', '2.663064'], noCredential)
+  assert.equal(missingBalance.status, 'authorization_required'); assert.equal(requests, 0)
   assert.deepEqual(await readdir(directory), [])
   const prepared = await runGoPilot(argumentsFor(directory), noCredential)
   assert.equal(prepared.status, 'prepared'); assert.equal(requests, 0)
+  assert.equal(prepared.noPrepaidBalance, 'user_confirmed'); assert.equal(prepared.reservedCostMicroUsd, 2663064)
   const originalPair = await readFile(path.join(directory, 'pair.json'), 'utf8')
+  const parsedPair = JSON.parse(originalPair)
+  assert.equal(parsedPair.protocol, 'creative-go-private-pair-v2')
+  assert.equal(parsedPair.grant.protocol, 'creative-pilot-go-grant-v2'); assert.equal(parsedPair.grant.noPrepaidBalance, true)
+  assert.equal(Object.hasOwn(parsedPair.grant, 'extraUsageDisabled'), false)
+  // Neither legacy pairs nor relabelled v1 grants can gain a new attestation.
+  const legacyDir = await mkdtemp(path.join(tmpdir(), 'creative-go-legacy-'))
+  try {
+    const legacyGrant = await sealCreativeGoGrant({ ...CREATIVE_GO_GRANT_DEFAULTS, grantId: parsedPair.grant.grantId,
+      campaignIds: parsedPair.grant.campaignIds, briefHashes: parsedPair.grant.briefHashes, maxCostMicroUsd: 2663064,
+      transmissionConsent: true, expiresAt: parsedPair.grant.expiresAt })
+    for (const protocol of ['creative-go-private-pair-v1', 'creative-go-private-pair-v2']) {
+      const legacyDisk = await openGoPrivateStorage(legacyDir, root)
+      try { await legacyDisk.write('pair.json', { ...parsedPair, protocol, directory: legacyDir, grant: legacyGrant }) }
+      finally { await legacyDisk.close() }
+      const before = await readFile(path.join(legacyDir, 'pair.json'), 'utf8')
+      await assert.rejects(runGoPilot(argumentsFor(legacyDir, 'zh'), noCredential), error =>
+        ['source_changed', 'private_state'].includes((error as { code: string }).code))
+      assert.equal(await readFile(path.join(legacyDir, 'pair.json'), 'utf8'), before)
+      assert.deepEqual(await readdir(legacyDir), ['pair.json']); assert.equal(requests, 0)
+    }
+  } finally { await rm(legacyDir, { recursive: true, force: true }) }
   const snapshotDisk = await openGoPrivateStorage(directory, root)
   try {
     const snapshot = (await createCreativePilotRepository({ io: snapshotDisk.io }).read(JSON.parse(originalPair).grant.campaignIds.zh))!
+    assert.equal(snapshot.manifest.policy.protocol, 'creative-pilot-go-policy-v2')
     assert.equal(goPreviewUnavailableReason(snapshot, Date.now()), null)
     assert.equal(goPreviewUnavailableReason(snapshot, snapshot.manifest.expiresAt), 'expired')
     const retained = structuredClone(snapshot); retained.checkpoint.tasks[0]!.status = 'response_retained'
@@ -100,7 +128,8 @@ try {
     assert.equal(goPreviewUnavailableReason(blocked, Date.now()), 'terminal')
   } finally { await snapshotDisk.close() }
   assert.equal(JSON.stringify(prepared).includes(directory), false)
-  assert.equal((await runGoPilot(['--state-dir', directory], noCredential)).attempts.zh, 0)
+  const inspected = await runGoPilot(['--state-dir', directory], noCredential)
+  assert.equal(inspected.attempts.zh, 0); assert.equal(inspected.noPrepaidBalance, 'not_confirmed')
   await assertPrivate(directory)
   await assert.rejects(openGoPrivateStorage(path.join(root, 'private-go-prohibited'), root))
   const broad = path.join(path.dirname(directory), `go-broad-${crypto.randomUUID()}`)
@@ -187,5 +216,5 @@ try {
     assert.equal(requests, 19); await assertPrivate(unknownDir)
   } finally { await rm(unknownDir, { recursive: true, force: true }) }
   console.log(JSON.stringify({ status: 'pass', scope: 'offline_go_cli_native_files_sdk_interception', syntheticRequests: requests, providerCalls: 0,
-    tasks: 18, defaultTaskLimit: 1, crossProcessExclusive: true, interruptZeroDispatchCases: 4, unknownNotReplayed: true, credentialPersisted: false, extraUsageAccountVerification: 'NOT_PERFORMED' }))
+    tasks: 18, defaultTaskLimit: 1, crossProcessExclusive: true, interruptZeroDispatchCases: 4, unknownNotReplayed: true, credentialPersisted: false, balanceAttestation: 'user_confirmed', accountVerification: 'NOT_PERFORMED', legacyPairsNotRelabelled: true }))
 } finally { globalThis.fetch = originalFetch; Date.now = originalNow; await rm(directory, { recursive: true, force: true }) }

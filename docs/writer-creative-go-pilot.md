@@ -10,7 +10,7 @@ The Go integration uses the existing Creative Pilot v4 repository, compiler and 
 - Base URL: `https://opencode.ai/inference/go/openai/v1`; Chat Completions only.
 - Stable campaign session header and an honest LLM-Writer User-Agent. This entry runs in Node because browsers may drop a custom User-Agent.
 - Thinking disabled, 4,096 output tokens, no tools, automatic retry or balance-provider fallback.
-- Separate hash-bound Go grant and policy; existing OpenAI and offline records retain their original meaning.
+- Separate hash-bound `creative-pilot-go-grant-v2` and `creative-pilot-go-policy-v2`; the v2 policy carries the v2 grant. Its `noPrepaidBalance: true` records the user’s attestation, not inspected account evidence. Existing OpenAI and offline records retain their original meaning.
 
 The [Go documentation](https://opencode.ai/v2/docs/console/go/) lists input/output prices of $0.14/$0.28 per million tokens on 2026-11-02. The [MiMo specification](https://mimo.mi.com/models/en-US/mimo-v2.6-flash) and [official model configuration](https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Flash-RL/raw/main/config.json) establish a 1,048,576-token context ceiling. Reserving that entire input ceiling plus 4,096 output tokens, rounded up per request, gives **$0.147948 per slot and $2.663064 for 18 slots**. This conservative reservation is not predicted usage. The existing HTTP-byte limit is not relabeled as a token limit.
 
@@ -19,7 +19,7 @@ Go tracks subscription allowance separately from cash charges. Retained provider
 ## Before real execution
 
 1. Use a current, authorized Go credential through the process environment; never put it in a command argument, repository, report or saved campaign.
-2. Confirm the account's **Extra Usage is off** for this execution. Go can otherwise debit a credit balance when an allowance runs out. The Go URL and an after-the-fact zero-cost response do not prove this setting.
+2. Record the user’s confirmation that **the account has no prepaid balance** with `--confirm-no-prepaid-balance` for this invocation. This is a user attestation, not an account inspection or confirmation that Extra Usage is off. Use only the fixed subscription allowance: no top-ups, auto-recharge, payment setup or account changes. Stop on quota exhaustion or anomalous billing, without retrying or falling back to a balance-funded provider.
 3. Confirm the requested workload complies with Go's coding-agent usage terms. Identify the client truthfully; do not disguise fiction traffic as coding.
 4. Use two invented, non-sensitive briefs and an output directory outside the repository. Preparation is local and makes zero calls. Explicit execution starts with one task; inspect its retained outcome before increasing the task limit.
 
@@ -43,7 +43,7 @@ First prepare and inspect the private previews (no API key or model call):
 
 ```sh
 npm run pilot:go -- --state-dir /absolute/private/pilot-state \
-  --confirm-extra-usage-off --confirm-transmission --max-usd 2.663064
+  --confirm-no-prepaid-balance --confirm-transmission --max-usd 2.663064
 ```
 
 After the prerequisites above are verified, supply the credential through an existing protected process environment and explicitly execute one Chinese task:
@@ -51,7 +51,7 @@ After the prerequisites above are verified, supply the credential through an exi
 ```sh
 npm run pilot:go -- --state-dir /absolute/private/pilot-state \
   --execute --language zh --max-tasks 1 \
-  --confirm-extra-usage-off --confirm-transmission --max-usd 2.663064
+  --confirm-no-prepaid-balance --confirm-transmission --max-usd 2.663064
 ```
 
-The credential variable is `OPENCODE_GO_API_KEY`; its value never belongs in these examples. Use the same state directory for continuation. Inspect retained outcomes before another invocation; `--language en` selects the paired English campaign. Each invocation defaults to one task; the lifetime ceiling remains nine per language. A stale execution lock requires inspection, not automatic deletion and replay. Model response text and normalized billing metadata are retained; this is not a claim to preserve complete HTTP response bytes.
+The credential variable is `OPENCODE_GO_API_KEY`; its value never belongs in these examples. Use the same v2 state directory for continuation. The CLI writes `creative-go-private-pair-v2` and rejects v1 directories without modifying or migrating them; use a fresh directory for v2. Repository readers retain v1 contracts with their original hashes and semantics. The `creative-go-cli-summary-v2` field `noPrepaidBalance` reports `user_confirmed` or `not_confirmed` for this invocation, not an observed account state. Inspect retained outcomes before another invocation; `--language en` selects the paired English campaign. Each invocation defaults to one task; the lifetime ceiling remains nine per language. A stale execution lock requires inspection, not automatic deletion and replay. Model response text and normalized billing metadata are retained; this is not a claim to preserve complete HTTP response bytes.

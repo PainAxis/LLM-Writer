@@ -89,7 +89,7 @@
 
 生产器离线就绪切片已在 [PR #50](https://github.com/PainAxis/LLM-Writer/pull/50) 验收。[Creative Pilot v4](docs/writer-creative-pilot.zh-CN.md) 随后在 [PR #51](https://github.com/PainAxis/LLM-Writer/pull/51) 合并，回环测试的提前释放竞态由 [PR #52](https://github.com/PainAxis/LLM-Writer/pull/52) 修复。main `68b118d568b17834d79119c23c8bf9beff68d0a5` 的 [run 41086963499](https://github.com/PainAxis/LLM-Writer/actions/runs/41086963499) 全部 17 jobs 通过，19 个证据 archive 已审计：任意简报、九任务规划到三章的 App／SDK／持久链路已通过合成离线控制验收。独立 OpenAI live policy、仅会话密钥、中英文配对授权及保守 token 费用预留已在 [PR #53](https://github.com/PainAxis/LLM-Writer/pull/53) 验收。合并后 main `ccbde956fe0318e48561a092dd77b35bd4d179eb` 的 [run 41434499185](https://github.com/PainAxis/LLM-Writer/actions/runs/41434499185) 全部 18 jobs 通过，19 个证据 archive 已审计。合成集成测试与下一项验收分开：获得授权后的真实模型中英文 pilot，以及实际章节的文学与一致性审查。真实模型审查和最终百万字符小说均未运行。
 
-下一项供应商接入为 [OpenCode Go Node pilot](docs/writer-creative-go-pilot.zh-CN.md)：独立 MiMo-V2.6-Flash 授权、订阅计费证据、私有持久状态及默认单任务执行。保留 OpenAI 浏览器路径，实际账户、剩余额度和 Extra Usage 设置核实前使用合成测试。下一项质量验收仍是实际中英文三章。
+下一项供应商接入为 [OpenCode Go Node pilot](docs/writer-creative-go-pilot.zh-CN.md)：独立 MiMo-V2.6-Flash 授权、订阅计费证据、私有持久状态及默认单任务执行。保留 OpenAI 浏览器路径。v2 grant 记录用户对无预充值余额的声明，不是账户检查结果或已核实的 Extra Usage 设置；v2 CLI 使用新目录，不迁移 v1 记录。执行仅限固定订阅额度，不充值、不启用自动充值、不设置支付方式、不更改账户；额度用尽或计费异常即停止，不重试。合成测试不证明实际剩余额度或真实模型质量。下一项质量验收仍是实际中英文三章。
 
 ### 第四阶段最终验收：两部自主百万字符小说
 

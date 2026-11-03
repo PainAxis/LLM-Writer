@@ -235,7 +235,12 @@ export interface CreativeGoGrantV1 {
   // User attestation only, not evidence that the application inspected the remote account.
   extraUsageDisabled: true; transmissionConsent: true; expiresAt: number; hash: string
 }
-export type CreativeLiveGrant = CreativeLiveGrantV1 | CreativeGoGrantV1
+/** Separate attestation: no prepaid balance does not assert that Extra Usage is disabled. */
+export interface CreativeGoGrantV2 extends Omit<CreativeGoGrantV1, 'protocol' | 'extraUsageDisabled'> {
+  protocol: 'creative-pilot-go-grant-v2'; noPrepaidBalance: true
+}
+export type CreativeGoGrant = CreativeGoGrantV1 | CreativeGoGrantV2
+export type CreativeLiveGrant = CreativeLiveGrantV1 | CreativeGoGrant
 export interface CreativeLivePolicy {
   protocol: 'creative-pilot-live-policy-v1'; mode: 'sdk_live_pilot'; transportPolicy: 'creative-pilot-live-sdk-v1'
   inputTokenEnforcement: 'worst_case_context_reservation'; retention: 'local_campaign_lifetime_no_automatic_deletion'
@@ -246,7 +251,11 @@ export interface CreativeGoPolicyV1 {
   inputTokenEnforcement: 'worst_case_context_reservation'; retention: 'local_campaign_lifetime_no_automatic_deletion'
   grant: CreativeGoGrantV1
 }
-export type CreativePolicy = CreativeOfflinePolicy | CreativeLivePolicy | CreativeGoPolicyV1
+export interface CreativeGoPolicyV2 extends Omit<CreativeGoPolicyV1, 'protocol' | 'grant'> {
+  protocol: 'creative-pilot-go-policy-v2'; grant: CreativeGoGrantV2
+}
+export type CreativeGoPolicy = CreativeGoPolicyV1 | CreativeGoPolicyV2
+export type CreativePolicy = CreativeOfflinePolicy | CreativeLivePolicy | CreativeGoPolicy
 export interface CreativeTaskSpec { id: CreativeTaskId; kind: CreativeStage; chapterOrdinal: CreativeOrdinal | null; dependsOn: CreativeTaskId[] }
 export interface CreativeBudget {
   attempts: number; inputBytes: number; inputUtf16: number; inputTokens: null; outputTokens: number; reasoningTokens: number

@@ -522,7 +522,9 @@ jobs:
   quality:
     name: ci-quality
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The 178 sequential smoke suites need headroom beyond setup, lint and build.
+    # Individual test deadlines and acceptance criteria remain unchanged.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
