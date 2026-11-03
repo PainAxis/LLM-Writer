@@ -3,7 +3,7 @@ import type {
   CreativeAdapterIdentity, CreativeAdapterResult, CreativeArtifact, CreativeArtifactRef, CreativeArtifactTextV1, CreativeBriefV1,
   CreativeBudget, CreativeCandidate, CreativeCheckpoint, CreativeDispatchWire, CreativeErrorCode, CreativeHead, CreativeManifest,
   CreativePhase, CreativePolicy, CreativeReceipt, CreativeRequest, CreativeResolutionReason, CreativeResponse, CreativeRuntimeIdentity,
-  CreativeTaskId, CreativeTaskSpec, CreativeOfflinePolicy, CreativeLiveGrantV1, CreativeLivePolicy, CreativeLiveBinding, CreativeGoGrantV1, CreativeLiveGrant, CreativeGoPolicyV1, CreativeGoBillingEvidence,
+  CreativeTaskId, CreativeTaskSpec, CreativeOfflinePolicy, CreativeLiveGrantV1, CreativeLivePolicy, CreativeLiveBinding, CreativeGoGrantV1, CreativeGoGrantV2, CreativeGoGrant, CreativeLiveGrant, CreativeGoPolicy, CreativeGoBillingEvidence,
 } from '../../types/creativePilot'
 import {
   assertScalarText, canonicalCampaignText, canonicalStringify, decodeStorageBytes, encodeStorageBytes, hashCampaignValue, hashText,
@@ -37,6 +37,13 @@ export const CREATIVE_GO_GRANT_DEFAULTS = Object.freeze({
   thinking: 'disabled', pricingDate: '2026-11-02', pricingValidUntil: 1794182400000,
   reservedCostMicroUsd: 2663064, slots: 18, inputTokensPerSlot: 1048576, outputTokensPerSlot: 4096,
   inputMicroUsdPerMillion: 140000, outputMicroUsdPerMillion: 280000, extraUsageDisabled: true,
+} as const)
+/** V2 records the user's balance attestation; v1 fields and hash domain remain unchanged. */
+export const CREATIVE_GO_GRANT_V2_DEFAULTS = Object.freeze({
+  protocol: 'creative-pilot-go-grant-v2', provider: 'opencode_go', modelId: 'mimo-v2.6-flash', endpoint: 'https://opencode.ai/inference/go/openai/v1',
+  thinking: 'disabled', pricingDate: '2026-11-02', pricingValidUntil: 1794182400000,
+  reservedCostMicroUsd: 2663064, slots: 18, inputTokensPerSlot: 1048576, outputTokensPerSlot: 4096,
+  inputMicroUsdPerMillion: 140000, outputMicroUsdPerMillion: 280000, noPrepaidBalance: true,
 } as const)
 export const CREATIVE_BUDGET_LIMITS: Readonly<CreativeBudget> = Object.freeze({ attempts: 9, inputBytes: 589824, inputUtf16: 589824,
   inputTokens: null, outputTokens: 36864, reasoningTokens: 0, responseBytes: 589824, activeMs: 600000, artifacts: 9, operations: 48 })
@@ -118,32 +125,40 @@ export function creativeLivePolicy(grant: CreativeLiveGrantV1): CreativeLivePoli
   return { protocol: 'creative-pilot-live-policy-v1', mode: 'sdk_live_pilot', transportPolicy: 'creative-pilot-live-sdk-v1',
     inputTokenEnforcement: 'worst_case_context_reservation', retention: 'local_campaign_lifetime_no_automatic_deletion', grant: structuredClone(grant) }
 }
-function goGrantShape(value: unknown): asserts value is CreativeGoGrantV1 {
-  creativeRecord(value, [...Object.keys(CREATIVE_GO_GRANT_DEFAULTS), 'grantId', 'campaignIds', 'briefHashes', 'maxCostMicroUsd', 'transmissionConsent', 'expiresAt', 'hash'])
-  for (const [key, fixed] of Object.entries(CREATIVE_GO_GRANT_DEFAULTS)) creativeAssert(value[key] === fixed)
+function goGrantShape(value: unknown): asserts value is CreativeGoGrant {
+  const defaults = (value as CreativeGoGrant | null)?.protocol === 'creative-pilot-go-grant-v2' ? CREATIVE_GO_GRANT_V2_DEFAULTS : CREATIVE_GO_GRANT_DEFAULTS
+  creativeRecord(value, [...Object.keys(defaults), 'grantId', 'campaignIds', 'briefHashes', 'maxCostMicroUsd', 'transmissionConsent', 'expiresAt', 'hash'])
+  for (const [key, fixed] of Object.entries(defaults)) creativeAssert(value[key] === fixed)
   creativeId(value.grantId); creativeHash(value.hash)
   creativeRecord(value.campaignIds, ['zh', 'en']); creativeRecord(value.briefHashes, ['zh', 'en'])
   for (const language of ['zh', 'en'] as const) { creativeId(value.campaignIds[language]); creativeHash(value.briefHashes[language]) }
   creativeAssert(value.campaignIds.zh !== value.campaignIds.en && value.transmissionConsent === true)
-  creativeInteger(value.maxCostMicroUsd, Number.MAX_SAFE_INTEGER, CREATIVE_GO_GRANT_DEFAULTS.reservedCostMicroUsd)
-  creativeInteger(value.expiresAt, CREATIVE_GO_GRANT_DEFAULTS.pricingValidUntil, 1)
+  creativeInteger(value.maxCostMicroUsd, Number.MAX_SAFE_INTEGER, defaults.reservedCostMicroUsd)
+  creativeInteger(value.expiresAt, defaults.pricingValidUntil, 1)
 }
-export async function validateCreativeGoGrant(value: CreativeGoGrantV1): Promise<CreativeGoGrantV1> {
-  goGrantShape(value); return hashed(value, 'creative-pilot-go-grant-v1')
+export async function validateCreativeGoGrant<T extends CreativeGoGrant>(value: T): Promise<T> {
+  goGrantShape(value); return hashed(value, value.protocol)
 }
-export async function sealCreativeGoGrant(value: Omit<CreativeGoGrantV1, 'hash'>): Promise<CreativeGoGrantV1> {
+export function sealCreativeGoGrant(value: Omit<CreativeGoGrantV1, 'hash'>): Promise<CreativeGoGrantV1>
+export function sealCreativeGoGrant(value: Omit<CreativeGoGrantV2, 'hash'>): Promise<CreativeGoGrantV2>
+export function sealCreativeGoGrant(value: Omit<CreativeGoGrantV1, 'hash'> | Omit<CreativeGoGrantV2, 'hash'>): Promise<CreativeGoGrant>
+export async function sealCreativeGoGrant(value: Omit<CreativeGoGrantV1, 'hash'> | Omit<CreativeGoGrantV2, 'hash'>): Promise<CreativeGoGrant> {
+  if (value.protocol === 'creative-pilot-go-grant-v2') return validateCreativeGoGrant(await sealCreativeRecord<CreativeGoGrantV2>(value, 'creative-pilot-go-grant-v2'))
   return validateCreativeGoGrant(await sealCreativeRecord<CreativeGoGrantV1>(value, 'creative-pilot-go-grant-v1'))
 }
 export async function validateCreativeGrant(value: CreativeLiveGrant): Promise<CreativeLiveGrant> {
-  return value?.protocol === 'creative-pilot-go-grant-v1' ? validateCreativeGoGrant(value) : validateCreativeLiveGrant(value as CreativeLiveGrantV1)
+  return value?.protocol === 'creative-pilot-go-grant-v1' || value?.protocol === 'creative-pilot-go-grant-v2' ? validateCreativeGoGrant(value) : validateCreativeLiveGrant(value as CreativeLiveGrantV1)
 }
-export function creativeGoPolicy(grant: CreativeGoGrantV1): CreativeGoPolicyV1 {
+export function creativeGoPolicy(grant: CreativeGoGrant): CreativeGoPolicy {
   goGrantShape(grant)
-  return { protocol: 'creative-pilot-go-policy-v1', mode: 'sdk_live_pilot', transportPolicy: 'creative-pilot-opencode-go-sdk-v1',
-    inputTokenEnforcement: 'worst_case_context_reservation', retention: 'local_campaign_lifetime_no_automatic_deletion', grant: structuredClone(grant) }
+  const policy = { mode: 'sdk_live_pilot', transportPolicy: 'creative-pilot-opencode-go-sdk-v1',
+    inputTokenEnforcement: 'worst_case_context_reservation', retention: 'local_campaign_lifetime_no_automatic_deletion' } as const
+  return grant.protocol === 'creative-pilot-go-grant-v2'
+    ? { protocol: 'creative-pilot-go-policy-v2', ...policy, grant: structuredClone(grant) }
+    : { protocol: 'creative-pilot-go-policy-v1', ...policy, grant: structuredClone(grant) }
 }
-function policyForGrant(grant: CreativeLiveGrant): CreativeLivePolicy | CreativeGoPolicyV1 {
-  return grant.protocol === 'creative-pilot-go-grant-v1' ? creativeGoPolicy(grant) : creativeLivePolicy(grant)
+function policyForGrant(grant: CreativeLiveGrant): CreativeLivePolicy | CreativeGoPolicy {
+  return grant.protocol === 'creative-pilot-go-grant-v1' || grant.protocol === 'creative-pilot-go-grant-v2' ? creativeGoPolicy(grant) : creativeLivePolicy(grant)
 }
 function policyShape(policy: CreativePolicy): void {
   if (policy?.protocol === 'creative-pilot-policy-v1') creativeAssert(creativeEqual(policy, CREATIVE_POLICY))

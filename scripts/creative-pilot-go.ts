@@ -6,9 +6,9 @@ import { readFile } from 'node:fs/promises'
 import { createCreativePilotEngine } from '../src/services/writerCampaign/creativePilotEngine'
 import { createCreativePilotRepository } from '../src/services/writerCampaign/creativePilotStore'
 import { createCreativeGoSdkHost } from '../src/services/writerCampaign/creativePilotTransport'
-import { CREATIVE_GO_GRANT_DEFAULTS, CreativePilotError, sealCreativeGoGrant, validateCreativeGoGrant } from '../src/services/writerCampaign/creativePilotProtocol'
+import { CREATIVE_GO_GRANT_V2_DEFAULTS, CreativePilotError, sealCreativeGoGrant, validateCreativeGoGrant } from '../src/services/writerCampaign/creativePilotProtocol'
 import { hashCampaignValue, canonicalStringify } from '../src/services/writerCampaign/protocol'
-import type { CreativeBriefV1, CreativeGoGrantV1, CreativeLanguage, CreativePilotEngine, CreativeRuntimeIdentity, CreativeSnapshot } from '../src/types/creativePilot'
+import type { CreativeBriefV1, CreativeGoGrantV2, CreativeLanguage, CreativePilotEngine, CreativeRuntimeIdentity, CreativeSnapshot } from '../src/types/creativePilot'
 import { creativeIdentity } from './lib/creative-pilot-identity.mjs'
 import { GoCliError, openGoPrivateStorage } from './creative-pilot-go-storage'
 
@@ -18,14 +18,14 @@ const briefs: Record<CreativeLanguage, CreativeBriefV1> = {
   en: { protocol: 'creative-brief-v1', language: 'en', premise: 'A young archivist at a seaside archive searches for a lost recording of the tide. Across three chapters, develop a clue, a choice, and its consequence.', constraints: ['Write original fiction without real people or private information.'] },
 }
 export function parseGoArguments(args: string[]) {
-  const result = { directory: '', execute: false, language: null as CreativeLanguage | null, maxTasks: 1, maxCostMicroUsd: null as number | null, extraUsageOff: false, transmission: false }
+  const result = { directory: '', execute: false, language: null as CreativeLanguage | null, maxTasks: 1, maxCostMicroUsd: null as number | null, noPrepaidBalance: false, transmission: false }
   const seen = new Set<string>()
   for (let index = 0; index < args.length; index++) {
     const flag = args[index]!
     if (seen.has(flag)) throw new GoCliError('arguments')
     seen.add(flag)
     if (flag === '--execute') result.execute = true
-    else if (flag === '--confirm-extra-usage-off') result.extraUsageOff = true
+    else if (flag === '--confirm-no-prepaid-balance') result.noPrepaidBalance = true
     else if (flag === '--confirm-transmission') result.transmission = true
     else {
       const value = args[++index]
@@ -39,18 +39,18 @@ export function parseGoArguments(args: string[]) {
       } else throw new GoCliError('arguments')
     }
   }
-  if (!result.directory || (result.execute && (!result.language || !result.extraUsageOff || !result.transmission || result.maxCostMicroUsd === null))
-    || (!result.execute && seen.has('--max-tasks')) || (result.maxCostMicroUsd !== null && result.maxCostMicroUsd < CREATIVE_GO_GRANT_DEFAULTS.reservedCostMicroUsd)) throw new GoCliError('authorization')
+  if (!result.directory || (result.execute && (!result.language || !result.noPrepaidBalance || !result.transmission || result.maxCostMicroUsd === null))
+    || (!result.execute && seen.has('--max-tasks')) || (result.maxCostMicroUsd !== null && result.maxCostMicroUsd < CREATIVE_GO_GRANT_V2_DEFAULTS.reservedCostMicroUsd)) throw new GoCliError('authorization')
   return result
 }
 interface Pair {
-  protocol: 'creative-go-private-pair-v1'; directory: string; briefVersion: 'synthetic-go-brief-v1'
-  identity: CreativeRuntimeIdentity; grant: CreativeGoGrantV1
+  protocol: 'creative-go-private-pair-v2'; directory: string; briefVersion: 'synthetic-go-brief-v1'
+  identity: CreativeRuntimeIdentity; grant: CreativeGoGrantV2
 }
 export interface GoCliSummary {
-  protocol: 'creative-go-cli-summary-v1'; mode: 'preview' | 'execute'; status: 'authorization_required' | 'prepared' | 'advanced' | 'blocked'
+  protocol: 'creative-go-cli-summary-v2'; mode: 'preview' | 'execute'; status: 'authorization_required' | 'prepared' | 'advanced' | 'blocked'
   tasks: { zh: number; en: number }; attempts: { zh: number; en: number }; unknown: { zh: number; en: number }
-  requestedTasks: number; reservedCostMicroUsd: number; extraUsageOff: 'user_confirmed' | 'not_confirmed'
+  requestedTasks: number; reservedCostMicroUsd: number; noPrepaidBalance: 'user_confirmed' | 'not_confirmed'
   literaryAcceptance: 'NOT_RUN'; executionEvidence: 'durable_reservations_not_http_receipts'
 }
 function counts(snapshot: CreativeSnapshot) {
@@ -78,11 +78,11 @@ async function runtimeIdentity(repositoryRoot: string): Promise<CreativeRuntimeI
 }
 export async function runGoPilot(args: string[], environment: NodeJS.ProcessEnv = process.env, repositoryRoot = root): Promise<GoCliSummary> {
   const options = parseGoArguments(args)
-  const summary: GoCliSummary = { protocol: 'creative-go-cli-summary-v1', mode: options.execute ? 'execute' : 'preview', status: 'authorization_required',
+  const summary: GoCliSummary = { protocol: 'creative-go-cli-summary-v2', mode: options.execute ? 'execute' : 'preview', status: 'authorization_required',
     tasks: { zh: 0, en: 0 }, attempts: { zh: 0, en: 0 }, unknown: { zh: 0, en: 0 }, requestedTasks: options.execute ? options.maxTasks : 0,
-    reservedCostMicroUsd: CREATIVE_GO_GRANT_DEFAULTS.reservedCostMicroUsd, extraUsageOff: options.extraUsageOff ? 'user_confirmed' : 'not_confirmed', literaryAcceptance: 'NOT_RUN', executionEvidence: 'durable_reservations_not_http_receipts' }
+    reservedCostMicroUsd: CREATIVE_GO_GRANT_V2_DEFAULTS.reservedCostMicroUsd, noPrepaidBalance: options.noPrepaidBalance ? 'user_confirmed' : 'not_confirmed', literaryAcceptance: 'NOT_RUN', executionEvidence: 'durable_reservations_not_http_receipts' }
   const disk = await openGoPrivateStorage(options.directory, repositoryRoot)
-  let engine: CreativePilotEngine | null = null, credential: string | null = null, activeGrant: CreativeGoGrantV1 | null = null
+  let engine: CreativePilotEngine | null = null, credential: string | null = null, activeGrant: CreativeGoGrantV2 | null = null
   let interrupted = false
   const checkActive = () => { if (interrupted) throw new CreativePilotError('cancelled') }
   const interrupt = () => { interrupted = true; activeGrant = null; credential = null; engine?.stop() }
@@ -93,17 +93,19 @@ export async function runGoPilot(args: string[], environment: NodeJS.ProcessEnv 
     let pair = await disk.read('pair.json') as Pair | null
     if (!pair) {
       for (const file of ['records.json', 'inspection-zh.json', 'inspection-en.json', 'preview-zh.json', 'preview-en.json']) if (await disk.read(file) !== null) throw new GoCliError('private_state')
-      if (!options.extraUsageOff || !options.transmission || options.maxCostMicroUsd === null) return summary
-      const grant = await sealCreativeGoGrant({ ...CREATIVE_GO_GRANT_DEFAULTS, grantId: `go-grant-${crypto.randomUUID()}`,
+      if (!options.noPrepaidBalance || !options.transmission || options.maxCostMicroUsd === null) return summary
+      const grant = await sealCreativeGoGrant({ ...CREATIVE_GO_GRANT_V2_DEFAULTS, grantId: `go-grant-${crypto.randomUUID()}`,
         campaignIds: { zh: `go-zh-${crypto.randomUUID()}`, en: `go-en-${crypto.randomUUID()}` },
         briefHashes: { zh: await hashCampaignValue('creative-brief-v1', briefs.zh), en: await hashCampaignValue('creative-brief-v1', briefs.en) },
-        maxCostMicroUsd: options.maxCostMicroUsd, transmissionConsent: true, expiresAt: Math.min(Date.now() + 86_400_000, CREATIVE_GO_GRANT_DEFAULTS.pricingValidUntil) })
-      pair = { protocol: 'creative-go-private-pair-v1', directory: disk.directory, briefVersion: 'synthetic-go-brief-v1', identity, grant }
+        maxCostMicroUsd: options.maxCostMicroUsd, transmissionConsent: true, expiresAt: Math.min(Date.now() + 86_400_000, CREATIVE_GO_GRANT_V2_DEFAULTS.pricingValidUntil) })
+      pair = { protocol: 'creative-go-private-pair-v2', directory: disk.directory, briefVersion: 'synthetic-go-brief-v1', identity, grant }
       checkActive()
       await disk.write('pair.json', pair, () => !interrupted)
     }
-    if (pair.protocol !== 'creative-go-private-pair-v1' || pair.directory !== disk.directory || pair.briefVersion !== 'synthetic-go-brief-v1'
+    if (pair.protocol !== 'creative-go-private-pair-v2' || pair.directory !== disk.directory || pair.briefVersion !== 'synthetic-go-brief-v1'
       || canonicalStringify(pair.identity) !== canonicalStringify(identity)) throw new GoCliError('source_changed')
+    // A v1 grant must never acquire the v2 balance attestation by relabelling its pair.
+    if (pair.grant?.protocol !== 'creative-pilot-go-grant-v2') throw new GoCliError('private_state')
     await validateCreativeGoGrant(pair.grant)
     checkActive()
     if (options.maxCostMicroUsd !== null && options.maxCostMicroUsd !== pair.grant.maxCostMicroUsd) throw new GoCliError('authorization')
@@ -118,7 +120,7 @@ export async function runGoPilot(args: string[], environment: NodeJS.ProcessEnv 
         try { snapshot = await engine.prepare({ campaignId, operationId: `prepare-${language}-${pair.grant.grantId}`, brief: briefs[language] }) }
         catch (error) { snapshot = await engine.inspect(campaignId); if (!snapshot) throw error }
       }
-      if (snapshot.manifest.policy.protocol !== 'creative-pilot-go-policy-v1' || snapshot.manifest.policy.grant.hash !== pair.grant.hash || snapshot.candidate.briefHash !== pair.grant.briefHashes[language]) throw new GoCliError('private_state')
+      if (snapshot.manifest.policy.protocol !== 'creative-pilot-go-policy-v2' || snapshot.manifest.policy.grant.hash !== pair.grant.hash || snapshot.candidate.briefHash !== pair.grant.briefHashes[language]) throw new GoCliError('private_state')
       checkActive()
       snapshots[language] = snapshot
     }

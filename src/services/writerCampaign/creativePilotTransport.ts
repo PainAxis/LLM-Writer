@@ -2,7 +2,7 @@
 import type { ApiConfig } from '../../types/api'
 import type {
   CreativeAdapterIdentity, CreativeAdapterResult, CreativeContentAnomaly, CreativeContentEvidence,
-  CreativeDispatchWire, CreativeFinishReason, CreativeGenerationAdapter, CreativeReportedModel, CreativeUsageEvidence, CreativeOfflineHost, CreativeLiveHost, CreativeHost, CreativeLiveGrantV1, CreativeLiveBinding, CreativeGoGrantV1,
+  CreativeDispatchWire, CreativeFinishReason, CreativeGenerationAdapter, CreativeReportedModel, CreativeUsageEvidence, CreativeOfflineHost, CreativeLiveHost, CreativeHost, CreativeLiveGrantV1, CreativeLiveBinding, CreativeGoGrant,
 } from '../../types/creativePilot'
 import { loadAISDK, resolveLanguageModel } from '../aiProviders'
 import { BoundedGenerationError, createBoundedRequestScope, type BoundedRequestScope } from '../aiRequestLimits'
@@ -262,9 +262,9 @@ export async function createCreativeLiveSdkHost(options: CreativeLiveSdkHostOpti
 }
 
 export interface CreativeGoSdkHostOptions {
-  grant: CreativeGoGrantV1
+  grant: CreativeGoGrant
   readCredential: () => string | null
-  currentGrant: () => CreativeGoGrantV1 | null
+  currentGrant: () => CreativeGoGrant | null
 }
 function assertGoNodeRuntime(): void {
   if (typeof window !== 'undefined' || typeof process === 'undefined' || process.release?.name !== 'node') configurationFailure()
@@ -292,7 +292,7 @@ export async function createCreativeGoSdkHost(options: CreativeGoSdkHostOptions)
   validateCreativeAdapter(identity)
   const assertBinding = (binding: CreativeLiveBinding) => {
     current(); validateCreativeBinding(binding, identity)
-    if (binding.policy.protocol !== 'creative-pilot-go-policy-v1'
+    if ((binding.policy.protocol !== 'creative-pilot-go-policy-v1' && binding.policy.protocol !== 'creative-pilot-go-policy-v2')
       || canonicalStringify(binding.policy.grant) !== grantBytes) configurationFailure()
   }
   return createSdkHost({ identity, currentConfigurationRevision: current,

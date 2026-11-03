@@ -10,7 +10,7 @@ Go 接入复用 Creative Pilot v4 的 repository、compiler 和九任务 engine�
 - 固定 base URL `https://opencode.ai/inference/go/openai/v1`，仅 Chat Completions。
 - 每项 campaign 使用稳定 session header，真实标识 LLM-Writer 的 User-Agent。浏览器可能丢弃自定义 User-Agent，因此此入口使用 Node。
 - 关闭 thinking，单次最多 4,096 输出 tokens，无工具、自动重试或余额供应商 fallback。
-- 独立哈希绑定的 Go grant 和 policy；既有 OpenAI 与离线记录保持原语义。
+- 独立哈希绑定的 `creative-pilot-go-grant-v2` 和 `creative-pilot-go-policy-v2`；v2 policy 携带 v2 grant。其中 `noPrepaidBalance: true` 只记录用户声明，不是账户检查证据。既有 OpenAI 与离线记录保持原语义。
 
 [Go 文档](https://opencode.ai/v2/docs/console/go/) 在 2026-11-02 列出的输入／输出单价为每百万 $0.14／$0.28。[MiMo 规格](https://mimo.mi.com/models/en-US/mimo-v2.6-flash)及[官方模型配置](https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Flash-RL/raw/main/config.json)提供 1,048,576-token 上下文上界。按完整输入上界加 4,096 输出逐请求向上取整预留，得到**每槽 $0.147948，18 槽合计 $2.663064**。这不是预计实际消耗；既有 HTTP 字节限制不冒充 token 限制。
 
@@ -19,7 +19,7 @@ Go 的订阅额度消耗与现金扣款分开记录。保留的供应商证据�
 ## 真实执行前
 
 1. 通过进程环境提供当前已授权 Go 凭据，不放在命令参数、仓库、报告或 campaign 中。
-2. 本次执行明确确认账户 **Extra Usage 已关闭**。否则 Go 额度用尽后可能扣余额；固定 Go URL 和事后的零费用响应均不能证明该开关状态。
+2. 本次调用通过 `--confirm-no-prepaid-balance` 记录用户对**账户没有预充值余额**的确认。这是用户声明，不是账户检查结果，也不代表 Extra Usage 已关闭。仅使用固定订阅额度：不充值、不启用自动充值、不设置支付方式、不更改账户。额度用尽或出现计费异常即停止，不重试，也不回退到余额付费供应商。
 3. 确认此工作负载符合 Go 的 coding-agent 用途条款。如实标识客户端，不把小说流量伪装成编程请求。
 4. 使用两份虚构、非敏感简报，输出目录设在仓库外。准备阶段只在本地执行且零调用；显式执行先做一个任务，检查保留结果后再提高任务上限。
 
@@ -43,7 +43,7 @@ Go 的订阅额度消耗与现金扣款分开记录。保留的供应商证据�
 
 ```sh
 npm run pilot:go -- --state-dir /absolute/private/pilot-state \
-  --confirm-extra-usage-off --confirm-transmission --max-usd 2.663064
+  --confirm-no-prepaid-balance --confirm-transmission --max-usd 2.663064
 ```
 
 核对上方前置条件后，通过既有受保护进程环境提供凭据，显式执行一个中文任务：
@@ -51,7 +51,7 @@ npm run pilot:go -- --state-dir /absolute/private/pilot-state \
 ```sh
 npm run pilot:go -- --state-dir /absolute/private/pilot-state \
   --execute --language zh --max-tasks 1 \
-  --confirm-extra-usage-off --confirm-transmission --max-usd 2.663064
+  --confirm-no-prepaid-balance --confirm-transmission --max-usd 2.663064
 ```
 
-凭据变量为 `OPENCODE_GO_API_KEY`，其值不应出现在命令示例中。续跑使用同一 state 目录；下一次调用前检查保留结果。`--language en` 选择已配对英文 campaign。每次默认推进一个任务，各语言终身上限仍为九次。遗留执行锁须先检查，不自动删除后重放。保留的是模型响应正文及规范化计费元数据，不是完整 HTTP 响应字节。
+凭据变量为 `OPENCODE_GO_API_KEY`，其值不应出现在命令示例中。续跑使用同一 v2 state 目录；下一次调用前检查保留结果。CLI 写入 `creative-go-private-pair-v2`，遇到 v1 目录会拒绝继续，不修改或迁移旧目录；v2 请使用新目录。仓库读取兼容保留 v1 合同的原哈希与原语义。`creative-go-cli-summary-v2` 的 `noPrepaidBalance` 字段报告本次调用的 `user_confirmed` 或 `not_confirmed`，不代表观察到的账户状态。`--language en` 选择已配对英文 campaign。每次默认推进一个任务，各语言终身上限仍为九次。遗留执行锁须先检查，不自动删除后重放。保留的是模型响应正文及规范化计费元数据，不是完整 HTTP 响应字节。
